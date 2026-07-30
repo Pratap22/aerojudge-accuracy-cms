@@ -21,7 +21,7 @@ interface CompetitionStats {
   totalBullseyes: number;
   bullseyeRate: number;
   averageScoreCm: number;
-  bestSingleScore: { pilotName: string; scoreCm: number; round: number };
+  bestSingleScore: { pilotName: string; scoreCm: number; round: number } | null;
   topPilots: { rank: number; pilotName: string; bullseyes: number; avgScoreCm: number }[];
   roundAverages: { round: number; avgScoreCm: number; bullseyes: number }[];
 }
@@ -29,18 +29,33 @@ interface CompetitionStats {
 export function StatisticsPage() {
   const activeCompetitionId = useCompetitionId();
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, isError, error } = useQuery({
     queryKey: ['statistics', activeCompetitionId],
     queryFn: () => api.get<CompetitionStats>(`/competitions/${activeCompetitionId}/statistics`),
     enabled: !!activeCompetitionId,
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
+    return (
+      <p className="text-muted-foreground">
+        <a href="/competitions" className="text-secondary underline">
+          Open a competition
+        </a>{' '}
+        from the Competitions list.
+      </p>
+    );
   }
 
   if (isLoading) {
     return <p className="text-muted-foreground">Loading statistics…</p>;
+  }
+
+  if (isError) {
+    return (
+      <p className="text-destructive">
+        {(error as Error)?.message ?? 'Failed to load statistics'}
+      </p>
+    );
   }
 
   return (
@@ -59,7 +74,7 @@ export function StatisticsPage() {
           <CardContent>
             <div className="text-3xl font-bold text-secondary">{stats?.totalBullseyes ?? 0}</div>
             <p className="text-xs text-muted-foreground">
-              {stats ? `${(stats.bullseyeRate * 100).toFixed(1)}% of flights` : ''}
+              {stats ? `${(stats.bullseyeRate * 100).toFixed(1)}% of scored flights` : ''}
             </p>
           </CardContent>
         </Card>
@@ -69,7 +84,9 @@ export function StatisticsPage() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats?.averageScoreCm.toFixed(1) ?? '—'} cm</div>
+            <div className="text-3xl font-bold">
+              {stats?.averageScoreCm != null ? `${stats.averageScoreCm.toFixed(1)} cm` : '—'}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -78,9 +95,13 @@ export function StatisticsPage() {
             <Trophy className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats?.bestSingleScore.scoreCm ?? '—'} cm</div>
+            <div className="text-3xl font-bold">
+              {stats?.bestSingleScore != null ? `${stats.bestSingleScore.scoreCm} cm` : '—'}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {stats?.bestSingleScore.pilotName} · R{stats?.bestSingleScore.round}
+              {stats?.bestSingleScore
+                ? `${stats.bestSingleScore.pilotName} · R${stats.bestSingleScore.round}`
+                : 'No scores yet'}
             </p>
           </CardContent>
         </Card>
@@ -112,14 +133,24 @@ export function StatisticsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stats?.topPilots.map((p) => (
-                  <TableRow key={p.rank}>
-                    <TableCell>{p.rank}</TableCell>
-                    <TableCell className="font-medium">{p.pilotName}</TableCell>
-                    <TableCell className="text-right">{p.bullseyes}</TableCell>
-                    <TableCell className="text-right font-mono">{p.avgScoreCm.toFixed(1)}</TableCell>
+                {(stats?.topPilots ?? []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-muted-foreground">
+                      No rankings yet
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  stats?.topPilots.map((p) => (
+                    <TableRow key={p.rank}>
+                      <TableCell>{p.rank}</TableCell>
+                      <TableCell className="font-medium">{p.pilotName}</TableCell>
+                      <TableCell className="text-right">{p.bullseyes}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {p.avgScoreCm.toFixed(1)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -140,13 +171,23 @@ export function StatisticsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stats?.roundAverages.map((r) => (
-                  <TableRow key={r.round}>
-                    <TableCell>R{r.round}</TableCell>
-                    <TableCell className="text-right font-mono">{r.avgScoreCm.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{r.bullseyes}</TableCell>
+                {(stats?.roundAverages ?? []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-muted-foreground">
+                      No rounds yet
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  stats?.roundAverages.map((r) => (
+                    <TableRow key={r.round}>
+                      <TableCell>R{r.round}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {r.avgScoreCm.toFixed(1)}
+                      </TableCell>
+                      <TableCell className="text-right">{r.bullseyes}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
