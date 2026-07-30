@@ -83,6 +83,10 @@
     --rank-silver: 210 11% 71%;
     --rank-bronze: 25 75% 47%;
   }
+
+  html {
+    scrollbar-gutter: stable;
+  }
 }
 
 @layer base {

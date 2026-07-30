@@ -38,6 +38,18 @@ export const list = [
   }),
 ];
 
+export const preview = [
+  validateParams(competitionParams),
+  validateBody(generateBody),
+  asyncHandler(async (req: Request, res: Response) => {
+    const result = await printService.previewReport(req.params.competitionId, {
+      ...req.body,
+      printedById: req.user!.id,
+    });
+    sendSuccess(res, result);
+  }),
+];
+
 export const generate = [
   validateParams(competitionParams),
   validateBody(generateBody),
@@ -53,10 +65,10 @@ export const generate = [
 export const download = [
   validateParams(printParams),
   asyncHandler(async (req: Request, res: Response) => {
-    const result = await printService.generateReport(req.params.competitionId, {
-      reportType: 'OVERALL_RESULTS',
-      printedById: req.user!.id,
-    });
+    const result = await printService.downloadReport(
+      req.params.competitionId,
+      req.params.printId,
+    );
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
     res.send(result.buffer);

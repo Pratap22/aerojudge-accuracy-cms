@@ -136,14 +136,43 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
       drawTableHeader();
     }
 
-    const values = [
-      String(row.rank),
-      row.pilotNumber != null ? String(row.pilotNumber) : '',
-      row.name,
-      row.country ?? '',
-      ...row.scores.map(String),
-      String(row.total),
-    ].slice(0, colCount);
+    const values = input.columns.map((col) => {
+      const key = col.toLowerCase();
+      if (key.includes('rank') || key.includes('order')) return String(row.rank);
+      if (key === 'no' || key === 'number' || key.includes('pilot no'))
+        return row.pilotNumber != null ? String(row.pilotNumber) : '';
+      if (key === 'name' || key === 'team' || key === 'pilot' || key === 'metric' || key === 'item')
+        return row.name;
+      if (key.includes('country')) return row.country ?? '';
+      if (key.includes('signature') || key.includes('sign')) return '';
+      if (key.includes('total') || key === 'value' || key.includes('score (cm)'))
+        return String(row.total);
+      if (key.includes('note')) return row.notes ?? '';
+      return '';
+    });
+
+    // Fill remaining from scores when column mapping left blanks for middle fields
+    let scoreIdx = 0;
+    const filled = values.map((val, i) => {
+      const key = input.columns[i]?.toLowerCase() ?? '';
+      if (
+        val !== '' ||
+        key.includes('signature') ||
+        key.includes('sign') ||
+        key.includes('rank') ||
+        key.includes('order') ||
+        key === 'no' ||
+        key.includes('name') ||
+        key.includes('country') ||
+        key.includes('total') ||
+        key === 'value'
+      ) {
+        return val;
+      }
+      const next = row.scores[scoreIdx];
+      scoreIdx += 1;
+      return next != null ? String(next) : val;
+    });
 
     const rowY = doc.y;
     if (row.rank % 2 === 0) {
@@ -151,7 +180,7 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
       doc.fillColor('#000');
     }
 
-    values.forEach((val, i) => {
+    filled.forEach((val, i) => {
       doc.fontSize(8).text(val, startX + i * colWidth + 3, rowY, {
         width: colWidth - 6,
         ellipsis: true,
