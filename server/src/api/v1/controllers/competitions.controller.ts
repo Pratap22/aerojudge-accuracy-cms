@@ -103,9 +103,17 @@ export const remove = [
   }),
 ];
 
+export const getSettings = [
+  validateParams(idParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const competition = await competitionService.getCompetition(req.params.id);
+    sendSuccess(res, competition.settings ?? null);
+  }),
+];
+
 export const updateSettingsHandler = [
   validateParams(idParams),
-  validateBody(settingsSchema),
+  validateBody(settingsSchema.passthrough()),
   asyncHandler(async (req: Request, res: Response) => {
     const settings = await competitionService.updateSettings(req.params.id, req.body);
     sendSuccess(res, settings);

@@ -77,11 +77,34 @@ export async function createCompetition(data: {
   });
 }
 
-export async function updateCompetition(id: string, data: Prisma.CompetitionUpdateInput) {
+export async function updateCompetition(id: string, data: Record<string, unknown>) {
   await getCompetition(id);
+
+  const {
+    startDate,
+    endDate,
+    settings: _settings,
+    id: _id,
+    createdAt: _c,
+    updatedAt: _u,
+    publicSlug: _slug,
+    ...rest
+  } = data;
+
+  const updateData: Prisma.CompetitionUpdateInput = {
+    ...rest,
+  };
+
+  if (startDate != null) {
+    updateData.startDate = new Date(startDate as string | Date);
+  }
+  if (endDate != null) {
+    updateData.endDate = new Date(endDate as string | Date);
+  }
+
   return prisma.competition.update({
     where: { id },
-    data,
+    data: updateData,
     include: { settings: true },
   });
 }

@@ -13,6 +13,7 @@ router.post('/', requirePermission('pilot:manage'), ...ctrl.create);
 router.post('/import', requirePermission('pilot:manage'), ctrl.upload.single('file'), ...ctrl.importCsv);
 router.get('/:pilotId', ...ctrl.get);
 router.patch('/:pilotId', requirePermission('pilot:manage'), ...ctrl.update);
+router.put('/:pilotId', requirePermission('pilot:manage'), ...ctrl.update);
 router.delete('/:pilotId', requirePermission('pilot:manage'), ...ctrl.remove);
 
 export default router;
