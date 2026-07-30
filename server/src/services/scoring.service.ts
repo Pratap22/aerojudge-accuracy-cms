@@ -81,8 +81,8 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
         {
           teamId: team.id,
           type: team.type,
-          scoringPilots: team.scoringPilots,
-          maxReserves: team.maxReserves,
+          scoringPilots: rules.teamScoringPilots,
+          maxReserves: rules.teamAllowReserves ? rules.teamMaxReserves : 0,
           members: team.members.map((m) => ({
             pilotId: m.pilotId,
             role: m.role,
@@ -102,8 +102,8 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
       teamId: t.id,
       type: t.type,
       members: t.members.map((m) => ({ pilotId: m.pilotId, role: m.role, order: m.order })),
-      scoringPilots: t.scoringPilots,
-      maxReserves: t.maxReserves,
+      scoringPilots: rules.teamScoringPilots,
+      maxReserves: rules.teamAllowReserves ? rules.teamMaxReserves : 0,
     })),
     teamRoundResults,
     rules,

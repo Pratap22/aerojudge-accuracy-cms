@@ -46,15 +46,16 @@ export async function createTeam(
     name: string;
     type?: string;
     countryId?: string;
-    maxSize?: number;
-    scoringPilots?: number;
-    maxReserves?: number;
     memberPilotIds?: string[];
     captainId?: string;
     viceCaptainId?: string;
   },
 ) {
-  await getCompetition(competitionId);
+  const competition = await getCompetition(competitionId);
+  const settings = competition.settings;
+  const maxSize = settings?.teamSize ?? 4;
+  const scoringPilots = settings?.teamScoringPilots ?? 3;
+  const maxReserves = settings?.teamMaxReserves ?? 1;
 
   const team = await prisma.team.create({
     data: {
@@ -62,9 +63,9 @@ export async function createTeam(
       name: data.name,
       type: (data.type ?? 'NATIONAL') as Prisma.TeamCreateInput['type'],
       countryId: data.countryId,
-      maxSize: data.maxSize ?? 4,
-      scoringPilots: data.scoringPilots ?? 3,
-      maxReserves: data.maxReserves ?? 1,
+      maxSize,
+      scoringPilots,
+      maxReserves,
       captainId: data.captainId,
       viceCaptainId: data.viceCaptainId,
     },
@@ -83,7 +84,18 @@ export async function updateTeam(
   data: Prisma.TeamUpdateInput,
 ) {
   await getTeam(competitionId, teamId);
-  await prisma.team.update({ where: { id: teamId }, data });
+  // Team size / scoring / reserves are competition settings — ignore per-team overrides
+  const {
+    maxSize: _maxSize,
+    scoringPilots: _scoringPilots,
+    maxReserves: _maxReserves,
+    ...safeData
+  } = data as Prisma.TeamUpdateInput & {
+    maxSize?: unknown;
+    scoringPilots?: unknown;
+    maxReserves?: unknown;
+  };
+  await prisma.team.update({ where: { id: teamId }, data: safeData });
   return getTeam(competitionId, teamId);
 }
 
@@ -99,17 +111,68 @@ export async function setTeamMembers(
   roles?: Array<'PILOT' | 'RESERVE' | 'CAPTAIN' | 'VICE_CAPTAIN'>,
 ) {
   await getTeam(competitionId, teamId);
+  const competition = await getCompetition(competitionId);
+  const rules = ScoringEngine.resolveRules(
+    competition.ruleSet,
+    settingsToRuleOverrides(competition.settings),
+  );
+
+  const uniqueIds = [...new Set(pilotIds)];
+  if (uniqueIds.length !== pilotIds.length) {
+    throw AppError.badRequest('Duplicate pilots are not allowed on a team');
+  }
+
+  const maxMembers = rules.teamSize + (rules.teamAllowReserves ? rules.teamMaxReserves : 0);
+  if (uniqueIds.length > maxMembers) {
+    throw AppError.badRequest(
+      `Team may have at most ${maxMembers} members (${rules.teamSize} pilots` +
+        (rules.teamAllowReserves ? ` + ${rules.teamMaxReserves} reserves` : '') +
+        `) per competition settings`,
+    );
+  }
+
+  const reserveCount = (roles ?? []).filter((r) => r === 'RESERVE').length;
+  if (!rules.teamAllowReserves && reserveCount > 0) {
+    throw AppError.badRequest('Reserves are disabled in competition settings');
+  }
+  if (reserveCount > rules.teamMaxReserves) {
+    throw AppError.badRequest(
+      `At most ${rules.teamMaxReserves} reserve(s) allowed by competition settings`,
+    );
+  }
 
   const pilots = await prisma.pilot.findMany({
-    where: { id: { in: pilotIds }, competitionId },
+    where: { id: { in: uniqueIds }, competitionId },
   });
-  if (pilots.length !== pilotIds.length) {
+  if (pilots.length !== uniqueIds.length) {
     throw AppError.badRequest('One or more pilots not found in this competition');
+  }
+
+  const alreadyAssigned = await prisma.teamMember.findMany({
+    where: {
+      pilotId: { in: uniqueIds },
+      teamId: { not: teamId },
+      team: { competitionId },
+    },
+    include: {
+      pilot: { select: { pilotNumber: true, firstName: true, lastName: true } },
+      team: { select: { name: true } },
+    },
+  });
+
+  if (alreadyAssigned.length > 0) {
+    const details = alreadyAssigned
+      .map(
+        (m) =>
+          `#${m.pilot.pilotNumber} ${m.pilot.firstName} ${m.pilot.lastName} is already on ${m.team.name}`,
+      )
+      .join('; ');
+    throw AppError.badRequest(`Pilots can only belong to one team. ${details}`);
   }
 
   await prisma.teamMember.deleteMany({ where: { teamId } });
   await prisma.teamMember.createMany({
-    data: pilotIds.map((pilotId, index) => ({
+    data: uniqueIds.map((pilotId, index) => ({
       teamId,
       pilotId,
       role: roles?.[index] ?? 'PILOT',
@@ -131,8 +194,9 @@ export async function validateTeam(competitionId: string, teamId: string) {
   const teamInput = {
     teamId: team.id,
     type: team.type,
-    scoringPilots: team.scoringPilots,
-    maxReserves: team.maxReserves,
+    // Always use competition rules — not per-team overrides
+    scoringPilots: rules.teamScoringPilots,
+    maxReserves: rules.teamAllowReserves ? rules.teamMaxReserves : 0,
     members: team.members.map((m) => ({
       pilotId: m.pilotId,
       role: m.role,
@@ -147,8 +211,26 @@ export async function validateTeam(competitionId: string, teamId: string) {
     data: {
       isValid: result.isValid,
       validationNotes: result.errors.join('; ') || null,
+      maxSize: rules.teamSize,
+      scoringPilots: rules.teamScoringPilots,
+      maxReserves: rules.teamAllowReserves ? rules.teamMaxReserves : 0,
     },
   });
 
   return { ...result, teamId };
+}
+
+export async function syncTeamLimitsFromSettings(competitionId: string): Promise<void> {
+  const competition = await getCompetition(competitionId);
+  const settings = competition.settings;
+  if (!settings) return;
+
+  await prisma.team.updateMany({
+    where: { competitionId },
+    data: {
+      maxSize: settings.teamSize,
+      scoringPilots: settings.teamScoringPilots,
+      maxReserves: settings.teamAllowReserves ? settings.teamMaxReserves : 0,
+    },
+  });
 }

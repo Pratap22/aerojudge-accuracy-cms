@@ -51,7 +51,7 @@ export function PilotChip({
   return (
     <div
       className={cn(
-        'inline-flex items-center rounded-full border bg-card font-medium transition-colors',
+        'inline-flex max-w-full items-center rounded-full border border-border bg-card text-card-foreground font-medium transition-colors',
         sizeClasses[size],
         isActive && 'border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-background',
         className,
@@ -67,7 +67,7 @@ export function PilotChip({
         {pilotNumber}
       </span>
 
-      <span className="truncate">
+      <span className="min-w-0 truncate text-card-foreground">
         {firstName} {lastName}
       </span>
 

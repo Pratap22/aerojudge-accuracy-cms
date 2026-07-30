@@ -46,7 +46,11 @@ export const team = [
   validateParams(competitionParams),
   asyncHandler(async (req: Request, res: Response) => {
     await ensureRankings(req.params.competitionId);
-    const rankings = await scoringService.getTeamRankings(req.params.competitionId);
+    let rankings = await scoringService.getTeamRankings(req.params.competitionId);
+    if (rankings.length === 0) {
+      await scoringService.recalculateRankings(req.params.competitionId);
+      rankings = await scoringService.getTeamRankings(req.params.competitionId);
+    }
     sendSuccess(res, rankings);
   }),
 ];

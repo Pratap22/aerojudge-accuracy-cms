@@ -143,11 +143,23 @@ export async function updateSettings(
     tieBreakRulesJson: tieBreakPriority ? (tieBreakPriority as object) : undefined,
   };
 
-  return prisma.competitionSettings.upsert({
+  const settings = await prisma.competitionSettings.upsert({
     where: { competitionId },
     create: { competitionId, ...updateData } as Prisma.CompetitionSettingsCreateInput,
     update: updateData,
   });
+
+  // Keep all teams aligned with competition team composition rules
+  await prisma.team.updateMany({
+    where: { competitionId },
+    data: {
+      maxSize: settings.teamSize,
+      scoringPilots: settings.teamScoringPilots,
+      maxReserves: settings.teamAllowReserves ? settings.teamMaxReserves : 0,
+    },
+  });
+
+  return settings;
 }
 
 export async function publishCompetition(id: string) {

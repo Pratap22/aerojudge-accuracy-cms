@@ -66,7 +66,7 @@ export function LiveLeaderboard({ title = 'Live Leaderboard', showSearch = true,
           showBullseyes
           showRounds
           highlightPodium
-          className="[&_th]:border-white/10 [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_tr]:border-white/5"
+          className="[&_th]:border-white/10 [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_tr]:border-white/5 [&_td]:text-white"
         />
       </div>
 

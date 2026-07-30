@@ -20,13 +20,24 @@ export interface PublicPilot {
   country?: { name: string; code: string } | null;
 }
 
+export interface PublicTeam {
+  id: string;
+  name: string;
+  country?: { name: string; code: string } | null;
+}
+
 export interface PublicRankingRow {
   id: string;
+  pilotId?: string;
+  teamId?: string;
+  countryId?: string;
   rank: number;
   totalScoreCm: number;
   roundsFlown: number;
   bullseyes: number;
-  pilot: PublicPilot;
+  pilot?: PublicPilot | null;
+  team?: PublicTeam | null;
+  country?: { name: string; code: string } | null;
 }
 
 export interface PublicResults {

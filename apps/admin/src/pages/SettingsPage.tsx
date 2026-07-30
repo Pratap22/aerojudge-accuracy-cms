@@ -95,7 +95,9 @@ export function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Team Scoring</CardTitle>
-            <CardDescription>Team composition and counting rules</CardDescription>
+            <CardDescription>
+              Applies to all teams in this competition (size, scoring count, reserves)
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

@@ -36,16 +36,54 @@ export function useResults(category: RankingCategory = 'OVERALL') {
 
 export function toLeaderboardEntries(results: PublicResults | undefined) {
   if (!results?.rankings) return [];
+  const category = results.category;
+
   return results.rankings
-    .filter((row) => row?.pilot)
-    .map((row) => ({
-      rank: row.rank,
-      pilotNumber: row.pilot?.pilotNumber ?? 0,
-      firstName: row.pilot?.firstName ?? '',
-      lastName: row.pilot?.lastName ?? '',
-      countryCode2: row.pilot?.country?.code ?? row.pilot?.nationality ?? 'XX',
-      totalScoreCm: row.totalScoreCm,
-      roundsFlown: row.roundsFlown,
-      bullseyes: row.bullseyes,
-    }));
+    .filter((row) => {
+      if (category === 'TEAM') return Boolean(row?.team);
+      if (category === 'COUNTRY') return Boolean(row?.country);
+      return Boolean(row?.pilot);
+    })
+    .map((row) => {
+      if (category === 'TEAM' && row.team) {
+        return {
+          rank: row.rank,
+          pilotNumber: 0,
+          firstName: row.team.name,
+          lastName: '',
+          displayName: row.team.name,
+          hideNumber: true,
+          countryCode2: row.team.country?.code ?? 'XX',
+          totalScoreCm: row.totalScoreCm,
+          roundsFlown: row.roundsFlown,
+          bullseyes: row.bullseyes,
+        };
+      }
+
+      if (category === 'COUNTRY' && row.country) {
+        return {
+          rank: row.rank,
+          pilotNumber: 0,
+          firstName: row.country.name,
+          lastName: '',
+          displayName: row.country.name,
+          hideNumber: true,
+          countryCode2: row.country.code ?? 'XX',
+          totalScoreCm: row.totalScoreCm,
+          roundsFlown: row.roundsFlown,
+          bullseyes: row.bullseyes,
+        };
+      }
+
+      return {
+        rank: row.rank,
+        pilotNumber: row.pilot?.pilotNumber ?? 0,
+        firstName: row.pilot?.firstName ?? '',
+        lastName: row.pilot?.lastName ?? '',
+        countryCode2: row.pilot?.country?.code ?? row.pilot?.nationality ?? 'XX',
+        totalScoreCm: row.totalScoreCm,
+        roundsFlown: row.roundsFlown,
+        bullseyes: row.bullseyes,
+      };
+    });
 }
