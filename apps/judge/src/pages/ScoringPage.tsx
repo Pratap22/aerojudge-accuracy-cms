@@ -54,6 +54,18 @@ export function ScoringPage() {
     refetchInterval: 30_000,
   });
 
+  const { data: roundMeta } = useQuery({
+    queryKey: ['judge-round', competitionId, roundId],
+    queryFn: () =>
+      api.get<{ id: string; status: string; number: number; name: string | null }>(
+        `/competitions/${competitionId}/rounds/${roundId}`,
+      ),
+    enabled: !!competitionId && !!roundId,
+  });
+
+  const scoresReadOnly =
+    !!roundMeta && ['APPROVED', 'LOCKED'].includes(roundMeta.status);
+
   const { data: rules } = useQuery({
     queryKey: ['settings', competitionId],
     queryFn: () => api.get<RuleConfig>(`/competitions/${competitionId}/rules`),
@@ -104,6 +116,7 @@ export function ScoringPage() {
   const submitScore = useCallback(
     async (score: EnterScoreInput) => {
       if (!competitionId || !roundId) return;
+      if (scoresReadOnly) return;
 
       if (!isOnline) {
         enqueueScore(competitionId, roundId, score);
@@ -122,12 +135,12 @@ export function ScoringPage() {
         setConfirmed(true);
       }
     },
-    [competitionId, roundId, isOnline, queryClient],
+    [competitionId, roundId, isOnline, queryClient, scoresReadOnly],
   );
 
   const confirmMutation = useMutation({
     mutationFn: async () => {
-      if (!currentFlight) return;
+      if (!currentFlight || scoresReadOnly) return;
       const distanceCm =
         resultType === 'MEASURED' ? (distanceInput ? parseFloat(distanceInput) : null) : null;
       await submitScore({
@@ -141,6 +154,7 @@ export function ScoringPage() {
   });
 
   const handleQuickSelect = (type: ScoreResultType, distance: number | null) => {
+    if (scoresReadOnly) return;
     setResultType(type);
     if (distance !== null) setDistanceInput(String(distance));
     else if (type !== 'MEASURED') setDistanceInput('');
@@ -191,6 +205,12 @@ export function ScoringPage() {
 
       <div className="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-3 lg:p-6">
         <div className="lg:col-span-2 space-y-6">
+          {scoresReadOnly && (
+            <div className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm text-slate-300">
+              Round is <strong>{roundMeta?.status}</strong> — scores are final and cannot be changed.
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             {currentFlight && (
               <motion.div
@@ -214,24 +234,25 @@ export function ScoringPage() {
           <QuickScoreButtons
             selected={resultType}
             onSelect={handleQuickSelect}
-            disabled={confirmMutation.isPending}
+            disabled={confirmMutation.isPending || scoresReadOnly}
             maximumScoreCm={maximumScoreCm}
           />
 
           <NumericKeypad
             value={distanceInput}
             onChange={(v) => {
+              if (scoresReadOnly) return;
               setDistanceInput(v);
               setResultType('MEASURED');
             }}
-            disabled={confirmMutation.isPending || resultType !== 'MEASURED'}
+            disabled={confirmMutation.isPending || scoresReadOnly || resultType !== 'MEASURED'}
           />
 
           <div className="flex gap-3">
             <Button
               size="lg"
               className="h-16 flex-1 text-xl font-bold"
-              disabled={confirmMutation.isPending || confirmed}
+              disabled={confirmMutation.isPending || confirmed || scoresReadOnly}
               onClick={() => confirmMutation.mutate()}
             >
               {confirmed ? (

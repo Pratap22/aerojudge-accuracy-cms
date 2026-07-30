@@ -94,11 +94,22 @@ export function RoundSelectPage() {
           <p className="text-center text-slate-400">Loading rounds…</p>
         ) : (
           <div className="space-y-3">
-            {rounds?.map((round) => (
+            {rounds?.map((round) => {
+              const scoringBlocked = ['APPROVED', 'LOCKED', 'CANCELLED', 'SCHEDULED'].includes(
+                round.status,
+              );
+              const canScore = ['BRIEFING', 'OPEN', 'ACTIVE', 'PAUSED', 'CLOSED', 'PENDING_APPROVAL'].includes(
+                round.status,
+              );
+              return (
               <Card
                 key={round.id}
-                className="cursor-pointer border-slate-700 bg-slate-800 transition-colors hover:border-sky-500/50 hover:bg-slate-750 active:scale-[0.99]"
-                onClick={() => selectRound(round.id)}
+                className={
+                  canScore
+                    ? 'cursor-pointer border-slate-700 bg-slate-800 transition-colors hover:border-sky-500/50 hover:bg-slate-750 active:scale-[0.99]'
+                    : 'border-slate-800 bg-slate-900/60 opacity-70'
+                }
+                onClick={canScore ? () => selectRound(round.id) : undefined}
               >
                 <CardContent className="flex items-center justify-between p-5">
                   <div>
@@ -109,12 +120,19 @@ export function RoundSelectPage() {
                     </div>
                     <p className="mt-1 text-sm text-slate-400">
                       {round.flightsScored}/{round.flightsTotal} flights scored
+                      {scoringBlocked && round.status === 'LOCKED' ? ' · Final — scoring closed' : ''}
+                      {scoringBlocked && round.status === 'APPROVED' ? ' · Approved — scoring closed' : ''}
                     </p>
                   </div>
-                  <ChevronRight className="h-6 w-6 text-slate-500" />
+                  {canScore ? (
+                    <ChevronRight className="h-6 w-6 text-slate-500" />
+                  ) : (
+                    <span className="text-xs text-slate-500">View only</span>
+                  )}
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

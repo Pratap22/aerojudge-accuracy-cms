@@ -167,6 +167,9 @@ export async function resumeRound(competitionId: string, roundId: string) {
 
 export async function closeRound(competitionId: string, roundId: string) {
   const round = await getRound(competitionId, roundId);
+  if (round.status === 'LOCKED') {
+    throw AppError.badRequest('Round is locked — no further changes are allowed');
+  }
   if (!['ACTIVE', 'PAUSED', 'OPEN'].includes(round.status)) {
     throw AppError.badRequest(`Cannot close round in status ${round.status}`);
   }

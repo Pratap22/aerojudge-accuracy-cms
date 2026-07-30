@@ -208,7 +208,10 @@ export function RoundsPage() {
         <div>
           <h1 className="text-2xl font-bold">Rounds</h1>
           <p className="text-muted-foreground">
-            Control round lifecycle and flight operations · Max {maxRounds} rounds
+            Control round lifecycle · Max {maxRounds} rounds
+            <span className="mt-1 block text-xs">
+              Approve → Lock. Locked rounds are final (no score or round changes).
+            </span>
           </p>
         </div>
         <Button disabled={atMax} onClick={() => setCreateOpen(true)}>
@@ -303,7 +306,11 @@ export function RoundsPage() {
                   <TableCell>
                     <Select
                       value={round.type}
-                      disabled={round.status === 'LOCKED' || typeMutation.isPending}
+                      disabled={
+                        round.status === 'LOCKED' ||
+                        round.status === 'APPROVED' ||
+                        typeMutation.isPending
+                      }
                       onValueChange={(v) =>
                         typeMutation.mutate({ roundId: round.id, type: v as RoundType })
                       }
