@@ -29,7 +29,7 @@ export function formatScoreCm(cm: number | null | undefined, maximum = 1000): st
 }
 
 export function formatPilotName(firstName: string, lastName: string): string {
-  return `${lastName.toUpperCase()}, ${firstName}`;
+  return `${firstName} ${lastName}`.trim();
 }
 
 export function padPilotNumber(n: number, width = 3): string {
