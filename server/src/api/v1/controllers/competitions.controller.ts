@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as competitionService from '../../../services/competition.service.js';
+import * as dashboardService from '../../../services/dashboard.service.js';
 import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
 
@@ -132,5 +133,13 @@ export const publish = [
       entityId: competition.id,
     });
     sendSuccess(res, competition);
+  }),
+];
+
+export const dashboard = [
+  validateParams(idParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const data = await dashboardService.getCompetitionDashboard(req.params.id);
+    sendSuccess(res, data);
   }),
 ];

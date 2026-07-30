@@ -154,7 +154,7 @@ export function settingsToRuleOverrides(
   settings?: NonNullable<Awaited<ReturnType<typeof getCompetition>>['settings']> | null,
 ): Partial<RuleConfig> {
   if (!settings) return {};
-  return {
+  const overrides: Partial<RuleConfig> = {
     bullseyeScoreCm: settings.bullseyeScoreCm,
     maximumScoreCm: settings.maximumScoreCm,
     discardWorstRounds: settings.discardWorstRounds,
@@ -168,7 +168,14 @@ export function settingsToRuleOverrides(
     womenCategoryEnabled: settings.womenCategoryEnabled,
     juniorCategoryEnabled: settings.juniorCategoryEnabled,
     juniorMaxAge: settings.juniorMaxAge,
-    customRules: (settings.customRulesJson as Record<string, unknown>) ?? undefined,
-    tieBreakPriority: (settings.tieBreakRulesJson as RuleConfig['tieBreakPriority']) ?? undefined,
   };
+
+  if (settings.customRulesJson && typeof settings.customRulesJson === 'object') {
+    overrides.customRules = settings.customRulesJson as Record<string, unknown>;
+  }
+  if (Array.isArray(settings.tieBreakRulesJson)) {
+    overrides.tieBreakPriority = settings.tieBreakRulesJson as RuleConfig['tieBreakPriority'];
+  }
+
+  return overrides;
 }

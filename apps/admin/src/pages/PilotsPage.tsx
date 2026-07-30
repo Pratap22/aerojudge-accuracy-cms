@@ -70,6 +70,7 @@ export function PilotsPage() {
         : api.post<Pilot>(`/competitions/${activeCompetitionId}/pilots`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pilots'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setFormOpen(false);
       setEditing(null);
       reset();

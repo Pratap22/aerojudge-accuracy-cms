@@ -20,6 +20,18 @@ export async function enterScore(
   });
   if (!flight) throw AppError.notFound('Flight not found');
 
+  if (['LOCKED', 'APPROVED'].includes(flight.round.status)) {
+    throw AppError.badRequest(`Cannot enter scores while round is ${flight.round.status}`);
+  }
+  // Allow CLOSED rounds until official approval/lock so corrections remain possible
+  if (
+    !['SCHEDULED', 'BRIEFING', 'OPEN', 'ACTIVE', 'PAUSED', 'CLOSED', 'PENDING_APPROVAL'].includes(
+      flight.round.status,
+    )
+  ) {
+    throw AppError.badRequest(`Cannot enter scores while round is ${flight.round.status}`);
+  }
+
   const competition = await getCompetition(flight.round.competitionId);
   const rules = ScoringEngine.resolveRules(
     competition.ruleSet,

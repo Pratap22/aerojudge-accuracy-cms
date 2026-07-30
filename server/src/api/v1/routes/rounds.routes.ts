@@ -17,5 +17,7 @@ router.post('/:roundId/resume', requirePermission('round:start'), ...ctrl.resume
 router.post('/:roundId/close', requirePermission('round:close'), ...ctrl.close);
 router.post('/:roundId/reopen', requirePermission('round:manage'), ...ctrl.reopen);
 router.post('/:roundId/flight-order', requirePermission('round:manage'), ...ctrl.generateFlightOrder);
+router.get('/:roundId/flights', ...ctrl.listFlights);
+router.post('/:roundId/scores', requirePermission('score:enter'), ...ctrl.enterScore);
 
 export default router;

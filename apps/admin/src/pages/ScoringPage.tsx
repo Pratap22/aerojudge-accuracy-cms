@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,8 +26,10 @@ import {
   TableRow,
   Textarea,
 } from '@npha/ui';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
+import { competitionPath } from '../hooks/useCompetitionId';
+import { Link } from 'react-router-dom';
 
 interface RoundOption {
   id: string;
@@ -87,9 +89,27 @@ export function ScoringPage() {
       api.post(`/competitions/${activeCompetitionId}/rounds/${selectedRoundId}/scores`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['flights'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['rankings'] });
+      queryClient.invalidateQueries({ queryKey: ['rounds'] });
       reset({ flightId: selectedFlightId ?? '', distanceCm: null, resultType: 'MEASURED', penaltyCm: 0 });
     },
   });
+
+  useEffect(() => {
+    if (!rounds?.length || selectedRoundId) return;
+    const preferred =
+      rounds.find((r) => ['ACTIVE', 'OPEN', 'PAUSED'].includes(r.status)) ?? rounds[0];
+    if (preferred) setSelectedRoundId(preferred.id);
+  }, [rounds, selectedRoundId]);
+
+  const reopenMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/competitions/${activeCompetitionId}/rounds/${selectedRoundId}/reopen`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rounds'] }),
+  });
+
+  const selectedRound = rounds?.find((r) => r.id === selectedRoundId);
 
   const selectFlight = (flight: Flight) => {
     setSelectedFlightId(flight.id);
@@ -141,6 +161,45 @@ export function ScoringPage() {
       </div>
 
       {selectedRoundId && (
+        <div className="space-y-4">
+          {selectedRound && ['CLOSED', 'PENDING_APPROVAL'].includes(selectedRound.status) && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+              <p>
+                Round is <strong>{selectedRound.status}</strong>. You can still enter or correct
+                scores until it is approved/locked, or reopen it for live flying.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={reopenMutation.isPending}
+                onClick={() => reopenMutation.mutate()}
+              >
+                Reopen Round
+              </Button>
+            </div>
+          )}
+
+          {!flights?.length && (
+            <div className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
+              No flights in this round yet.{' '}
+              <Link
+                className="text-secondary underline"
+                to={competitionPath(activeCompetitionId, 'rounds')}
+              >
+                Open Rounds
+              </Link>{' '}
+              and start the round (or regenerate flight order) after registering pilots.
+            </div>
+          )}
+
+          {scoreMutation.isError && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {scoreMutation.error instanceof ApiError
+                ? scoreMutation.error.message
+                : 'Failed to save score'}
+            </div>
+          )}
+
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 rounded-lg border">
             <Table>
@@ -275,6 +334,7 @@ export function ScoringPage() {
               )}
             </CardContent>
           </Card>
+        </div>
         </div>
       )}
     </div>

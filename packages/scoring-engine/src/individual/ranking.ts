@@ -76,9 +76,18 @@ export function comparePilotsForTieBreak(
   b: IndividualRankingResult,
   aInput: PilotRankingInput,
   bInput: PilotRankingInput,
-  criteria: TieBreakCriterion[],
+  criteria: TieBreakCriterion[] | null | undefined,
 ): { winner: 'a' | 'b' | 'tie'; notes: string } {
-  for (const criterion of criteria) {
+  const list = Array.isArray(criteria) && criteria.length > 0 ? criteria : ([
+    'MOST_BULLSEYES',
+    'BEST_SINGLE_SCORE',
+    'BEST_LAST_ROUND',
+    'MOST_ROUNDS_FLOWN',
+    'LOWEST_DISCARDED',
+    'PILOT_NUMBER',
+  ] as TieBreakCriterion[]);
+
+  for (const criterion of list) {
     switch (criterion) {
       case 'MOST_BULLSEYES': {
         if (a.bullseyes !== b.bullseyes) {

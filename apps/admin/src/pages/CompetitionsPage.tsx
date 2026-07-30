@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,9 +29,10 @@ import {
 import { api } from '../lib/api';
 import { competitionPath } from '../hooks/useCompetitionId';
 
-interface Competition extends CreateCompetitionInput {
+interface Competition extends Omit<CreateCompetitionInput, 'location'> {
   id: string;
   status: CompetitionStatus;
+  location?: string | null;
 }
 
 interface CompetitionFormProps {
@@ -39,6 +40,55 @@ interface CompetitionFormProps {
   onOpenChange: (open: boolean) => void;
   competition?: Competition | null;
   onCreated?: (id: string) => void;
+}
+
+const EMPTY_VALUES: CreateCompetitionInput = {
+  name: '',
+  code: '',
+  organizer: 'Nepal Paragliding & Hang Gliding Association',
+  venue: '',
+  country: 'Nepal',
+  location: '',
+  startDate: new Date().toISOString().slice(0, 10),
+  endDate: new Date().toISOString().slice(0, 10),
+  practiceDays: 1,
+  officialDays: 3,
+  maxRounds: 8,
+  practiceRounds: 2,
+  targetDiameterCm: 200,
+  ruleSet: 'FAI_2022',
+  faiCategory: '2',
+};
+
+function toDateInputValue(value: string | Date | undefined | null): string {
+  if (!value) return new Date().toISOString().slice(0, 10);
+  const d = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) {
+    // Already YYYY-MM-DD
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    return new Date().toISOString().slice(0, 10);
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function toFormValues(competition: Competition): CreateCompetitionInput {
+  return {
+    name: competition.name ?? '',
+    code: competition.code ?? '',
+    organizer: competition.organizer ?? '',
+    venue: competition.venue ?? '',
+    country: competition.country ?? '',
+    location: competition.location ?? '',
+    startDate: toDateInputValue(competition.startDate as string),
+    endDate: toDateInputValue(competition.endDate as string),
+    practiceDays: competition.practiceDays ?? 1,
+    officialDays: competition.officialDays ?? 3,
+    maxRounds: competition.maxRounds ?? 8,
+    practiceRounds: competition.practiceRounds ?? 2,
+    targetDiameterCm: competition.targetDiameterCm ?? 200,
+    ruleSet: competition.ruleSet ?? 'FAI_2022',
+    faiCategory: competition.faiCategory ?? '2',
+  };
 }
 
 export function CompetitionForm({ open, onOpenChange, competition, onCreated }: CompetitionFormProps) {
@@ -54,23 +104,25 @@ export function CompetitionForm({ open, onOpenChange, competition, onCreated }: 
     formState: { errors, isSubmitting },
   } = useForm<CreateCompetitionInput>({
     resolver: zodResolver(createCompetitionSchema),
-    defaultValues: competition ?? {
-      name: '',
-      code: '',
-      organizer: 'NPHA',
-      venue: '',
-      country: 'NP',
-      startDate: new Date().toISOString().slice(0, 10),
-      endDate: new Date().toISOString().slice(0, 10),
-      practiceDays: 1,
-      officialDays: 3,
-      maxRounds: 8,
-      practiceRounds: 2,
-      targetDiameterCm: 200,
-      ruleSet: 'FAI_2022',
-      faiCategory: '2',
-    },
+    defaultValues: EMPTY_VALUES,
   });
+
+  // Load full competition when editing so every field is present
+  const { data: fullCompetition } = useQuery({
+    queryKey: ['competition', competition?.id],
+    queryFn: () => api.get<Competition>(`/competitions/${competition!.id}`),
+    enabled: open && !!competition?.id,
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    if (isEdit) {
+      const source = fullCompetition ?? competition;
+      if (source) reset(toFormValues(source));
+    } else {
+      reset(EMPTY_VALUES);
+    }
+  }, [open, isEdit, competition, fullCompetition, reset]);
 
   const ruleSet = watch('ruleSet');
 
@@ -81,8 +133,11 @@ export function CompetitionForm({ open, onOpenChange, competition, onCreated }: 
         : api.post<Competition>('/competitions', data),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
+      if (competition?.id) {
+        queryClient.invalidateQueries({ queryKey: ['competition', competition.id] });
+      }
       onOpenChange(false);
-      reset();
+      reset(EMPTY_VALUES);
       if (!isEdit && result?.id) {
         onCreated?.(result.id);
       }
@@ -122,6 +177,10 @@ export function CompetitionForm({ open, onOpenChange, competition, onCreated }: 
             <Input id="country" {...register('country')} />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="location">Location</Label>
+            <Input id="location" {...register('location')} />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="startDate">Start Date</Label>
             <Input id="startDate" type="date" {...register('startDate')} />
           </div>
@@ -130,12 +189,28 @@ export function CompetitionForm({ open, onOpenChange, competition, onCreated }: 
             <Input id="endDate" type="date" {...register('endDate')} />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="practiceDays">Practice Days</Label>
+            <Input id="practiceDays" type="number" {...register('practiceDays', { valueAsNumber: true })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="officialDays">Official Days</Label>
+            <Input id="officialDays" type="number" {...register('officialDays', { valueAsNumber: true })} />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="maxRounds">Max Rounds</Label>
             <Input id="maxRounds" type="number" {...register('maxRounds', { valueAsNumber: true })} />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="practiceRounds">Practice Rounds</Label>
+            <Input id="practiceRounds" type="number" {...register('practiceRounds', { valueAsNumber: true })} />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="targetDiameterCm">Target Diameter (cm)</Label>
             <Input id="targetDiameterCm" type="number" {...register('targetDiameterCm', { valueAsNumber: true })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="faiCategory">FAI Category</Label>
+            <Input id="faiCategory" {...register('faiCategory')} />
           </div>
           <div className="space-y-2">
             <Label>Rule Set</Label>

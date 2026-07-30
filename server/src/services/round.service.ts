@@ -22,7 +22,13 @@ export async function getRound(competitionId: string, roundId: string) {
     include: {
       flights: {
         orderBy: { flightOrder: 'asc' },
-        include: { pilot: { include: { country: true } } },
+        include: {
+          pilot: { include: { country: true } },
+          scores: {
+            orderBy: { updatedAt: 'desc' },
+            take: 1,
+          },
+        },
       },
     },
   });
@@ -212,6 +218,51 @@ export async function generateFlightOrder(
   return getRound(competitionId, roundId);
 }
 
+export async function listFlights(competitionId: string, roundId: string) {
+  let round = await getRound(competitionId, roundId);
+
+  // Ensure newly registered pilots appear in the flight order
+  const eligiblePilots = await prisma.pilot.findMany({
+    where: {
+      competitionId,
+      status: { in: ['REGISTERED', 'CONFIRMED', 'CHECKED_IN', 'ACTIVE'] },
+    },
+    orderBy: { pilotNumber: 'asc' },
+  });
+  const existing = new Set(round.flights.map((f) => f.pilotId));
+  const missing = eligiblePilots.filter((p) => !existing.has(p.id));
+  if (missing.length > 0) {
+    const maxOrder = round.flights.reduce((m, f) => Math.max(m, f.flightOrder), 0);
+    await prisma.flight.createMany({
+      data: missing.map((p, i) => ({
+        roundId,
+        pilotId: p.id,
+        flightOrder: maxOrder + i + 1,
+        status: 'PENDING' as const,
+      })),
+    });
+    round = await getRound(competitionId, roundId);
+  }
+
+  return round.flights.map((flight) => {
+    const score = flight.scores[0];
+
+    return {
+      id: flight.id,
+      order: flight.flightOrder,
+      flightOrder: flight.flightOrder,
+      pilotId: flight.pilotId,
+      pilotNumber: flight.pilot.pilotNumber,
+      pilotName: `${flight.pilot.firstName} ${flight.pilot.lastName}`,
+      country: flight.pilot.country?.name ?? flight.pilot.nationality ?? '—',
+      status: flight.status,
+      distanceCm: score?.distanceCm ?? null,
+      resultType: score?.resultType ?? null,
+      finalScoreCm: score?.finalScoreCm ?? null,
+    };
+  });
+}
+
 export async function setManualFlightOrder(
   competitionId: string,
   roundId: string,
@@ -219,3 +270,4 @@ export async function setManualFlightOrder(
 ) {
   return generateFlightOrder(competitionId, roundId, 'MANUAL', { manualOrder: pilotIds });
 }
+
