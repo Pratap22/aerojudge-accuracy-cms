@@ -243,7 +243,7 @@ export function TeamsPage() {
   if (!activeCompetitionId) {
     return (
       <p className="text-muted-foreground">
-        <a href="/competitions" className="text-secondary underline">
+        <a href="/competitions" className="text-primary underline">
           Open a competition
         </a>{' '}
         from the Competitions list.
@@ -284,7 +284,7 @@ export function TeamsPage() {
               <Card key={team.id} className={team.isValid ? '' : 'border-amber-500/50'}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <Users className="h-5 w-5 text-secondary" />
+                    <Users className="h-5 w-5 text-primary" />
                     <Badge variant={team.isValid ? 'success' : 'warning'}>
                       {team.isValid ? 'Valid' : 'Issues'}
                     </Badge>

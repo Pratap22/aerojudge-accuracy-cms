@@ -150,7 +150,7 @@ export function ReportsPage() {
   if (!activeCompetitionId) {
     return (
       <p className="text-muted-foreground">
-        <a href="/competitions" className="text-secondary underline">
+        <a href="/competitions" className="text-primary underline">
           Open a competition
         </a>{' '}
         from the Competitions list.

@@ -29,9 +29,32 @@ import {
 import { api } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
-interface Pilot extends CreatePilotInput {
+interface Pilot {
   id: string;
   status: PilotStatus;
+  pilotNumber: number;
+  firstName: string;
+  lastName: string;
+  gender: Gender;
+  faiLicense?: string | null;
+  nationality?: string | null;
+  club?: string | null;
+  civlId?: string | null;
+  countryId?: string | null;
+}
+
+function toFormValues(pilot: Pilot): CreatePilotInput {
+  return {
+    pilotNumber: pilot.pilotNumber,
+    firstName: pilot.firstName,
+    lastName: pilot.lastName,
+    gender: pilot.gender,
+    faiLicense: pilot.faiLicense ?? undefined,
+    nationality: pilot.nationality ?? undefined,
+    club: pilot.club ?? undefined,
+    civlId: pilot.civlId ?? undefined,
+    countryId: pilot.countryId ?? undefined,
+  };
 }
 
 export function PilotsPage() {
@@ -96,18 +119,27 @@ export function PilotsPage() {
 
   const openCreate = () => {
     setEditing(null);
+    saveMutation.reset();
     reset({ gender: 'MALE', pilotNumber: (pilots?.length ?? 0) + 1, firstName: '', lastName: '' });
     setFormOpen(true);
   };
 
   const openEdit = (pilot: Pilot) => {
     setEditing(pilot);
-    reset(pilot);
+    saveMutation.reset();
+    reset(toFormValues(pilot));
     setFormOpen(true);
   };
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
+    return (
+      <p className="text-muted-foreground">
+        <a href="/competitions" className="text-primary underline">
+          Open a competition
+        </a>{' '}
+        from the Competitions list.
+      </p>
+    );
   }
 
   return (
@@ -231,10 +263,12 @@ export function PilotsPage() {
             <div className="space-y-2">
               <Label>First Name</Label>
               <Input {...register('firstName')} />
+              {errors.firstName && <p className="text-sm text-destructive">{errors.firstName.message}</p>}
             </div>
             <div className="space-y-2">
               <Label>Last Name</Label>
               <Input {...register('lastName')} />
+              {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
             </div>
             <div className="space-y-2">
               <Label>FAI License</Label>
@@ -248,6 +282,11 @@ export function PilotsPage() {
               <Label>Club</Label>
               <Input {...register('club')} />
             </div>
+            {saveMutation.isError && (
+              <p className="sm:col-span-2 text-sm text-destructive">
+                {(saveMutation.error as Error)?.message ?? 'Failed to save pilot'}
+              </p>
+            )}
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 Cancel

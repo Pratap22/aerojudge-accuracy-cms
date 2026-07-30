@@ -38,7 +38,7 @@ export function StatisticsPage() {
   if (!activeCompetitionId) {
     return (
       <p className="text-muted-foreground">
-        <a href="/competitions" className="text-secondary underline">
+        <a href="/competitions" className="text-primary underline">
           Open a competition
         </a>{' '}
         from the Competitions list.
@@ -69,10 +69,10 @@ export function StatisticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Bullseyes</CardTitle>
-            <Target className="h-4 w-4 text-secondary" />
+            <Target className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-secondary">{stats?.totalBullseyes ?? 0}</div>
+            <div className="text-3xl font-bold text-primary">{stats?.totalBullseyes ?? 0}</div>
             <p className="text-xs text-muted-foreground">
               {stats ? `${(stats.bullseyeRate * 100).toFixed(1)}% of scored flights` : ''}
             </p>

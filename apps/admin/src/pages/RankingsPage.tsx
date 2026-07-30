@@ -187,7 +187,7 @@ export function RankingsPage() {
   if (!activeCompetitionId) {
     return (
       <p className="text-muted-foreground">
-        <a href="/competitions" className="text-secondary underline">
+        <a href="/competitions" className="text-primary underline">
           Open a competition
         </a>{' '}
         from the Competitions list.
@@ -242,7 +242,7 @@ export function RankingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Medal className="h-5 w-5 text-secondary" />
+                  <Medal className="h-5 w-5 text-primary" />
                   {c.label} Rankings
                 </CardTitle>
               </CardHeader>

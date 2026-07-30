@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import multer from 'multer';
-import { createPilotSchema, paginationSchema } from '@npha/shared';
+import { createPilotSchema, paginationSchema, updatePilotSchema } from '@npha/shared';
 import { z } from 'zod';
 import { env } from '../../../config/env.js';
 import { asyncHandler } from '../../../utils/errors.js';
@@ -62,12 +62,24 @@ export const create = [
 
 export const update = [
   validateParams(pilotParams),
+  validateBody(updatePilotSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const pilot = await pilotService.updatePilot(
       req.params.competitionId,
       req.params.pilotId,
-      req.body,
+      {
+        ...req.body,
+        dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : req.body.dateOfBirth,
+      },
     );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: 'UPDATE',
+      entityType: 'Pilot',
+      entityId: pilot.id,
+      after: pilot,
+    });
     sendSuccess(res, pilot);
   }),
 ];

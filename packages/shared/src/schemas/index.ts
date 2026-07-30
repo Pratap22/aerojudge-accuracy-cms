@@ -27,24 +27,34 @@ export const createCompetitionSchema = z.object({
   faiCategory: z.string().default('2'),
 });
 
+/** Optional string fields: API often returns null; treat null/empty as unset. */
+const optionalString = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((v) => (v == null || v === '' ? undefined : v));
+
 export const createPilotSchema = z.object({
   pilotNumber: z.number().int().positive(),
-  faiLicense: z.string().optional(),
-  civlId: z.string().optional(),
+  faiLicense: optionalString,
+  civlId: optionalString,
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).default('MALE'),
-  nationality: z.string().optional(),
-  countryId: z.string().optional(),
-  club: z.string().optional(),
-  dateOfBirth: z.string().datetime().or(z.coerce.date()).optional(),
-  glider: z.string().optional(),
-  harness: z.string().optional(),
-  reserveStatus: z.string().optional(),
-  emergencyContact: z.string().optional(),
-  emergencyPhone: z.string().optional(),
-  medicalNotes: z.string().optional(),
+  nationality: optionalString,
+  countryId: optionalString,
+  club: optionalString,
+  dateOfBirth: z.preprocess(
+    (v) => (v == null || v === '' ? undefined : v),
+    z.union([z.string().datetime(), z.coerce.date()]).optional(),
+  ),
+  glider: optionalString,
+  harness: optionalString,
+  reserveStatus: optionalString,
+  emergencyContact: optionalString,
+  emergencyPhone: optionalString,
+  medicalNotes: optionalString,
 });
+
+export const updatePilotSchema = createPilotSchema.partial();
 
 export const createTeamSchema = z.object({
   name: z.string().min(2),
@@ -109,6 +119,7 @@ export const paginationSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
 export type CreatePilotInput = z.infer<typeof createPilotSchema>;
+export type UpdatePilotInput = z.infer<typeof updatePilotSchema>;
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
 export type CreateRoundInput = z.infer<typeof createRoundSchema>;
 export type UpdateRoundTypeInput = z.infer<typeof updateRoundTypeSchema>;

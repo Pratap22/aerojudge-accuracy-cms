@@ -194,7 +194,7 @@ export function RoundsPage() {
   if (!competitionId) {
     return (
       <p className="text-muted-foreground">
-        <a href="/competitions" className="text-secondary underline">
+        <a href="/competitions" className="text-primary underline">
           Open a competition
         </a>{' '}
         from the Competitions list.
@@ -237,7 +237,7 @@ export function RoundsPage() {
             <CardTitle className="text-sm">Active</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-secondary">
+            <p className="text-2xl font-bold text-primary">
               {rounds.filter((r) => r.status === 'ACTIVE').length}
             </p>
           </CardContent>

@@ -131,11 +131,11 @@ export function DashboardPage() {
             >
               <Link to={competitionPath(comp.id)}>
                 <Card
-                  className={`transition-shadow hover:shadow-md ${comp.id === competitionId ? 'ring-2 ring-secondary' : ''}`}
+                  className={`transition-shadow hover:shadow-md ${comp.id === competitionId ? 'ring-2 ring-primary' : ''}`}
                 >
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
-                      <Trophy className="h-5 w-5 text-secondary" />
+                      <Trophy className="h-5 w-5 text-primary" />
                       <Badge variant={statusVariant[comp.status]}>{comp.status}</Badge>
                     </div>
                     <CardTitle className="text-base">{comp.name}</CardTitle>
@@ -193,10 +193,10 @@ export function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Bullseyes Today</CardTitle>
-            <Target className="h-4 w-4 text-secondary" />
+            <Target className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-secondary">{stats?.bullseyesToday ?? '—'}</div>
+            <div className="text-3xl font-bold text-primary">{stats?.bullseyesToday ?? '—'}</div>
           </CardContent>
         </Card>
       </div>

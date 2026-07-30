@@ -238,7 +238,7 @@ export function CompetitionsPage() {
             return (
               <Card
                 key={comp.id}
-                className={isActive ? 'ring-2 ring-secondary' : undefined}
+                className={isActive ? 'ring-2 ring-primary' : undefined}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">

@@ -206,7 +206,7 @@ export function ScoringPage() {
   };
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
+    return <p className="text-muted-foreground"><a href="/competitions" className="text-primary underline">Open a competition</a> from the Competitions list.</p>;
   }
 
   return (
@@ -276,7 +276,7 @@ export function ScoringPage() {
             <div className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
               No flights in this round yet.{' '}
               <Link
-                className="text-secondary underline"
+                className="text-primary underline"
                 to={competitionPath(activeCompetitionId, 'rounds')}
               >
                 Open Rounds

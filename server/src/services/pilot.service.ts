@@ -64,14 +64,17 @@ export async function createPilot(
 export async function updatePilot(
   competitionId: string,
   pilotId: string,
-  data: Prisma.PilotUpdateInput,
+  data: Omit<Prisma.PilotUncheckedUpdateInput, 'id' | 'competitionId'>,
 ) {
   await getPilot(competitionId, pilotId);
+  const { gender, ...rest } = data;
   return prisma.pilot.update({
     where: { id: pilotId },
     data: {
-      ...data,
-      isWomen: data.gender === 'FEMALE' ? true : data.isWomen,
+      ...rest,
+      ...(gender !== undefined
+        ? { gender, isWomen: gender === 'FEMALE' }
+        : {}),
     },
     include: { country: true },
   });

@@ -41,7 +41,7 @@ export function AuditPage() {
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
+    return <p className="text-muted-foreground"><a href="/competitions" className="text-primary underline">Open a competition</a> from the Competitions list.</p>;
   }
 
   return (
