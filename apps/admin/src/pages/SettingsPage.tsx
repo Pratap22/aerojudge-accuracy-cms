@@ -68,6 +68,9 @@ export function SettingsPage() {
               <div className="space-y-2">
                 <Label>Maximum Score (cm)</Label>
                 <Input type="number" {...register('maximumScoreCm', { valueAsNumber: true })} />
+                <p className="text-xs text-muted-foreground">
+                  Competition-specific cap for DNF / ABS / DNS / out-of-target
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Discard Worst Rounds</Label>

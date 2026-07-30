@@ -21,6 +21,8 @@ export const createCompetitionSchema = z.object({
   maxRounds: z.number().int().min(1).max(30).default(8),
   practiceRounds: z.number().int().min(0).default(2),
   targetDiameterCm: z.number().int().min(50).max(500).default(200),
+  /** Out-of-target / DNF / ABS / DNS score in centimetres – competition-specific */
+  maximumScoreCm: z.number().min(1).max(10000).default(1000),
   ruleSet: z.enum(['FAI_2022', 'FAI_FUTURE', 'NPHA_LOCAL', 'CUSTOM']).default('FAI_2022'),
   faiCategory: z.string().default('2'),
 });

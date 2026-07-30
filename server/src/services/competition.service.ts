@@ -58,9 +58,11 @@ export async function createCompetition(data: {
   maxRounds?: number;
   practiceRounds?: number;
   targetDiameterCm?: number;
+  maximumScoreCm?: number;
   ruleSet?: RuleSetVersion;
   faiCategory?: string;
 }) {
+  const { maximumScoreCm, ...competitionData } = data;
   const slug = slugify(`${data.code}-${data.name}`);
   const existing = await prisma.competition.findFirst({
     where: { OR: [{ code: data.code }, { publicSlug: slug }] },
@@ -69,9 +71,13 @@ export async function createCompetition(data: {
 
   return prisma.competition.create({
     data: {
-      ...data,
+      ...competitionData,
       publicSlug: slug,
-      settings: { create: {} },
+      settings: {
+        create: {
+          ...(maximumScoreCm != null ? { maximumScoreCm } : {}),
+        },
+      },
     },
     include: { settings: true },
   });
@@ -88,6 +94,7 @@ export async function updateCompetition(id: string, data: Record<string, unknown
     createdAt: _c,
     updatedAt: _u,
     publicSlug: _slug,
+    maximumScoreCm,
     ...rest
   } = data;
 
@@ -100,6 +107,15 @@ export async function updateCompetition(id: string, data: Record<string, unknown
   }
   if (endDate != null) {
     updateData.endDate = new Date(endDate as string | Date);
+  }
+
+  if (maximumScoreCm != null && Number.isFinite(Number(maximumScoreCm))) {
+    updateData.settings = {
+      upsert: {
+        create: { maximumScoreCm: Number(maximumScoreCm) },
+        update: { maximumScoreCm: Number(maximumScoreCm) },
+      },
+    };
   }
 
   return prisma.competition.update({

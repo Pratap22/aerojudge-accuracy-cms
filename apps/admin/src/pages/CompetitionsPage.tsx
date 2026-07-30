@@ -29,16 +29,16 @@ import {
 import { api } from '../lib/api';
 import { competitionPath } from '../hooks/useCompetitionId';
 
-interface Competition extends Omit<CreateCompetitionInput, 'location'> {
+interface Competition extends Omit<CreateCompetitionInput, 'location' | 'maximumScoreCm'> {
   id: string;
   status: CompetitionStatus;
   location?: string | null;
+  settings?: { maximumScoreCm?: number } | null;
 }
 
 interface CompetitionFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  competition?: Competition | null;
   onCreated?: (id: string) => void;
 }
 
@@ -56,44 +56,13 @@ const EMPTY_VALUES: CreateCompetitionInput = {
   maxRounds: 8,
   practiceRounds: 2,
   targetDiameterCm: 200,
+  maximumScoreCm: 1000,
   ruleSet: 'FAI_2022',
   faiCategory: '2',
 };
 
-function toDateInputValue(value: string | Date | undefined | null): string {
-  if (!value) return new Date().toISOString().slice(0, 10);
-  const d = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) {
-    // Already YYYY-MM-DD
-    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-    return new Date().toISOString().slice(0, 10);
-  }
-  return d.toISOString().slice(0, 10);
-}
-
-function toFormValues(competition: Competition): CreateCompetitionInput {
-  return {
-    name: competition.name ?? '',
-    code: competition.code ?? '',
-    organizer: competition.organizer ?? '',
-    venue: competition.venue ?? '',
-    country: competition.country ?? '',
-    location: competition.location ?? '',
-    startDate: toDateInputValue(competition.startDate as string),
-    endDate: toDateInputValue(competition.endDate as string),
-    practiceDays: competition.practiceDays ?? 1,
-    officialDays: competition.officialDays ?? 3,
-    maxRounds: competition.maxRounds ?? 8,
-    practiceRounds: competition.practiceRounds ?? 2,
-    targetDiameterCm: competition.targetDiameterCm ?? 200,
-    ruleSet: competition.ruleSet ?? 'FAI_2022',
-    faiCategory: competition.faiCategory ?? '2',
-  };
-}
-
-export function CompetitionForm({ open, onOpenChange, competition, onCreated }: CompetitionFormProps) {
+export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFormProps) {
   const queryClient = useQueryClient();
-  const isEdit = !!competition;
 
   const {
     register,
@@ -107,40 +76,19 @@ export function CompetitionForm({ open, onOpenChange, competition, onCreated }: 
     defaultValues: EMPTY_VALUES,
   });
 
-  // Load full competition when editing so every field is present
-  const { data: fullCompetition } = useQuery({
-    queryKey: ['competition', competition?.id],
-    queryFn: () => api.get<Competition>(`/competitions/${competition!.id}`),
-    enabled: open && !!competition?.id,
-  });
-
   useEffect(() => {
-    if (!open) return;
-    if (isEdit) {
-      const source = fullCompetition ?? competition;
-      if (source) reset(toFormValues(source));
-    } else {
-      reset(EMPTY_VALUES);
-    }
-  }, [open, isEdit, competition, fullCompetition, reset]);
+    if (open) reset(EMPTY_VALUES);
+  }, [open, reset]);
 
   const ruleSet = watch('ruleSet');
 
   const mutation = useMutation({
-    mutationFn: (data: CreateCompetitionInput) =>
-      isEdit
-        ? api.put<Competition>(`/competitions/${competition!.id}`, data)
-        : api.post<Competition>('/competitions', data),
+    mutationFn: (data: CreateCompetitionInput) => api.post<Competition>('/competitions', data),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
-      if (competition?.id) {
-        queryClient.invalidateQueries({ queryKey: ['competition', competition.id] });
-      }
       onOpenChange(false);
       reset(EMPTY_VALUES);
-      if (!isEdit && result?.id) {
-        onCreated?.(result.id);
-      }
+      if (result?.id) onCreated?.(result.id);
     },
   });
 
@@ -148,7 +96,7 @@ export function CompetitionForm({ open, onOpenChange, competition, onCreated }: 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Edit Competition' : 'Create Competition'}</DialogTitle>
+          <DialogTitle>Create Competition</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={handleSubmit((data) => mutation.mutate(data))}
@@ -209,6 +157,18 @@ export function CompetitionForm({ open, onOpenChange, competition, onCreated }: 
             <Input id="targetDiameterCm" type="number" {...register('targetDiameterCm', { valueAsNumber: true })} />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="maximumScoreCm">Maximum Score (cm)</Label>
+            <Input
+              id="maximumScoreCm"
+              type="number"
+              step="1"
+              {...register('maximumScoreCm', { valueAsNumber: true })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Applied for DNF / ABS / DNS / out-of-target (e.g. 1000 for FAI, or local rules)
+            </p>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="faiCategory">FAI Category</Label>
             <Input id="faiCategory" {...register('faiCategory')} />
           </div>
@@ -231,7 +191,7 @@ export function CompetitionForm({ open, onOpenChange, competition, onCreated }: 
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting || mutation.isPending}>
-              {isEdit ? 'Save Changes' : 'Create Competition'}
+              Create Competition
             </Button>
           </DialogFooter>
         </form>
@@ -242,7 +202,6 @@ export function CompetitionForm({ open, onOpenChange, competition, onCreated }: 
 
 export function CompetitionsPage() {
   const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Competition | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { data: competitions, isLoading } = useQuery({
@@ -264,12 +223,7 @@ export function CompetitionsPage() {
           <h1 className="text-2xl font-bold">Competitions</h1>
           <p className="text-muted-foreground">Manage FAI Category 2 accuracy events</p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
+        <Button onClick={() => setFormOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           New Competition
         </Button>
@@ -295,17 +249,7 @@ export function CompetitionsPage() {
                     {comp.code} · {comp.venue}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditing(comp);
-                      setFormOpen(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
+                <CardContent>
                   <Button size="sm" onClick={() => handleOpen(comp)}>
                     Open
                   </Button>
@@ -319,7 +263,6 @@ export function CompetitionsPage() {
       <CompetitionForm
         open={formOpen}
         onOpenChange={setFormOpen}
-        competition={editing}
         onCreated={(id) => navigate(competitionPath(id))}
       />
     </div>

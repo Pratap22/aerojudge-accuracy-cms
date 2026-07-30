@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Medal } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Medal, RefreshCw } from 'lucide-react';
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -18,8 +19,8 @@ import {
   TabsList,
   TabsTrigger,
 } from '@npha/ui';
-import type { IndividualRankingResult, RankingCategory, TeamRankingResult } from '@npha/shared';
-import { api } from '../lib/api';
+import type { RankingCategory } from '@npha/shared';
+import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { connectSocket, onSocketEvent } from '../lib/socket';
 
@@ -41,24 +42,73 @@ interface RankingRow {
   bullseyes: number;
 }
 
-function mapIndividual(rows: IndividualRankingResult[], pilots: Record<string, string>): RankingRow[] {
+interface IndividualRankingApi {
+  rank: number;
+  pilotId: string;
+  totalScoreCm: number;
+  roundsFlown: number;
+  bullseyes: number;
+  pilot?: {
+    id: string;
+    pilotNumber: number;
+    firstName: string;
+    lastName: string;
+    country?: { name?: string; code?: string } | null;
+  };
+}
+
+interface TeamRankingApi {
+  rank: number;
+  teamId: string;
+  totalScoreCm: number;
+  roundsScored: number;
+  team?: { id: string; name: string; country?: { name?: string } | null };
+}
+
+interface CountryRankingApi {
+  rank: number;
+  countryId: string;
+  totalScoreCm: number;
+  pilotIds?: string[];
+}
+
+function mapIndividual(rows: IndividualRankingApi[]): RankingRow[] {
   return rows.map((r) => ({
     rank: r.rank,
     id: r.pilotId,
-    name: pilots[r.pilotId] ?? r.pilotId,
+    name: r.pilot
+      ? `#${r.pilot.pilotNumber} ${r.pilot.firstName} ${r.pilot.lastName}`
+      : r.pilotId,
+    country: r.pilot?.country?.name ?? r.pilot?.country?.code,
     totalScoreCm: r.totalScoreCm,
     roundsFlown: r.roundsFlown,
     bullseyes: r.bullseyes,
   }));
 }
 
-function mapTeam(rows: TeamRankingResult[], teams: Record<string, string>): RankingRow[] {
+function mapTeam(rows: TeamRankingApi[]): RankingRow[] {
   return rows.map((r) => ({
     rank: r.rank,
     id: r.teamId,
-    name: teams[r.teamId] ?? r.teamId,
+    name: r.team?.name ?? r.teamId,
+    country: r.team?.country?.name,
     totalScoreCm: r.totalScoreCm,
     roundsFlown: r.roundsScored,
+    bullseyes: 0,
+  }));
+}
+
+function mapCountry(
+  rows: CountryRankingApi[],
+  countryNames: Record<string, string>,
+): RankingRow[] {
+  return rows.map((r) => ({
+    rank: r.rank,
+    id: r.countryId,
+    name: countryNames[r.countryId] ?? r.countryId,
+    country: countryNames[r.countryId] ?? r.countryId,
+    totalScoreCm: r.totalScoreCm,
+    roundsFlown: r.pilotIds?.length ?? 0,
     bullseyes: 0,
   }));
 }
@@ -75,60 +125,108 @@ export function RankingsPage() {
 
   useEffect(() => {
     if (!activeCompetitionId) return;
-    const unsub = onSocketEvent('ranking:updated', (payload) => {
-      if (payload.category === category || payload.category === 'OVERALL') {
-        setLiveUpdate(new Date());
-        queryClient.invalidateQueries({ queryKey: ['rankings', activeCompetitionId] });
-      }
+    const unsub = onSocketEvent('ranking:updated', () => {
+      setLiveUpdate(new Date());
+      void queryClient.invalidateQueries({ queryKey: ['rankings', activeCompetitionId] });
     });
     return unsub;
-  }, [activeCompetitionId, category, queryClient]);
+  }, [activeCompetitionId, queryClient]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['rankings', activeCompetitionId, category],
     queryFn: async () => {
+      const base = `/competitions/${activeCompetitionId}/rankings`;
+
       if (category === 'TEAM') {
-        const [rankings, teams] = await Promise.all([
-          api.get<TeamRankingResult[]>(`/competitions/${activeCompetitionId}/rankings/team`),
-          api.get<{ id: string; name: string }[]>(`/competitions/${activeCompetitionId}/teams`),
-        ]);
-        const teamMap = Object.fromEntries(teams.map((t) => [t.id, t.name]));
-        return mapTeam(rankings, teamMap);
+        const rankings = await api.get<TeamRankingApi[]>(`${base}/team`);
+        return mapTeam(rankings);
       }
-      const [rankings, pilots] = await Promise.all([
-        api.get<IndividualRankingResult[]>(
-          `/competitions/${activeCompetitionId}/rankings/${category.toLowerCase()}`,
-        ),
-        api.get<{ id: string; firstName: string; lastName: string; pilotNumber: number }[]>(
-          `/competitions/${activeCompetitionId}/pilots`,
-        ),
-      ]);
-      const pilotMap = Object.fromEntries(
-        pilots.map((p) => [p.id, `#${p.pilotNumber} ${p.firstName} ${p.lastName}`]),
-      );
-      return mapIndividual(rankings, pilotMap);
+
+      if (category === 'COUNTRY') {
+        const [rankings, pilots] = await Promise.all([
+          api.get<CountryRankingApi[]>(`${base}/country`),
+          api.get<
+            {
+              id: string;
+              countryId?: string | null;
+              country?: { id: string; name: string; code: string } | null;
+            }[]
+          >(`/competitions/${activeCompetitionId}/pilots`, { pageSize: 500 }),
+        ]);
+        const countryNames: Record<string, string> = {};
+        for (const p of pilots) {
+          if (p.countryId && p.country) {
+            countryNames[p.countryId] = p.country.name;
+          }
+        }
+        return mapCountry(rankings, countryNames);
+      }
+
+      const path =
+        category === 'OVERALL'
+          ? `${base}/overall`
+          : category === 'WOMEN'
+            ? `${base}/women`
+            : `${base}/junior`;
+      const rankings = await api.get<IndividualRankingApi[]>(path);
+      return mapIndividual(rankings);
     },
     enabled: !!activeCompetitionId,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
+  });
+
+  const recalcMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/competitions/${activeCompetitionId}/rankings/recalculate`),
+    onSuccess: () => {
+      setLiveUpdate(new Date());
+      void queryClient.invalidateQueries({ queryKey: ['rankings', activeCompetitionId] });
+    },
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
+    return (
+      <p className="text-muted-foreground">
+        <a href="/competitions" className="text-secondary underline">
+          Open a competition
+        </a>{' '}
+        from the Competitions list.
+      </p>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Rankings</h1>
           <p className="text-muted-foreground">Live standings with FAI tie-break rules</p>
         </div>
-        {liveUpdate && (
-          <Badge variant="success" className="animate-pulse">
-            Updated {liveUpdate.toLocaleTimeString()}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {liveUpdate && (
+            <Badge variant="success" className="animate-pulse">
+              Updated {liveUpdate.toLocaleTimeString()}
+            </Badge>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={recalcMutation.isPending}
+            onClick={() => recalcMutation.mutate()}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${recalcMutation.isPending ? 'animate-spin' : ''}`} />
+            Recalculate
+          </Button>
+        </div>
       </div>
+
+      {recalcMutation.isError && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {recalcMutation.error instanceof ApiError
+            ? recalcMutation.error.message
+            : 'Failed to recalculate rankings'}
+        </div>
+      )}
 
       <Tabs value={category} onValueChange={(v) => setCategory(v as RankingCategory)}>
         <TabsList>
@@ -153,28 +251,40 @@ export function RankingsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-16">Rank</TableHead>
-                      <TableHead>{category === 'TEAM' ? 'Team' : 'Pilot'}</TableHead>
-                      {category === 'COUNTRY' && <TableHead>Country</TableHead>}
+                      <TableHead>{category === 'TEAM' ? 'Team' : category === 'COUNTRY' ? 'Country' : 'Pilot'}</TableHead>
                       <TableHead className="text-right">Total (cm)</TableHead>
-                      <TableHead className="text-right">Rounds</TableHead>
-                      {category !== 'TEAM' && <TableHead className="text-right">Bullseyes</TableHead>}
+                      <TableHead className="text-right">
+                        {category === 'COUNTRY' ? 'Pilots' : 'Rounds'}
+                      </TableHead>
+                      {category !== 'TEAM' && category !== 'COUNTRY' && (
+                        <TableHead className="text-right">Bullseyes</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
                           Loading…
                         </TableCell>
                       </TableRow>
-                    ) : data?.length === 0 ? (
+                    ) : isError ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground">
-                          No rankings available yet.
+                        <TableCell colSpan={5} className="text-center text-destructive">
+                          {error instanceof ApiError ? error.message : 'Failed to load rankings'}{' '}
+                          <button type="button" className="underline" onClick={() => void refetch()}>
+                            Retry
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ) : !data?.length ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          No rankings available yet. Enter scores, then click Recalculate.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      data?.map((row) => (
+                      data.map((row) => (
                         <TableRow key={row.id} className={row.rank <= 3 ? 'bg-secondary/5' : ''}>
                           <TableCell>
                             <span
@@ -192,10 +302,11 @@ export function RankingsPage() {
                             </span>
                           </TableCell>
                           <TableCell className="font-medium">{row.name}</TableCell>
-                          {category === 'COUNTRY' && <TableCell>{row.country ?? '—'}</TableCell>}
-                          <TableCell className="text-right font-mono">{row.totalScoreCm.toFixed(1)}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            {Number(row.totalScoreCm).toFixed(1)}
+                          </TableCell>
                           <TableCell className="text-right">{row.roundsFlown}</TableCell>
-                          {category !== 'TEAM' && (
+                          {category !== 'TEAM' && category !== 'COUNTRY' && (
                             <TableCell className="text-right">{row.bullseyes}</TableCell>
                           )}
                         </TableRow>

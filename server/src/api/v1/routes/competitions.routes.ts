@@ -10,8 +10,6 @@ router.get('/', ...ctrl.list);
 router.post('/', requirePermission('competition:create'), ...ctrl.create);
 router.get('/:id', ...ctrl.get);
 router.get('/:id/dashboard', ...ctrl.dashboard);
-router.patch('/:id', requirePermission('competition:update'), ...ctrl.update);
-router.put('/:id', requirePermission('competition:update'), ...ctrl.update);
 router.delete('/:id', requirePermission('competition:delete'), ...ctrl.remove);
 router.patch('/:id/settings', requirePermission('competition:update'), ...ctrl.updateSettingsHandler);
 router.put('/:id/settings', requirePermission('competition:update'), ...ctrl.updateSettingsHandler);

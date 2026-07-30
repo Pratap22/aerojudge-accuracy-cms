@@ -224,8 +224,8 @@ export async function getCountryRankings(competitionId: string) {
   const result = await prisma.result.findFirst({
     where: { competitionId, category: 'COUNTRY', roundId: null },
   });
-  if (!result) throw AppError.notFound('Country rankings not calculated yet');
-  return result.payloadJson;
+  if (!result) return [];
+  return result.payloadJson ?? [];
 }
 
 export async function getWomenRankings(competitionId: string) {

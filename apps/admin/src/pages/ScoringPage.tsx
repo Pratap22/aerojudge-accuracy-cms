@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { enterScoreSchema, type EnterScoreInput, type ScoreResultType } from '@npha/shared';
+import { enterScoreSchema, type EnterScoreInput, type ScoreResultType, type RuleConfig } from '@npha/shared';
 import { Save, Target } from 'lucide-react';
 import {
   Badge,
@@ -47,6 +47,35 @@ interface Flight {
   status: string;
   distanceCm: number | null;
   resultType: ScoreResultType | null;
+  finalScoreCm?: number | null;
+}
+
+function formatFlightScore(flight: Flight): ReactNode {
+  const type = flight.resultType;
+
+  if (type === 'BULLSEYE' || (flight.distanceCm === 0 && type === 'MEASURED')) {
+    return <Badge variant="success">Bullseye</Badge>;
+  }
+
+  if (type && type !== 'MEASURED') {
+    const variant =
+      type === 'DNF' || type === 'ABS' || type === 'DNS' || type === 'DSQ'
+        ? 'destructive'
+        : type === 'REFLIGHT'
+          ? 'warning'
+          : 'secondary';
+    return <Badge variant={variant}>{type}</Badge>;
+  }
+
+  if (flight.distanceCm != null) {
+    return `${flight.distanceCm} cm`;
+  }
+
+  if (flight.finalScoreCm != null && flight.status === 'SCORED') {
+    return `${flight.finalScoreCm} cm`;
+  }
+
+  return '—';
 }
 
 export function ScoringPage() {
@@ -60,6 +89,14 @@ export function ScoringPage() {
     queryFn: () => api.get<RoundOption[]>(`/competitions/${activeCompetitionId}/rounds`),
     enabled: !!activeCompetitionId,
   });
+
+  const { data: rules } = useQuery({
+    queryKey: ['settings', activeCompetitionId],
+    queryFn: () => api.get<RuleConfig>(`/competitions/${activeCompetitionId}/rules`),
+    enabled: !!activeCompetitionId,
+  });
+
+  const maximumScoreCm = rules?.maximumScoreCm ?? 1000;
 
   const { data: flights } = useQuery({
     queryKey: ['flights', activeCompetitionId, selectedRoundId],
@@ -87,14 +124,36 @@ export function ScoringPage() {
   const scoreMutation = useMutation({
     mutationFn: (data: EnterScoreInput) =>
       api.post(`/competitions/${activeCompetitionId}/rounds/${selectedRoundId}/scores`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['flights'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['rankings'] });
-      queryClient.invalidateQueries({ queryKey: ['rounds'] });
-      reset({ flightId: selectedFlightId ?? '', distanceCm: null, resultType: 'MEASURED', penaltyCm: 0 });
+    onSuccess: async (_result, saved) => {
+      // Keep the same pilot selected and show the values that were just saved
+      reset({
+        flightId: saved.flightId,
+        distanceCm: saved.distanceCm,
+        resultType: saved.resultType,
+        penaltyCm: saved.penaltyCm ?? 0,
+        judgeNotes: saved.judgeNotes,
+      });
+      setSelectedFlightId(saved.flightId);
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['flights', activeCompetitionId, selectedRoundId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['rankings'] }),
+        queryClient.invalidateQueries({ queryKey: ['rounds', activeCompetitionId] }),
+      ]);
     },
   });
+
+  const goToNextUnscored = () => {
+    if (!flights?.length) return;
+    const currentIndex = flights.findIndex((f) => f.id === selectedFlightId);
+    const next =
+      flights.slice(currentIndex + 1).find((f) => f.status !== 'SCORED') ??
+      flights.find((f) => f.status !== 'SCORED' && f.id !== selectedFlightId);
+    if (next) selectFlight(next);
+  };
 
   useEffect(() => {
     if (!rounds?.length || selectedRoundId) return;
@@ -112,12 +171,20 @@ export function ScoringPage() {
   const selectedRound = rounds?.find((r) => r.id === selectedRoundId);
 
   const selectFlight = (flight: Flight) => {
+    scoreMutation.reset();
     setSelectedFlightId(flight.id);
     reset({
       flightId: flight.id,
       distanceCm: flight.distanceCm,
       resultType: flight.resultType ?? 'MEASURED',
       penaltyCm: 0,
+    });
+    // On smaller layouts the form sits below the list — bring it into view
+    requestAnimationFrame(() => {
+      document.getElementById('score-entry-panel')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
     });
   };
 
@@ -200,10 +267,10 @@ export function ScoringPage() {
             </div>
           )}
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 rounded-lg border">
+        <div className="grid items-start gap-6 lg:grid-cols-3">
+          <div className="max-h-[min(70vh,40rem)] overflow-auto rounded-lg border lg:col-span-2 lg:max-h-[calc(100vh-11rem)]">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">
                 <TableRow>
                   <TableHead>Order</TableHead>
                   <TableHead>#</TableHead>
@@ -224,15 +291,7 @@ export function ScoringPage() {
                     <TableCell className="font-mono">{flight.pilotNumber}</TableCell>
                     <TableCell>{flight.pilotName}</TableCell>
                     <TableCell>{flight.country}</TableCell>
-                    <TableCell>
-                      {flight.resultType === 'BULLSEYE' ? (
-                        <Badge variant="success">Bullseye</Badge>
-                      ) : flight.distanceCm != null ? (
-                        `${flight.distanceCm} cm`
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
+                    <TableCell>{formatFlightScore(flight)}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{flight.status}</Badge>
                     </TableCell>
@@ -242,7 +301,10 @@ export function ScoringPage() {
             </Table>
           </div>
 
-          <Card>
+          <Card
+            id="score-entry-panel"
+            className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto"
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Target className="h-5 w-5" />
@@ -259,27 +321,41 @@ export function ScoringPage() {
                     <p className="text-muted-foreground">{selectedFlight.country}</p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {(
-                      [
-                        ['BULLSEYE', 'Bullseye', 0],
-                        ['DNF', 'DNF', null],
-                        ['ABS', 'ABS', null],
-                        ['DNS', 'DNS', null],
-                        ['REFLIGHT', 'Reflight', null],
-                        ['MAXIMUM', 'Maximum', 1000],
-                      ] as const
-                    ).map(([type, label, dist]) => (
+                  <div className="space-y-2">
+                    <Label>Quick result</Label>
+                    <div className="flex flex-wrap gap-2">
                       <Button
-                        key={type}
                         type="button"
                         size="sm"
-                        variant={resultType === type ? 'default' : 'outline'}
-                        onClick={() => quickResult(type, dist)}
+                        variant={resultType === 'MEASURED' ? 'default' : 'outline'}
+                        onClick={() => {
+                          setValue('resultType', 'MEASURED');
+                          if (watch('distanceCm') == null) setValue('distanceCm', null);
+                        }}
                       >
-                        {label}
+                        Measured
                       </Button>
-                    ))}
+                      {(
+                        [
+                          ['BULLSEYE', 'Bullseye', 0],
+                          ['DNF', 'DNF', null],
+                          ['ABS', 'ABS', null],
+                          ['DNS', 'DNS', null],
+                          ['REFLIGHT', 'Reflight', null],
+                          ['MAXIMUM', 'Maximum', maximumScoreCm],
+                        ] as const
+                      ).map(([type, label, dist]) => (
+                        <Button
+                          key={type}
+                          type="button"
+                          size="sm"
+                          variant={resultType === type ? 'default' : 'outline'}
+                          onClick={() => quickResult(type, dist)}
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -287,35 +363,31 @@ export function ScoringPage() {
                     <Input
                       type="number"
                       step="0.1"
-                      {...register('distanceCm', {
-                        setValueAs: (v) => (v === '' || v == null ? null : Number(v)),
-                      })}
+                      disabled={['DNF', 'ABS', 'DNS', 'REFLIGHT'].includes(resultType)}
+                      {...(() => {
+                        const field = register('distanceCm', {
+                          setValueAs: (v) => (v === '' || v == null ? null : Number(v)),
+                        });
+                        return {
+                          ...field,
+                          onChange: (e: ChangeEvent<HTMLInputElement>) => {
+                            void field.onChange(e);
+                            if (e.target.value !== '') {
+                              setValue('resultType', 'MEASURED');
+                            }
+                          },
+                        };
+                      })()}
                     />
                     {errors.distanceCm && (
                       <p className="text-sm text-destructive">{errors.distanceCm.message}</p>
                     )}
+                    <p className="text-xs text-muted-foreground">
+                      Enter a measured landing distance, or use a quick result above.
+                    </p>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Result Type</Label>
-                    <Select
-                      value={resultType}
-                      onValueChange={(v) => setValue('resultType', v as ScoreResultType)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="MEASURED">Measured</SelectItem>
-                        <SelectItem value="BULLSEYE">Bullseye</SelectItem>
-                        <SelectItem value="MAXIMUM">Maximum</SelectItem>
-                        <SelectItem value="DNF">DNF</SelectItem>
-                        <SelectItem value="ABS">ABS</SelectItem>
-                        <SelectItem value="DNS">DNS</SelectItem>
-                        <SelectItem value="REFLIGHT">Reflight</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <input type="hidden" {...register('resultType')} />
 
                   <div className="space-y-2">
                     <Label>Judge Notes</Label>
@@ -324,10 +396,34 @@ export function ScoringPage() {
 
                   <input type="hidden" {...register('flightId')} />
 
-                  <Button type="submit" className="w-full" disabled={scoreMutation.isPending}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Score
-                  </Button>
+                  {scoreMutation.isSuccess && !scoreMutation.isPending && (
+                    <p className="rounded-md bg-emerald-500/15 px-3 py-2 text-sm text-emerald-400">
+                      Score saved
+                      {watch('resultType') === 'DNF'
+                        ? ' as DNF'
+                        : watch('resultType') === 'BULLSEYE'
+                          ? ' as Bullseye'
+                          : watch('distanceCm') != null
+                            ? ` · ${watch('distanceCm')} cm`
+                            : ''}
+                      .
+                    </p>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1" disabled={scoreMutation.isPending}>
+                      <Save className="mr-2 h-4 w-4" />
+                      {scoreMutation.isPending ? 'Saving…' : 'Save Score'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!flights?.some((f) => f.status !== 'SCORED')}
+                      onClick={goToNextUnscored}
+                    >
+                      Next
+                    </Button>
+                  </div>
                 </form>
               ) : (
                 <p className="text-sm text-muted-foreground">Select a flight from the list to enter a score.</p>

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { createCompetitionSchema, paginationSchema } from '@npha/shared';
+import { ScoringEngine } from '@npha/scoring-engine';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
@@ -69,24 +70,6 @@ export const create = [
   }),
 ];
 
-export const update = [
-  validateParams(idParams),
-  asyncHandler(async (req: Request, res: Response) => {
-    const before = await competitionService.getCompetition(req.params.id);
-    const competition = await competitionService.updateCompetition(req.params.id, req.body);
-    await writeAuditLog({
-      ...auditFromRequest(req),
-      competitionId: competition.id,
-      action: 'UPDATE',
-      entityType: 'Competition',
-      entityId: competition.id,
-      before,
-      after: competition,
-    });
-    sendSuccess(res, competition);
-  }),
-];
-
 export const remove = [
   validateParams(idParams),
   asyncHandler(async (req: Request, res: Response) => {
@@ -108,7 +91,11 @@ export const getSettings = [
   validateParams(idParams),
   asyncHandler(async (req: Request, res: Response) => {
     const competition = await competitionService.getCompetition(req.params.id);
-    sendSuccess(res, competition.settings ?? null);
+    const rules = ScoringEngine.resolveRules(
+      competition.ruleSet,
+      competitionService.settingsToRuleOverrides(competition.settings ?? undefined),
+    );
+    sendSuccess(res, rules);
   }),
 ];
 
@@ -116,8 +103,13 @@ export const updateSettingsHandler = [
   validateParams(idParams),
   validateBody(settingsSchema.passthrough()),
   asyncHandler(async (req: Request, res: Response) => {
-    const settings = await competitionService.updateSettings(req.params.id, req.body);
-    sendSuccess(res, settings);
+    await competitionService.updateSettings(req.params.id, req.body);
+    const competition = await competitionService.getCompetition(req.params.id);
+    const rules = ScoringEngine.resolveRules(
+      competition.ruleSet,
+      competitionService.settingsToRuleOverrides(competition.settings ?? undefined),
+    );
+    sendSuccess(res, rules);
   }),
 ];
 

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 import { Button } from '@npha/ui';
-import type { EnterScoreInput, ScoreResultType } from '@npha/shared';
+import type { EnterScoreInput, RuleConfig, ScoreResultType } from '@npha/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { connectSocket, onSocketEvent } from '../lib/socket';
@@ -53,6 +53,14 @@ export function ScoringPage() {
     enabled: !!competitionId && !!roundId,
     refetchInterval: 30_000,
   });
+
+  const { data: rules } = useQuery({
+    queryKey: ['settings', competitionId],
+    queryFn: () => api.get<RuleConfig>(`/competitions/${competitionId}/rules`),
+    enabled: !!competitionId,
+  });
+
+  const maximumScoreCm = rules?.maximumScoreCm ?? 1000;
 
   const currentFlight = flights?.[currentIndex] ?? null;
 
@@ -124,7 +132,8 @@ export function ScoringPage() {
         resultType === 'MEASURED' ? (distanceInput ? parseFloat(distanceInput) : null) : null;
       await submitScore({
         flightId: currentFlight.id,
-        distanceCm: resultType === 'BULLSEYE' ? 0 : resultType === 'MAXIMUM' ? 1000 : distanceCm,
+        distanceCm:
+          resultType === 'BULLSEYE' ? 0 : resultType === 'MAXIMUM' ? maximumScoreCm : distanceCm,
         resultType,
         penaltyCm: 0,
       });
@@ -206,6 +215,7 @@ export function ScoringPage() {
             selected={resultType}
             onSelect={handleQuickSelect}
             disabled={confirmMutation.isPending}
+            maximumScoreCm={maximumScoreCm}
           />
 
           <NumericKeypad

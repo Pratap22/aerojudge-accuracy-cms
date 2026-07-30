@@ -46,7 +46,21 @@ export async function createRound(
     scheduledAt?: Date;
   },
 ) {
-  await getCompetition(competitionId);
+  const competition = await getCompetition(competitionId);
+  const existingCount = await prisma.round.count({ where: { competitionId } });
+  if (existingCount >= competition.maxRounds) {
+    throw AppError.badRequest(
+      `Cannot create more than ${competition.maxRounds} rounds (Max Rounds setting)`,
+    );
+  }
+
+  const conflict = await prisma.round.findFirst({
+    where: { competitionId, number: data.number, type: (data.type ?? 'OFFICIAL') as never },
+  });
+  if (conflict) {
+    throw AppError.conflict(`Round ${data.number} already exists`);
+  }
+
   return prisma.round.create({
     data: {
       competitionId,

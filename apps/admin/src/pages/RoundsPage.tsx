@@ -1,5 +1,6 @@
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pause, Play, Square, CheckCircle, RotateCcw } from 'lucide-react';
+import { Pause, Play, Plus, Square, CheckCircle, RotateCcw } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -7,6 +8,18 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Table,
   TableBody,
   TableCell,
@@ -15,22 +28,32 @@ import {
   TableRow,
 } from '@npha/ui';
 import type { RoundStatus, RoundType } from '@npha/shared';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
-interface Round {
+interface RoundApi {
   id: string;
   number: number;
-  name: string;
+  name: string | null;
   type: RoundType;
   status: RoundStatus;
   scheduledAt: string | null;
-  flightsTotal: number;
-  flightsScored: number;
+  _count?: { flights: number; scores: number };
+  flightsTotal?: number;
+  flightsScored?: number;
 }
 
-const statusColors: Record<RoundStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive'> = {
-  SCHEDULED: 'outline' as 'default',
+interface CompetitionInfo {
+  id: string;
+  maxRounds: number;
+  practiceRounds: number;
+}
+
+const statusColors: Record<
+  RoundStatus,
+  'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'
+> = {
+  SCHEDULED: 'outline',
   BRIEFING: 'secondary',
   OPEN: 'secondary',
   ACTIVE: 'success',
@@ -42,27 +65,70 @@ const statusColors: Record<RoundStatus, 'default' | 'secondary' | 'success' | 'w
   CANCELLED: 'destructive',
 };
 
-type RoundAction = 'start' | 'pause' | 'resume' | 'close' | 'approve';
+type RoundAction = 'start' | 'pause' | 'resume' | 'close' | 'reopen';
+
+function normalizeRound(round: RoundApi) {
+  return {
+    ...round,
+    name: round.name ?? '',
+    flightsTotal: round.flightsTotal ?? round._count?.flights ?? 0,
+    flightsScored: round.flightsScored ?? round._count?.scores ?? 0,
+  };
+}
 
 export function RoundsPage() {
-  const activeCompetitionId = useCompetitionId();
+  const competitionId = useCompetitionId();
   const queryClient = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [roundType, setRoundType] = useState<'OFFICIAL' | 'PRACTICE'>('OFFICIAL');
+  const [roundName, setRoundName] = useState('');
 
-  const { data: rounds, isLoading } = useQuery({
-    queryKey: ['rounds', activeCompetitionId],
-    queryFn: () => api.get<Round[]>(`/competitions/${activeCompetitionId}/rounds`),
-    enabled: !!activeCompetitionId,
+  const { data: competition } = useQuery({
+    queryKey: ['competition', competitionId],
+    queryFn: () => api.get<CompetitionInfo>(`/competitions/${competitionId}`),
+    enabled: !!competitionId,
   });
+
+  const { data: roundsRaw, isLoading } = useQuery({
+    queryKey: ['rounds', competitionId],
+    queryFn: () => api.get<RoundApi[]>(`/competitions/${competitionId}/rounds`),
+    enabled: !!competitionId,
+  });
+
+  const rounds = useMemo(() => (roundsRaw ?? []).map(normalizeRound), [roundsRaw]);
+  const maxRounds = competition?.maxRounds ?? 12;
+  const nextNumber = (rounds.reduce((m, r) => Math.max(m, r.number), 0) || 0) + 1;
+  const atMax = rounds.length >= maxRounds;
 
   const actionMutation = useMutation({
     mutationFn: ({ roundId, action }: { roundId: string; action: RoundAction }) =>
-      api.post<Round>(`/competitions/${activeCompetitionId}/rounds/${roundId}/${action}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rounds'] }),
+      api.post(`/competitions/${competitionId}/rounds/${roundId}/${action}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] }),
   });
 
-  const getActions = (status: RoundStatus): { action: RoundAction; label: string; icon: React.ReactNode }[] => {
+  const createMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/competitions/${competitionId}/rounds`, {
+        number: nextNumber,
+        name: roundName || `Round ${nextNumber}`,
+        type: roundType,
+        orderType: 'RANDOM',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      setCreateOpen(false);
+      setRoundName('');
+      setRoundType('OFFICIAL');
+    },
+  });
+
+  const getActions = (
+    status: RoundStatus,
+  ): { action: RoundAction; label: string; icon: React.ReactNode }[] => {
     switch (status) {
       case 'SCHEDULED':
+      case 'BRIEFING':
       case 'OPEN':
         return [{ action: 'start', label: 'Start', icon: <Play className="h-4 w-4" /> }];
       case 'ACTIVE':
@@ -77,30 +143,48 @@ export function RoundsPage() {
         ];
       case 'CLOSED':
       case 'PENDING_APPROVAL':
-        return [{ action: 'approve', label: 'Approve', icon: <CheckCircle className="h-4 w-4" /> }];
+        return [{ action: 'reopen', label: 'Reopen', icon: <RotateCcw className="h-4 w-4" /> }];
       default:
         return [];
     }
   };
 
-  if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
+  if (!competitionId) {
+    return (
+      <p className="text-muted-foreground">
+        <a href="/competitions" className="text-secondary underline">
+          Open a competition
+        </a>{' '}
+        from the Competitions list.
+      </p>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Rounds</h1>
-        <p className="text-muted-foreground">Control round lifecycle and flight operations</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Rounds</h1>
+          <p className="text-muted-foreground">
+            Control round lifecycle and flight operations · Max {maxRounds} rounds
+          </p>
+        </div>
+        <Button disabled={atMax} onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Round
+        </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total Rounds</CardTitle>
+            <CardTitle className="text-sm">Created</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{rounds?.length ?? 0}</p>
+            <p className="text-2xl font-bold">
+              {rounds.length}
+              <span className="text-base font-normal text-muted-foreground"> / {maxRounds}</span>
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -109,21 +193,38 @@ export function RoundsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-secondary">
-              {rounds?.filter((r) => r.status === 'ACTIVE').length ?? 0}
+              {rounds.filter((r) => r.status === 'ACTIVE').length}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Approved</CardTitle>
+            <CardTitle className="text-sm">Closed</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {rounds?.filter((r) => r.status === 'APPROVED' || r.status === 'LOCKED').length ?? 0}
+              {rounds.filter((r) => r.status === 'CLOSED' || r.status === 'PENDING_APPROVAL').length}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Approved / Locked</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {rounds.filter((r) => r.status === 'APPROVED' || r.status === 'LOCKED').length}
             </p>
           </CardContent>
         </Card>
       </div>
+
+      {atMax && (
+        <p className="text-sm text-muted-foreground">
+          Maximum of {maxRounds} rounds reached. Increase Max Rounds in competition settings to add
+          more.
+        </p>
+      )}
 
       <div className="rounded-lg border">
         <Table>
@@ -144,11 +245,18 @@ export function RoundsPage() {
                   Loading…
                 </TableCell>
               </TableRow>
+            ) : rounds.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  No rounds yet. Create Round 1 to begin.
+                </TableCell>
+              </TableRow>
             ) : (
-              rounds?.map((round) => (
+              rounds.map((round) => (
                 <TableRow key={round.id}>
                   <TableCell className="font-medium">
-                    R{round.number} {round.name && `– ${round.name}`}
+                    R{round.number}
+                    {round.name ? ` – ${round.name}` : ''}
                   </TableCell>
                   <TableCell>{round.type}</TableCell>
                   <TableCell>
@@ -166,7 +274,7 @@ export function RoundsPage() {
                         <Button
                           key={action}
                           size="sm"
-                          variant={action === 'start' || action === 'approve' ? 'default' : 'outline'}
+                          variant={action === 'start' ? 'default' : 'outline'}
                           disabled={actionMutation.isPending}
                           onClick={() => actionMutation.mutate({ roundId: round.id, action })}
                         >
@@ -182,6 +290,61 @@ export function RoundsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Round {nextNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Max rounds is a limit ({maxRounds}). Each round is created when officials are ready to
+              fly it.
+            </p>
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                placeholder={`Round ${nextNumber}`}
+                value={roundName}
+                onChange={(e) => setRoundName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select
+                value={roundType}
+                onValueChange={(v) => setRoundType(v as 'OFFICIAL' | 'PRACTICE')}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OFFICIAL">Official</SelectItem>
+                  <SelectItem value="PRACTICE">Practice</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {createMutation.isError && (
+              <p className="text-sm text-destructive">
+                {createMutation.error instanceof ApiError
+                  ? createMutation.error.message
+                  : 'Failed to create round'}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={createMutation.isPending || atMax}
+              onClick={() => createMutation.mutate()}
+            >
+              {createMutation.isPending ? 'Creating…' : `Create Round ${nextNumber}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
