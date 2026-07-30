@@ -35,12 +35,16 @@ export function PilotPanel({ pilot, label, variant }: PilotPanelProps) {
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500 font-bold text-tent-navy">
               {pilot.pilot.pilotNumber}
             </span>
-            <span className="text-2xl">{countryCodeToEmoji(pilot.pilot.country.code)}</span>
+            <span className="text-2xl">
+              {countryCodeToEmoji(pilot.pilot.country?.code ?? '')}
+            </span>
           </div>
           <h3 className="text-xl font-bold text-white">
             {pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName)}
           </h3>
-          <p className="mt-1 text-sm text-white/50">{pilot.pilot.country.name}</p>
+          <p className="mt-1 text-sm text-white/50">
+            {pilot.pilot.country?.name ?? '—'}
+          </p>
           <div className="mt-3 flex gap-4 text-sm">
             <span className="text-sky-300">Rank #{pilot.rank}</span>
             <span className="font-mono text-white">{formatScore(pilot.totalScoreCm)} cm</span>

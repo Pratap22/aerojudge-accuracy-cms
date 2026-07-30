@@ -51,6 +51,16 @@ export function RoundSelectPage() {
     enabled: !!activeCompId,
   });
 
+  // Normalize API shape (_count) → flightsScored / flightsTotal
+  const roundsNormalized = (rounds ?? []).map((r) => {
+    const raw = r as RoundOption & { _count?: { flights?: number; scores?: number } };
+    return {
+      ...r,
+      flightsTotal: r.flightsTotal ?? raw._count?.flights ?? 0,
+      flightsScored: r.flightsScored ?? raw._count?.scores ?? 0,
+    };
+  });
+
   const selectRound = (roundId: string) => {
     if (activeCompId) setCompetitionId(activeCompId);
     navigate(`/score/${roundId}`);
@@ -94,7 +104,7 @@ export function RoundSelectPage() {
           <p className="text-center text-slate-400">Loading rounds…</p>
         ) : (
           <div className="space-y-3">
-            {rounds?.map((round) => {
+            {roundsNormalized.map((round) => {
               const scoringBlocked = ['APPROVED', 'LOCKED', 'CANCELLED', 'SCHEDULED'].includes(
                 round.status,
               );
@@ -106,28 +116,35 @@ export function RoundSelectPage() {
                 key={round.id}
                 className={
                   canScore
-                    ? 'cursor-pointer border-slate-700 bg-slate-800 transition-colors hover:border-sky-500/50 hover:bg-slate-750 active:scale-[0.99]'
-                    : 'border-slate-800 bg-slate-900/60 opacity-70'
+                    ? 'cursor-pointer border-slate-700 bg-slate-800 text-white transition-colors hover:border-sky-500/50 hover:bg-slate-750 active:scale-[0.99]'
+                    : 'border-slate-800 bg-slate-900/60 text-white opacity-80'
                 }
                 onClick={canScore ? () => selectRound(round.id) : undefined}
               >
-                <CardContent className="flex items-center justify-between p-5">
+                <CardContent className="flex items-center justify-between p-5 text-white">
                   <div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <span className="font-mono text-2xl font-bold text-sky-400">R{round.number}</span>
-                      <span className="text-lg font-medium">{round.name || `Round ${round.number}`}</span>
-                      <Badge variant={statusVariant[round.status]}>{round.status}</Badge>
+                      <span className="text-lg font-medium text-slate-100">
+                        {round.name || `Round ${round.number}`}
+                      </span>
+                      <Badge
+                        variant={statusVariant[round.status]}
+                        className="border-slate-600 text-slate-100"
+                      >
+                        {round.status}
+                      </Badge>
                     </div>
                     <p className="mt-1 text-sm text-slate-400">
-                      {round.flightsScored}/{round.flightsTotal} flights scored
+                      {round.flightsScored ?? 0}/{round.flightsTotal ?? 0} flights scored
                       {scoringBlocked && round.status === 'LOCKED' ? ' · Final — scoring closed' : ''}
                       {scoringBlocked && round.status === 'APPROVED' ? ' · Approved — scoring closed' : ''}
                     </p>
                   </div>
                   {canScore ? (
-                    <ChevronRight className="h-6 w-6 text-slate-500" />
+                    <ChevronRight className="h-6 w-6 shrink-0 text-slate-400" />
                   ) : (
-                    <span className="text-xs text-slate-500">View only</span>
+                    <span className="shrink-0 text-xs text-slate-500">View only</span>
                   )}
                 </CardContent>
               </Card>

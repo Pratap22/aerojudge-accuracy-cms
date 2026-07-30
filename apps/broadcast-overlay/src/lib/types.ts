@@ -9,7 +9,7 @@ export interface PublicPilot {
   pilotNumber: number;
   firstName: string;
   lastName: string;
-  country: { name: string; code: string };
+  country?: { name: string; code: string } | null;
 }
 
 export interface PublicRankingRow {

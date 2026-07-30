@@ -16,8 +16,8 @@ export interface PublicPilot {
   pilotNumber: number;
   firstName: string;
   lastName: string;
-  nationality: string;
-  country: { name: string; code: string };
+  nationality?: string | null;
+  country?: { name: string; code: string } | null;
 }
 
 export interface PublicRankingRow {

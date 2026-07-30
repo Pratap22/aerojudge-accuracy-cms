@@ -10,6 +10,7 @@ import {
   emitRankingUpdated,
   emitRoundStatus,
   emitScoreUpdated,
+  emitCurrentPilot,
 } from '../../../socket/index.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
 
@@ -201,7 +202,13 @@ export const enterScore = [
       },
     );
 
-    emitScoreUpdated(competitionId, roundId, computed);
+    emitScoreUpdated(competitionId, roundId, computed, {
+      id: score.pilot.id,
+      pilotNumber: score.pilot.pilotNumber,
+      firstName: score.pilot.firstName,
+      lastName: score.pilot.lastName,
+    });
+    emitCurrentPilot(competitionId, score.pilotId, score.flightId);
 
     const recalc = await scoringService.recalculateRankings(competitionId);
     for (const category of recalc.categories) {

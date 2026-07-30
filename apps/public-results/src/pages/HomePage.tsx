@@ -37,7 +37,7 @@ export function HomePage() {
       rank: r.rank,
       name: pilotFullName(r.pilot.firstName, r.pilot.lastName),
       score: Number(formatScore(r.totalScoreCm)),
-      country: r.pilot.country.code,
+      country: r.pilot.country?.code ?? r.pilot.nationality ?? 'XX',
     })) ?? [];
 
   return (

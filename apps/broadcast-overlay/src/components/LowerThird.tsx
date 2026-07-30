@@ -33,7 +33,8 @@ export function LowerThird({ pilot, visible = true }: LowerThirdProps) {
                     {pilot.pilot.firstName} {pilot.pilot.lastName}
                   </h2>
                   <p className="text-sm text-sky-300">
-                    {countryCodeToEmoji(pilot.pilot.country.code)} {pilot.pilot.country.name} · Rank #{pilot.rank}
+                    {countryCodeToEmoji(pilot.pilot.country?.code ?? '')}{' '}
+                    {pilot.pilot.country?.name ?? '—'} · Rank #{pilot.rank}
                   </p>
                 </div>
               </div>

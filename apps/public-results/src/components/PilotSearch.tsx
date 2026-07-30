@@ -20,7 +20,7 @@ export function PilotSearch() {
         !q ||
         pilotFullName(r.pilot.firstName, r.pilot.lastName).toLowerCase().includes(q) ||
         String(r.pilot.pilotNumber).includes(q) ||
-        r.pilot.country.code.toLowerCase().includes(q),
+        r.pilot.country?.code?.toLowerCase().includes(q),
     );
   }, [results, search]);
 
@@ -56,7 +56,8 @@ export function PilotSearch() {
                   {pilotFullName(row.pilot.firstName, row.pilot.lastName)}
                 </p>
                 <p className="text-sm text-sky-300/60">
-                  {countryCodeToEmoji(row.pilot.country.code)} {row.pilot.country.name}
+                  {countryCodeToEmoji(row.pilot.country?.code ?? '')}{' '}
+                  {row.pilot.country?.name ?? row.pilot.nationality ?? '—'}
                 </p>
               </div>
               <div className="text-right">

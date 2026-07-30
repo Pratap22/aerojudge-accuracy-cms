@@ -68,11 +68,21 @@ export function emitScoreUpdated(
   competitionId: string,
   roundId: string,
   score: unknown,
+  pilot?: {
+    id: string;
+    pilotNumber: number;
+    firstName: string;
+    lastName: string;
+    country?: string;
+    countryCode?: string;
+  },
 ): void {
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))
     .to(SOCKET_ROOMS.round(roundId))
-    .emit('score:updated', { competitionId, roundId, score });
+    .to(SOCKET_ROOMS.announcer(competitionId))
+    .to(SOCKET_ROOMS.display(competitionId))
+    .emit('score:updated', { competitionId, roundId, score, pilot });
 }
 
 export function emitRoundStatus(

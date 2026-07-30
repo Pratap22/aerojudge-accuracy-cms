@@ -55,15 +55,21 @@ function App() {
   const currentPilot = useMemo(() => {
     if (!overallResults?.rankings.length) return null;
     if (socketState.currentPilotId) {
-      const found = overallResults.rankings.find((r) => r.id === socketState.currentPilotId);
+      const found = overallResults.rankings.find(
+        (r) => r.id === socketState.currentPilotId || r.pilotId === socketState.currentPilotId,
+      );
       if (found) return found;
     }
     return overallResults.rankings[0] ?? null;
   }, [overallResults, socketState.currentPilotId]);
 
   const onDeckQueue = useMemo(() => {
-    if (!overallResults?.rankings.length || !currentPilot) return overallResults?.rankings.slice(1, 8) ?? [];
-    const idx = overallResults.rankings.findIndex((r) => r.id === currentPilot.id);
+    if (!overallResults?.rankings.length || !currentPilot) {
+      return overallResults?.rankings.slice(1, 8) ?? [];
+    }
+    const idx = overallResults.rankings.findIndex(
+      (r) => r.id === currentPilot.id || r.pilotId === currentPilot.pilotId,
+    );
     if (idx === -1) return overallResults.rankings.slice(1, 8);
     return overallResults.rankings.slice(idx + 1, idx + 8);
   }, [overallResults, currentPilot]);

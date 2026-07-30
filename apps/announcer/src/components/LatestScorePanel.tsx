@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { ArrowDown, ArrowUp, Minus, Target } from 'lucide-react';
-import { ScoreDisplay } from '@npha/ui';
+import { Badge, ScoreDisplay } from '@npha/ui';
 import type { LiveScoreEvent } from '../lib/types';
 import type { PublicRankingRow } from '../lib/types';
 
@@ -10,19 +10,23 @@ interface LatestScorePanelProps {
 }
 
 export function LatestScorePanel({ score, pilot }: LatestScorePanelProps) {
-  const rankChange = score?.previousRank != null && score.rank > 0
-    ? score.previousRank - score.rank
-    : null;
+  const rankChange =
+    score?.previousRank != null && score.rank > 0 ? score.previousRank - score.rank : null;
 
   const displayScore = score?.scoreCm ?? null;
-  const pilotName = pilot
-    ? `${pilot.pilot.firstName} ${pilot.pilot.lastName}`
-    : score?.pilotName ?? '—';
+  const pilotName = score?.pilotName
+    ? score.pilotName
+    : pilot
+      ? `${pilot.pilot.firstName} ${pilot.pilot.lastName}`
+      : '—';
+  const pilotNumber = score?.pilotNumber || pilot?.pilot.pilotNumber;
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      key={score ? `${score.pilotId}-${score.scoreCm}-${score.resultLabel ?? ''}` : 'empty'}
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.25 }}
       className="rounded-xl border border-white/10 bg-tent-panel p-6"
     >
       <div className="mb-4 flex items-center justify-between">
@@ -33,11 +37,7 @@ export function LatestScorePanel({ score, pilot }: LatestScorePanelProps) {
               rankChange > 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
             }`}
           >
-            {rankChange > 0 ? (
-              <ArrowUp className="h-4 w-4" />
-            ) : (
-              <ArrowDown className="h-4 w-4" />
-            )}
+            {rankChange > 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
             {Math.abs(rankChange)} place{Math.abs(rankChange) !== 1 ? 's' : ''}
           </div>
         )}
@@ -50,15 +50,23 @@ export function LatestScorePanel({ score, pilot }: LatestScorePanelProps) {
       </div>
 
       {displayScore != null ? (
-        <ScoreDisplay
-          scoreCm={displayScore}
-          isBullseye={score?.isBullseye || displayScore === 0}
-          resultLabel={score?.resultLabel}
-          pilotName={pilotName}
-          pilotNumber={pilot?.pilot.pilotNumber}
-          size="lg"
-          className="border-white/10 bg-tent-navy/60"
-        />
+        <div className="space-y-3">
+          {score?.resultLabel && (
+            <div className="flex justify-center">
+              <Badge variant="secondary" className="text-sm uppercase tracking-wider">
+                {score.resultLabel}
+              </Badge>
+            </div>
+          )}
+          <ScoreDisplay
+            scoreCm={displayScore}
+            isBullseye={score?.isBullseye || displayScore === 0}
+            pilotName={pilotName !== '—' ? pilotName : undefined}
+            pilotNumber={pilotNumber || undefined}
+            size="lg"
+            className="border-white/10 bg-tent-navy/60 text-white"
+          />
+        </div>
       ) : pilot ? (
         <div className="flex items-center gap-4 rounded-lg bg-tent-navy/60 p-6">
           <Target className="h-10 w-10 text-sky-400/50" />
@@ -68,7 +76,7 @@ export function LatestScorePanel({ score, pilot }: LatestScorePanelProps) {
           </div>
         </div>
       ) : (
-        <p className="py-8 text-center text-white/30">No scores yet</p>
+        <p className="py-8 text-center text-white/30">Waiting for judge to confirm a score…</p>
       )}
     </motion.div>
   );

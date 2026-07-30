@@ -56,16 +56,18 @@ export function useResults(category: RankingCategory = 'OVERALL') {
 
 export function toLeaderboardEntries(results: PublicResults | undefined) {
   if (!results?.rankings) return [];
-  return results.rankings.map((row) => ({
-    rank: row.rank,
-    pilotNumber: row.pilot.pilotNumber,
-    firstName: row.pilot.firstName,
-    lastName: row.pilot.lastName,
-    countryCode2: row.pilot.country.code,
-    totalScoreCm: row.totalScoreCm,
-    roundsFlown: row.roundsFlown,
-    bullseyes: row.bullseyes,
-  }));
+  return results.rankings
+    .filter((row) => row?.pilot)
+    .map((row) => ({
+      rank: row.rank,
+      pilotNumber: row.pilot?.pilotNumber ?? 0,
+      firstName: row.pilot?.firstName ?? '',
+      lastName: row.pilot?.lastName ?? '',
+      countryCode2: row.pilot?.country?.code ?? row.pilot?.nationality ?? 'XX',
+      totalScoreCm: row.totalScoreCm,
+      roundsFlown: row.roundsFlown,
+      bullseyes: row.bullseyes,
+    }));
 }
 
 export function computeStats(results: PublicResults | undefined) {
@@ -81,7 +83,9 @@ export function computeStats(results: PublicResults | undefined) {
   }
 
   const rankings = results.rankings;
-  const countries = new Set(rankings.map((r) => r.pilot.country.code));
+  const countries = new Set(
+    rankings.map((r) => r.pilot?.country?.code ?? r.pilot?.nationality).filter(Boolean),
+  );
 
   return {
     totalPilots: rankings.length,

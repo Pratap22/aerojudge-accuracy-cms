@@ -251,7 +251,19 @@ export interface AuthUser {
 }
 
 export interface SocketEvents {
-  'score:updated': { competitionId: string; roundId: string; score: ComputedScore };
+  'score:updated': {
+    competitionId: string;
+    roundId: string;
+    score: ComputedScore;
+    pilot?: {
+      id: string;
+      pilotNumber: number;
+      firstName: string;
+      lastName: string;
+      country?: string;
+      countryCode?: string;
+    };
+  };
   'round:status': { competitionId: string; roundId: string; status: RoundStatus };
   'ranking:updated': { competitionId: string; category: RankingCategory };
   'flight:status': { competitionId: string; flightId: string; status: FlightStatus };

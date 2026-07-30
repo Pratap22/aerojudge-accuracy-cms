@@ -60,7 +60,8 @@ export function PilotProfilePage() {
                 {pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName)}
               </h1>
               <p className="mt-2 text-lg text-sky-300">
-                {countryCodeToEmoji(pilot.pilot.country.code)} {pilot.pilot.country.name}
+                {countryCodeToEmoji(pilot.pilot.country?.code ?? '')}{' '}
+                {pilot.pilot.country?.name ?? pilot.pilot.nationality ?? '—'}
               </p>
             </div>
             <div className="ml-auto">

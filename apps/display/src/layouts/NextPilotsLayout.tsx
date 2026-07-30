@@ -37,7 +37,7 @@ function PilotCard({
           <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-sky-500 font-display text-5xl text-broadcast-navy">
             {pilot.pilot.pilotNumber}
           </div>
-          <CountryFlag code={pilot.pilot.country.code} size="md" className="mb-3" />
+          <CountryFlag code={pilot.pilot.country?.code ?? 'XX'} size="md" className="mb-3" />
           <h3 className="text-center font-display text-3xl uppercase text-white">
             {pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName)}
           </h3>

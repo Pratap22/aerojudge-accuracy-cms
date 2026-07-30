@@ -5,7 +5,7 @@ import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as scoreService from '../../../services/score.service.js';
 import * as scoringService from '../../../services/scoring.service.js';
-import { emitRankingUpdated, emitScoreUpdated } from '../../../socket/index.js';
+import { emitRankingUpdated, emitScoreUpdated, emitCurrentPilot } from '../../../socket/index.js';
 import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
 
@@ -39,7 +39,13 @@ export const enter = [
       after: score,
     });
 
-    emitScoreUpdated(competitionId, roundId, computed);
+    emitScoreUpdated(competitionId, roundId, computed, {
+      id: score.pilot.id,
+      pilotNumber: score.pilot.pilotNumber,
+      firstName: score.pilot.firstName,
+      lastName: score.pilot.lastName,
+    });
+    emitCurrentPilot(competitionId, score.pilotId, score.flightId);
 
     const recalc = await scoringService.recalculateRankings(competitionId);
     for (const category of recalc.categories) {

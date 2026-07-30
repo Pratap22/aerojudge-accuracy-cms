@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { Button } from '@npha/ui';
 import type { EnterScoreInput, RuleConfig, ScoreResultType } from '@npha/shared';
 import { api } from '../lib/api';
@@ -160,17 +160,13 @@ export function ScoringPage() {
     else if (type !== 'MEASURED') setDistanceInput('');
   };
 
-  const goNext = () => {
-    if (flights && currentIndex < flights.length - 1) {
-      setCurrentIndex((i) => i + 1);
+  const selectPilot = (flightId: string) => {
+    if (!flights) return;
+    const idx = flights.findIndex((f) => f.id === flightId);
+    if (idx >= 0) {
+      setCurrentIndex(idx);
       setConfirmed(false);
-    }
-  };
-
-  const goPrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex((i) => i - 1);
-      setConfirmed(false);
+      confirmMutation.reset();
     }
   };
 
@@ -195,12 +191,23 @@ export function ScoringPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Rounds
         </Button>
-        <OfflineIndicator pendingCount={pendingCount} isOnline={isOnline} />
-        {pendingCount > 0 && isOnline && (
-          <Button size="sm" variant="secondary" onClick={handleSync}>
-            Sync {pendingCount}
-          </Button>
-        )}
+        <div className="text-center">
+          <p className="font-mono text-lg font-bold text-sky-400">
+            R{roundMeta?.number ?? '—'}
+          </p>
+          <p className="max-w-[14rem] truncate text-xs text-slate-400">
+            {roundMeta?.name || (roundMeta?.number != null ? `Round ${roundMeta.number}` : 'Loading…')}
+            {roundMeta?.status ? ` · ${roundMeta.status}` : ''}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <OfflineIndicator pendingCount={pendingCount} isOnline={isOnline} />
+          {pendingCount > 0 && isOnline && (
+            <Button size="sm" variant="secondary" onClick={handleSync}>
+              Sync {pendingCount}
+            </Button>
+          )}
+        </div>
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-3 lg:p-6">
@@ -221,7 +228,17 @@ export function ScoringPage() {
                 transition={{ duration: 0.2 }}
               >
                 <PilotDisplay
-                  pilotNumber={currentFlight.pilotNumber}
+                  pilots={
+                    flights?.map((f) => ({
+                      id: f.id,
+                      pilotNumber: f.pilotNumber,
+                      firstName: f.firstName,
+                      lastName: f.lastName,
+                      status: f.status,
+                    })) ?? []
+                  }
+                  selectedId={currentFlight.id}
+                  onSelect={selectPilot}
                   firstName={currentFlight.firstName}
                   lastName={currentFlight.lastName}
                   country={currentFlight.country}
@@ -266,31 +283,9 @@ export function ScoringPage() {
             </Button>
           </div>
 
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-14 px-6 border-slate-600"
-              disabled={currentIndex === 0}
-              onClick={goPrev}
-            >
-              <ChevronLeft className="mr-1 h-5 w-5" />
-              Previous
-            </Button>
-            <span className="text-sm text-slate-400">
-              {currentIndex + 1} / {flights?.length ?? 0}
-            </span>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-14 px-6 border-slate-600"
-              disabled={!flights || currentIndex >= flights.length - 1}
-              onClick={goNext}
-            >
-              Next
-              <ChevronRight className="ml-1 h-5 w-5" />
-            </Button>
-          </div>
+          <p className="text-center text-sm text-slate-500">
+            Pilot {currentIndex + 1} of {flights?.length ?? 0} — use the # dropdown to switch
+          </p>
         </div>
 
         <aside className="rounded-xl bg-slate-800/50 p-4 lg:p-6">
@@ -301,10 +296,18 @@ export function ScoringPage() {
                 pilotNumber: f.pilotNumber,
                 firstName: f.firstName,
                 lastName: f.lastName,
-                status: f.id === currentFlight?.id ? 'CURRENT' : f.status === 'ON_DECK' ? 'ON_DECK' : 'PENDING',
+                status:
+                  f.id === currentFlight?.id
+                    ? 'CURRENT'
+                    : f.status === 'SCORED'
+                      ? 'SCORED'
+                      : f.status === 'ON_DECK'
+                        ? 'ON_DECK'
+                        : 'PENDING',
               })) ?? []
             }
             currentId={currentFlight?.id ?? null}
+            onSelect={selectPilot}
           />
         </aside>
       </div>

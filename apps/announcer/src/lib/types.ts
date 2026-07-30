@@ -16,11 +16,12 @@ export interface PublicPilot {
   firstName: string;
   lastName: string;
   nationality: string;
-  country: { name: string; code: string };
+  country?: { name: string; code: string } | null;
 }
 
 export interface PublicRankingRow {
   id: string;
+  pilotId?: string;
   rank: number;
   totalScoreCm: number;
   roundsFlown: number;

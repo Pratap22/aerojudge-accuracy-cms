@@ -41,23 +41,40 @@ export function useAnnouncerData() {
     const unsubs = [
       onSocketEvent('pilot:current', (payload) => {
         if (payload.competitionId !== compId) return;
-        setPreviousPilotId((prev) => (payload.pilotId !== prev ? currentPilotId : prev));
-        setCurrentPilotId(payload.pilotId);
+        setCurrentPilotId((prev) => {
+          if (payload.pilotId && payload.pilotId !== prev) {
+            setPreviousPilotId(prev);
+          }
+          return payload.pilotId;
+        });
       }),
       onSocketEvent('score:updated', (payload) => {
         if (payload.competitionId !== compId) return;
         const score = payload.score as ComputedScore;
+        const pilot = payload.pilot;
+        const pilotName = pilot
+          ? pilotFullName(pilot.firstName, pilot.lastName)
+          : '';
+
         setLatestScore({
           pilotId: score.pilotId,
-          pilotNumber: 0,
-          pilotName: '',
+          pilotNumber: pilot?.pilotNumber ?? 0,
+          pilotName,
           scoreCm: score.finalScoreCm,
           isBullseye: score.isBullseye,
-          resultLabel: score.resultType !== 'MEASURED' && score.resultType !== 'BULLSEYE'
-            ? score.resultType
-            : undefined,
+          resultLabel:
+            score.resultType !== 'MEASURED' && score.resultType !== 'BULLSEYE'
+              ? score.resultType
+              : undefined,
           rank: 0,
         });
+
+        // Keep current pilot in sync with the just-scored pilot
+        setCurrentPilotId((prev) => {
+          if (score.pilotId !== prev) setPreviousPilotId(prev);
+          return score.pilotId;
+        });
+
         refreshResults();
       }),
       onSocketEvent('ranking:updated', () => refreshResults()),
@@ -84,18 +101,43 @@ export function useAnnouncerData() {
       unsubs.forEach((u) => u());
       disconnectSocket();
     };
-  }, [competitionQuery.data?.id, currentPilotId, refreshResults]);
+  }, [competitionQuery.data?.id, refreshResults]);
 
   const findPilot = (id: string | null, rankings: PublicRankingRow[]): PublicRankingRow | null => {
     if (!id || !rankings.length) return null;
-    return rankings.find((r) => r.id === id) ?? null;
+    return (
+      rankings.find((r) => {
+        const row = r as PublicRankingRow & { pilotId?: string };
+        return row.id === id || row.pilotId === id;
+      }) ?? null
+    );
   };
 
   const rankings = resultsQuery.data?.rankings ?? [];
-  const currentPilot = findPilot(currentPilotId, rankings) ?? rankings[0] ?? null;
+  const currentPilot = findPilot(currentPilotId, rankings);
   const previousPilot = findPilot(previousPilotId, rankings);
   const currentIdx = currentPilot ? rankings.findIndex((r) => r.id === currentPilot.id) : -1;
-  const nextPilot = currentIdx >= 0 ? rankings[currentIdx + 1] ?? null : rankings[1] ?? null;
+  const nextPilot = currentIdx >= 0 ? rankings[currentIdx + 1] ?? null : null;
+
+  // Enrich latest score with ranking data once results refresh
+  const enrichedLatestScore: LiveScoreEvent | null = latestScore
+    ? {
+        ...latestScore,
+        pilotName:
+          latestScore.pilotName ||
+          (findPilot(latestScore.pilotId, rankings)
+            ? pilotFullName(
+                findPilot(latestScore.pilotId, rankings)!.pilot.firstName,
+                findPilot(latestScore.pilotId, rankings)!.pilot.lastName,
+              )
+            : latestScore.pilotName),
+        pilotNumber:
+          latestScore.pilotNumber ||
+          findPilot(latestScore.pilotId, rankings)?.pilot.pilotNumber ||
+          0,
+        rank: findPilot(latestScore.pilotId, rankings)?.rank ?? latestScore.rank,
+      }
+    : null;
 
   const stats = computeAnnouncerStats(resultsQuery.data);
 
@@ -118,7 +160,7 @@ export function useAnnouncerData() {
     currentPilot,
     previousPilot,
     nextPilot,
-    latestScore,
+    latestScore: enrichedLatestScore,
     wind,
     announcements,
     stats,
