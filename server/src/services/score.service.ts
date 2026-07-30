@@ -1,0 +1,200 @@
+import { ScoringEngine } from '@npha/scoring-engine';
+import type { ComputedScore, RoundScoreEntry, ScoreResultType } from '@npha/shared';
+import { prisma } from '../config/prisma.js';
+import { AppError } from '../utils/errors.js';
+import { getCompetition, settingsToRuleOverrides } from './competition.service.js';
+
+export async function enterScore(
+  flightId: string,
+  data: {
+    distanceCm: number | null;
+    resultType: ScoreResultType;
+    penaltyCm?: number;
+    judgeNotes?: string;
+    enteredById: string;
+  },
+) {
+  const flight = await prisma.flight.findUnique({
+    where: { id: flightId },
+    include: { round: true, pilot: true },
+  });
+  if (!flight) throw AppError.notFound('Flight not found');
+
+  const competition = await getCompetition(flight.round.competitionId);
+  const rules = ScoringEngine.resolveRules(
+    competition.ruleSet,
+    settingsToRuleOverrides(competition.settings ?? undefined),
+  );
+
+  const computed = ScoringEngine.computeFlightScore(
+    {
+      pilotId: flight.pilotId,
+      roundId: flight.roundId,
+      distanceCm: data.distanceCm,
+      resultType: data.resultType,
+      penaltyCm: data.penaltyCm,
+      isReflight: flight.isReflight,
+    },
+    rules,
+  );
+
+  const score = await prisma.score.upsert({
+    where: { flightId },
+    create: {
+      flightId,
+      roundId: flight.roundId,
+      pilotId: flight.pilotId,
+      distanceCm: data.distanceCm,
+      resultType: data.resultType,
+      penaltyCm: data.penaltyCm ?? 0,
+      finalScoreCm: computed.finalScoreCm,
+      isBullseye: computed.isBullseye,
+      status: 'ENTERED',
+      judgeNotes: data.judgeNotes,
+      enteredById: data.enteredById,
+      enteredAt: new Date(),
+    },
+    update: {
+      distanceCm: data.distanceCm,
+      resultType: data.resultType,
+      penaltyCm: data.penaltyCm ?? 0,
+      finalScoreCm: computed.finalScoreCm,
+      isBullseye: computed.isBullseye,
+      status: 'ENTERED',
+      judgeNotes: data.judgeNotes,
+      enteredById: data.enteredById,
+      enteredAt: new Date(),
+      version: { increment: 1 },
+    },
+    include: { pilot: true, flight: true },
+  });
+
+  await prisma.flight.update({
+    where: { id: flightId },
+    data: { status: computed.isCountable ? 'SCORED' : 'REFLIGHT' },
+  });
+
+  return { score, computed, competitionId: flight.round.competitionId, roundId: flight.roundId };
+}
+
+export async function confirmScore(scoreId: string, confirmedById: string) {
+  const score = await prisma.score.findUnique({
+    where: { id: scoreId },
+    include: { round: true },
+  });
+  if (!score) throw AppError.notFound('Score not found');
+  if (score.status !== 'ENTERED' && score.status !== 'DISPUTED') {
+    throw AppError.badRequest(`Cannot confirm score in status ${score.status}`);
+  }
+
+  return prisma.score.update({
+    where: { id: scoreId },
+    data: {
+      status: 'CONFIRMED',
+      confirmedAt: new Date(),
+      enteredById: confirmedById,
+    },
+    include: { pilot: true, flight: true, round: true },
+  });
+}
+
+export async function listScoresByRound(competitionId: string, roundId: string) {
+  const round = await prisma.round.findFirst({ where: { id: roundId, competitionId } });
+  if (!round) throw AppError.notFound('Round not found');
+
+  return prisma.score.findMany({
+    where: { roundId },
+    include: {
+      pilot: { include: { country: true } },
+      flight: true,
+      enteredBy: { select: { id: true, firstName: true, lastName: true } },
+    },
+    orderBy: [{ finalScoreCm: 'asc' }],
+  });
+}
+
+export async function getScore(scoreId: string) {
+  const score = await prisma.score.findUnique({
+    where: { id: scoreId },
+    include: { pilot: true, flight: true, round: true },
+  });
+  if (!score) throw AppError.notFound('Score not found');
+  return score;
+}
+
+export function toComputedScore(score: {
+  pilotId: string;
+  roundId: string;
+  distanceCm: number | null;
+  resultType: ScoreResultType;
+  penaltyCm: number;
+  finalScoreCm: number | null;
+  isBullseye: boolean;
+}): ComputedScore {
+  return {
+    pilotId: score.pilotId,
+    roundId: score.roundId,
+    distanceCm: score.distanceCm,
+    resultType: score.resultType,
+    penaltyCm: score.penaltyCm,
+    finalScoreCm: score.finalScoreCm ?? 0,
+    isBullseye: score.isBullseye,
+    isCountable: score.resultType !== 'REFLIGHT',
+    notes: [],
+  };
+}
+
+export async function buildRoundScoreEntries(competitionId: string): Promise<{
+  pilots: Array<{
+    pilotId: string;
+    pilotNumber: number;
+    gender?: string;
+    isJunior?: boolean;
+    isWomen?: boolean;
+    countryId?: string | null;
+    status?: string;
+    roundScores: RoundScoreEntry[];
+  }>;
+  rules: ReturnType<typeof ScoringEngine.resolveRules>;
+}> {
+  const competition = await getCompetition(competitionId);
+  const rules = ScoringEngine.resolveRules(
+    competition.ruleSet,
+    settingsToRuleOverrides(competition.settings ?? undefined),
+  );
+
+  const pilots = await prisma.pilot.findMany({
+    where: { competitionId },
+    include: {
+      scores: {
+        where: { status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] } },
+        include: { round: true },
+      },
+    },
+  });
+
+  const pilotInputs = pilots.map((p) => ({
+    pilotId: p.id,
+    pilotNumber: p.pilotNumber,
+    gender: p.gender,
+    isJunior: p.isJunior,
+    isWomen: p.isWomen,
+    countryId: p.countryId,
+    status: p.status,
+    roundScores: p.scores
+      .filter((s) => s.finalScoreCm != null)
+      .map(
+        (s): RoundScoreEntry => ({
+          pilotId: p.id,
+          roundId: s.roundId,
+          roundNumber: s.round.number,
+          finalScoreCm: s.finalScoreCm!,
+          resultType: s.resultType as ScoreResultType,
+          isBullseye: s.isBullseye,
+          isDiscarded: s.isDiscarded,
+        }),
+      ),
+  }));
+
+  return { pilots: pilotInputs, rules };
+}

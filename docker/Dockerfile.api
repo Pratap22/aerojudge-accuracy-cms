@@ -1,0 +1,59 @@
+# NPHA Accuracy CMS – API server (multi-stage)
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json turbo.json ./
+COPY apps/admin/package.json ./apps/admin/
+COPY apps/judge/package.json ./apps/judge/
+COPY apps/display/package.json ./apps/display/
+COPY apps/public-results/package.json ./apps/public-results/
+COPY apps/announcer/package.json ./apps/announcer/
+COPY apps/broadcast-overlay/package.json ./apps/broadcast-overlay/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/utils/package.json ./packages/utils/
+COPY packages/scoring-engine/package.json ./packages/scoring-engine/
+COPY packages/pdf-engine/package.json ./packages/pdf-engine/
+COPY packages/ui/package.json ./packages/ui/
+COPY server/package.json ./server/
+COPY database/package.json ./database/
+RUN npm ci --ignore-scripts
+
+FROM deps AS builder
+COPY . .
+RUN npm run generate --workspace=@npha/database
+RUN npm run build --workspace=@npha/shared \
+  && npm run build --workspace=@npha/utils \
+  && npm run build --workspace=@npha/scoring-engine \
+  && npm run build --workspace=@npha/pdf-engine \
+  && npm run build --workspace=@npha/server
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN apk add --no-cache curl tini
+RUN addgroup -g 1001 -S npha && adduser -S npha -u 1001 -G npha
+
+COPY --from=builder /app/package.json /app/package-lock.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/server/dist ./server/dist
+COPY --from=builder /app/server/package.json ./server/package.json
+COPY --from=builder /app/database ./database
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/utils/dist ./packages/utils/dist
+COPY --from=builder /app/packages/utils/package.json ./packages/utils/package.json
+COPY --from=builder /app/packages/scoring-engine/dist ./packages/scoring-engine/dist
+COPY --from=builder /app/packages/scoring-engine/package.json ./packages/scoring-engine/package.json
+COPY --from=builder /app/packages/pdf-engine/dist ./packages/pdf-engine/dist
+COPY --from=builder /app/packages/pdf-engine/package.json ./packages/pdf-engine/package.json
+COPY docker/api-entrypoint.sh /usr/local/bin/api-entrypoint.sh
+RUN chmod +x /usr/local/bin/api-entrypoint.sh \
+  && mkdir -p /app/uploads /app/uploads/documents/prints \
+  && chown -R npha:npha /app
+
+USER npha
+EXPOSE 4000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:4000/api/v1/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/api-entrypoint.sh"]
+CMD ["node", "server/dist/index.js"]

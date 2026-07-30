@@ -1,0 +1,38 @@
+# NPHA Accuracy CMS – Vite SPA (multi-stage, nginx-served)
+# Build: docker build -f docker/Dockerfile.web --build-arg APP_NAME=admin --build-arg BASE_PATH=/admin/ .
+ARG APP_NAME=admin
+ARG BASE_PATH=/
+
+FROM node:20-alpine AS deps
+WORKDIR /app
+ARG APP_NAME
+COPY package.json package-lock.json turbo.json ./
+COPY apps/admin/package.json ./apps/admin/
+COPY apps/judge/package.json ./apps/judge/
+COPY apps/display/package.json ./apps/display/
+COPY apps/public-results/package.json ./apps/public-results/
+COPY apps/announcer/package.json ./apps/announcer/
+COPY apps/broadcast-overlay/package.json ./apps/broadcast-overlay/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/utils/package.json ./packages/utils/
+COPY packages/ui/package.json ./packages/ui/
+RUN npm ci --ignore-scripts
+
+FROM deps AS builder
+ARG APP_NAME
+ARG BASE_PATH
+ENV VITE_BASE_PATH=${BASE_PATH}
+COPY . .
+RUN npm run build --workspace=@npha/shared \
+  && npm run build --workspace=@npha/${APP_NAME}
+
+FROM nginx:1.27-alpine AS runner
+ARG APP_NAME
+ARG BASE_PATH
+RUN apk add --no-cache curl
+COPY docker/nginx/app.conf /tmp/app.conf.template
+RUN sed "s|\${BASE_PATH}|${BASE_PATH}|g" /tmp/app.conf.template > /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/apps/${APP_NAME}/dist /usr/share/nginx/html
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://127.0.0.1:80${BASE_PATH} || exit 1
+EXPOSE 80

@@ -1,0 +1,151 @@
+import type { RuleConfig, RuleSetVersion } from '@npha/shared';
+import { slugify } from '@npha/utils';
+import type { Prisma } from '@npha/database';
+import { prisma } from '../config/prisma.js';
+import { AppError } from '../utils/errors.js';
+
+export async function listCompetitions(query: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  status?: string;
+}) {
+  const where: Prisma.CompetitionWhereInput = {};
+  if (query.search) {
+    where.OR = [
+      { name: { contains: query.search, mode: 'insensitive' } },
+      { code: { contains: query.search, mode: 'insensitive' } },
+    ];
+  }
+  if (query.status) where.status = query.status as Prisma.EnumCompetitionStatusFilter['equals'];
+
+  const [items, total] = await Promise.all([
+    prisma.competition.findMany({
+      where,
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+      orderBy: { startDate: 'desc' },
+      include: { settings: true },
+    }),
+    prisma.competition.count({ where }),
+  ]);
+
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
+export async function getCompetition(id: string) {
+  const competition = await prisma.competition.findUnique({
+    where: { id },
+    include: { settings: true, sponsors: true },
+  });
+  if (!competition) throw AppError.notFound('Competition not found');
+  return competition;
+}
+
+export async function createCompetition(data: {
+  name: string;
+  code: string;
+  organizer: string;
+  venue: string;
+  country: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  startDate: Date;
+  endDate: Date;
+  practiceDays?: number;
+  officialDays?: number;
+  maxRounds?: number;
+  practiceRounds?: number;
+  targetDiameterCm?: number;
+  ruleSet?: RuleSetVersion;
+  faiCategory?: string;
+}) {
+  const slug = slugify(`${data.code}-${data.name}`);
+  const existing = await prisma.competition.findFirst({
+    where: { OR: [{ code: data.code }, { publicSlug: slug }] },
+  });
+  if (existing) throw AppError.conflict('Competition code or slug already exists');
+
+  return prisma.competition.create({
+    data: {
+      ...data,
+      publicSlug: slug,
+      settings: { create: {} },
+    },
+    include: { settings: true },
+  });
+}
+
+export async function updateCompetition(id: string, data: Prisma.CompetitionUpdateInput) {
+  await getCompetition(id);
+  return prisma.competition.update({
+    where: { id },
+    data,
+    include: { settings: true },
+  });
+}
+
+export async function deleteCompetition(id: string): Promise<void> {
+  await getCompetition(id);
+  await prisma.competition.delete({ where: { id } });
+}
+
+export async function updateSettings(
+  competitionId: string,
+  data: Partial<RuleConfig> & Record<string, unknown>,
+) {
+  await getCompetition(competitionId);
+  const { version: _v, customRules, tieBreakPriority, ...settingsFields } = data;
+
+  const updateData: Prisma.CompetitionSettingsUpdateInput = {
+    ...settingsFields,
+    customRulesJson: customRules ? (customRules as object) : undefined,
+    tieBreakRulesJson: tieBreakPriority ? (tieBreakPriority as object) : undefined,
+  };
+
+  return prisma.competitionSettings.upsert({
+    where: { competitionId },
+    create: { competitionId, ...updateData } as Prisma.CompetitionSettingsCreateInput,
+    update: updateData,
+  });
+}
+
+export async function publishCompetition(id: string) {
+  const competition = await getCompetition(id);
+  if (competition.status === 'CANCELLED') {
+    throw AppError.badRequest('Cannot publish a cancelled competition');
+  }
+
+  return prisma.competition.update({
+    where: { id },
+    data: {
+      isPublished: true,
+      status: competition.status === 'DRAFT' ? 'REGISTRATION' : competition.status,
+    },
+    include: { settings: true },
+  });
+}
+
+export function settingsToRuleOverrides(
+  settings?: NonNullable<Awaited<ReturnType<typeof getCompetition>>['settings']> | null,
+): Partial<RuleConfig> {
+  if (!settings) return {};
+  return {
+    bullseyeScoreCm: settings.bullseyeScoreCm,
+    maximumScoreCm: settings.maximumScoreCm,
+    discardWorstRounds: settings.discardWorstRounds,
+    discardAfterRounds: settings.discardAfterRounds,
+    allowReflights: settings.allowReflights,
+    maxReflightsPerRound: settings.maxReflightsPerRound,
+    teamSize: settings.teamSize,
+    teamScoringPilots: settings.teamScoringPilots,
+    teamAllowReserves: settings.teamAllowReserves,
+    teamMaxReserves: settings.teamMaxReserves,
+    womenCategoryEnabled: settings.womenCategoryEnabled,
+    juniorCategoryEnabled: settings.juniorCategoryEnabled,
+    juniorMaxAge: settings.juniorMaxAge,
+    customRules: (settings.customRulesJson as Record<string, unknown>) ?? undefined,
+    tieBreakPriority: (settings.tieBreakRulesJson as RuleConfig['tieBreakPriority']) ?? undefined,
+  };
+}

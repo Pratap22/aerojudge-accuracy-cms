@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 210 60% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 60% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 60% 12%;
+
+    --primary: 207 100% 16%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 25% 93%;
+    --secondary-foreground: 210 60% 12%;
+
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 16% 42%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 24% 88%;
+    --input: 214 24% 88%;
+    --ring: 199 89% 48%;
+
+    --radius: 0.5rem;
+
+    /* Sports-event tokens */
+    --navy: 207 100% 16%;
+    --sky: 199 89% 48%;
+    --slate: 215 16% 47%;
+    --score-bullseye: 142 71% 45%;
+    --score-bullseye-glow: 142 76% 36%;
+    --rank-gold: 45 93% 47%;
+    --rank-silver: 210 11% 71%;
+    --rank-bronze: 25 75% 47%;
+  }
+
+  .dark {
+    --background: 207 55% 8%;
+    --foreground: 210 40% 96%;
+
+    --card: 207 50% 11%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 207 50% 11%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 207 100% 10%;
+
+    --secondary: 207 35% 16%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 207 30% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 207 100% 10%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 207 30% 20%;
+    --input: 207 30% 20%;
+    --ring: 199 89% 48%;
+
+    --navy: 207 100% 16%;
+    --sky: 199 89% 48%;
+    --slate: 215 16% 55%;
+    --score-bullseye: 142 71% 45%;
+    --score-bullseye-glow: 142 76% 36%;
+    --rank-gold: 45 93% 47%;
+    --rank-silver: 210 11% 71%;
+    --rank-bronze: 25 75% 47%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .score-bullseye-glow {
+    box-shadow:
+      0 0 20px hsl(var(--score-bullseye-glow) / 0.4),
+      0 0 40px hsl(var(--score-bullseye-glow) / 0.2);
+  }
+}

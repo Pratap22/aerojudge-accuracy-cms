@@ -1,0 +1,224 @@
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createCompetitionSchema, type CreateCompetitionInput, type CompetitionStatus } from '@npha/shared';
+import { Plus } from 'lucide-react';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@npha/ui';
+import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
+
+interface Competition extends CreateCompetitionInput {
+  id: string;
+  status: CompetitionStatus;
+}
+
+interface CompetitionFormProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  competition?: Competition | null;
+}
+
+export function CompetitionForm({ open, onOpenChange, competition }: CompetitionFormProps) {
+  const queryClient = useQueryClient();
+  const isEdit = !!competition;
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateCompetitionInput>({
+    resolver: zodResolver(createCompetitionSchema),
+    defaultValues: competition ?? {
+      name: '',
+      code: '',
+      organizer: 'NPHA',
+      venue: '',
+      country: 'NP',
+      startDate: new Date().toISOString().slice(0, 10),
+      endDate: new Date().toISOString().slice(0, 10),
+      practiceDays: 1,
+      officialDays: 3,
+      maxRounds: 8,
+      practiceRounds: 2,
+      targetDiameterCm: 200,
+      ruleSet: 'FAI_2022',
+      faiCategory: '2',
+    },
+  });
+
+  const ruleSet = watch('ruleSet');
+
+  const mutation = useMutation({
+    mutationFn: (data: CreateCompetitionInput) =>
+      isEdit
+        ? api.put<Competition>(`/competitions/${competition!.id}`, data)
+        : api.post<Competition>('/competitions', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competitions'] });
+      onOpenChange(false);
+      reset();
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Edit Competition' : 'Create Competition'}</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={handleSubmit((data) => mutation.mutate(data))}
+          className="grid gap-4 sm:grid-cols-2"
+        >
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="name">Competition Name</Label>
+            <Input id="name" {...register('name')} />
+            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="code">Code</Label>
+            <Input id="code" placeholder="NPHA-2026" {...register('code')} />
+            {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="organizer">Organizer</Label>
+            <Input id="organizer" {...register('organizer')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="venue">Venue</Label>
+            <Input id="venue" {...register('venue')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="country">Country</Label>
+            <Input id="country" {...register('country')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="startDate">Start Date</Label>
+            <Input id="startDate" type="date" {...register('startDate')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="endDate">End Date</Label>
+            <Input id="endDate" type="date" {...register('endDate')} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="maxRounds">Max Rounds</Label>
+            <Input id="maxRounds" type="number" {...register('maxRounds', { valueAsNumber: true })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="targetDiameterCm">Target Diameter (cm)</Label>
+            <Input id="targetDiameterCm" type="number" {...register('targetDiameterCm', { valueAsNumber: true })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Rule Set</Label>
+            <Select value={ruleSet} onValueChange={(v) => setValue('ruleSet', v as CreateCompetitionInput['ruleSet'])}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="FAI_2022">FAI 2022</SelectItem>
+                <SelectItem value="FAI_FUTURE">FAI Future</SelectItem>
+                <SelectItem value="NPHA_LOCAL">NPHA Local</SelectItem>
+                <SelectItem value="CUSTOM">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="sm:col-span-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+              {isEdit ? 'Save Changes' : 'Create Competition'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function CompetitionsPage() {
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Competition | null>(null);
+  const { setActiveCompetitionId } = useAuth();
+  const { data: competitions, isLoading } = useQuery({
+    queryKey: ['competitions'],
+    queryFn: () => api.get<Competition[]>('/competitions'),
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Competitions</h1>
+          <p className="text-muted-foreground">Manage FAI Category 2 accuracy events</p>
+        </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setFormOpen(true);
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          New Competition
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <p className="text-muted-foreground">Loading…</p>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {competitions?.map((comp) => (
+            <Card key={comp.id}>
+              <CardHeader>
+                <CardTitle>{comp.name}</CardTitle>
+                <CardDescription>
+                  {comp.code} · {comp.venue}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditing(comp);
+                    setFormOpen(true);
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button size="sm" onClick={() => setActiveCompetitionId(comp.id)}>
+                  Set Active
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <CompetitionForm open={formOpen} onOpenChange={setFormOpen} competition={editing} />
+    </div>
+  );
+}

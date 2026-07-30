@@ -1,0 +1,221 @@
+import { shuffleArray } from '@npha/utils';
+import type { FlightOrderType, RoundStatus } from '@npha/shared';
+import type { Prisma } from '@npha/database';
+import { prisma } from '../config/prisma.js';
+import { AppError } from '../utils/errors.js';
+import { getCompetition } from './competition.service.js';
+
+const ACTIVE_STATUSES: RoundStatus[] = ['OPEN', 'ACTIVE', 'PAUSED'];
+
+export async function listRounds(competitionId: string) {
+  await getCompetition(competitionId);
+  return prisma.round.findMany({
+    where: { competitionId },
+    orderBy: { number: 'asc' },
+    include: { _count: { select: { flights: true, scores: true } } },
+  });
+}
+
+export async function getRound(competitionId: string, roundId: string) {
+  const round = await prisma.round.findFirst({
+    where: { id: roundId, competitionId },
+    include: {
+      flights: {
+        orderBy: { flightOrder: 'asc' },
+        include: { pilot: { include: { country: true } } },
+      },
+    },
+  });
+  if (!round) throw AppError.notFound('Round not found');
+  return round;
+}
+
+export async function createRound(
+  competitionId: string,
+  data: {
+    number: number;
+    name?: string;
+    type?: string;
+    orderType?: FlightOrderType;
+    scheduledAt?: Date;
+  },
+) {
+  await getCompetition(competitionId);
+  return prisma.round.create({
+    data: {
+      competitionId,
+      number: data.number,
+      name: data.name,
+      type: (data.type ?? 'OFFICIAL') as Prisma.RoundCreateInput['type'],
+      orderType: data.orderType ?? 'RANDOM',
+      scheduledAt: data.scheduledAt,
+    },
+  });
+}
+
+export async function updateRound(
+  competitionId: string,
+  roundId: string,
+  data: Prisma.RoundUpdateInput,
+) {
+  await getRound(competitionId, roundId);
+  return prisma.round.update({ where: { id: roundId }, data });
+}
+
+export async function deleteRound(competitionId: string, roundId: string): Promise<void> {
+  const round = await getRound(competitionId, roundId);
+  if (ACTIVE_STATUSES.includes(round.status as RoundStatus) || round.status === 'CLOSED') {
+    throw AppError.badRequest('Cannot delete an active or closed round');
+  }
+  await prisma.round.delete({ where: { id: roundId } });
+}
+
+export async function startRound(competitionId: string, roundId: string) {
+  const round = await getRound(competitionId, roundId);
+  if (!['SCHEDULED', 'BRIEFING', 'OPEN', 'PAUSED'].includes(round.status)) {
+    throw AppError.badRequest(`Cannot start round in status ${round.status}`);
+  }
+
+  const flightCount = await prisma.flight.count({ where: { roundId } });
+  if (flightCount === 0) {
+    await generateFlightOrder(competitionId, roundId, round.orderType as FlightOrderType);
+  }
+
+  return prisma.round.update({
+    where: { id: roundId },
+    data: {
+      status: 'ACTIVE',
+      startedAt: round.startedAt ?? new Date(),
+      pausedAt: null,
+    },
+    include: { flights: { orderBy: { flightOrder: 'asc' }, include: { pilot: true } } },
+  });
+}
+
+export async function pauseRound(competitionId: string, roundId: string) {
+  const round = await getRound(competitionId, roundId);
+  if (round.status !== 'ACTIVE') throw AppError.badRequest('Round is not active');
+
+  return prisma.round.update({
+    where: { id: roundId },
+    data: { status: 'PAUSED', pausedAt: new Date() },
+  });
+}
+
+export async function resumeRound(competitionId: string, roundId: string) {
+  const round = await getRound(competitionId, roundId);
+  if (round.status !== 'PAUSED') throw AppError.badRequest('Round is not paused');
+
+  return prisma.round.update({
+    where: { id: roundId },
+    data: { status: 'ACTIVE', pausedAt: null },
+  });
+}
+
+export async function closeRound(competitionId: string, roundId: string) {
+  const round = await getRound(competitionId, roundId);
+  if (!['ACTIVE', 'PAUSED', 'OPEN'].includes(round.status)) {
+    throw AppError.badRequest(`Cannot close round in status ${round.status}`);
+  }
+
+  return prisma.round.update({
+    where: { id: roundId },
+    data: { status: 'CLOSED', closedAt: new Date() },
+  });
+}
+
+export async function reopenRound(competitionId: string, roundId: string) {
+  const round = await getRound(competitionId, roundId);
+  if (!['CLOSED', 'PENDING_APPROVAL'].includes(round.status)) {
+    throw AppError.badRequest(`Cannot reopen round in status ${round.status}`);
+  }
+
+  return prisma.round.update({
+    where: { id: roundId },
+    data: { status: 'ACTIVE', closedAt: null, approvedAt: null },
+  });
+}
+
+export async function generateFlightOrder(
+  competitionId: string,
+  roundId: string,
+  orderType: FlightOrderType,
+  options?: { seed?: number; manualOrder?: string[] },
+) {
+  await getRound(competitionId, roundId);
+
+  const pilots = await prisma.pilot.findMany({
+    where: {
+      competitionId,
+      status: { in: ['REGISTERED', 'CONFIRMED', 'CHECKED_IN', 'ACTIVE'] },
+    },
+    orderBy: { pilotNumber: 'asc' },
+  });
+
+  if (pilots.length === 0) throw AppError.badRequest('No eligible pilots for flight order');
+
+  let orderedPilotIds: string[];
+
+  switch (orderType) {
+    case 'SEEDED': {
+      const previousRound = await prisma.round.findFirst({
+        where: { competitionId, number: { lt: (await prisma.round.findUnique({ where: { id: roundId } }))!.number } },
+        orderBy: { number: 'desc' },
+        include: { flights: { orderBy: { flightOrder: 'asc' } } },
+      });
+      if (previousRound?.flights.length) {
+        orderedPilotIds = previousRound.flights.map((f) => f.pilotId);
+        const missing = pilots.filter((p) => !orderedPilotIds.includes(p.id)).map((p) => p.id);
+        orderedPilotIds = [...orderedPilotIds, ...missing];
+      } else {
+        orderedPilotIds = pilots.map((p) => p.id);
+      }
+      break;
+    }
+    case 'REVERSE': {
+      orderedPilotIds = [...pilots].reverse().map((p) => p.id);
+      break;
+    }
+    case 'MANUAL': {
+      if (!options?.manualOrder?.length) {
+        throw AppError.badRequest('manualOrder required for MANUAL flight order');
+      }
+      orderedPilotIds = options.manualOrder;
+      break;
+    }
+    case 'RANDOM':
+    default: {
+      orderedPilotIds = shuffleArray(
+        pilots.map((p) => p.id),
+        options?.seed,
+      );
+      break;
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.flight.deleteMany({ where: { roundId } });
+    await tx.flight.createMany({
+      data: orderedPilotIds.map((pilotId, index) => ({
+        roundId,
+        pilotId,
+        flightOrder: index + 1,
+        status: 'PENDING',
+      })),
+    });
+    await tx.round.update({
+      where: { id: roundId },
+      data: { orderType },
+    });
+  });
+
+  return getRound(competitionId, roundId);
+}
+
+export async function setManualFlightOrder(
+  competitionId: string,
+  roundId: string,
+  pilotIds: string[],
+) {
+  return generateFlightOrder(competitionId, roundId, 'MANUAL', { manualOrder: pilotIds });
+}

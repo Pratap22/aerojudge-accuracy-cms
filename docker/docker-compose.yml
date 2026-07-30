@@ -1,0 +1,209 @@
+# Docker Compose – NPHA Accuracy CMS
+# Usage: npm run docker:up   (from repo root)
+#        docker compose -f docker/docker-compose.yml up -d --build
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: npha-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-npha}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-npha_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-npha_accuracy}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-npha} -d ${POSTGRES_DB:-npha_accuracy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - npha
+
+  redis:
+    image: redis:7-alpine
+    container_name: npha-redis
+    restart: unless-stopped
+    profiles:
+      - redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - npha
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: npha-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      API_PREFIX: /api/v1
+      DATABASE_URL: postgresql://${POSTGRES_USER:-npha}:${POSTGRES_PASSWORD:-npha_secure_password}@postgres:5432/${POSTGRES_DB:-npha_accuracy}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access-secret-min-32-chars-long!!}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh-secret-min-32-chars-long!}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost/admin,http://localhost/judge,http://localhost/display,http://localhost/results,http://localhost/announcer,http://localhost/overlay}
+      UPLOAD_DIR: /app/uploads
+      PRINT_ARCHIVE_DIR: /app/uploads/documents/prints
+      PUBLIC_RESULTS_URL: ${PUBLIC_RESULTS_URL:-http://localhost/results}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-10}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-200}
+      RUN_SEED: ${RUN_SEED:-true}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@npha.org.np}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-NphaAdmin@2024!}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - npha
+
+  admin:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        APP_NAME: admin
+        BASE_PATH: /admin/
+    container_name: npha-admin
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - npha
+
+  judge:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        APP_NAME: judge
+        BASE_PATH: /judge/
+    container_name: npha-judge
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - npha
+
+  display:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        APP_NAME: display
+        BASE_PATH: /display/
+    container_name: npha-display
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - npha
+
+  public-results:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        APP_NAME: public-results
+        BASE_PATH: /results/
+    container_name: npha-public-results
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - npha
+
+  announcer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        APP_NAME: announcer
+        BASE_PATH: /announcer/
+    container_name: npha-announcer
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - npha
+
+  broadcast-overlay:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        APP_NAME: broadcast-overlay
+        BASE_PATH: /overlay/
+    container_name: npha-broadcast-overlay
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - npha
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: npha-nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+      - admin
+      - judge
+      - display
+      - public-results
+      - announcer
+      - broadcast-overlay
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/admin/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - npha
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+
+networks:
+  npha:
+    driver: bridge

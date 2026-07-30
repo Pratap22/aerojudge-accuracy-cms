@@ -1,0 +1,863 @@
+// NPHA Accuracy CMS – PostgreSQL schema
+// Authoritative competition data model aligned with FAI Sporting Code Section 7C
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Auth & RBAC
+// ─────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  COMPETITION_DIRECTOR
+  CHIEF_JUDGE
+  JUDGE
+  SCOREKEEPER
+  LAUNCH_MARSHAL
+  GOAL_MARSHAL
+  ANNOUNCER
+  DISPLAY_OPERATOR
+  PUBLIC_USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  role         Role       @default(PUBLIC_USER)
+  status       UserStatus @default(ACTIVE)
+  avatarUrl    String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  refreshTokens      RefreshToken[]
+  competitionRoles   CompetitionUser[]
+  scoresEntered      Score[]           @relation("ScoreEnteredBy")
+  scoreApprovals     ScoreApproval[]
+  auditLogs          AuditLog[]
+  announcements      Announcement[]
+  printJobs          PrintHistory[]
+  notifications      Notification[]
+  offlineSyncQueues  OfflineSyncQueue[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  userAgent String?
+  ipAddress String?
+
+  @@index([userId])
+  @@index([token])
+}
+
+model CompetitionUser {
+  id            String @id @default(cuid())
+  competitionId String
+  userId        String
+  role          Role
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([competitionId, userId, role])
+  @@index([competitionId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
+// Countries
+// ─────────────────────────────────────────────
+
+model Country {
+  id        String  @id @default(cuid())
+  code      String  @unique // ISO 3166-1 alpha-3
+  code2     String  @unique // ISO 3166-1 alpha-2
+  name      String
+  flagUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pilots Pilot[]
+  teams  Team[]
+
+  @@index([code])
+  @@index([name])
+}
+
+// ─────────────────────────────────────────────
+// Competitions
+// ─────────────────────────────────────────────
+
+enum CompetitionStatus {
+  DRAFT
+  REGISTRATION
+  PRACTICE
+  OFFICIAL
+  PAUSED
+  COMPLETED
+  ARCHIVED
+  CANCELLED
+}
+
+enum RuleSetVersion {
+  FAI_2022
+  FAI_FUTURE
+  NPHA_LOCAL
+  CUSTOM
+}
+
+model Competition {
+  id              String            @id @default(cuid())
+  name            String
+  code            String            @unique
+  organizer       String
+  venue           String
+  country         String
+  location        String?
+  latitude        Float?
+  longitude       Float?
+  startDate       DateTime
+  endDate         DateTime
+  practiceDays    Int               @default(0)
+  officialDays    Int               @default(1)
+  maxRounds       Int               @default(8)
+  practiceRounds  Int               @default(2)
+  targetDiameterCm Int              @default(200)
+  ruleSet         RuleSetVersion    @default(FAI_2022)
+  status          CompetitionStatus @default(DRAFT)
+  logoUrl         String?
+  organizerLogoUrl String?
+  brandingJson    Json?
+  weatherConfig   Json?
+  faiCategory     String            @default("2")
+  publicSlug      String            @unique
+  isPublished     Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  settings         CompetitionSettings?
+  pilots           Pilot[]
+  teams            Team[]
+  rounds           Round[]
+  sponsors         Sponsor[]
+  weatherReadings  Weather[]
+  windReadings     Wind[]
+  displayLayouts   DisplayLayout[]
+  documents        Document[]
+  printHistory     PrintHistory[]
+  announcements    Announcement[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  competitionUsers CompetitionUser[]
+  results          Result[]
+  individualRankings IndividualRanking[]
+  teamRankings     TeamRanking[]
+  ruleProfiles     RuleProfile[]
+
+  @@index([code])
+  @@index([status])
+  @@index([publicSlug])
+  @@index([startDate])
+}
+
+model CompetitionSettings {
+  id                      String  @id @default(cuid())
+  competitionId           String  @unique
+  competition             Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+
+  // Scoring (FAI 7C configurable)
+  bullseyeScoreCm         Float   @default(0)
+  maximumScoreCm          Float   @default(1000)
+  measuringUnit           String  @default("cm")
+  discardWorstRounds      Int     @default(0)
+  discardAfterRounds      Int     @default(5)
+  allowReflights          Boolean @default(true)
+  maxReflightsPerRound    Int     @default(1)
+  teamSize                Int     @default(4)
+  teamScoringPilots       Int     @default(3)
+  teamAllowReserves       Boolean @default(true)
+  teamMaxReserves         Int     @default(1)
+  womenCategoryEnabled    Boolean @default(true)
+  juniorCategoryEnabled   Boolean @default(true)
+  juniorMaxAge            Int     @default(25)
+  countryRankingEnabled   Boolean @default(true)
+  autoPrintOnRoundClose   Boolean @default(false)
+  requireChiefJudgeApproval Boolean @default(true)
+  requireDirectorApproval Boolean @default(true)
+  livePublicResults       Boolean @default(true)
+  offlineModeEnabled      Boolean @default(true)
+  customRulesJson         Json?
+  tieBreakRulesJson       Json?
+  penaltyRulesJson        Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model RuleProfile {
+  id            String         @id @default(cuid())
+  competitionId String?
+  competition   Competition?   @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  name          String
+  version       RuleSetVersion
+  description   String?
+  rulesJson     Json
+  isDefault     Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([version])
+  @@index([competitionId])
+}
+
+// ─────────────────────────────────────────────
+// Pilots
+// ─────────────────────────────────────────────
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum PilotStatus {
+  REGISTERED
+  CONFIRMED
+  CHECKED_IN
+  ACTIVE
+  WITHDRAWN
+  DISQUALIFIED
+  DNS
+}
+
+model Pilot {
+  id               String      @id @default(cuid())
+  competitionId    String
+  competition      Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  pilotNumber      Int
+  faiLicense       String?
+  civlId           String?
+  firstName        String
+  lastName         String
+  gender           Gender      @default(MALE)
+  nationality      String?
+  countryId        String?
+  country          Country?    @relation(fields: [countryId], references: [id])
+  club             String?
+  dateOfBirth      DateTime?
+  photoUrl         String?
+  glider           String?
+  gliderSize       String?
+  harness          String?
+  reserveStatus    String?
+  emergencyContact String?
+  emergencyPhone   String?
+  medicalNotes     String?
+  status           PilotStatus @default(REGISTERED)
+  qrCode           String?     @unique
+  barcode          String?     @unique
+  isJunior         Boolean     @default(false)
+  isWomen          Boolean     @default(false)
+  notes            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  teamMembers          TeamMember[]
+  flights              Flight[]
+  scores               Score[]
+  individualRankings   IndividualRanking[]
+  penalties            Penalty[]
+
+  @@unique([competitionId, pilotNumber])
+  @@index([competitionId])
+  @@index([lastName, firstName])
+  @@index([countryId])
+  @@index([status])
+  @@index([faiLicense])
+}
+
+// ─────────────────────────────────────────────
+// Teams
+// ─────────────────────────────────────────────
+
+enum TeamType {
+  NATIONAL
+  CLUB
+  WOMEN
+  MIXED
+  OPEN
+  CUSTOM
+}
+
+model Team {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  name          String
+  type          TeamType @default(NATIONAL)
+  countryId     String?
+  country       Country? @relation(fields: [countryId], references: [id])
+  logoUrl       String?
+  captainId     String?
+  viceCaptainId String?
+  maxSize       Int      @default(4)
+  scoringPilots Int      @default(3)
+  maxReserves   Int      @default(1)
+  isValid       Boolean  @default(false)
+  validationNotes String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members      TeamMember[]
+  teamRankings TeamRanking[]
+  teamScores   TeamScore[]
+
+  @@unique([competitionId, name])
+  @@index([competitionId])
+  @@index([type])
+  @@index([countryId])
+}
+
+enum TeamMemberRole {
+  PILOT
+  RESERVE
+  CAPTAIN
+  VICE_CAPTAIN
+}
+
+model TeamMember {
+  id        String         @id @default(cuid())
+  teamId    String
+  team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  pilotId   String
+  pilot     Pilot          @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+  role      TeamMemberRole @default(PILOT)
+  order     Int            @default(0)
+  createdAt DateTime       @default(now())
+
+  @@unique([teamId, pilotId])
+  @@index([teamId])
+  @@index([pilotId])
+}
+
+// ─────────────────────────────────────────────
+// Rounds & Flights
+// ─────────────────────────────────────────────
+
+enum RoundStatus {
+  SCHEDULED
+  BRIEFING
+  OPEN
+  ACTIVE
+  PAUSED
+  CLOSED
+  PENDING_APPROVAL
+  APPROVED
+  LOCKED
+  CANCELLED
+}
+
+enum RoundType {
+  PRACTICE
+  OFFICIAL
+  REFLIGHT
+  RESTART
+}
+
+enum FlightOrderType {
+  RANDOM
+  SEEDED
+  MANUAL
+  REVERSE
+}
+
+model Round {
+  id              String         @id @default(cuid())
+  competitionId   String
+  competition     Competition    @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  number          Int
+  name            String?
+  type            RoundType      @default(OFFICIAL)
+  status          RoundStatus    @default(SCHEDULED)
+  orderType       FlightOrderType @default(RANDOM)
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  pausedAt        DateTime?
+  closedAt        DateTime?
+  approvedAt      DateTime?
+  lockedAt        DateTime?
+  parentRoundId   String?
+  parentRound     Round?         @relation("RoundReflights", fields: [parentRoundId], references: [id])
+  reflights       Round[]        @relation("RoundReflights")
+  windDirection   Float?
+  windSpeed       Float?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  flights          Flight[]
+  scores           Score[]
+  results          Result[]
+  scoreApprovals   ScoreApproval[]
+  teamScores       TeamScore[]
+  printHistory     PrintHistory[]
+
+  @@unique([competitionId, number, type])
+  @@index([competitionId])
+  @@index([status])
+}
+
+enum FlightStatus {
+  PENDING
+  ON_DECK
+  LAUNCHED
+  LANDED
+  SCORED
+  REFLIGHT
+  DNF
+  ABS
+  DNS
+  DSQ
+}
+
+model Flight {
+  id            String       @id @default(cuid())
+  roundId       String
+  round         Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  pilotId       String
+  pilot         Pilot        @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+  flightOrder   Int
+  status        FlightStatus @default(PENDING)
+  launchedAt    DateTime?
+  landedAt      DateTime?
+  isReflight    Boolean      @default(false)
+  reflightReason String?
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  scores Score[]
+
+  @@unique([roundId, pilotId])
+  @@unique([roundId, flightOrder])
+  @@index([roundId])
+  @@index([pilotId])
+  @@index([status])
+  @@index([flightOrder])
+}
+
+// ─────────────────────────────────────────────
+// Scoring
+// ─────────────────────────────────────────────
+
+enum ScoreStatus {
+  DRAFT
+  ENTERED
+  CONFIRMED
+  DISPUTED
+  APPROVED
+  LOCKED
+  VOID
+}
+
+enum ScoreResultType {
+  MEASURED
+  BULLSEYE
+  MAXIMUM
+  DNF
+  ABS
+  DNS
+  DSQ
+  REFLIGHT
+  PENALTY
+}
+
+model Score {
+  id            String          @id @default(cuid())
+  flightId      String
+  flight        Flight          @relation(fields: [flightId], references: [id], onDelete: Cascade)
+  roundId       String
+  round         Round           @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  pilotId       String
+  pilot         Pilot           @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+  distanceCm    Float?
+  resultType    ScoreResultType @default(MEASURED)
+  status        ScoreStatus     @default(DRAFT)
+  penaltyCm     Float           @default(0)
+  finalScoreCm  Float?
+  isBullseye    Boolean         @default(false)
+  isDiscarded   Boolean         @default(false)
+  judgeNotes    String?
+  enteredById   String?
+  enteredBy     User?           @relation("ScoreEnteredBy", fields: [enteredById], references: [id])
+  enteredAt     DateTime?
+  confirmedAt   DateTime?
+  version       Int             @default(1)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  penalties Penalty[]
+
+  @@unique([flightId])
+  @@index([roundId])
+  @@index([pilotId])
+  @@index([status])
+  @@index([finalScoreCm])
+}
+
+enum PenaltyType {
+  WARNING
+  DISTANCE_ADD
+  ROUND_MAXIMUM
+  DISQUALIFICATION
+  TECHNICAL
+  BEHAVIOURAL
+  SAFETY
+  OTHER
+}
+
+model Penalty {
+  id          String      @id @default(cuid())
+  scoreId     String?
+  score       Score?      @relation(fields: [scoreId], references: [id], onDelete: SetNull)
+  pilotId     String
+  pilot       Pilot       @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+  type        PenaltyType
+  amountCm    Float       @default(0)
+  reason      String
+  ruleReference String?
+  issuedBy    String?
+  issuedAt    DateTime    @default(now())
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  @@index([pilotId])
+  @@index([scoreId])
+  @@index([type])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ScoreApproval {
+  id            String         @id @default(cuid())
+  roundId       String
+  round         Round          @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  approverId    String
+  approver      User           @relation(fields: [approverId], references: [id])
+  role          Role
+  status        ApprovalStatus @default(PENDING)
+  comments      String?
+  decidedAt     DateTime?
+  createdAt     DateTime       @default(now())
+
+  @@unique([roundId, approverId, role])
+  @@index([roundId])
+}
+
+// ─────────────────────────────────────────────
+// Results & Rankings
+// ─────────────────────────────────────────────
+
+model Result {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  roundId       String?
+  round         Round?   @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  category      String   // OVERALL | WOMEN | JUNIOR | COUNTRY | TEAM | CUSTOM
+  payloadJson   Json
+  version       Int      @default(1)
+  isOfficial    Boolean  @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId])
+  @@index([roundId])
+  @@index([category])
+  @@index([isOfficial])
+}
+
+model IndividualRanking {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  pilotId       String
+  pilot         Pilot    @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+  category      String   @default("OVERALL")
+  rank          Int
+  totalScoreCm  Float
+  roundsFlown   Int      @default(0)
+  bullseyes     Int      @default(0)
+  discardedScoreCm Float?
+  tieBreakNotes String?
+  auditJson     Json?
+  calculatedAt  DateTime @default(now())
+
+  @@unique([competitionId, pilotId, category])
+  @@index([competitionId, category, rank])
+  @@index([pilotId])
+}
+
+model TeamScore {
+  id            String   @id @default(cuid())
+  teamId        String
+  team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  roundId       String
+  round         Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  totalScoreCm  Float
+  countedPilots Json     // [{pilotId, scoreCm, counted: bool, reason}]
+  discardedPilots Json?
+  auditJson     Json
+  calculatedAt  DateTime @default(now())
+
+  @@unique([teamId, roundId])
+  @@index([roundId])
+  @@index([teamId])
+}
+
+model TeamRanking {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teamId        String
+  team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  category      String   @default("OVERALL")
+  rank          Int
+  totalScoreCm  Float
+  roundsScored  Int      @default(0)
+  tieBreakNotes String?
+  auditJson     Json?
+  calculatedAt  DateTime @default(now())
+
+  @@unique([competitionId, teamId, category])
+  @@index([competitionId, category, rank])
+  @@index([teamId])
+}
+
+// ─────────────────────────────────────────────
+// Media, Sponsors, Display
+// ─────────────────────────────────────────────
+
+model Sponsor {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  name          String
+  logoUrl       String?
+  websiteUrl    String?
+  tier          String   @default("STANDARD") // TITLE | GOLD | SILVER | STANDARD
+  displayOrder  Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId])
+}
+
+model DisplayLayout {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  name          String
+  type          String   // CURRENT_PILOT | TOP10 | TOP_WOMEN | TOP_TEAMS | COUNTRY | NEXT_PILOTS | SPONSORS
+  configJson    Json
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId])
+}
+
+// ─────────────────────────────────────────────
+// Weather & Wind
+// ─────────────────────────────────────────────
+
+model Weather {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  temperatureC  Float?
+  humidityPct   Float?
+  pressureHpa   Float?
+  conditions    String?
+  recordedAt    DateTime @default(now())
+  source        String   @default("MANUAL")
+
+  @@index([competitionId, recordedAt])
+}
+
+model Wind {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  directionDeg  Float
+  speedMs       Float
+  gustMs        Float?
+  recordedAt    DateTime @default(now())
+  source        String   @default("MANUAL")
+
+  @@index([competitionId, recordedAt])
+}
+
+// ─────────────────────────────────────────────
+// Documents, Printing, Announcements
+// ─────────────────────────────────────────────
+
+model Document {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  title         String
+  type          String
+  fileUrl       String
+  mimeType      String?
+  version       Int      @default(1)
+  metadataJson  Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId])
+  @@index([type])
+}
+
+enum PrintStatus {
+  PENDING
+  PREVIEW
+  APPROVED
+  PRINTED
+  ARCHIVED
+  FAILED
+}
+
+model PrintHistory {
+  id            String      @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  roundId       String?
+  round         Round?      @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  reportType    String
+  format        String      @default("A4_PORTRAIT")
+  status        PrintStatus @default(PENDING)
+  fileUrl       String?
+  previewUrl    String?
+  pageCount     Int?
+  printedById   String?
+  printedBy     User?       @relation(fields: [printedById], references: [id])
+  approvedAt    DateTime?
+  printedAt     DateTime?
+  version       Int         @default(1)
+  metadataJson  Json?
+  createdAt     DateTime    @default(now())
+
+  @@index([competitionId])
+  @@index([roundId])
+  @@index([reportType])
+  @@index([status])
+}
+
+model Announcement {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  priority      String   @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  isLive        Boolean  @default(true)
+  expiresAt     DateTime?
+  createdById   String?
+  createdBy     User?    @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId, isLive])
+}
+
+// ─────────────────────────────────────────────
+// Audit, Notifications, Offline Sync
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  competitionId String?
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action        String
+  entityType    String
+  entityId      String?
+  beforeJson    Json?
+  afterJson     Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  @@index([competitionId])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  competitionId String?
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          String
+  title         String
+  body          String
+  payloadJson   Json?
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([competitionId])
+}
+
+model OfflineSyncQueue {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String
+  operation   String
+  payloadJson Json
+  status      String   @default("PENDING") // PENDING | SYNCED | CONFLICT | FAILED
+  attempts    Int      @default(0)
+  lastError   String?
+  createdAt   DateTime @default(now())
+  syncedAt    DateTime?
+
+  @@index([userId, status])
+  @@index([clientId])
+}
