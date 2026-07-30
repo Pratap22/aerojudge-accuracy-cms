@@ -76,14 +76,47 @@ export async function createRound(
 export async function updateRound(
   competitionId: string,
   roundId: string,
-  data: Prisma.RoundUpdateInput,
+  data: { type: 'PRACTICE' | 'OFFICIAL' | 'REFLIGHT' | 'RESTART' },
 ) {
-  await getRound(competitionId, roundId);
-  return prisma.round.update({ where: { id: roundId }, data });
+  const round = await getRound(competitionId, roundId);
+
+  if (data.type === round.type) {
+    return prisma.round.findFirstOrThrow({ where: { id: roundId } });
+  }
+
+  if (round.status === 'LOCKED') {
+    throw AppError.badRequest('Round is locked — type cannot be changed');
+  }
+
+  if (['APPROVED'].includes(round.status)) {
+    throw AppError.badRequest('Cannot change type of an approved round — reopen first if needed');
+  }
+
+  const conflict = await prisma.round.findFirst({
+    where: {
+      competitionId,
+      number: round.number,
+      type: data.type,
+      NOT: { id: roundId },
+    },
+  });
+  if (conflict) {
+    throw AppError.conflict(
+      `Round ${round.number} already exists as ${data.type}. Change that round first.`,
+    );
+  }
+
+  return prisma.round.update({
+    where: { id: roundId },
+    data: { type: data.type },
+  });
 }
 
 export async function deleteRound(competitionId: string, roundId: string): Promise<void> {
   const round = await getRound(competitionId, roundId);
+  if (['LOCKED', 'APPROVED'].includes(round.status)) {
+    throw AppError.badRequest(`Cannot delete a ${round.status.toLowerCase()} round`);
+  }
   if (ACTIVE_STATUSES.includes(round.status as RoundStatus) || round.status === 'CLOSED') {
     throw AppError.badRequest('Cannot delete an active or closed round');
   }
@@ -146,13 +179,61 @@ export async function closeRound(competitionId: string, roundId: string) {
 
 export async function reopenRound(competitionId: string, roundId: string) {
   const round = await getRound(competitionId, roundId);
-  if (!['CLOSED', 'PENDING_APPROVAL'].includes(round.status)) {
+  if (round.status === 'LOCKED') {
+    throw AppError.badRequest('Round is locked — no further changes are allowed');
+  }
+  if (!['CLOSED', 'PENDING_APPROVAL', 'APPROVED'].includes(round.status)) {
     throw AppError.badRequest(`Cannot reopen round in status ${round.status}`);
   }
 
   return prisma.round.update({
     where: { id: roundId },
-    data: { status: 'ACTIVE', closedAt: null, approvedAt: null },
+    data: { status: 'ACTIVE', closedAt: null, approvedAt: null, lockedAt: null },
+  });
+}
+
+/** Official approval of a closed round — scores become APPROVED; reopen still possible until locked */
+export async function approveRound(competitionId: string, roundId: string) {
+  const round = await getRound(competitionId, roundId);
+  if (round.status === 'LOCKED') {
+    throw AppError.badRequest('Round is locked — no further changes are allowed');
+  }
+  if (!['CLOSED', 'PENDING_APPROVAL'].includes(round.status)) {
+    throw AppError.badRequest(`Cannot approve round in status ${round.status}`);
+  }
+
+  await prisma.score.updateMany({
+    where: { roundId, status: { in: ['ENTERED', 'CONFIRMED', 'DISPUTED'] } },
+    data: { status: 'APPROVED' },
+  });
+
+  return prisma.round.update({
+    where: { id: roundId },
+    data: { status: 'APPROVED', approvedAt: new Date() },
+  });
+}
+
+/**
+ * Final lock — only after APPROVED.
+ * Locked rounds are immutable: no score edits, type changes, reopen, or unlock.
+ */
+export async function lockRound(competitionId: string, roundId: string) {
+  const round = await getRound(competitionId, roundId);
+  if (round.status === 'LOCKED') {
+    throw AppError.badRequest('Round is already locked');
+  }
+  if (round.status !== 'APPROVED') {
+    throw AppError.badRequest('Round must be approved before locking');
+  }
+
+  await prisma.score.updateMany({
+    where: { roundId },
+    data: { status: 'LOCKED' },
+  });
+
+  return prisma.round.update({
+    where: { id: roundId },
+    data: { status: 'LOCKED', lockedAt: new Date() },
   });
 }
 
@@ -162,7 +243,12 @@ export async function generateFlightOrder(
   orderType: FlightOrderType,
   options?: { seed?: number; manualOrder?: string[] },
 ) {
-  await getRound(competitionId, roundId);
+  const round = await getRound(competitionId, roundId);
+  if (['LOCKED', 'APPROVED'].includes(round.status)) {
+    throw AppError.badRequest(
+      `Cannot change flight order while round is ${round.status}. Reopen first if the round is only approved.`,
+    );
+  }
 
   const pilots = await prisma.pilot.findMany({
     where: {

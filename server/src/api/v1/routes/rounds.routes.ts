@@ -16,6 +16,8 @@ router.post('/:roundId/pause', requirePermission('round:manage'), ...ctrl.pause)
 router.post('/:roundId/resume', requirePermission('round:start'), ...ctrl.resume);
 router.post('/:roundId/close', requirePermission('round:close'), ...ctrl.close);
 router.post('/:roundId/reopen', requirePermission('round:manage'), ...ctrl.reopen);
+router.post('/:roundId/approve', requirePermission('score:approve_chief'), ...ctrl.approve);
+router.post('/:roundId/lock', requirePermission('round:manage'), ...ctrl.lock);
 router.post('/:roundId/flight-order', requirePermission('round:manage'), ...ctrl.generateFlightOrder);
 router.get('/:roundId/flights', ...ctrl.listFlights);
 router.post('/:roundId/scores', requirePermission('score:enter'), ...ctrl.enterScore);

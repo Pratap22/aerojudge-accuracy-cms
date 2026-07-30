@@ -66,6 +66,11 @@ export const createRoundSchema = z.object({
   scheduledAt: z.string().datetime().or(z.coerce.date()).optional(),
 });
 
+/** Only round type may be edited after creation */
+export const updateRoundTypeSchema = z.object({
+  type: z.enum(['PRACTICE', 'OFFICIAL', 'REFLIGHT', 'RESTART']),
+});
+
 export const enterScoreSchema = z.object({
   flightId: z.string().min(1),
   distanceCm: z.number().min(0).max(10000).nullable(),
@@ -109,6 +114,7 @@ export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
 export type CreatePilotInput = z.infer<typeof createPilotSchema>;
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
 export type CreateRoundInput = z.infer<typeof createRoundSchema>;
+export type UpdateRoundTypeInput = z.infer<typeof updateRoundTypeSchema>;
 export type EnterScoreInput = z.infer<typeof enterScoreSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;

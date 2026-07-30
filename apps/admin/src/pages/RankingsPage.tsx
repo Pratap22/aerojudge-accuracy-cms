@@ -200,7 +200,7 @@ export function RankingsPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Rankings</h1>
-          <p className="text-muted-foreground">Live standings with FAI tie-break rules</p>
+          <p className="text-muted-foreground">Live standings with FAI tie-break rules · Approved/Locked official rounds only</p>
         </div>
         <div className="flex items-center gap-2">
           {liveUpdate && (

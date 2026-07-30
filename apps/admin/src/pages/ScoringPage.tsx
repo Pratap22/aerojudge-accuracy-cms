@@ -169,8 +169,19 @@ export function ScoringPage() {
   });
 
   const selectedRound = rounds?.find((r) => r.id === selectedRoundId);
+  const scoresReadOnly =
+    !!selectedRound && ['APPROVED', 'LOCKED'].includes(selectedRound.status);
+
+  // Locked/approved rounds: clear any score-entry selection
+  useEffect(() => {
+    if (scoresReadOnly) {
+      setSelectedFlightId(null);
+      scoreMutation.reset();
+    }
+  }, [scoresReadOnly, selectedRoundId]);
 
   const selectFlight = (flight: Flight) => {
+    if (scoresReadOnly) return;
     scoreMutation.reset();
     setSelectedFlightId(flight.id);
     reset({
@@ -233,7 +244,8 @@ export function ScoringPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
               <p>
                 Round is <strong>{selectedRound.status}</strong>. You can still enter or correct
-                scores until it is approved/locked, or reopen it for live flying.
+                scores until it is approved. After approve, scores freeze; Lock makes the round
+                final.
               </p>
               <Button
                 size="sm"
@@ -243,6 +255,20 @@ export function ScoringPage() {
               >
                 Reopen Round
               </Button>
+            </div>
+          )}
+
+          {selectedRound && selectedRound.status === 'APPROVED' && (
+            <div className="rounded-lg border border-secondary/40 bg-secondary/10 px-4 py-3 text-sm">
+              Round is <strong>APPROVED</strong> — scores cannot be edited. Reopen from Rounds to
+              correct, or Lock to make results final.
+            </div>
+          )}
+
+          {selectedRound && selectedRound.status === 'LOCKED' && (
+            <div className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">
+              Round is <strong>LOCKED</strong> — scores and round details are final and cannot be
+              changed.
             </div>
           )}
 
@@ -267,8 +293,12 @@ export function ScoringPage() {
             </div>
           )}
 
-        <div className="grid items-start gap-6 lg:grid-cols-3">
-          <div className="max-h-[min(70vh,40rem)] overflow-auto rounded-lg border lg:col-span-2 lg:max-h-[calc(100vh-11rem)]">
+        <div className={`grid items-start gap-6 ${scoresReadOnly ? '' : 'lg:grid-cols-3'}`}>
+          <div
+            className={`max-h-[min(70vh,40rem)] overflow-auto rounded-lg border lg:max-h-[calc(100vh-11rem)] ${
+              scoresReadOnly ? '' : 'lg:col-span-2'
+            }`}
+          >
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-background shadow-[0_1px_0_0_hsl(var(--border))]">
                 <TableRow>
@@ -284,8 +314,14 @@ export function ScoringPage() {
                 {flights?.map((flight) => (
                   <TableRow
                     key={flight.id}
-                    className={flight.id === selectedFlightId ? 'bg-secondary/10' : 'cursor-pointer'}
-                    onClick={() => selectFlight(flight)}
+                    className={
+                      scoresReadOnly
+                        ? undefined
+                        : flight.id === selectedFlightId
+                          ? 'bg-secondary/10 cursor-pointer'
+                          : 'cursor-pointer'
+                    }
+                    onClick={scoresReadOnly ? undefined : () => selectFlight(flight)}
                   >
                     <TableCell>{flight.order}</TableCell>
                     <TableCell className="font-mono">{flight.pilotNumber}</TableCell>
@@ -301,6 +337,7 @@ export function ScoringPage() {
             </Table>
           </div>
 
+          {!scoresReadOnly && (
           <Card
             id="score-entry-panel"
             className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto"
@@ -430,6 +467,7 @@ export function ScoringPage() {
               )}
             </CardContent>
           </Card>
+          )}
         </div>
         </div>
       )}

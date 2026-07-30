@@ -71,6 +71,36 @@ export function applyDiscardRules(
   return { kept, discarded, discardedTotal };
 }
 
+/**
+ * For each countable round, pilots without a score receive DNF at maximumScoreCm.
+ * Used so incomplete rounds still contribute correctly to totals (FAI Section 7C).
+ */
+export function fillMissingRoundScoresAsDnf(
+  pilots: PilotRankingInput[],
+  rounds: Array<{ id: string; number: number }>,
+  rules: RuleConfig,
+): PilotRankingInput[] {
+  if (!rounds.length) return pilots;
+
+  return pilots.map((pilot) => {
+    const byRound = new Map(pilot.roundScores.map((s) => [s.roundId, s]));
+    const filled: RoundScoreEntry[] = rounds.map((round) => {
+      const existing = byRound.get(round.id);
+      if (existing) return existing;
+      return {
+        pilotId: pilot.pilotId,
+        roundId: round.id,
+        roundNumber: round.number,
+        finalScoreCm: rules.maximumScoreCm,
+        resultType: 'DNF',
+        isBullseye: false,
+        isDiscarded: false,
+      };
+    });
+    return { ...pilot, roundScores: filled };
+  });
+}
+
 export function comparePilotsForTieBreak(
   a: IndividualRankingResult,
   b: IndividualRankingResult,

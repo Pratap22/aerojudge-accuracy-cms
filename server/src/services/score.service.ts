@@ -21,7 +21,11 @@ export async function enterScore(
   if (!flight) throw AppError.notFound('Flight not found');
 
   if (['LOCKED', 'APPROVED'].includes(flight.round.status)) {
-    throw AppError.badRequest(`Cannot enter scores while round is ${flight.round.status}`);
+    throw AppError.badRequest(
+      flight.round.status === 'LOCKED'
+        ? 'Round is locked — scores are final and cannot be changed'
+        : 'Round is approved — reopen before changing scores',
+    );
   }
   // Allow CLOSED rounds until official approval/lock so corrections remain possible
   if (
@@ -95,6 +99,12 @@ export async function confirmScore(scoreId: string, confirmedById: string) {
     include: { round: true },
   });
   if (!score) throw AppError.notFound('Score not found');
+  if (score.round.status === 'LOCKED') {
+    throw AppError.badRequest('Round is locked — scores cannot be changed');
+  }
+  if (score.round.status === 'APPROVED') {
+    throw AppError.badRequest('Round is approved — reopen before changing scores');
+  }
   if (score.status !== 'ENTERED' && score.status !== 'DISPUTED') {
     throw AppError.badRequest(`Cannot confirm score in status ${score.status}`);
   }
@@ -175,11 +185,25 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
     settingsToRuleOverrides(competition.settings ?? undefined),
   );
 
+  // Only approved/locked official rounds count toward ranking; missing scores → DNF/max
+  const countableRounds = await prisma.round.findMany({
+    where: {
+      competitionId,
+      type: 'OFFICIAL',
+      status: { in: ['APPROVED', 'LOCKED'] },
+    },
+    orderBy: { number: 'asc' },
+    select: { id: true, number: true },
+  });
+
   const pilots = await prisma.pilot.findMany({
     where: { competitionId },
     include: {
       scores: {
-        where: { status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] } },
+        where: {
+          status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+          roundId: { in: countableRounds.map((r) => r.id) },
+        },
         include: { round: true },
       },
     },
@@ -208,5 +232,78 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
       ),
   }));
 
-  return { pilots: pilotInputs, rules };
+  return {
+    pilots: ScoringEngine.fillMissingRoundScoresAsDnf(pilotInputs, countableRounds, rules),
+    rules,
+  };
+}
+
+/**
+ * Persist DNF + maximum score for every flight in the round that still has no score.
+ * Called when a round is closed or approved so rankings and the score sheet stay consistent.
+ */
+export async function assignMissingScoresAsDnf(
+  competitionId: string,
+  roundId: string,
+  enteredById?: string,
+) {
+  const round = await prisma.round.findFirst({ where: { id: roundId, competitionId } });
+  if (!round) throw AppError.notFound('Round not found');
+  if (round.status === 'LOCKED') {
+    // Locked rounds are immutable — never create or alter scores
+    return { assigned: 0, skipped: true as const };
+  }
+
+  const competition = await getCompetition(competitionId);
+  const rules = ScoringEngine.resolveRules(
+    competition.ruleSet,
+    settingsToRuleOverrides(competition.settings ?? undefined),
+  );
+
+  const flights = await prisma.flight.findMany({
+    where: {
+      roundId,
+      scores: { none: {} },
+    },
+  });
+
+  if (!flights.length) return { assigned: 0 };
+
+  const computed = ScoringEngine.computeFlightScore(
+    {
+      pilotId: flights[0].pilotId,
+      roundId,
+      distanceCm: null,
+      resultType: 'DNF',
+    },
+    rules,
+  );
+
+  await prisma.$transaction(
+    flights.map((flight) =>
+      prisma.score.create({
+        data: {
+          flightId: flight.id,
+          roundId,
+          pilotId: flight.pilotId,
+          distanceCm: null,
+          resultType: 'DNF',
+          penaltyCm: 0,
+          finalScoreCm: computed.finalScoreCm,
+          isBullseye: false,
+          status: 'ENTERED',
+          judgeNotes: 'Auto-assigned: missing score treated as DNF (maximum)',
+          enteredById: enteredById ?? null,
+          enteredAt: new Date(),
+        },
+      }),
+    ),
+  );
+
+  await prisma.flight.updateMany({
+    where: { id: { in: flights.map((f) => f.id) } },
+    data: { status: 'SCORED' },
+  });
+
+  return { assigned: flights.length, maximumScoreCm: computed.finalScoreCm };
 }

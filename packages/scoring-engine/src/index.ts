@@ -8,6 +8,7 @@ import { computeFlightScore } from './individual/flight-score';
 import {
   calculateCountryRankings,
   calculateIndividualRankings,
+  fillMissingRoundScoresAsDnf,
 } from './individual/ranking';
 import {
   calculateTeamRankings,
@@ -26,6 +27,7 @@ export const ScoringEngine = {
   calculateTeamRoundScore,
   calculateTeamRankings,
   validateTeamComposition,
+  fillMissingRoundScoresAsDnf,
 };
 
 export default ScoringEngine;

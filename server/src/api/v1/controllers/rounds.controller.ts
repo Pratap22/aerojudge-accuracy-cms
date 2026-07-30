@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createRoundSchema, enterScoreSchema } from '@npha/shared';
+import { createRoundSchema, enterScoreSchema, updateRoundTypeSchema } from '@npha/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
@@ -51,12 +51,17 @@ export const create = [
 
 export const update = [
   validateParams(roundParams),
+  validateBody(updateRoundTypeSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const round = await roundService.updateRound(
       req.params.competitionId,
       req.params.roundId,
       req.body,
     );
+    // Type change can move a round in/out of ranking eligibility
+    if (round.status === 'APPROVED' || round.status === 'LOCKED') {
+      await scoringService.recalculateRankings(req.params.competitionId);
+    }
     sendSuccess(res, round);
   }),
 ];
@@ -99,8 +104,17 @@ export const resume = [
 export const close = [
   validateParams(roundParams),
   asyncHandler(async (req: Request, res: Response) => {
+    await scoreService.assignMissingScoresAsDnf(
+      req.params.competitionId,
+      req.params.roundId,
+      req.user?.id,
+    );
     const round = await roundService.closeRound(req.params.competitionId, req.params.roundId);
     emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    const recalc = await scoringService.recalculateRankings(req.params.competitionId);
+    for (const category of recalc.categories) {
+      emitRankingUpdated(req.params.competitionId, category);
+    }
     sendSuccess(res, round);
   }),
 ];
@@ -110,6 +124,37 @@ export const reopen = [
   asyncHandler(async (req: Request, res: Response) => {
     const round = await roundService.reopenRound(req.params.competitionId, req.params.roundId);
     emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    sendSuccess(res, round);
+  }),
+];
+
+export const approve = [
+  validateParams(roundParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    await scoreService.assignMissingScoresAsDnf(
+      req.params.competitionId,
+      req.params.roundId,
+      req.user?.id,
+    );
+    const round = await roundService.approveRound(req.params.competitionId, req.params.roundId);
+    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    await scoringService.recalculateRankings(req.params.competitionId);
+    sendSuccess(res, round);
+  }),
+];
+
+export const lock = [
+  validateParams(roundParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    // Final DNF fill before lock — after this, scores are immutable
+    await scoreService.assignMissingScoresAsDnf(
+      req.params.competitionId,
+      req.params.roundId,
+      req.user?.id,
+    );
+    const round = await roundService.lockRound(req.params.competitionId, req.params.roundId);
+    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    await scoringService.recalculateRankings(req.params.competitionId);
     sendSuccess(res, round);
   }),
 ];

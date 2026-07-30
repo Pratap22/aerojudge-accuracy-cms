@@ -3,7 +3,7 @@ import type { RankingCategory, TeamRoundScoreResult } from '@npha/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { getCompetition } from './competition.service.js';
-import { buildRoundScoreEntries } from './score.service.js';
+import { assignMissingScoresAsDnf, buildRoundScoreEntries } from './score.service.js';
 
 export interface RecalculateResult {
   competitionId: string;
@@ -16,6 +16,20 @@ export interface RecalculateResult {
 
 export async function recalculateRankings(competitionId: string): Promise<RecalculateResult> {
   const competition = await getCompetition(competitionId);
+
+  // Persist DNF/max for unscored flights on approved rounds only (locked is immutable)
+  const rankingRounds = await prisma.round.findMany({
+    where: {
+      competitionId,
+      type: 'OFFICIAL',
+      status: 'APPROVED',
+    },
+    select: { id: true },
+  });
+  for (const round of rankingRounds) {
+    await assignMissingScoresAsDnf(competitionId, round.id);
+  }
+
   const { pilots, rules } = await buildRoundScoreEntries(competitionId);
 
   const categories: RankingCategory[] = ['OVERALL'];
@@ -45,7 +59,7 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
   });
 
   const rounds = await prisma.round.findMany({
-    where: { competitionId, status: { in: ['CLOSED', 'APPROVED', 'LOCKED', 'ACTIVE'] } },
+    where: { competitionId, type: 'OFFICIAL', status: { in: ['APPROVED', 'LOCKED'] } },
   });
 
   const teamRoundResults: TeamRoundScoreResult[] = [];

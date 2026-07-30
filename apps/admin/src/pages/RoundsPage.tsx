@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pause, Play, Plus, Square, CheckCircle, RotateCcw } from 'lucide-react';
+import { Pause, Play, Plus, Square, CheckCircle, Lock, RotateCcw } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -65,7 +65,7 @@ const statusColors: Record<
   CANCELLED: 'destructive',
 };
 
-type RoundAction = 'start' | 'pause' | 'resume' | 'close' | 'reopen';
+type RoundAction = 'start' | 'pause' | 'resume' | 'close' | 'reopen' | 'approve' | 'lock';
 
 function normalizeRound(round: RoundApi) {
   return {
@@ -103,7 +103,19 @@ export function RoundsPage() {
   const actionMutation = useMutation({
     mutationFn: ({ roundId, action }: { roundId: string; action: RoundAction }) =>
       api.post(`/competitions/${competitionId}/rounds/${roundId}/${action}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['rankings', competitionId] });
+    },
+  });
+
+  const typeMutation = useMutation({
+    mutationFn: ({ roundId, type }: { roundId: string; type: RoundType }) =>
+      api.patch(`/competitions/${competitionId}/rounds/${roundId}`, { type }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['rankings', competitionId] });
+    },
   });
 
   const createMutation = useMutation({
@@ -125,7 +137,7 @@ export function RoundsPage() {
 
   const getActions = (
     status: RoundStatus,
-  ): { action: RoundAction; label: string; icon: React.ReactNode }[] => {
+  ): { action: RoundAction; label: string; icon: React.ReactNode; variant?: 'default' | 'outline' }[] => {
     switch (status) {
       case 'SCHEDULED':
       case 'BRIEFING':
@@ -133,17 +145,47 @@ export function RoundsPage() {
         return [{ action: 'start', label: 'Start', icon: <Play className="h-4 w-4" /> }];
       case 'ACTIVE':
         return [
-          { action: 'pause', label: 'Pause', icon: <Pause className="h-4 w-4" /> },
-          { action: 'close', label: 'Close', icon: <Square className="h-4 w-4" /> },
+          { action: 'pause', label: 'Pause', icon: <Pause className="h-4 w-4" />, variant: 'outline' },
+          { action: 'close', label: 'Close', icon: <Square className="h-4 w-4" />, variant: 'outline' },
         ];
       case 'PAUSED':
         return [
-          { action: 'resume', label: 'Resume', icon: <RotateCcw className="h-4 w-4" /> },
-          { action: 'close', label: 'Close', icon: <Square className="h-4 w-4" /> },
+          { action: 'resume', label: 'Resume', icon: <RotateCcw className="h-4 w-4" />, variant: 'outline' },
+          { action: 'close', label: 'Close', icon: <Square className="h-4 w-4" />, variant: 'outline' },
         ];
       case 'CLOSED':
       case 'PENDING_APPROVAL':
-        return [{ action: 'reopen', label: 'Reopen', icon: <RotateCcw className="h-4 w-4" /> }];
+        return [
+          {
+            action: 'approve',
+            label: 'Approve',
+            icon: <CheckCircle className="h-4 w-4" />,
+            variant: 'default',
+          },
+          {
+            action: 'reopen',
+            label: 'Reopen',
+            icon: <RotateCcw className="h-4 w-4" />,
+            variant: 'outline',
+          },
+        ];
+      case 'APPROVED':
+        return [
+          {
+            action: 'lock',
+            label: 'Lock',
+            icon: <Lock className="h-4 w-4" />,
+            variant: 'default',
+          },
+          {
+            action: 'reopen',
+            label: 'Reopen',
+            icon: <RotateCcw className="h-4 w-4" />,
+            variant: 'outline',
+          },
+        ];
+      case 'LOCKED':
+        return [];
       default:
         return [];
     }
@@ -258,7 +300,32 @@ export function RoundsPage() {
                     R{round.number}
                     {round.name ? ` – ${round.name}` : ''}
                   </TableCell>
-                  <TableCell>{round.type}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={round.type}
+                      disabled={round.status === 'LOCKED' || typeMutation.isPending}
+                      onValueChange={(v) =>
+                        typeMutation.mutate({ roundId: round.id, type: v as RoundType })
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-[130px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OFFICIAL">OFFICIAL</SelectItem>
+                        <SelectItem value="PRACTICE">PRACTICE</SelectItem>
+                        <SelectItem value="REFLIGHT">REFLIGHT</SelectItem>
+                        <SelectItem value="RESTART">RESTART</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {typeMutation.isError && typeMutation.variables?.roundId === round.id && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {typeMutation.error instanceof ApiError
+                          ? typeMutation.error.message
+                          : 'Failed to update type'}
+                      </p>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={statusColors[round.status]}>{round.status}</Badge>
                   </TableCell>
@@ -270,11 +337,11 @@ export function RoundsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {getActions(round.status).map(({ action, label, icon }) => (
+                      {getActions(round.status).map(({ action, label, icon, variant }) => (
                         <Button
                           key={action}
                           size="sm"
-                          variant={action === 'start' ? 'default' : 'outline'}
+                          variant={variant ?? (action === 'start' ? 'default' : 'outline')}
                           disabled={actionMutation.isPending}
                           onClick={() => actionMutation.mutate({ roundId: round.id, action })}
                         >
@@ -282,7 +349,20 @@ export function RoundsPage() {
                           <span className="ml-1">{label}</span>
                         </Button>
                       ))}
+                      {round.status === 'LOCKED' && (
+                        <span className="inline-flex items-center gap-1 self-center px-1 text-xs text-muted-foreground">
+                          <Lock className="h-3 w-3" />
+                          Final
+                        </span>
+                      )}
                     </div>
+                    {actionMutation.isError && actionMutation.variables?.roundId === round.id && (
+                      <p className="mt-1 text-xs text-destructive">
+                        {actionMutation.error instanceof ApiError
+                          ? actionMutation.error.message
+                          : 'Action failed'}
+                      </p>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

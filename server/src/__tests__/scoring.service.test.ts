@@ -45,6 +45,7 @@ vi.mock('../services/competition.service.js', () => ({
 }));
 
 vi.mock('../services/score.service.js', () => ({
+  assignMissingScoresAsDnf: vi.fn().mockResolvedValue({ assigned: 0 }),
   buildRoundScoreEntries: vi.fn().mockResolvedValue({
     rules: ScoringEngine.resolveRules('FAI_2022'),
     pilots: [

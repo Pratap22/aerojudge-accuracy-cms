@@ -4,6 +4,7 @@ import { computeFlightScore } from '../individual/flight-score';
 import {
   applyDiscardRules,
   calculateIndividualRankings,
+  fillMissingRoundScoresAsDnf,
 } from '../individual/ranking';
 import {
   calculateTeamRoundScore,
@@ -151,6 +152,53 @@ describe('calculateIndividualRankings', () => {
     expect(rankings[0].pilotId).toBe('p2');
     expect(rankings[0].rank).toBe(1);
     expect(rankings[1].rank).toBe(2);
+  });
+
+  it('fills missing round scores as DNF at maximum', () => {
+    const rules = resolveCompetitionRules('FAI_2022');
+    const pilots = [
+      {
+        pilotId: 'p1',
+        pilotNumber: 1,
+        roundScores: [
+          {
+            pilotId: 'p1',
+            roundId: 'r1',
+            roundNumber: 1,
+            finalScoreCm: 10,
+            resultType: 'MEASURED' as const,
+            isBullseye: false,
+            isDiscarded: false,
+          },
+        ],
+      },
+      {
+        pilotId: 'p2',
+        pilotNumber: 2,
+        roundScores: [],
+      },
+    ];
+    const filled = fillMissingRoundScoresAsDnf(
+      pilots,
+      [
+        { id: 'r1', number: 1 },
+        { id: 'r2', number: 2 },
+      ],
+      rules,
+    );
+    expect(filled[0].roundScores).toHaveLength(2);
+    expect(filled[0].roundScores[1]).toMatchObject({
+      resultType: 'DNF',
+      finalScoreCm: 1000,
+      roundId: 'r2',
+    });
+    expect(filled[1].roundScores).toHaveLength(2);
+    expect(filled[1].roundScores.every((s) => s.resultType === 'DNF')).toBe(true);
+
+    const rankings = calculateIndividualRankings(filled, rules);
+    expect(rankings[0].pilotId).toBe('p1');
+    expect(rankings[0].totalScoreCm).toBe(1010);
+    expect(rankings[1].totalScoreCm).toBe(2000);
   });
 });
 
