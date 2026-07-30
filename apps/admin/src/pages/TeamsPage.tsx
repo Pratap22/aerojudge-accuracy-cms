@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@npha/ui';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { useCompetitionId } from '../hooks/useCompetitionId';
 
 interface TeamMember {
   id: string;
@@ -44,7 +44,7 @@ interface Team extends CreateTeamInput {
 }
 
 export function TeamsPage() {
-  const { activeCompetitionId } = useAuth();
+  const activeCompetitionId = useCompetitionId();
   const [formOpen, setFormOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -79,7 +79,7 @@ export function TeamsPage() {
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground">Select an active competition from the dashboard.</p>;
+    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
   }
 
   return (

@@ -6,6 +6,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+
+// Legacy key from pre-URL competition selection
+try { localStorage.removeItem('npha_active_competition'); } catch { /* ignore */ }
 import { AuthProvider } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
 

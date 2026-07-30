@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -21,9 +22,8 @@ import {
 } from '@npha/ui';
 import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
 import { onSocketEvent } from '../lib/socket';
-import { useEffect } from 'react';
+import { competitionPath, useCompetitionId } from '../hooks/useCompetitionId';
 
 interface DashboardStats {
   totalPilots: number;
@@ -46,19 +46,22 @@ interface CompetitionSummary {
   endDate: string;
 }
 
-const statusVariant: Record<CompetitionStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive'> = {
-  DRAFT: 'outline' as 'default',
+const statusVariant: Record<
+  CompetitionStatus,
+  'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'
+> = {
+  DRAFT: 'outline',
   REGISTRATION: 'secondary',
   PRACTICE: 'warning',
   OFFICIAL: 'success',
   PAUSED: 'warning',
   COMPLETED: 'default',
-  ARCHIVED: 'outline' as 'default',
+  ARCHIVED: 'outline',
   CANCELLED: 'destructive',
 };
 
 export function DashboardPage() {
-  const { activeCompetitionId, setActiveCompetitionId } = useAuth();
+  const competitionId = useCompetitionId();
   const liveStatus = 'Connected';
 
   const { data: competitions } = useQuery({
@@ -67,13 +70,13 @@ export function DashboardPage() {
   });
 
   const { data: stats, refetch } = useQuery({
-    queryKey: ['dashboard', activeCompetitionId],
-    queryFn: () => api.get<DashboardStats>(`/competitions/${activeCompetitionId}/dashboard`),
-    enabled: !!activeCompetitionId,
+    queryKey: ['dashboard', competitionId],
+    queryFn: () => api.get<DashboardStats>(`/competitions/${competitionId}/dashboard`),
+    enabled: !!competitionId,
   });
 
   useEffect(() => {
-    if (!activeCompetitionId) return;
+    if (!competitionId) return;
     const unsubRound = onSocketEvent('round:status', () => refetch());
     const unsubWind = onSocketEvent('wind:updated', () => refetch());
     const unsubScore = onSocketEvent('score:updated', () => refetch());
@@ -82,15 +85,13 @@ export function DashboardPage() {
       unsubWind();
       unsubScore();
     };
-  }, [activeCompetitionId, refetch]);
+  }, [competitionId, refetch]);
 
-  const activeCompetition = competitions?.find((c) => c.id === activeCompetitionId) ?? competitions?.[0];
+  if (!competitionId) {
+    return <Navigate to="/competitions" replace />;
+  }
 
-  useEffect(() => {
-    if (!activeCompetitionId && activeCompetition) {
-      setActiveCompetitionId(activeCompetition.id);
-    }
-  }, [activeCompetition, activeCompetitionId, setActiveCompetitionId]);
+  const activeCompetition = competitions?.find((c) => c.id === competitionId);
 
   return (
     <div className="space-y-6">
@@ -98,18 +99,20 @@ export function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Competition Overview</h1>
           <p className="text-muted-foreground">
-            {activeCompetition ? `${activeCompetition.name} · ${activeCompetition.venue}` : 'Select a competition to begin'}
+            {activeCompetition
+              ? `${activeCompetition.name} · ${activeCompetition.venue}`
+              : 'Loading competition…'}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <Link to="/rounds">
+            <Link to={competitionPath(competitionId, 'rounds')}>
               <Play className="mr-2 h-4 w-4" />
               Manage Rounds
             </Link>
           </Button>
           <Button asChild>
-            <Link to="/scoring">
+            <Link to={competitionPath(competitionId, 'scoring')}>
               Enter Scores
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
@@ -117,7 +120,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {competitions && competitions.length > 0 && (
+      {competitions && competitions.length > 1 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {competitions.map((comp, i) => (
             <motion.div
@@ -126,25 +129,27 @@ export function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
             >
-              <Card
-                className={`cursor-pointer transition-shadow hover:shadow-md ${comp.id === activeCompetitionId ? 'ring-2 ring-secondary' : ''}`}
-                onClick={() => setActiveCompetitionId(comp.id)}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <Trophy className="h-5 w-5 text-secondary" />
-                    <Badge variant={statusVariant[comp.status]}>{comp.status}</Badge>
-                  </div>
-                  <CardTitle className="text-base">{comp.name}</CardTitle>
-                  <CardDescription>{comp.code}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{comp.venue}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {new Date(comp.startDate).toLocaleDateString()} – {new Date(comp.endDate).toLocaleDateString()}
-                  </p>
-                </CardContent>
-              </Card>
+              <Link to={competitionPath(comp.id)}>
+                <Card
+                  className={`transition-shadow hover:shadow-md ${comp.id === competitionId ? 'ring-2 ring-secondary' : ''}`}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between">
+                      <Trophy className="h-5 w-5 text-secondary" />
+                      <Badge variant={statusVariant[comp.status]}>{comp.status}</Badge>
+                    </div>
+                    <CardTitle className="text-base">{comp.name}</CardTitle>
+                    <CardDescription>{comp.code}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">{comp.venue}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {new Date(comp.startDate).toLocaleDateString()} –{' '}
+                      {new Date(comp.endDate).toLocaleDateString()}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
             </motion.div>
           ))}
         </div>
@@ -235,16 +240,16 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="grid gap-2 sm:grid-cols-2">
             <Button variant="outline" asChild className="justify-start">
-              <Link to="/pilots">Register pilots</Link>
+              <Link to={competitionPath(competitionId, 'pilots')}>Register pilots</Link>
             </Button>
             <Button variant="outline" asChild className="justify-start">
-              <Link to="/teams">Manage teams</Link>
+              <Link to={competitionPath(competitionId, 'teams')}>Manage teams</Link>
             </Button>
             <Button variant="outline" asChild className="justify-start">
-              <Link to="/rankings">View rankings</Link>
+              <Link to={competitionPath(competitionId, 'rankings')}>View rankings</Link>
             </Button>
             <Button variant="outline" asChild className="justify-start">
-              <Link to="/reports">Generate reports</Link>
+              <Link to={competitionPath(competitionId, 'reports')}>Generate reports</Link>
             </Button>
           </CardContent>
         </Card>

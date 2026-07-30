@@ -26,20 +26,21 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<DashboardPage />} />
+        <Route index element={<Navigate to="/competitions" replace />} />
         <Route path="competitions" element={<CompetitionsPage />} />
-        <Route path="pilots" element={<PilotsPage />} />
-        <Route path="teams" element={<TeamsPage />} />
-        <Route path="rounds" element={<RoundsPage />} />
-        <Route path="scoring" element={<ScoringPage />} />
-        <Route path="rankings" element={<RankingsPage />} />
+        <Route path="competitions/:competitionId" element={<DashboardPage />} />
+        <Route path="competitions/:competitionId/pilots" element={<PilotsPage />} />
+        <Route path="competitions/:competitionId/teams" element={<TeamsPage />} />
+        <Route path="competitions/:competitionId/rounds" element={<RoundsPage />} />
+        <Route path="competitions/:competitionId/scoring" element={<ScoringPage />} />
+        <Route path="competitions/:competitionId/rankings" element={<RankingsPage />} />
+        <Route path="competitions/:competitionId/reports" element={<ReportsPage />} />
+        <Route path="competitions/:competitionId/statistics" element={<StatisticsPage />} />
+        <Route path="competitions/:competitionId/audit" element={<AuditPage />} />
+        <Route path="competitions/:competitionId/settings" element={<SettingsPage />} />
         <Route path="users" element={<UsersPage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="statistics" element={<StatisticsPage />} />
-        <Route path="audit" element={<AuditPage />} />
-        <Route path="settings" element={<SettingsPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/competitions" replace />} />
     </Routes>
   );
 }

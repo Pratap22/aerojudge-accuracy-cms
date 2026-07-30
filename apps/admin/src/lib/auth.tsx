@@ -9,7 +9,7 @@ import {
 } from 'react';
 import type { AuthTokens, AuthUser } from '@npha/shared';
 import { api, clearTokens, getAccessToken, setTokens } from './api';
-import { connectSocket, disconnectSocket } from './socket';
+import { disconnectSocket } from './socket';
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -17,30 +17,13 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  activeCompetitionId: string | null;
-  setActiveCompetitionId: (id: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const COMPETITION_KEY = 'npha_active_competition';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeCompetitionId, setActiveCompetitionIdState] = useState<string | null>(() =>
-    localStorage.getItem(COMPETITION_KEY),
-  );
-
-  const setActiveCompetitionId = useCallback((id: string | null) => {
-    setActiveCompetitionIdState(id);
-    if (id) {
-      localStorage.setItem(COMPETITION_KEY, id);
-      connectSocket(id);
-    } else {
-      localStorage.removeItem(COMPETITION_KEY);
-    }
-  }, []);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -51,18 +34,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     api
       .get<AuthUser>('/auth/me')
-      .then((me) => {
-        setUser(me);
-        if (activeCompetitionId) {
-          connectSocket(activeCompetitionId);
-        }
-      })
+      .then((me) => setUser(me))
       .catch(() => {
         clearTokens();
         setUser(null);
       })
       .finally(() => setIsLoading(false));
-  }, [activeCompetitionId]);
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const result = await api.post<{ user: AuthUser; tokens: AuthTokens }>('/auth/login', {
@@ -71,10 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     setTokens(result.tokens);
     setUser(result.user);
-    if (activeCompetitionId) {
-      connectSocket(activeCompetitionId);
-    }
-  }, [activeCompetitionId]);
+  }, []);
 
   const logout = useCallback(() => {
     clearTokens();
@@ -89,10 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user,
       login,
       logout,
-      activeCompetitionId,
-      setActiveCompetitionId,
     }),
-    [user, isLoading, login, logout, activeCompetitionId, setActiveCompetitionId],
+    [user, isLoading, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -20,7 +20,7 @@ import {
 } from '@npha/ui';
 import type { IndividualRankingResult, RankingCategory, TeamRankingResult } from '@npha/shared';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { useCompetitionId } from '../hooks/useCompetitionId';
 import { connectSocket, onSocketEvent } from '../lib/socket';
 
 const categories: { value: RankingCategory; label: string }[] = [
@@ -64,7 +64,7 @@ function mapTeam(rows: TeamRankingResult[], teams: Record<string, string>): Rank
 }
 
 export function RankingsPage() {
-  const { activeCompetitionId } = useAuth();
+  const activeCompetitionId = useCompetitionId();
   const [category, setCategory] = useState<RankingCategory>('OVERALL');
   const [liveUpdate, setLiveUpdate] = useState<Date | null>(null);
   const queryClient = useQueryClient();
@@ -113,7 +113,7 @@ export function RankingsPage() {
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground">Select an active competition from the dashboard.</p>;
+    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
   }
 
   return (

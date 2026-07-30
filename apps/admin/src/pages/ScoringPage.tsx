@@ -27,7 +27,7 @@ import {
   Textarea,
 } from '@npha/ui';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { useCompetitionId } from '../hooks/useCompetitionId';
 
 interface RoundOption {
   id: string;
@@ -48,7 +48,7 @@ interface Flight {
 }
 
 export function ScoringPage() {
-  const { activeCompetitionId } = useAuth();
+  const activeCompetitionId = useCompetitionId();
   const [selectedRoundId, setSelectedRoundId] = useState<string>('');
   const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -108,7 +108,7 @@ export function ScoringPage() {
   };
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground">Select an active competition from the dashboard.</p>;
+    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
   }
 
   return (

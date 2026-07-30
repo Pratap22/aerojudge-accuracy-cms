@@ -24,7 +24,7 @@ export function LoginPage() {
   });
 
   if (isAuthenticated) {
-    const from = (location.state as { from?: Location })?.from?.pathname ?? '/';
+    const from = (location.state as { from?: Location })?.from?.pathname ?? '/competitions';
     navigate(from, { replace: true });
     return null;
   }
@@ -33,7 +33,7 @@ export function LoginPage() {
     setError(null);
     try {
       await login(data.email, data.password);
-      const from = (location.state as { from?: Location })?.from?.pathname ?? '/';
+      const from = (location.state as { from?: Location })?.from?.pathname ?? '/competitions';
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Login failed. Check your credentials.');

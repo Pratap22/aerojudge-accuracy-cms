@@ -27,7 +27,7 @@ import {
   TableRow,
 } from '@npha/ui';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { useCompetitionId } from '../hooks/useCompetitionId';
 
 interface Pilot extends CreatePilotInput {
   id: string;
@@ -35,7 +35,7 @@ interface Pilot extends CreatePilotInput {
 }
 
 export function PilotsPage() {
-  const { activeCompetitionId } = useAuth();
+  const activeCompetitionId = useCompetitionId();
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Pilot | null>(null);
@@ -106,7 +106,7 @@ export function PilotsPage() {
   };
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground">Select an active competition from the dashboard.</p>;
+    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
   }
 
   return (

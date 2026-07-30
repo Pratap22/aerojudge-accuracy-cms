@@ -1,4 +1,6 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   BarChart3,
@@ -17,30 +19,59 @@ import {
   Users,
   UsersRound,
 } from 'lucide-react';
-import { Badge, Button } from '@npha/ui';
+import { Badge, Button, cn } from '@npha/ui';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
-import { cn } from '@npha/ui';
+import { api } from '../lib/api';
+import { connectSocket, disconnectSocket } from '../lib/socket';
+import { competitionPath } from '../hooks/useCompetitionId';
 
-const navItems = [
-  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/competitions', label: 'Competitions', icon: Trophy },
-  { to: '/pilots', label: 'Pilots', icon: Users },
-  { to: '/teams', label: 'Teams', icon: UsersRound },
-  { to: '/rounds', label: 'Rounds', icon: Target },
-  { to: '/scoring', label: 'Scoring', icon: Gauge },
-  { to: '/rankings', label: 'Rankings', icon: Medal },
-  { to: '/users', label: 'Judges / Users', icon: Shield },
-  { to: '/reports', label: 'Reports / Print', icon: FileText },
-  { to: '/statistics', label: 'Statistics', icon: BarChart3 },
-  { to: '/audit', label: 'Audit', icon: ClipboardList },
-  { to: '/settings', label: 'Settings', icon: Settings },
+const globalNav = [
+  { to: '/competitions', label: 'Competitions', icon: Trophy, end: true },
+  { to: '/users', label: 'Judges / Users', icon: Shield, end: false },
 ];
+
+const competitionNav = [
+  { segment: '', label: 'Overview', icon: LayoutDashboard, end: true },
+  { segment: 'pilots', label: 'Pilots', icon: Users, end: false },
+  { segment: 'teams', label: 'Teams', icon: UsersRound, end: false },
+  { segment: 'rounds', label: 'Rounds', icon: Target, end: false },
+  { segment: 'scoring', label: 'Scoring', icon: Gauge, end: false },
+  { segment: 'rankings', label: 'Rankings', icon: Medal, end: false },
+  { segment: 'reports', label: 'Reports / Print', icon: FileText, end: false },
+  { segment: 'statistics', label: 'Statistics', icon: BarChart3, end: false },
+  { segment: 'audit', label: 'Audit', icon: ClipboardList, end: false },
+  { segment: 'settings', label: 'Settings', icon: Settings, end: false },
+];
+
+function competitionIdFromPath(pathname: string): string | undefined {
+  const match = pathname.match(/^\/competitions\/([^/]+)/);
+  return match?.[1];
+}
 
 export function AppLayout() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const competitionId = useMemo(() => competitionIdFromPath(pathname), [pathname]);
+
+  const { data: competitions } = useQuery({
+    queryKey: ['competitions'],
+    queryFn: () => api.get<Array<{ id: string; name: string; code: string }>>('/competitions'),
+  });
+
+  const activeCompetition = competitions?.find((c) => c.id === competitionId);
+
+  useEffect(() => {
+    if (competitionId) {
+      connectSocket(competitionId);
+      return () => {
+        disconnectSocket();
+      };
+    }
+    return undefined;
+  }, [competitionId]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -50,15 +81,19 @@ export function AppLayout() {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
               <Target className="h-5 w-5 text-secondary-foreground" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold tracking-wide">NPHA Accuracy</p>
-              <p className="text-xs text-sidebar-foreground/70">Competition CMS</p>
+              <p className="truncate text-xs text-sidebar-foreground/70">
+                {activeCompetition
+                  ? `${activeCompetition.code} · Active`
+                  : 'Select a competition'}
+              </p>
             </div>
           </div>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 scrollbar-thin">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
+          {globalNav.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -76,6 +111,32 @@ export function AppLayout() {
               {label}
             </NavLink>
           ))}
+
+          {competitionId && (
+            <>
+              <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                Competition
+              </p>
+              {competitionNav.map(({ segment, label, icon: Icon, end }) => (
+                <NavLink
+                  key={segment || 'overview'}
+                  to={competitionPath(competitionId, segment)}
+                  end={end}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-secondary text-secondary-foreground'
+                        : 'text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground',
+                    )
+                  }
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {label}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="border-t border-white/10 p-4">
@@ -88,7 +149,12 @@ export function AppLayout() {
                 {user?.role.replace(/_/g, ' ')}
               </Badge>
             </div>
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-sidebar-foreground hover:bg-white/10">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="text-sidebar-foreground hover:bg-white/10"
+            >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           </div>

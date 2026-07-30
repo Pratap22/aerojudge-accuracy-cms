@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createCompetitionSchema, type CreateCompetitionInput, type CompetitionStatus } from '@npha/shared';
 import { Plus } from 'lucide-react';
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -25,7 +27,7 @@ import {
   SelectValue,
 } from '@npha/ui';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { competitionPath } from '../hooks/useCompetitionId';
 
 interface Competition extends CreateCompetitionInput {
   id: string;
@@ -36,9 +38,10 @@ interface CompetitionFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   competition?: Competition | null;
+  onCreated?: (id: string) => void;
 }
 
-export function CompetitionForm({ open, onOpenChange, competition }: CompetitionFormProps) {
+export function CompetitionForm({ open, onOpenChange, competition, onCreated }: CompetitionFormProps) {
   const queryClient = useQueryClient();
   const isEdit = !!competition;
 
@@ -76,10 +79,13 @@ export function CompetitionForm({ open, onOpenChange, competition }: Competition
       isEdit
         ? api.put<Competition>(`/competitions/${competition!.id}`, data)
         : api.post<Competition>('/competitions', data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
       onOpenChange(false);
       reset();
+      if (!isEdit && result?.id) {
+        onCreated?.(result.id);
+      }
     },
   });
 
@@ -162,11 +168,19 @@ export function CompetitionForm({ open, onOpenChange, competition }: Competition
 export function CompetitionsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Competition | null>(null);
-  const { setActiveCompetitionId } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { data: competitions, isLoading } = useQuery({
     queryKey: ['competitions'],
     queryFn: () => api.get<Competition[]>('/competitions'),
   });
+
+  /** Active competition inferred from any open competition URL (shareable path). */
+  const activeFromPath = location.pathname.match(/^\/competitions\/([^/]+)/)?.[1];
+
+  const handleOpen = (comp: Competition) => {
+    navigate(competitionPath(comp.id));
+  };
 
   return (
     <div className="space-y-6">
@@ -190,35 +204,49 @@ export function CompetitionsPage() {
         <p className="text-muted-foreground">Loading…</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {competitions?.map((comp) => (
-            <Card key={comp.id}>
-              <CardHeader>
-                <CardTitle>{comp.name}</CardTitle>
-                <CardDescription>
-                  {comp.code} · {comp.venue}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditing(comp);
-                    setFormOpen(true);
-                  }}
-                >
-                  Edit
-                </Button>
-                <Button size="sm" onClick={() => setActiveCompetitionId(comp.id)}>
-                  Set Active
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          {competitions?.map((comp) => {
+            const isActive = comp.id === activeFromPath;
+            return (
+              <Card
+                key={comp.id}
+                className={isActive ? 'ring-2 ring-secondary' : undefined}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle>{comp.name}</CardTitle>
+                    {isActive && <Badge variant="secondary">Open</Badge>}
+                  </div>
+                  <CardDescription>
+                    {comp.code} · {comp.venue}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditing(comp);
+                      setFormOpen(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button size="sm" onClick={() => handleOpen(comp)}>
+                    Open
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      <CompetitionForm open={formOpen} onOpenChange={setFormOpen} competition={editing} />
+      <CompetitionForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        competition={editing}
+        onCreated={(id) => navigate(competitionPath(id))}
+      />
     </div>
   );
 }

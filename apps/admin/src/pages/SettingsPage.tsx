@@ -13,10 +13,10 @@ import {
   Label,
 } from '@npha/ui';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { useCompetitionId } from '../hooks/useCompetitionId';
 
 export function SettingsPage() {
-  const { activeCompetitionId } = useAuth();
+  const activeCompetitionId = useCompetitionId();
   const queryClient = useQueryClient();
 
   const { data: rules, isLoading } = useQuery({
@@ -36,7 +36,7 @@ export function SettingsPage() {
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground">Select an active competition from the dashboard.</p>;
+    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
   }
 
   if (isLoading) {

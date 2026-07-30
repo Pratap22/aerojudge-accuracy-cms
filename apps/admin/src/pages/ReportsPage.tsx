@@ -18,7 +18,7 @@ import {
 } from '@npha/ui';
 import type { PrintFormat, ReportType } from '@npha/shared';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { useCompetitionId } from '../hooks/useCompetitionId';
 
 const reportTypes: { value: ReportType; label: string }[] = [
   { value: 'OVERALL_RESULTS', label: 'Overall Results' },
@@ -46,7 +46,7 @@ interface ReportPreview {
 }
 
 export function ReportsPage() {
-  const { activeCompetitionId } = useAuth();
+  const activeCompetitionId = useCompetitionId();
   const [reportType, setReportType] = useState<ReportType>('OVERALL_RESULTS');
   const [format, setFormat] = useState<PrintFormat>('A4_PORTRAIT');
   const [preview, setPreview] = useState<ReportPreview | null>(null);
@@ -85,7 +85,7 @@ export function ReportsPage() {
   };
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground">Select an active competition from the dashboard.</p>;
+    return <p className="text-muted-foreground"><a href="/competitions" className="text-secondary underline">Open a competition</a> from the Competitions list.</p>;
   }
 
   return (
