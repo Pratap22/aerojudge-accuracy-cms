@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { RequirePermission } from './components/RequirePermission';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CompetitionsPage } from './pages/CompetitionsPage';
@@ -31,21 +32,117 @@ export default function App() {
       >
         <Route index element={<Navigate to="/competitions" replace />} />
         <Route path="competitions" element={<CompetitionsPage />} />
-        <Route path="competitions/:competitionId" element={<DashboardPage />} />
-        <Route path="competitions/:competitionId/pilots" element={<PilotsPage />} />
-        <Route path="competitions/:competitionId/teams" element={<TeamsPage />} />
-        <Route path="competitions/:competitionId/rounds" element={<RoundsPage />} />
-        <Route path="competitions/:competitionId/scoring" element={<ScoringPage />} />
-        <Route path="competitions/:competitionId/rankings" element={<RankingsPage />} />
-        <Route path="competitions/:competitionId/reports" element={<ReportsPage />} />
-        <Route path="competitions/:competitionId/statistics" element={<StatisticsPage />} />
-        <Route path="competitions/:competitionId/audit" element={<AuditPage />} />
-        <Route path="competitions/:competitionId/settings" element={<SettingsPage />} />
-        <Route path="organizations" element={<OrganizationsPage />} />
-        <Route path="organizations/:organizationId" element={<OrganizationDetailPage />} />
+        <Route
+          path="competitions/:competitionId"
+          element={
+            <RequirePermission anyOf={['competition:update', 'competition:publish', 'round:manage']}>
+              <DashboardPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/pilots"
+          element={
+            <RequirePermission anyOf={['pilot:manage']}>
+              <PilotsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/teams"
+          element={
+            <RequirePermission anyOf={['team:manage']}>
+              <TeamsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/rounds"
+          element={
+            <RequirePermission anyOf={['round:manage', 'round:start', 'round:close']}>
+              <RoundsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/scoring"
+          element={
+            <RequirePermission anyOf={['score:enter', 'score:confirm']}>
+              <ScoringPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/rankings"
+          element={
+            <RequirePermission
+              anyOf={['results:publish', 'score:confirm', 'round:manage', 'print:generate']}
+            >
+              <RankingsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/reports"
+          element={
+            <RequirePermission anyOf={['print:generate']}>
+              <ReportsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/statistics"
+          element={
+            <RequirePermission
+              anyOf={['results:publish', 'score:confirm', 'audit:view', 'print:generate']}
+            >
+              <StatisticsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/audit"
+          element={
+            <RequirePermission anyOf={['audit:view']}>
+              <AuditPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/settings"
+          element={
+            <RequirePermission anyOf={['competition:update']}>
+              <SettingsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizations"
+          element={
+            <RequirePermission
+              anyOf={['organization:read', 'organization:manage', 'organization:members']}
+            >
+              <OrganizationsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizations/:organizationId"
+          element={
+            <RequirePermission
+              anyOf={['organization:read', 'organization:manage', 'organization:members']}
+            >
+              <OrganizationDetailPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="organizations/:organizationId/members"
-          element={<OrganizationMembersPage />}
+          element={
+            <RequirePermission anyOf={['organization:members', 'organization:manage']}>
+              <OrganizationMembersPage />
+            </RequirePermission>
+          }
         />
         <Route path="users" element={<UsersPage />} />
       </Route>

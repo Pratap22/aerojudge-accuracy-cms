@@ -21,12 +21,13 @@ import {
   Building2,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
-import { hasEffectivePermission, hasPermission, isPlatformRole } from '@npha/shared';
+import { hasEffectivePermission, hasPermission, isPlatformRole, type Permission } from '@npha/shared';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { api } from '../lib/api';
 import { connectSocket, disconnectSocket } from '../lib/socket';
 import { competitionPath } from '../hooks/useCompetitionId';
+import { checkPermission } from '../hooks/usePermission';
 
 const globalNav = [
   { to: '/competitions', label: 'Competitions', icon: Trophy, end: true },
@@ -34,17 +35,60 @@ const globalNav = [
   { to: '/users', label: 'Judges / Users', icon: Shield, end: false },
 ] as const;
 
-const competitionNav = [
-  { segment: '', label: 'Overview', icon: LayoutDashboard, end: true },
-  { segment: 'pilots', label: 'Pilots', icon: Users, end: false },
-  { segment: 'teams', label: 'Teams', icon: UsersRound, end: false },
-  { segment: 'rounds', label: 'Rounds', icon: Target, end: false },
-  { segment: 'scoring', label: 'Scoring', icon: Gauge, end: false },
-  { segment: 'rankings', label: 'Rankings', icon: Medal, end: false },
-  { segment: 'reports', label: 'Reports / Print', icon: FileText, end: false },
-  { segment: 'statistics', label: 'Statistics', icon: BarChart3, end: false },
-  { segment: 'audit', label: 'Audit', icon: ClipboardList, end: false },
-  { segment: 'settings', label: 'Settings', icon: Settings, end: false },
+/** Competition tabs — gated by org permissions (Judge → Scoring only). */
+const competitionNav: Array<{
+  segment: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  end: boolean;
+  anyOf: readonly Permission[];
+}> = [
+  {
+    segment: '',
+    label: 'Overview',
+    icon: LayoutDashboard,
+    end: true,
+    anyOf: ['competition:update', 'competition:publish', 'round:manage'],
+  },
+  { segment: 'pilots', label: 'Pilots', icon: Users, end: false, anyOf: ['pilot:manage'] },
+  { segment: 'teams', label: 'Teams', icon: UsersRound, end: false, anyOf: ['team:manage'] },
+  {
+    segment: 'rounds',
+    label: 'Rounds',
+    icon: Target,
+    end: false,
+    anyOf: ['round:manage', 'round:start', 'round:close'],
+  },
+  { segment: 'scoring', label: 'Scoring', icon: Gauge, end: false, anyOf: ['score:enter', 'score:confirm'] },
+  {
+    segment: 'rankings',
+    label: 'Rankings',
+    icon: Medal,
+    end: false,
+    anyOf: ['results:publish', 'score:confirm', 'round:manage', 'print:generate'],
+  },
+  {
+    segment: 'reports',
+    label: 'Reports / Print',
+    icon: FileText,
+    end: false,
+    anyOf: ['print:generate'],
+  },
+  {
+    segment: 'statistics',
+    label: 'Statistics',
+    icon: BarChart3,
+    end: false,
+    anyOf: ['results:publish', 'score:confirm', 'audit:view', 'print:generate'],
+  },
+  { segment: 'audit', label: 'Audit', icon: ClipboardList, end: false, anyOf: ['audit:view'] },
+  {
+    segment: 'settings',
+    label: 'Settings',
+    icon: Settings,
+    end: false,
+    anyOf: ['competition:update'],
+  },
 ];
 
 function competitionIdFromPath(pathname: string): string | undefined {
@@ -67,7 +111,18 @@ export function AppLayout() {
       }
       if (item.to === '/organizations') {
         return (
-          (user.organizations?.length ?? 0) > 0 ||
+          hasEffectivePermission({
+            platformRole: user.role,
+            orgRole: user.orgRole,
+            permissions: user.permissions,
+            permission: 'organization:manage',
+          }) ||
+          hasEffectivePermission({
+            platformRole: user.role,
+            orgRole: user.orgRole,
+            permissions: user.permissions,
+            permission: 'organization:members',
+          }) ||
           hasEffectivePermission({
             platformRole: user.role,
             orgRole: user.orgRole,
@@ -80,6 +135,13 @@ export function AppLayout() {
       }
       return true;
     });
+  }, [user]);
+
+  const visibleCompetitionNav = useMemo(() => {
+    if (!user) return [];
+    return competitionNav.filter((item) =>
+      item.anyOf.some((permission) => checkPermission(user, permission)),
+    );
   }, [user]);
 
   const { data: competitions } = useQuery({
@@ -98,6 +160,12 @@ export function AppLayout() {
     }
     return undefined;
   }, [competitionId]);
+
+  const roleLabel =
+    currentOrganization?.customRoleName ??
+    currentOrganization?.role ??
+    user?.orgRole ??
+    user?.role;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -140,12 +208,12 @@ export function AppLayout() {
             </NavLink>
           ))}
 
-          {competitionId && (
+          {competitionId && visibleCompetitionNav.length > 0 && (
             <>
               <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
                 Competition
               </p>
-              {competitionNav.map(({ segment, label, icon: Icon, end }) => (
+              {visibleCompetitionNav.map(({ segment, label, icon: Icon, end }) => (
                 <NavLink
                   key={segment || 'overview'}
                   to={competitionPath(competitionId, segment)}
@@ -198,7 +266,7 @@ export function AppLayout() {
                 {user?.firstName} {user?.lastName}
               </p>
               <Badge variant="secondary" className="mt-1 text-[10px]">
-                {user?.role.replace(/_/g, ' ')}
+                {(roleLabel ?? 'USER').replace(/_/g, ' ')}
               </Badge>
             </div>
             <Button
@@ -237,4 +305,24 @@ export function AppLayout() {
       </main>
     </div>
   );
+}
+
+/** First competition sub-path the user is allowed to open (Judges → rounds). */
+export function defaultCompetitionSegment(user: Parameters<typeof checkPermission>[0]): string {
+  if (checkPermission(user, 'competition:update')) {
+    return '';
+  }
+  if (
+    checkPermission(user, 'round:manage') ||
+    checkPermission(user, 'round:start') ||
+    checkPermission(user, 'round:close')
+  ) {
+    return 'rounds';
+  }
+  if (checkPermission(user, 'score:enter') || checkPermission(user, 'score:confirm')) {
+    return 'scoring';
+  }
+  if (checkPermission(user, 'pilot:manage')) return 'pilots';
+  if (checkPermission(user, 'print:generate')) return 'reports';
+  return '';
 }

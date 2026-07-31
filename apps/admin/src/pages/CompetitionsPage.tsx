@@ -28,6 +28,9 @@ import {
 } from '@npha/ui';
 import { api } from '../lib/api';
 import { competitionPath } from '../hooks/useCompetitionId';
+import { useAuth } from '../lib/auth';
+import { defaultCompetitionSegment } from '../layouts/AppLayout';
+import { usePermission } from '../hooks/usePermission';
 
 interface Competition extends Omit<CreateCompetitionInput, 'location' | 'maximumScoreCm' | 'organizationId'> {
   id: string;
@@ -245,6 +248,9 @@ export function CompetitionsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canCreate = usePermission('competition:create');
+  const canPublish = usePermission('competition:publish');
   const { data: competitions, isLoading } = useQuery({
     queryKey: ['competitions'],
     queryFn: () => api.get<Competition[]>('/competitions'),
@@ -261,7 +267,7 @@ export function CompetitionsPage() {
   });
 
   const handleOpen = (comp: Competition) => {
-    navigate(competitionPath(comp.id));
+    navigate(competitionPath(comp.id, defaultCompetitionSegment(user)));
   };
 
   return (
@@ -273,10 +279,12 @@ export function CompetitionsPage() {
             Open a competition to work on it. Publish to make it visible on Display / Public Results.
           </p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Competition
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setFormOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Competition
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -311,7 +319,7 @@ export function CompetitionsPage() {
                   <Button size="sm" onClick={() => handleOpen(comp)}>
                     Open
                   </Button>
-                  {needsPublish && (
+                  {needsPublish && canPublish && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -328,11 +336,13 @@ export function CompetitionsPage() {
         </div>
       )}
 
-      <CompetitionForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        onCreated={(id) => navigate(competitionPath(id))}
-      />
+      {canCreate && (
+        <CompetitionForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          onCreated={(id) => navigate(competitionPath(id, defaultCompetitionSegment(user)))}
+        />
+      )}
     </div>
   );
 }

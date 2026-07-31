@@ -11,9 +11,9 @@ export const PERMISSIONS = {
   'competition:publish': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR'],
   'pilot:manage': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'SCOREKEEPER'],
   'team:manage': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'SCOREKEEPER'],
-  'round:manage': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE'],
-  'round:start': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE'],
-  'round:close': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE'],
+  'round:manage': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE', 'JUDGE'],
+  'round:start': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE', 'JUDGE'],
+  'round:close': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE', 'JUDGE'],
   'score:enter': ['SUPER_ADMIN', 'CHIEF_JUDGE', 'JUDGE', 'SCOREKEEPER'],
   'score:confirm': ['SUPER_ADMIN', 'CHIEF_JUDGE', 'SCOREKEEPER'],
   'score:approve_chief': ['SUPER_ADMIN', 'CHIEF_JUDGE'],
@@ -85,11 +85,14 @@ export interface OrgRoleDefinition {
 const VIEWER_PERMISSIONS: Permission[] = ['organization:read'];
 
 const JUDGE_PERMISSIONS: Permission[] = [
-  ...VIEWER_PERMISSIONS,
   'score:enter',
+  'round:manage',
+  'round:start',
+  'round:close',
 ];
 
 const SCORER_PERMISSIONS: Permission[] = [
+  ...VIEWER_PERMISSIONS,
   ...JUDGE_PERMISSIONS,
   'score:confirm',
   'pilot:manage',
