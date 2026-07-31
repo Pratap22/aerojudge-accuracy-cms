@@ -302,6 +302,7 @@ Base: `/public`
 | GET | `/:slug` | Public competition info (id or publicSlug) |
 | GET | `/:slug/results?category=OVERALL` | Published rankings |
 | GET | `/:slug/rounds?round=1` | Round results |
+| GET | `/:slug/latest-score` | Most recent judge-entered score |
 
 Requires `isPublished: true` and `livePublicResults: true` in competition settings.
 

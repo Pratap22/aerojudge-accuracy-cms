@@ -301,7 +301,7 @@ export async function generateJudgeSheetPdf(
       scores: ['', ''],
       total: '',
     })),
-    footerNote: 'Bullseye = 0 cm · Maximum = 1000 cm · DNF / ABS / DNS = Maximum',
+    footerNote: 'Bullseye = 000 cm · Maximum = 1000 cm · DNF / ABS / DNS = Maximum',
   });
 }
 

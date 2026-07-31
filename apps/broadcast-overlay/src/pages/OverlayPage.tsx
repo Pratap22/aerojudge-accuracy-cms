@@ -11,8 +11,17 @@ import { getEnabledWidgets } from '../lib/utils';
 
 export function OverlayPage() {
   const { competitionId } = useParams<{ competitionId: string }>();
-  const { competition, currentPilot, latestScoreCm, isBullseye, wind, rankToasts, isLoading } =
-    useOverlayData();
+  const {
+    competition,
+    currentPilot,
+    latestScoreCm,
+    isBullseye,
+    resultLabel,
+    hasLastScore,
+    wind,
+    rankToasts,
+    isLoading,
+  } = useOverlayData();
   const widgets = useMemo(() => getEnabledWidgets(), []);
 
   if (isLoading) {
@@ -33,11 +42,17 @@ export function OverlayPage() {
 
   return (
     <div className="pointer-events-none fixed inset-0">
-      <LowerThird pilot={currentPilot} visible={widgets.has('lowerthird')} />
+      <LowerThird
+        pilot={currentPilot}
+        visible={widgets.has('lowerthird')}
+        fromLastScore={hasLastScore}
+      />
       <ScoreBug
         pilot={currentPilot}
         liveScoreCm={latestScoreCm}
         isBullseye={isBullseye}
+        resultLabel={resultLabel}
+        hasLastScore={hasLastScore}
         visible={widgets.has('scorebug')}
       />
       <Countdown visible={widgets.has('countdown')} />

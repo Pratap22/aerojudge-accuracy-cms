@@ -1,9 +1,6 @@
-export function formatScore(scoreCm: number | null): string {
-  if (scoreCm == null) return '—';
-  if (scoreCm === 0) return '0';
-  if (Number.isInteger(scoreCm)) return scoreCm.toString();
-  return scoreCm.toFixed(1);
-}
+import { formatScoreCm } from '@npha/utils';
+
+export const formatScore = formatScoreCm;
 
 export function pilotFullName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`;

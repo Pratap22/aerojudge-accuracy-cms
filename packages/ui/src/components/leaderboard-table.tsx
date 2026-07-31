@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { formatScoreCm } from '@npha/utils';
 
 import { cn } from '../lib/utils';
 import { PilotChip } from './pilot-chip';
@@ -43,12 +44,6 @@ export interface LeaderboardTableProps extends React.HTMLAttributes<HTMLDivEleme
   compact?: boolean;
   /** Highlight top N ranks with podium styling */
   highlightPodium?: boolean;
-}
-
-function formatScore(scoreCm: number): string {
-  if (scoreCm === 0) return '0';
-  if (Number.isInteger(scoreCm)) return scoreCm.toString();
-  return scoreCm.toFixed(1);
 }
 
 export function LeaderboardTable({
@@ -139,7 +134,7 @@ export function LeaderboardTable({
                       entry.totalScoreCm === 0 && 'text-[hsl(var(--score-bullseye))]',
                     )}
                   >
-                    {formatScore(entry.totalScoreCm)}
+                    {formatScoreCm(entry.totalScoreCm)}
                   </span>
                 </TableCell>
               </TableRow>

@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { generateResultsPdf, type GenerateReportInput } from '@npha/pdf-engine';
 import type { PrintFormat, ReportType } from '@npha/shared';
-import { formatPilotName } from '@npha/utils';
+import { formatPilotName, formatScoreCm } from '@npha/utils';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
@@ -389,7 +389,7 @@ async function buildReportInput(
         name: formatPilotName(r.pilot.firstName, r.pilot.lastName),
         country: r.pilot.country?.name ?? r.pilot.nationality ?? '',
         scores: [r.roundsFlown, r.bullseyes],
-        total: r.totalScoreCm,
+        total: formatScoreCm(r.totalScoreCm),
         notes: `${r.roundsFlown}r / ${r.bullseyes}•`,
       })),
     };
@@ -408,7 +408,7 @@ async function buildReportInput(
         name: r.team.name,
         country: r.team.country?.name ?? '',
         scores: [r.roundsScored],
-        total: r.totalScoreCm,
+        total: formatScoreCm(r.totalScoreCm),
       })),
     };
   }
@@ -521,8 +521,8 @@ async function buildReportInput(
         pilotNumber: s.pilot.pilotNumber,
         name: formatPilotName(s.pilot.firstName, s.pilot.lastName),
         country: s.pilot.country?.name ?? '',
-        scores: [s.finalScoreCm ?? '—'],
-        total: s.finalScoreCm ?? '—',
+        scores: [s.finalScoreCm != null ? formatScoreCm(s.finalScoreCm) : '—'],
+        total: s.finalScoreCm != null ? formatScoreCm(s.finalScoreCm) : '—',
       })),
     };
   }

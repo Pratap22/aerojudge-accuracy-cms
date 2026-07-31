@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatScoreCm } from '@npha/utils';
 import { Medal, RefreshCw } from 'lucide-react';
 import {
   Badge,
@@ -303,7 +304,7 @@ export function RankingsPage() {
                           </TableCell>
                           <TableCell className="font-medium">{row.name}</TableCell>
                           <TableCell className="text-right font-mono">
-                            {Number(row.totalScoreCm).toFixed(1)}
+                            {formatScoreCm(Number(row.totalScoreCm))}
                           </TableCell>
                           <TableCell className="text-right">{row.roundsFlown}</TableCell>
                           {category !== 'TEAM' && category !== 'COUNTRY' && (

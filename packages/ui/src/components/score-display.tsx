@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Target } from 'lucide-react';
+import { formatScoreCm } from '@npha/utils';
 
 import { cn } from '../lib/utils';
 
@@ -26,12 +27,6 @@ const sizeClasses = {
   xl: 'text-8xl',
   led: 'text-[10rem] leading-none',
 } as const;
-
-function formatScore(scoreCm: number): string {
-  if (scoreCm === 0) return '0';
-  if (Number.isInteger(scoreCm)) return scoreCm.toString();
-  return scoreCm.toFixed(1);
-}
 
 export function ScoreDisplay({
   scoreCm,
@@ -109,7 +104,7 @@ export function ScoreDisplay({
               size === 'led' && !bullseye && 'text-white',
             )}
           >
-            {formatScore(scoreCm)}
+            {formatScoreCm(scoreCm)}
           </span>
           {showUnit && (
             <span

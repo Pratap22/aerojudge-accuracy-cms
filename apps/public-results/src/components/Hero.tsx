@@ -8,7 +8,7 @@ import { formatDate } from '../lib/utils';
 interface HeroProps {
   competition: PublicCompetition;
   competitionId: string;
-  topPilots?: { rank: number; name: string; score: number; country: string }[];
+  topPilots?: { rank: number; name: string; score: string; country: string }[];
 }
 
 export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) {

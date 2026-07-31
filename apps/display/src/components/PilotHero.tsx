@@ -9,7 +9,10 @@ interface PilotHeroProps {
   roundNumber?: number;
   liveScoreCm?: number | null;
   isBullseye?: boolean;
+  resultLabel?: string;
   competitionName?: string;
+  /** When false, show “awaiting score” instead of hiding the score panel */
+  hasLastScore?: boolean;
 }
 
 export function PilotHero({
@@ -17,9 +20,11 @@ export function PilotHero({
   roundNumber = 1,
   liveScoreCm,
   isBullseye = false,
+  resultLabel,
   competitionName,
+  hasLastScore = false,
 }: PilotHeroProps) {
-  if (!pilot) {
+  if (!pilot?.pilot) {
     return (
       <div className="flex h-full items-center justify-center">
         <motion.p
@@ -33,8 +38,8 @@ export function PilotHero({
     );
   }
 
-  const displayScore = liveScoreCm ?? null;
   const name = pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName);
+  const showScore = hasLastScore || liveScoreCm != null || Boolean(resultLabel);
 
   return (
     <div className="grid h-full grid-cols-12 gap-8">
@@ -81,21 +86,29 @@ export function PilotHero({
           </div>
         </div>
 
-        {displayScore != null && (
-          <motion.div
-            key={displayScore}
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 200 }}
-          >
-            <ScoreDisplay
-              scoreCm={displayScore}
-              isBullseye={isBullseye || displayScore === 0}
-              size="xl"
-              className="border-sky-500/30 bg-broadcast-navy-light/80"
-            />
-          </motion.div>
-        )}
+        <div>
+          <p className="mb-3 text-sm uppercase tracking-[0.3em] text-sky-400/70">Last Score</p>
+          {showScore ? (
+            <motion.div
+              key={`${liveScoreCm}-${resultLabel ?? ''}-${isBullseye}`}
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 200 }}
+            >
+              <ScoreDisplay
+                scoreCm={liveScoreCm ?? null}
+                isBullseye={isBullseye || liveScoreCm === 0}
+                resultLabel={resultLabel}
+                size="xl"
+                className="border-sky-500/30 bg-broadcast-navy-light/80"
+              />
+            </motion.div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-sky-500/20 bg-broadcast-navy-light/40 px-6 py-10 text-center">
+              <p className="text-lg text-sky-400/60">Waiting for judge…</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

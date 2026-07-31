@@ -21,12 +21,40 @@ export function generateCompetitionCode(name: string, year?: number): string {
   return `${parts.join('-')}-${y}`;
 }
 
-export function formatScoreCm(cm: number | null | undefined, maximum = 1000): string {
-  if (cm === null || cm === undefined) return '—';
-  if (cm >= maximum) return String(maximum);
-  if (cm === 0) return '0';
-  return cm % 1 === 0 ? String(cm) : cm.toFixed(1);
+/**
+ * Format a score/distance in centimetres for display.
+ * Always zero-pads to at least 3 digits so pilots/organisers see consistent values
+ * (0 → "000", 11 → "011", 142 → "142", 1000 → "1000").
+ *
+ * Second argument may be a maximum (legacy) or options object.
+ */
+export function formatScoreCm(
+  cm: number | null | undefined,
+  options?: number | { maximum?: number; width?: number },
+): string {
+  const opts =
+    typeof options === 'number'
+      ? { maximum: options, width: 3 }
+      : { maximum: options?.maximum, width: options?.width ?? 3 };
+
+  if (cm === null || cm === undefined || Number.isNaN(Number(cm))) return '—';
+
+  let value = Number(cm);
+  if (opts.maximum != null && value >= opts.maximum) {
+    value = opts.maximum;
+  }
+
+  const width = opts.width ?? 3;
+  if (Number.isInteger(value)) {
+    return String(value).padStart(width, '0');
+  }
+
+  const [intPart, frac] = value.toFixed(1).split('.');
+  return `${intPart.padStart(width, '0')}.${frac}`;
 }
+
+/** @deprecated Prefer formatScoreCm — kept as a clear alias for UI call sites. */
+export const formatScore = formatScoreCm;
 
 export function formatPilotName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`.trim();

@@ -11,9 +11,9 @@ import { TopTeamsLayout } from '../layouts/TopTeamsLayout';
 import { CountryLayout } from '../layouts/CountryLayout';
 import { NextPilotsLayout } from '../layouts/NextPilotsLayout';
 import { SponsorsLayout } from '../layouts/SponsorsLayout';
-import { useCompetition, useResults, toLeaderboardEntries } from '../hooks/useCompetition';
+import { useCompetition, useLatestScore, useResults, toLeaderboardEntries } from '../hooks/useCompetition';
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
-import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType } from '../lib/types';
+import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, isKioskMode } from '../lib/utils';
 
 export function DisplayBoardPage() {
@@ -28,8 +28,28 @@ export function DisplayBoardPage() {
   const { data: womenResults } = useResults('WOMEN');
   const { data: teamResults } = useResults('TEAM');
   const { data: countryResults } = useResults('COUNTRY');
+  const { data: persistedLatest } = useLatestScore();
 
   const socketState = useDisplaySocket(competition?.id, refreshOverall);
+
+  useEffect(() => {
+    if (!persistedLatest) return;
+    socketState.seedLatestScore({
+      pilotId: persistedLatest.pilotId,
+      pilotNumber: persistedLatest.pilotNumber,
+      firstName: persistedLatest.firstName,
+      lastName: persistedLatest.lastName,
+      countryCode: persistedLatest.countryCode,
+      scoreCm: persistedLatest.scoreCm,
+      isBullseye: persistedLatest.isBullseye,
+      resultLabel: persistedLatest.resultLabel,
+      roundNumber: persistedLatest.roundNumber,
+      rank: 0,
+    });
+  }, [persistedLatest, socketState.seedLatestScore]);
+
+  const latestScore = socketState.latestScore;
+  const lastScorePilotId = latestScore?.pilotId ?? socketState.currentPilotId;
 
   const effectiveLayout = socketState.layoutOverride ?? layout;
   const activeLayout: DisplayLayoutType =
@@ -54,16 +74,51 @@ export function DisplayBoardPage() {
   const teamEntries = useMemo(() => toLeaderboardEntries(teamResults), [teamResults]);
   const countryEntries = useMemo(() => toLeaderboardEntries(countryResults), [countryResults]);
 
-  const currentPilot = useMemo(() => {
-    if (!overallResults?.rankings.length) return null;
-    if (socketState.currentPilotId) {
-      const found = overallResults.rankings.find(
-        (r) => r.id === socketState.currentPilotId || r.pilotId === socketState.currentPilotId,
+  const currentPilot = useMemo((): PublicRankingRow | null => {
+    const rankings = overallResults?.rankings ?? [];
+    const findInRankings = (id: string | null | undefined) => {
+      if (!id) return null;
+      return (
+        rankings.find((r) => r.id === id || r.pilotId === id) ?? null
       );
-      if (found) return found;
+    };
+
+    // Prefer the pilot who was last scored by the judge
+    const fromLastScore = findInRankings(lastScorePilotId);
+    if (fromLastScore) return fromLastScore;
+
+    if (latestScore) {
+      return {
+        id: latestScore.pilotId,
+        pilotId: latestScore.pilotId,
+        rank: latestScore.rank || 0,
+        totalScoreCm: latestScore.scoreCm ?? 0,
+        roundsFlown: 1,
+        bullseyes: latestScore.isBullseye ? 1 : 0,
+        pilot: {
+          pilotNumber: latestScore.pilotNumber,
+          firstName: latestScore.firstName || persistedLatest?.firstName || '',
+          lastName: latestScore.lastName || persistedLatest?.lastName || '',
+          nationality: latestScore.countryCode || persistedLatest?.countryCode,
+          country: {
+            name:
+              persistedLatest?.countryName ??
+              latestScore.countryCode ??
+              '—',
+            code: latestScore.countryCode || persistedLatest?.countryCode || 'XX',
+          },
+        },
+      };
     }
-    return overallResults.rankings[0] ?? null;
-  }, [overallResults, socketState.currentPilotId]);
+
+    return findInRankings(socketState.currentPilotId) ?? rankings[0] ?? null;
+  }, [
+    overallResults,
+    lastScorePilotId,
+    latestScore,
+    socketState.currentPilotId,
+    persistedLatest,
+  ]);
 
   const onDeckQueue = useMemo(() => {
     if (!overallResults?.rankings.length || !currentPilot) {
@@ -85,6 +140,17 @@ export function DisplayBoardPage() {
     url.searchParams.set('layout', newLayout);
     window.history.replaceState({}, '', url);
   }, []);
+
+  const lastScoreRound =
+    (latestScore?.roundNumber && latestScore.roundNumber > 0
+      ? latestScore.roundNumber
+      : null) ??
+    persistedLatest?.roundNumber ??
+    1;
+  const lastScoreCm = latestScore?.scoreCm ?? null;
+  const lastIsBullseye = latestScore?.isBullseye ?? false;
+  const lastResultLabel = latestScore?.resultLabel;
+  const hasLastScore = Boolean(latestScore);
 
   if (compLoading) {
     return (
@@ -114,15 +180,18 @@ export function DisplayBoardPage() {
           <CurrentPilotLayout
             pilot={currentPilot}
             competitionName={competition.name}
-            liveScoreCm={socketState.latestScore?.scoreCm}
-            isBullseye={socketState.latestScore?.isBullseye}
+            roundNumber={lastScoreRound}
+            liveScoreCm={lastScoreCm}
+            isBullseye={lastIsBullseye}
+            resultLabel={lastResultLabel}
+            hasLastScore={hasLastScore}
           />
         );
       case 'top10':
         return (
           <Top10Layout
             entries={overallEntries}
-            highlightPilotNumber={currentPilot?.pilot.pilotNumber}
+            highlightPilotNumber={currentPilot?.pilot?.pilotNumber}
           />
         );
       case 'women':
@@ -140,7 +209,11 @@ export function DisplayBoardPage() {
           <CurrentPilotLayout
             pilot={currentPilot}
             competitionName={competition.name}
-            liveScoreCm={socketState.latestScore?.scoreCm}
+            roundNumber={lastScoreRound}
+            liveScoreCm={lastScoreCm}
+            isBullseye={lastIsBullseye}
+            resultLabel={lastResultLabel}
+            hasLastScore={hasLastScore}
           />
         );
     }

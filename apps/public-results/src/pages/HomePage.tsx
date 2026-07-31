@@ -47,12 +47,15 @@ export function HomePage() {
   }
 
   const topPilots =
-    results?.rankings.slice(0, 3).map((r) => ({
-      rank: r.rank,
-      name: pilotFullName(r.pilot.firstName, r.pilot.lastName),
-      score: Number(formatScore(r.totalScoreCm)),
-      country: r.pilot.country?.code ?? r.pilot.nationality ?? 'XX',
-    })) ?? [];
+    results?.rankings
+      .filter((r) => r.pilot)
+      .slice(0, 3)
+      .map((r) => ({
+        rank: r.rank,
+        name: pilotFullName(r.pilot!.firstName, r.pilot!.lastName),
+        score: formatScore(r.totalScoreCm),
+        country: r.pilot!.country?.code ?? r.pilot!.nationality ?? 'XX',
+      })) ?? [];
 
   return (
     <Layout>

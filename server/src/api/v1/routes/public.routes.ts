@@ -7,5 +7,6 @@ router.get('/competitions', ...ctrl.listCompetitions);
 router.get('/:slug', ...ctrl.getCompetition);
 router.get('/:slug/results', ...ctrl.getResults);
 router.get('/:slug/rounds', ...ctrl.getRoundResults);
+router.get('/:slug/latest-score', ...ctrl.getLatestScore);
 
 export default router;

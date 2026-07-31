@@ -23,7 +23,9 @@ export function useCompetition() {
 
 export function useResults(category: RankingCategory = 'OVERALL') {
   const slug = useSlug();
+  const { data: competition } = useCompetition();
   const queryClient = useQueryClient();
+  const roomKey = competition?.id ?? slug;
 
   const query = useQuery({
     queryKey: ['results', slug, category],
@@ -33,7 +35,8 @@ export function useResults(category: RankingCategory = 'OVERALL') {
   });
 
   useEffect(() => {
-    connectPublicSocket(slug);
+    if (!roomKey) return;
+    connectPublicSocket(roomKey);
 
     const unsubs = [
       onSocketEvent('ranking:updated', () => {
@@ -51,7 +54,7 @@ export function useResults(category: RankingCategory = 'OVERALL') {
       unsubs.forEach((u) => u());
       disconnectSocket();
     };
-  }, [slug, queryClient]);
+  }, [roomKey, slug, queryClient]);
 
   return query;
 }

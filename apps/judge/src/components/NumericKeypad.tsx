@@ -1,4 +1,5 @@
 import { Delete } from 'lucide-react';
+import { formatScoreCm } from '@npha/utils';
 import { Button, cn } from '@npha/ui';
 
 interface NumericKeypadProps {
@@ -22,10 +23,17 @@ export function NumericKeypad({ value, onChange, onSubmit, disabled }: NumericKe
     onChange(value + key);
   };
 
+  const displayValue =
+    value === '' || value === '.'
+      ? '000'
+      : value.endsWith('.')
+        ? `${formatScoreCm(Number(value.slice(0, -1) || 0))}.`
+        : formatScoreCm(Number(value));
+
   return (
     <div className="space-y-3">
       <div className="rounded-xl bg-slate-800 px-6 py-4 text-center">
-        <span className="font-mono text-score text-sky-400">{value || '0'}</span>
+        <span className="font-mono text-score text-sky-400">{displayValue}</span>
         <span className="ml-2 text-2xl text-slate-400">cm</span>
       </div>
       <div className="grid grid-cols-3 gap-2">

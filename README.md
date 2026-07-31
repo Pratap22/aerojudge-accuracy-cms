@@ -153,13 +153,13 @@ Sample seed data uses **NPHA as an example organization** (early customer / demo
 |-----|---------|---------|
 | Admin | http://localhost:3000 | Competition management (org RBAC) |
 | Judge | http://localhost:3001 | Touch scoring (login + org context) |
-| Display | http://localhost:3002/?competition=npha-acc-2024 | Venue leaderboards (public slug) |
-| Public Results | http://localhost:3003/npha-acc-2024 | Public leaderboard |
-| Announcer | http://localhost:3004/?competition=npha-acc-2024 | Live announcements |
-| Broadcast Overlay | http://localhost:3005/?competition=npha-acc-2024 | OBS browser source |
+| Display | http://localhost:3002 | Venue leaderboards (`/competition/:id`) |
+| Public Results | http://localhost:3003 | Public leaderboard (`/competition/:id`) |
+| Announcer | http://localhost:3004 | Live announcements (`/competition/:id`) |
+| Broadcast Overlay | http://localhost:3005 | OBS browser source (`/competition/:id`) |
 | API | http://localhost:4000/api/v1 · Swagger `/api/docs` | REST + Socket.IO |
 
-Seed slug `npha-acc-2024` is sample data only — pass it explicitly (or via `VITE_COMPETITION_SLUG` / `VITE_DEFAULT_SLUG`), never treated as a product default.
+Seed sample competitions appear on each app’s home list when published with public results enabled. Legacy `?competition=` and `/:slug` URLs redirect to `/competition/:id`.
 
 ---
 

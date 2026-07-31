@@ -237,3 +237,56 @@ export async function getPublicRoundResults(slug: string, roundNumber: number) {
 
   return { competition, round, scores };
 }
+
+export async function getLatestPublicScore(slugOrId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+
+  const score = await prisma.score.findFirst({
+    where: {
+      round: { competitionId: competition.id },
+      status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+      finalScoreCm: { not: null },
+    },
+    orderBy: [{ enteredAt: 'desc' }, { updatedAt: 'desc' }],
+    select: {
+      id: true,
+      pilotId: true,
+      finalScoreCm: true,
+      isBullseye: true,
+      resultType: true,
+      enteredAt: true,
+      round: { select: { number: true } },
+      pilot: {
+        select: {
+          id: true,
+          pilotNumber: true,
+          firstName: true,
+          lastName: true,
+          nationality: true,
+          country: { select: { name: true, code: true } },
+        },
+      },
+    },
+  });
+
+  if (!score) return null;
+
+  return {
+    competitionId: competition.id,
+    pilotId: score.pilotId,
+    pilotNumber: score.pilot.pilotNumber,
+    firstName: score.pilot.firstName,
+    lastName: score.pilot.lastName,
+    countryCode: score.pilot.country?.code ?? score.pilot.nationality ?? 'XX',
+    countryName: score.pilot.country?.name ?? score.pilot.nationality ?? null,
+    scoreCm: score.finalScoreCm,
+    isBullseye: score.isBullseye,
+    resultType: score.resultType,
+    resultLabel:
+      score.resultType !== 'MEASURED' && score.resultType !== 'BULLSEYE'
+        ? score.resultType
+        : undefined,
+    roundNumber: score.round.number,
+    enteredAt: score.enteredAt,
+  };
+}

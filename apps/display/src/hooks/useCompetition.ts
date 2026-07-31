@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import type { RankingCategory } from '@npha/shared';
-import { fetchCompetition, fetchResults } from '../lib/api';
+import { fetchCompetition, fetchLatestScore, fetchResults } from '../lib/api';
 import type { PublicResults } from '../lib/types';
 
 export function useCompetitionId(): string {
@@ -15,6 +15,16 @@ export function useCompetition() {
     queryKey: ['competition', competitionId],
     queryFn: () => fetchCompetition(competitionId),
     staleTime: 60_000,
+    enabled: Boolean(competitionId),
+  });
+}
+
+export function useLatestScore() {
+  const competitionId = useCompetitionId();
+  return useQuery({
+    queryKey: ['latest-score', competitionId],
+    queryFn: () => fetchLatestScore(competitionId),
+    staleTime: 5_000,
     enabled: Boolean(competitionId),
   });
 }
@@ -33,6 +43,7 @@ export function useResults(category: RankingCategory = 'OVERALL') {
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['results', competitionId] });
+    queryClient.invalidateQueries({ queryKey: ['latest-score', competitionId] });
   };
 
   return { ...query, invalidate };

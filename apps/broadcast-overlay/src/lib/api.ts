@@ -35,3 +35,23 @@ export function fetchResults(
 ): Promise<PublicResults> {
   return publicFetch<PublicResults>(`/${idOrSlug}/results`, { category });
 }
+
+export interface LatestPublicScore {
+  competitionId: string;
+  pilotId: string;
+  pilotNumber: number;
+  firstName: string;
+  lastName: string;
+  countryCode: string;
+  countryName: string | null;
+  scoreCm: number | null;
+  isBullseye: boolean;
+  resultType: string;
+  resultLabel?: string;
+  roundNumber: number;
+  enteredAt: string | null;
+}
+
+export function fetchLatestScore(idOrSlug: string): Promise<LatestPublicScore | null> {
+  return publicFetch<LatestPublicScore | null>(`/${idOrSlug}/latest-score`);
+}

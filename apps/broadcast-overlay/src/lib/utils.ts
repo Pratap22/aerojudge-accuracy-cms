@@ -1,11 +1,7 @@
+import { formatScoreCm } from '@npha/utils';
 import type { OverlayWidget } from './types';
 
-export function formatScore(scoreCm: number | null): string {
-  if (scoreCm == null) return '—';
-  if (scoreCm === 0) return '0';
-  if (Number.isInteger(scoreCm)) return scoreCm.toString();
-  return scoreCm.toFixed(1);
-}
+export const formatScore = formatScoreCm;
 
 export function countryCodeToEmoji(code2: string): string {
   const upper = code2.toUpperCase();

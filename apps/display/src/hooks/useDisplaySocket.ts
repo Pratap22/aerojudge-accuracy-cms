@@ -21,28 +21,42 @@ const initialState: DisplaySocketState = {
   lastRankingUpdate: null,
 };
 
+function resultLabelFromScore(score: ComputedScore): string | undefined {
+  return score.resultType !== 'MEASURED' && score.resultType !== 'BULLSEYE'
+    ? score.resultType
+    : undefined;
+}
+
 export function useDisplaySocket(competitionId: string | undefined, onRankingUpdate?: () => void) {
   const [state, setState] = useState<DisplaySocketState>(initialState);
 
-  const handleScoreUpdate = useCallback((payload: { score: ComputedScore }) => {
-    const score = payload.score;
-    setState((prev) => ({
-      ...prev,
-      latestScore: {
-        pilotId: score.pilotId,
-        pilotNumber: 0,
-        firstName: '',
-        lastName: '',
-        countryCode: '',
-        scoreCm: score.finalScoreCm,
-        isBullseye: score.isBullseye,
-        resultLabel: score.resultType !== 'MEASURED' && score.resultType !== 'BULLSEYE'
-          ? score.resultType
-          : undefined,
-        roundNumber: 0,
-        rank: 0,
-      },
-    }));
+  const seedLatestScore = useCallback((score: LiveScore | null) => {
+    if (!score) return;
+    setState((prev) => {
+      if (
+        prev.latestScore &&
+        prev.latestScore.pilotId === score.pilotId &&
+        prev.latestScore.scoreCm === score.scoreCm
+      ) {
+        return {
+          ...prev,
+          latestScore: {
+            ...prev.latestScore,
+            roundNumber: score.roundNumber || prev.latestScore.roundNumber,
+            firstName: prev.latestScore.firstName || score.firstName,
+            lastName: prev.latestScore.lastName || score.lastName,
+            pilotNumber: prev.latestScore.pilotNumber || score.pilotNumber,
+            countryCode: prev.latestScore.countryCode || score.countryCode,
+          },
+        };
+      }
+      if (prev.latestScore) return prev;
+      return {
+        ...prev,
+        latestScore: score,
+        currentPilotId: prev.currentPilotId ?? score.pilotId,
+      };
+    });
   }, []);
 
   useEffect(() => {
@@ -61,7 +75,26 @@ export function useDisplaySocket(competitionId: string | undefined, onRankingUpd
       }),
       onSocketEvent('score:updated', (payload) => {
         if (payload.competitionId !== competitionId) return;
-        handleScoreUpdate(payload);
+        const score = payload.score;
+        const pilot = payload.pilot;
+        setState((prev) => ({
+          ...prev,
+          currentPilotId: score.pilotId,
+          latestScore: {
+            pilotId: score.pilotId,
+            pilotNumber: pilot?.pilotNumber ?? prev.latestScore?.pilotNumber ?? 0,
+            firstName: pilot?.firstName ?? prev.latestScore?.firstName ?? '',
+            lastName: pilot?.lastName ?? prev.latestScore?.lastName ?? '',
+            countryCode:
+              pilot?.countryCode ?? pilot?.country ?? prev.latestScore?.countryCode ?? '',
+            scoreCm: score.finalScoreCm,
+            isBullseye: score.isBullseye,
+            resultLabel: resultLabelFromScore(score),
+            roundNumber: prev.latestScore?.roundNumber ?? 0,
+            rank: 0,
+          },
+        }));
+        onRankingUpdate?.();
       }),
       onSocketEvent('ranking:updated', (payload) => {
         if (payload.competitionId !== competitionId) return;
@@ -88,7 +121,7 @@ export function useDisplaySocket(competitionId: string | undefined, onRankingUpd
       unsubs.forEach((unsub) => unsub());
       disconnectSocket();
     };
-  }, [competitionId, handleScoreUpdate, onRankingUpdate]);
+  }, [competitionId, onRankingUpdate]);
 
-  return state;
+  return { ...state, seedLatestScore };
 }

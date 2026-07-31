@@ -11,12 +11,18 @@ export interface PublicCompetition {
   publicSlug: string;
 }
 
-export type PublicCompetitionSummary = Required<
-  Pick<
-    PublicCompetition,
-    'id' | 'name' | 'code' | 'publicSlug' | 'organizer' | 'venue' | 'country' | 'startDate' | 'endDate' | 'status'
-  >
->;
+export interface PublicCompetitionSummary {
+  id: string;
+  name: string;
+  code: string;
+  organizer: string;
+  venue: string;
+  country: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  publicSlug: string;
+}
 
 export interface PublicCompetitionList {
   active: PublicCompetitionSummary[];
@@ -32,6 +38,7 @@ export interface PublicPilot {
 
 export interface PublicRankingRow {
   id: string;
+  pilotId?: string;
   rank: number;
   totalScoreCm: number;
   bullseyes: number;

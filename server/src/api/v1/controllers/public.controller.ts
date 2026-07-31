@@ -47,3 +47,11 @@ export const getRoundResults = [
     sendSuccess(res, results);
   }),
 ];
+
+export const getLatestScore = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const latest = await publicService.getLatestPublicScore(req.params.slug);
+    sendSuccess(res, latest);
+  }),
+];

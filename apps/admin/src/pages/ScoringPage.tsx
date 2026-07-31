@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enterScoreSchema, type EnterScoreInput, type ScoreResultType, type RuleConfig } from '@npha/shared';
+import { formatScoreCm } from '@npha/utils';
 import { Save, Target } from 'lucide-react';
 import {
   Badge,
@@ -68,11 +69,11 @@ function formatFlightScore(flight: Flight): ReactNode {
   }
 
   if (flight.distanceCm != null) {
-    return `${flight.distanceCm} cm`;
+    return `${formatScoreCm(flight.distanceCm)} cm`;
   }
 
   if (flight.finalScoreCm != null && flight.status === 'SCORED') {
-    return `${flight.finalScoreCm} cm`;
+    return `${formatScoreCm(flight.finalScoreCm)} cm`;
   }
 
   return '—';
@@ -441,7 +442,7 @@ export function ScoringPage() {
                         : watch('resultType') === 'BULLSEYE'
                           ? ' as Bullseye'
                           : watch('distanceCm') != null
-                            ? ` · ${watch('distanceCm')} cm`
+                            ? ` · ${formatScoreCm(watch('distanceCm'))} cm`
                             : ''}
                       .
                     </p>

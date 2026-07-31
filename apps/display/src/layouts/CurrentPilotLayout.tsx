@@ -8,6 +8,8 @@ interface CurrentPilotLayoutProps {
   roundNumber?: number;
   liveScoreCm?: number | null;
   isBullseye?: boolean;
+  resultLabel?: string;
+  hasLastScore?: boolean;
 }
 
 export function CurrentPilotLayout({
@@ -16,6 +18,8 @@ export function CurrentPilotLayout({
   roundNumber = 1,
   liveScoreCm,
   isBullseye,
+  resultLabel,
+  hasLastScore,
 }: CurrentPilotLayoutProps) {
   return (
     <div className="flex h-full flex-col">
@@ -26,6 +30,8 @@ export function CurrentPilotLayout({
           roundNumber={roundNumber}
           liveScoreCm={liveScoreCm}
           isBullseye={isBullseye}
+          resultLabel={resultLabel}
+          hasLastScore={hasLastScore}
         />
       </div>
       <SponsorStrip />

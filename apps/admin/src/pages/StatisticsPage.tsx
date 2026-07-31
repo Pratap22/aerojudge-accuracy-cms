@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { formatScoreCm } from '@npha/utils';
 import { BarChart3, Target, TrendingUp, Trophy } from 'lucide-react';
 import {
   Card,
@@ -85,7 +86,7 @@ export function StatisticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {stats?.averageScoreCm != null ? `${stats.averageScoreCm.toFixed(1)} cm` : '—'}
+              {stats?.averageScoreCm != null ? `${formatScoreCm(stats.averageScoreCm)} cm` : '—'}
             </div>
           </CardContent>
         </Card>
@@ -96,7 +97,9 @@ export function StatisticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {stats?.bestSingleScore != null ? `${stats.bestSingleScore.scoreCm} cm` : '—'}
+              {stats?.bestSingleScore != null
+                ? `${formatScoreCm(stats.bestSingleScore.scoreCm)} cm`
+                : '—'}
             </div>
             <p className="text-xs text-muted-foreground">
               {stats?.bestSingleScore
@@ -146,7 +149,7 @@ export function StatisticsPage() {
                       <TableCell className="font-medium">{p.pilotName}</TableCell>
                       <TableCell className="text-right">{p.bullseyes}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {p.avgScoreCm.toFixed(1)}
+                        {formatScoreCm(p.avgScoreCm)}
                       </TableCell>
                     </TableRow>
                   ))
@@ -182,7 +185,7 @@ export function StatisticsPage() {
                     <TableRow key={r.round}>
                       <TableCell>R{r.round}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {r.avgScoreCm.toFixed(1)}
+                        {formatScoreCm(r.avgScoreCm)}
                       </TableCell>
                       <TableCell className="text-right">{r.bullseyes}</TableCell>
                     </TableRow>
