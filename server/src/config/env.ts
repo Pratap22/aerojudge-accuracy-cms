@@ -20,7 +20,7 @@ const envSchema = z.object({
   PRINT_ARCHIVE_DIR: z.string().default('./uploads/documents/prints'),
   PUBLIC_RESULTS_URL: z.string().url().default('http://localhost:3003'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
-  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5000),
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(15_000),
 });
 
 const parsed = envSchema.safeParse(process.env);

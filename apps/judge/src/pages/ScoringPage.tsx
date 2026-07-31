@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Square } from 'lucide-react';
 import { Button } from '@npha/ui';
 import type { EnterScoreInput, RuleConfig, ScoreResultType } from '@npha/shared';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { connectSocket, onSocketEvent } from '../lib/socket';
 import {
@@ -202,6 +202,26 @@ export function ScoringPage() {
     !!currentFlight &&
     (resultType !== 'MEASURED' || distanceInput !== '');
 
+  const allScored = useMemo(
+    () =>
+      !!flights?.length &&
+      flights.every((f) => f.status === 'SCORED' || f.resultType != null),
+    [flights],
+  );
+
+  const canCloseRound =
+    !!roundMeta && ['ACTIVE', 'PAUSED', 'OPEN'].includes(roundMeta.status) && allScored;
+
+  const closeMutation = useMutation({
+    mutationFn: () => api.post(`/competitions/${competitionId}/rounds/${roundId}/close`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['judge-round', competitionId, roundId] });
+      queryClient.invalidateQueries({ queryKey: ['judge-flights', competitionId, roundId] });
+      navigate('/rounds');
+    },
+  });
+
   if (!competitionId) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900 text-white">
@@ -305,6 +325,50 @@ export function ScoringPage() {
           </div>
 
           <div className="flex shrink-0 flex-col gap-1.5">
+            {canCloseRound && (
+              <div className="rounded-lg border border-emerald-600/40 bg-emerald-950/40 px-3 py-2">
+                <p className="mb-1.5 text-center text-xs text-emerald-300">
+                  All {flights?.length ?? 0} pilots scored
+                </p>
+                <Button
+                  size="lg"
+                  className="h-11 w-full bg-emerald-600 text-base font-bold hover:bg-emerald-500 sm:h-12"
+                  disabled={closeMutation.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        'Close this round? Unscored flights (if any) will be recorded as DNF. You can then start the next round.',
+                      )
+                    ) {
+                      closeMutation.mutate();
+                    }
+                  }}
+                >
+                  <Square className="mr-2 h-4 w-4" />
+                  {closeMutation.isPending ? 'Closing…' : 'Close Round'}
+                </Button>
+                {closeMutation.isError && (
+                  <p className="mt-1.5 text-center text-xs text-red-400">
+                    {closeMutation.error instanceof ApiError
+                      ? closeMutation.error.message
+                      : 'Failed to close round'}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {roundMeta &&
+              ['CLOSED', 'PENDING_APPROVAL'].includes(roundMeta.status) &&
+              !canCloseRound && (
+                <Button
+                  size="lg"
+                  className="h-11 w-full text-base font-bold sm:h-12"
+                  onClick={() => navigate('/rounds')}
+                >
+                  Round closed — start next round
+                </Button>
+              )}
+
             <Button
               size="lg"
               className="h-12 w-full text-base font-bold sm:h-14 sm:text-lg"

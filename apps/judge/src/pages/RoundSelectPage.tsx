@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ClipboardList, LogOut, Target } from 'lucide-react';
+import { ChevronRight, ClipboardList, LogOut, Play, Plus, Target } from 'lucide-react';
 import { Badge, Button, Card, CardContent } from '@npha/ui';
 import type { RoundStatus } from '@npha/shared';
-import { api, getOrganizationId } from '../lib/api';
+import { api, ApiError, getOrganizationId } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
 interface RoundOption {
@@ -22,6 +22,7 @@ interface CompetitionOption {
   name: string;
   code: string;
   status?: string;
+  maxRounds?: number;
 }
 
 const statusVariant: Record<
@@ -49,9 +50,22 @@ const SCORABLE_STATUSES: RoundStatus[] = [
   'PENDING_APPROVAL',
 ];
 
+const STARTABLE_STATUSES: RoundStatus[] = ['SCHEDULED', 'BRIEFING', 'OPEN'];
+
+/** Previous round must reach one of these before creating the next. */
+const COMPLETED_FOR_NEXT: RoundStatus[] = [
+  'CLOSED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'LOCKED',
+  'CANCELLED',
+];
+
 export function RoundSelectPage() {
   const { user, competitionId, setCompetitionId, logout, currentOrganization } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const orgId = currentOrganization?.organizationId ?? getOrganizationId();
 
@@ -80,6 +94,12 @@ export function RoundSelectPage() {
     }
   }, [competitions, competitionId, activeCompId, setCompetitionId]);
 
+  const { data: competitionDetail } = useQuery({
+    queryKey: ['competition', activeCompId],
+    queryFn: () => api.get<CompetitionOption>(`/competitions/${activeCompId}`),
+    enabled: !!activeCompId,
+  });
+
   const {
     data: rounds,
     isLoading: roundsLoading,
@@ -91,22 +111,87 @@ export function RoundSelectPage() {
     refetchInterval: 5_000,
   });
 
-  const roundsNormalized = (rounds ?? []).map((r) => {
-    const raw = r as RoundOption & { _count?: { flights?: number; scores?: number } };
-    return {
-      ...r,
-      flightsTotal: r.flightsTotal ?? raw._count?.flights ?? 0,
-      flightsScored: r.flightsScored ?? raw._count?.scores ?? 0,
-    };
-  });
+  const roundsNormalized = useMemo(
+    () =>
+      (rounds ?? []).map((r) => {
+        const raw = r as RoundOption & { _count?: { flights?: number; scores?: number } };
+        return {
+          ...r,
+          flightsTotal: r.flightsTotal ?? raw._count?.flights ?? 0,
+          flightsScored: r.flightsScored ?? raw._count?.scores ?? 0,
+        };
+      }),
+    [rounds],
+  );
 
   const scorableRounds = roundsNormalized.filter((r) => SCORABLE_STATUSES.includes(r.status));
   const isLoading = compsLoading || (!!activeCompId && roundsLoading);
+
+  const maxRounds = competitionDetail?.maxRounds ?? activeCompetition?.maxRounds ?? 12;
+  const nextNumber = (roundsNormalized.reduce((m, r) => Math.max(m, r.number), 0) || 0) + 1;
+  const atMax = roundsNormalized.length >= maxRounds;
+  const previousRound = useMemo(() => {
+    if (roundsNormalized.length === 0) return null;
+    return [...roundsNormalized].sort((a, b) => b.number - a.number)[0];
+  }, [roundsNormalized]);
+  const previousCompleted =
+    !previousRound || COMPLETED_FOR_NEXT.includes(previousRound.status);
+  const canCreateNext = !!activeCompId && !atMax && previousCompleted;
+
+  const invalidateRounds = () => {
+    queryClient.invalidateQueries({ queryKey: ['rounds', activeCompId] });
+    queryClient.invalidateQueries({ queryKey: ['competition', activeCompId] });
+  };
+
+  const startMutation = useMutation({
+    mutationFn: async ({ roundId, resume }: { roundId: string; resume?: boolean }) => {
+      setActionError(null);
+      const action = resume ? 'resume' : 'start';
+      return api.post<{ id: string }>(
+        `/competitions/${activeCompId}/rounds/${roundId}/${action}`,
+      );
+    },
+    onSuccess: (round) => {
+      invalidateRounds();
+      if (activeCompId) setCompetitionId(activeCompId);
+      navigate(`/score/${round.id}`);
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiError ? err.message : 'Failed to start round');
+    },
+  });
+
+  const createAndStartMutation = useMutation({
+    mutationFn: async () => {
+      setActionError(null);
+      const created = await api.post<{ id: string; number: number }>(
+        `/competitions/${activeCompId}/rounds`,
+        {
+          number: nextNumber,
+          name: `Round ${nextNumber}`,
+          type: 'OFFICIAL',
+          orderType: 'RANDOM',
+        },
+      );
+      await api.post(`/competitions/${activeCompId}/rounds/${created.id}/start`);
+      return created;
+    },
+    onSuccess: (round) => {
+      invalidateRounds();
+      if (activeCompId) setCompetitionId(activeCompId);
+      navigate(`/score/${round.id}`);
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiError ? err.message : 'Failed to create round');
+    },
+  });
 
   const selectRound = (roundId: string) => {
     if (activeCompId) setCompetitionId(activeCompId);
     navigate(`/score/${roundId}`);
   };
+
+  const busy = startMutation.isPending || createAndStartMutation.isPending;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -132,9 +217,10 @@ export function RoundSelectPage() {
       </header>
 
       <main className="mx-auto max-w-2xl p-6">
-        {(compsError || roundsError) && (
+        {(compsError || roundsError || actionError) && (
           <p className="mb-4 rounded-lg bg-destructive/20 px-4 py-3 text-sm text-red-300">
-            {(compsError as Error | null)?.message ||
+            {actionError ||
+              (compsError as Error | null)?.message ||
               (roundsError as Error | null)?.message ||
               'Failed to load competition data. Check organization context.'}
           </p>
@@ -166,6 +252,27 @@ export function RoundSelectPage() {
           </div>
         )}
 
+        {canCreateNext && roundsNormalized.length > 0 && (
+          <div className="mb-6">
+            <Button
+              className="h-12 w-full text-base font-semibold"
+              disabled={busy}
+              onClick={() => createAndStartMutation.mutate()}
+            >
+              <Plus className="mr-2 h-5 w-5" />
+              {createAndStartMutation.isPending
+                ? `Creating Round ${nextNumber}…`
+                : `Create & Start Round ${nextNumber}`}
+            </Button>
+            {previousRound && COMPLETED_FOR_NEXT.includes(previousRound.status) && (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                R{previousRound.number} is {previousRound.status.replace(/_/g, ' ').toLowerCase()} —
+                ready for the next round
+              </p>
+            )}
+          </div>
+        )}
+
         {isLoading ? (
           <p className="py-16 text-center text-muted-foreground">Loading rounds…</p>
         ) : !orgId ? (
@@ -183,81 +290,143 @@ export function RoundSelectPage() {
             title="Competition is not started yet"
             body={
               activeCompetition
-                ? `“${activeCompetition.name}” has no rounds. Contact the Chief Judge or Meet Director to create and start a round before scoring.`
-                : 'No rounds have been created. Contact the Chief Judge or Meet Director to start the competition.'
+                ? `“${activeCompetition.name}” has no rounds yet.`
+                : 'No rounds have been created.'
             }
-          />
-        ) : scorableRounds.length === 0 ? (
+          >
+            {canCreateNext && (
+              <Button
+                className="mt-6"
+                disabled={busy}
+                onClick={() => createAndStartMutation.mutate()}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create & Start Round 1
+              </Button>
+            )}
+          </EmptyState>
+        ) : scorableRounds.length === 0 && !canCreateNext ? (
           <EmptyState
             title="No round is open for scoring"
-            body="Rounds exist but none are active yet. Ask the Chief Judge or Meet Director to open or start a round (status should be Open, Active, or Briefing)."
+            body={
+              atMax
+                ? 'All rounds for this competition have been used.'
+                : 'Start a scheduled round below, or close the current round before creating the next one.'
+            }
           >
-            <div className="mt-6 space-y-2 text-left">
+            <div className="mt-6 w-full space-y-2 text-left">
               {roundsNormalized.map((round) => (
-                <div
+                <RoundRow
                   key={round.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
-                >
-                  <span className="text-sm text-muted-foreground">
-                    R{round.number} {round.name || ''}
-                  </span>
-                  <Badge variant={statusVariant[round.status]}>{round.status}</Badge>
-                </div>
+                  round={round}
+                  busy={busy}
+                  onSelect={selectRound}
+                  onStart={(id) => startMutation.mutate({ roundId: id })}
+                  onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
+                />
               ))}
             </div>
           </EmptyState>
         ) : (
           <div className="space-y-3">
-            {roundsNormalized.map((round) => {
-              const scoringBlocked = ['APPROVED', 'LOCKED', 'CANCELLED', 'SCHEDULED'].includes(
-                round.status,
-              );
-              const canScore = SCORABLE_STATUSES.includes(round.status);
-              return (
-                <Card
-                  key={round.id}
-                  className={
-                    canScore
-                      ? 'cursor-pointer border-border bg-card text-card-foreground transition-colors hover:border-sky-500/50 active:scale-[0.99]'
-                      : 'border-border bg-card/60 text-card-foreground opacity-80'
-                  }
-                  onClick={canScore ? () => selectRound(round.id) : undefined}
-                >
-                  <CardContent className="flex items-center justify-between p-5">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="font-mono text-2xl font-bold text-sky-400">
-                          R{round.number}
-                        </span>
-                        <span className="text-lg font-medium">
-                          {round.name || `Round ${round.number}`}
-                        </span>
-                        <Badge variant={statusVariant[round.status]}>{round.status}</Badge>
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {round.flightsScored ?? 0}/{round.flightsTotal ?? 0} flights scored
-                        {scoringBlocked && round.status === 'LOCKED'
-                          ? ' · Final — scoring closed'
-                          : ''}
-                        {scoringBlocked && round.status === 'APPROVED'
-                          ? ' · Approved — scoring closed'
-                          : ''}
-                        {round.status === 'SCHEDULED' ? ' · Not started' : ''}
-                      </p>
-                    </div>
-                    {canScore ? (
-                      <ChevronRight className="h-6 w-6 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <span className="shrink-0 text-xs text-muted-foreground">View only</span>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {roundsNormalized.map((round) => (
+              <RoundRow
+                key={round.id}
+                round={round}
+                busy={busy}
+                onSelect={selectRound}
+                onStart={(id) => startMutation.mutate({ roundId: id })}
+                onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
+              />
+            ))}
           </div>
         )}
       </main>
     </div>
+  );
+}
+
+function RoundRow({
+  round,
+  busy,
+  onSelect,
+  onStart,
+  onResume,
+}: {
+  round: RoundOption;
+  busy: boolean;
+  onSelect: (id: string) => void;
+  onStart: (id: string) => void;
+  onResume: (id: string) => void;
+}) {
+  const canScore = SCORABLE_STATUSES.includes(round.status);
+  const canStart = STARTABLE_STATUSES.includes(round.status);
+  const canResume = round.status === 'PAUSED';
+  const scoringBlocked = ['APPROVED', 'LOCKED', 'CANCELLED', 'SCHEDULED'].includes(round.status);
+
+  return (
+    <Card
+      className={
+        canScore
+          ? 'border-border bg-card text-card-foreground transition-colors hover:border-sky-500/50'
+          : 'border-border bg-card/60 text-card-foreground opacity-90'
+      }
+    >
+      <CardContent className="flex items-center justify-between gap-3 p-5">
+        <button
+          type="button"
+          className={`min-w-0 flex-1 text-left ${canScore ? 'cursor-pointer' : 'cursor-default'}`}
+          onClick={canScore ? () => onSelect(round.id) : undefined}
+          disabled={!canScore}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-mono text-2xl font-bold text-sky-400">R{round.number}</span>
+            <span className="text-lg font-medium">{round.name || `Round ${round.number}`}</span>
+            <Badge variant={statusVariant[round.status]}>{round.status}</Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {round.flightsScored ?? 0}/{round.flightsTotal ?? 0} flights scored
+            {scoringBlocked && round.status === 'LOCKED' ? ' · Final — scoring closed' : ''}
+            {scoringBlocked && round.status === 'APPROVED' ? ' · Approved — scoring closed' : ''}
+            {round.status === 'SCHEDULED' ? ' · Not started' : ''}
+          </p>
+        </button>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {canStart && (
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStart(round.id);
+              }}
+            >
+              <Play className="mr-1 h-4 w-4" />
+              Start
+            </Button>
+          )}
+          {canResume && (
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onResume(round.id);
+              }}
+            >
+              <Play className="mr-1 h-4 w-4" />
+              Resume
+            </Button>
+          )}
+          {canScore && !canStart ? (
+            <ChevronRight className="h-6 w-6 text-muted-foreground" />
+          ) : !canStart && !canResume && !canScore ? (
+            <span className="text-xs text-muted-foreground">View only</span>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

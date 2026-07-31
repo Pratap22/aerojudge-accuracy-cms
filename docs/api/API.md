@@ -327,7 +327,7 @@ Common events:
 
 ## Rate limiting
 
-Default: 200 requests per 15 minutes per IP (configurable via `RATE_LIMIT_*` env vars).
+Default: skipped in development/test; **15 000** requests per 15 minutes per IP in production (configurable via `RATE_LIMIT_*` env vars).
 
 ---
 
