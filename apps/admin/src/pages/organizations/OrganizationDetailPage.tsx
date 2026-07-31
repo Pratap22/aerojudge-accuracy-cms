@@ -24,7 +24,7 @@ import {
   Textarea,
   cn,
 } from '@npha/ui';
-import { api, getAccessToken } from '../../lib/api';
+import { api, apiFetch } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { competitionPath } from '../../hooks/useCompetitionId';
 import { OrganizationMembersPage } from './OrganizationMembersPage';
@@ -169,11 +169,9 @@ export function OrganizationDetailPage() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('logo', file);
-      const token = getAccessToken();
-      const res = await fetch(`/api/v1/organizations/${organizationId}/logo`, {
+      const res = await apiFetch(`/organizations/${organizationId}/logo`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: formData,
+        formData,
       });
       const json = await res.json();
       if (!res.ok || !json.success) {

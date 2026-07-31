@@ -12,7 +12,7 @@ import {
   Label,
 } from '@npha/ui';
 import type { PrintFormat, ReportType } from '@npha/shared';
-import { api, getAccessToken } from '../lib/api';
+import { api, apiFetch } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
 const reportTypes: { value: ReportType; label: string }[] = [
@@ -120,12 +120,9 @@ export function ReportsPage() {
     if (!preview?.id || !activeCompetitionId) return;
     setDownloadError(null);
     try {
-      const token = getAccessToken();
-      const response = await fetch(
-        `/api/v1/competitions/${activeCompetitionId}/reports/${preview.id}/download?format=pdf`,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        },
+      const response = await apiFetch(
+        `/competitions/${activeCompetitionId}/reports/${preview.id}/download`,
+        { method: 'GET', params: { format: 'pdf' } },
       );
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as {

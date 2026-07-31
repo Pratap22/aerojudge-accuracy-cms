@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@npha/ui';
-import { api, getAccessToken } from '../lib/api';
+import { api, apiFetch } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
 interface Pilot {
@@ -101,14 +101,20 @@ export function PilotsPage() {
   });
 
   const importMutation = useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
-      return fetch(`/api/v1/competitions/${activeCompetitionId}/pilots/import`, {
+      const response = await apiFetch(`/competitions/${activeCompetitionId}/pilots/import`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('npha_access_token')}` },
-        body: formData,
+        formData,
       });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        throw new Error(body?.error?.message ?? 'Import failed');
+      }
+      return response.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pilots'] }),
   });
@@ -119,13 +125,10 @@ export function PilotsPage() {
     if (!activeCompetitionId) return;
     setExportError(null);
     try {
-      const token = getAccessToken();
-      const response = await fetch(
-        `/api/v1/competitions/${activeCompetitionId}/pilots/export?format=csv`,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        },
-      );
+      const response = await apiFetch(`/competitions/${activeCompetitionId}/pilots/export`, {
+        method: 'GET',
+        params: { format: 'csv' },
+      });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as {
           error?: { message?: string };

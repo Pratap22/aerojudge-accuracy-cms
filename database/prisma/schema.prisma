@@ -81,7 +81,8 @@ model User {
   scoreApprovals     ScoreApproval[]
   auditLogs          AuditLog[]
   announcements      Announcement[]
-  printJobs          PrintHistory[]
+  printJobs          PrintHistory[] @relation("PrintPrintedBy")
+  printApprovals     PrintHistory[] @relation("PrintApprovedBy")
   notifications      Notification[]
   offlineSyncQueues  OfflineSyncQueue[]
 
@@ -945,18 +946,23 @@ model PrintHistory {
   fileUrl       String?
   previewUrl    String?
   pageCount     Int?
-  printedById   String?
-  printedBy     User?       @relation(fields: [printedById], references: [id])
-  approvedAt    DateTime?
-  printedAt     DateTime?
-  version       Int         @default(1)
-  metadataJson  Json?
-  createdAt     DateTime    @default(now())
+  printedById    String?
+  printedBy      User?       @relation("PrintPrintedBy", fields: [printedById], references: [id])
+  approvedById   String?
+  approvedBy     User?       @relation("PrintApprovedBy", fields: [approvedById], references: [id])
+  /// Role label at approval time (org or platform), e.g. "Chief Judge"
+  approvedByRole String?
+  approvedAt     DateTime?
+  printedAt      DateTime?
+  version        Int         @default(1)
+  metadataJson   Json?
+  createdAt      DateTime    @default(now())
 
   @@index([competitionId])
   @@index([roundId])
   @@index([reportType])
   @@index([status])
+  @@index([approvedById])
 }
 
 model Announcement {

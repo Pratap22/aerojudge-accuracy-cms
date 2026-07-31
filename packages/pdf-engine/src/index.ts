@@ -42,6 +42,8 @@ export interface GenerateReportInput {
   columns: string[];
   rows: ResultRow[];
   footerNote?: string;
+  /** Shown at the bottom of every page once the report is approved */
+  approvalLine?: string;
 }
 
 export interface GeneratedPdf {
@@ -70,9 +72,11 @@ async function qrBuffer(url: string): Promise<Buffer> {
 
 export async function generateResultsPdf(input: GenerateReportInput): Promise<GeneratedPdf> {
   const size = pageSize(input.format);
+  /** Reserved band at page bottom for approval + page numbers (outside content flow). */
+  const FOOTER_BAND = 56;
   const doc = new PDFDocument({
     size,
-    margins: { top: 50, bottom: 60, left: 40, right: 40 },
+    margins: { top: 50, bottom: FOOTER_BAND + 8, left: 40, right: 40 },
     bufferPages: true,
     info: {
       Title: input.title,
@@ -113,6 +117,7 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
   const usableWidth = size[0] - doc.page.margins.left - doc.page.margins.right;
   const colCount = Math.max(input.columns.length, 1);
   const colWidth = usableWidth / colCount;
+  const contentBottom = size[1] - FOOTER_BAND - 90;
 
   const drawTableHeader = () => {
     const y = doc.y;
@@ -122,6 +127,7 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
       doc.text(col, startX + i * colWidth + 3, y + 5, {
         width: colWidth - 6,
         ellipsis: true,
+        lineBreak: false,
       });
     });
     doc.fillColor('#000').font('Helvetica');
@@ -131,7 +137,7 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
   drawTableHeader();
 
   for (const row of input.rows) {
-    if (doc.y > size[1] - 120) {
+    if (doc.y > contentBottom) {
       doc.addPage();
       drawTableHeader();
     }
@@ -190,22 +196,24 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
     doc.y = rowY + 14;
   }
 
+  // Signatures — keep above footer band
+  if (doc.y > contentBottom - 20) {
+    doc.addPage();
+  }
   doc.moveDown(2);
-
-  // Signatures
-  const sigY = Math.min(doc.y + 20, size[1] - 100);
+  const sigY = Math.min(doc.y + 20, size[1] - FOOTER_BAND - 70);
   doc.fontSize(9).font('Helvetica');
-  doc.text('________________________', startX, sigY);
-  doc.text('Chief Judge', startX, sigY + 14);
+  doc.text('________________________', startX, sigY, { lineBreak: false });
+  doc.text('Chief Judge', startX, sigY + 14, { lineBreak: false });
   if (input.branding.chiefJudgeName) {
-    doc.fontSize(8).text(input.branding.chiefJudgeName, startX, sigY + 26);
+    doc.fontSize(8).text(input.branding.chiefJudgeName, startX, sigY + 26, { lineBreak: false });
   }
 
   const midX = startX + usableWidth / 2;
-  doc.fontSize(9).text('________________________', midX, sigY);
-  doc.text('Competition Director', midX, sigY + 14);
+  doc.fontSize(9).text('________________________', midX, sigY, { lineBreak: false });
+  doc.text('Meet Director', midX, sigY + 14, { lineBreak: false });
   if (input.branding.directorName) {
-    doc.fontSize(8).text(input.branding.directorName, midX, sigY + 26);
+    doc.fontSize(8).text(input.branding.directorName, midX, sigY + 26, { lineBreak: false });
   }
 
   // QR code
@@ -215,31 +223,52 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
     doc.fontSize(7).text('Live Results', size[0] - doc.page.margins.right - 70, sigY + 52, {
       width: 60,
       align: 'center',
+      lineBreak: false,
     });
   } catch {
     // QR optional if generation fails
   }
 
-  if (input.footerNote) {
-    doc.fontSize(8).fillColor('#666').text(input.footerNote, startX, size[1] - 80, {
-      width: usableWidth,
-    });
-  }
-
-  // Page numbers + print timestamp on each page
+  // Footers on every page (approval + page #). Disable bottom margin so PDFKit
+  // does not auto-insert a blank page when drawing in the footer band.
   const range = doc.bufferedPageRange();
   const printedAt = new Date().toISOString();
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(i);
+    const savedBottom = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+
+    if (input.approvalLine) {
+      doc
+        .fontSize(8)
+        .fillColor('#111')
+        .text(input.approvalLine, startX, size[1] - 48, {
+          width: usableWidth,
+          align: 'center',
+          lineBreak: false,
+        });
+    } else if (input.footerNote) {
+      doc
+        .fontSize(8)
+        .fillColor('#666')
+        .text(input.footerNote, startX, size[1] - 48, {
+          width: usableWidth,
+          align: 'center',
+          lineBreak: false,
+        });
+    }
+
     doc
       .fontSize(7)
       .fillColor('#666')
       .text(
         `Page ${i + 1} of ${range.count} · Printed ${printedAt} · FAI Sporting Code Section 7C`,
-        doc.page.margins.left,
-        size[1] - 40,
-        { width: usableWidth, align: 'center' },
+        startX,
+        size[1] - 34,
+        { width: usableWidth, align: 'center', lineBreak: false },
       );
+
+    doc.page.margins.bottom = savedBottom;
   }
 
   doc.end();

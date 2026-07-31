@@ -108,6 +108,8 @@ export class ApiError extends Error {
 
 export interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
+  /** Multipart body — skips JSON Content-Type so the browser sets the boundary. */
+  formData?: FormData;
   params?: Record<string, string | number | boolean | undefined>;
 }
 
@@ -126,14 +128,14 @@ function buildUrl(path: string, params?: RequestOptions['params']): string {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, params, headers, ...rest } = options;
+  const { body, formData, params, headers, ...rest } = options;
 
   const doFetch = async (token: string | null) => {
     const requestHeaders: Record<string, string> = {
       ...(headers as Record<string, string>),
     };
 
-    if (body !== undefined) {
+    if (body !== undefined && !formData) {
       requestHeaders['Content-Type'] = 'application/json';
     }
 
@@ -149,7 +151,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     return fetch(buildUrl(path, params), {
       ...rest,
       headers: requestHeaders,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: formData ?? (body !== undefined ? JSON.stringify(body) : undefined),
     });
   };
 
@@ -190,3 +192,52 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
   delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
 };
+
+/**
+ * Authenticated fetch for binary downloads (PDF/CSV). Includes Bearer + org header.
+ * Does not parse JSON — callers read `response.blob()` / `arrayBuffer()`.
+ */
+export async function apiFetch(
+  path: string,
+  options: RequestOptions = {},
+): Promise<Response> {
+  const { body, formData, params, headers, ...rest } = options;
+
+  const doFetch = async (token: string | null) => {
+    const requestHeaders: Record<string, string> = {
+      ...(headers as Record<string, string>),
+    };
+    if (body !== undefined && !formData) {
+      requestHeaders['Content-Type'] = 'application/json';
+    }
+    if (token) {
+      requestHeaders.Authorization = `Bearer ${token}`;
+    }
+    const organizationId = getOrganizationId();
+    if (organizationId) {
+      requestHeaders[ORGANIZATION_HEADER] = organizationId;
+    }
+    return fetch(buildUrl(path, params), {
+      ...rest,
+      headers: requestHeaders,
+      body: formData ?? (body !== undefined ? JSON.stringify(body) : undefined),
+    });
+  };
+
+  let token = getAccessToken();
+  let response = await doFetch(token);
+
+  if (response.status === 401 && getRefreshToken()) {
+    if (!refreshPromise) {
+      refreshPromise = refreshAccessToken().finally(() => {
+        refreshPromise = null;
+      });
+    }
+    token = await refreshPromise;
+    if (token) {
+      response = await doFetch(token);
+    }
+  }
+
+  return response;
+}

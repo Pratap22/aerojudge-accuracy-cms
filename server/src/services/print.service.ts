@@ -9,6 +9,16 @@ import { AppError } from '../utils/errors.js';
 import { getCompetition } from './competition.service.js';
 import { getIndividualRankings, getTeamRankings } from './scoring.service.js';
 
+function buildApprovalLine(input: {
+  firstName: string;
+  lastName: string;
+  roleLabel: string;
+  approvedAt: Date;
+}): string {
+  const when = input.approvedAt.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  return `Approved by ${input.firstName} ${input.lastName} · ${input.roleLabel} · ${when}`;
+}
+
 function escapeHtml(value: string | number | null | undefined): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -82,6 +92,7 @@ function reportToHtml(input: GenerateReportInput): string {
       <tbody>${bodyRows || `<tr><td colspan="${input.columns.length}">No data available</td></tr>`}</tbody>
     </table>
     <div class="footer">
+      ${input.approvalLine ? `<div><strong>${escapeHtml(input.approvalLine)}</strong></div>` : ''}
       ${escapeHtml(input.footerNote ?? 'FAI Sporting Code Section 7C · Preview')}
       · ${escapeHtml(input.branding.publicResultsUrl)}
     </div>
@@ -186,10 +197,24 @@ export async function generateReport(
 export async function downloadReport(competitionId: string, printId: string) {
   const record = await prisma.printHistory.findFirst({
     where: { id: printId, competitionId },
+    include: {
+      approvedBy: { select: { firstName: true, lastName: true } },
+    },
   });
   if (!record) throw AppError.notFound('Print record not found');
 
-  if (record.fileUrl) {
+  const approvalLine =
+    record.status === 'APPROVED' && record.approvedBy && record.approvedByRole && record.approvedAt
+      ? buildApprovalLine({
+          firstName: record.approvedBy.firstName,
+          lastName: record.approvedBy.lastName,
+          roleLabel: record.approvedByRole,
+          approvedAt: record.approvedAt,
+        })
+      : undefined;
+
+  // Approved downloads always regenerate so the PDF includes the approval line
+  if (!approvalLine && record.fileUrl) {
     try {
       const buffer = await readFile(record.fileUrl);
       const filename = path.basename(record.fileUrl);
@@ -199,14 +224,73 @@ export async function downloadReport(competitionId: string, printId: string) {
     }
   }
 
-  const result = await generateReport(competitionId, {
-    reportType: record.reportType as ReportType,
-    format: record.format as PrintFormat,
-    roundId: record.roundId ?? undefined,
-    printedById: record.printedById ?? undefined,
+  const competition = await getCompetition(competitionId);
+  const format = (record.format as PrintFormat) ?? 'A4_PORTRAIT';
+  const reportInput = await buildReportInput(
+    competition,
+    record.reportType as ReportType,
+    format,
+    record.roundId ?? undefined,
+  );
+  if (approvalLine) {
+    reportInput.approvalLine = approvalLine;
+  }
+
+  const pdf = await generateResultsPdf(reportInput);
+  await mkdir(env.printArchiveDir, { recursive: true });
+  const filename = `${competition.code}-${record.reportType}-${record.id}.pdf`;
+  const filePath = path.join(env.printArchiveDir, filename);
+  await writeFile(filePath, pdf.buffer);
+
+  await prisma.printHistory.update({
+    where: { id: record.id },
+    data: {
+      fileUrl: filePath,
+      pageCount: pdf.pageCount,
+      printedAt: new Date(),
+      status: record.status === 'APPROVED' ? 'APPROVED' : record.status,
+    },
   });
 
-  return { buffer: result.buffer, filename: result.filename };
+  return { buffer: pdf.buffer, filename };
+}
+
+export async function listPrintHistory(competitionId: string) {
+  await getCompetition(competitionId);
+  return prisma.printHistory.findMany({
+    where: { competitionId },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      printedBy: { select: { id: true, firstName: true, lastName: true } },
+      approvedBy: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
+}
+
+export async function approvePrint(
+  competitionId: string,
+  printId: string,
+  approver: { userId: string; roleLabel: string },
+) {
+  const record = await prisma.printHistory.findFirst({
+    where: { id: printId, competitionId },
+  });
+  if (!record) throw AppError.notFound('Print record not found');
+
+  return prisma.printHistory.update({
+    where: { id: printId },
+    data: {
+      status: 'APPROVED',
+      approvedAt: new Date(),
+      approvedById: approver.userId,
+      approvedByRole: approver.roleLabel,
+      // Force next download to regenerate with approval footer
+      fileUrl: null,
+    },
+    include: {
+      approvedBy: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
 }
 
 async function buildReportInput(
@@ -420,25 +504,4 @@ async function buildReportInput(
     ],
     footerNote: 'Preview placeholder',
   };
-}
-
-export async function listPrintHistory(competitionId: string) {
-  await getCompetition(competitionId);
-  return prisma.printHistory.findMany({
-    where: { competitionId },
-    orderBy: { createdAt: 'desc' },
-    include: { printedBy: { select: { id: true, firstName: true, lastName: true } } },
-  });
-}
-
-export async function approvePrint(competitionId: string, printId: string) {
-  const record = await prisma.printHistory.findFirst({
-    where: { id: printId, competitionId },
-  });
-  if (!record) throw AppError.notFound('Print record not found');
-
-  return prisma.printHistory.update({
-    where: { id: printId },
-    data: { status: 'APPROVED', approvedAt: new Date() },
-  });
 }

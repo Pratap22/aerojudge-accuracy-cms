@@ -21,6 +21,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
+import { hasEffectivePermission, hasPermission, isPlatformRole } from '@npha/shared';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { api } from '../lib/api';
@@ -31,7 +32,7 @@ const globalNav = [
   { to: '/competitions', label: 'Competitions', icon: Trophy, end: true },
   { to: '/organizations', label: 'Organizations', icon: Building2, end: false },
   { to: '/users', label: 'Judges / Users', icon: Shield, end: false },
-];
+] as const;
 
 const competitionNav = [
   { segment: '', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -57,6 +58,29 @@ export function AppLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const competitionId = useMemo(() => competitionIdFromPath(pathname), [pathname]);
+
+  const visibleGlobalNav = useMemo(() => {
+    if (!user) return [];
+    return globalNav.filter((item) => {
+      if (item.to === '/users') {
+        return hasPermission(user.role, 'user:manage');
+      }
+      if (item.to === '/organizations') {
+        return (
+          (user.organizations?.length ?? 0) > 0 ||
+          hasEffectivePermission({
+            platformRole: user.role,
+            orgRole: user.orgRole,
+            permissions: user.permissions,
+            permission: 'organization:read',
+          }) ||
+          hasPermission(user.role, 'platform:organizations') ||
+          isPlatformRole(user.role)
+        );
+      }
+      return true;
+    });
+  }, [user]);
 
   const { data: competitions } = useQuery({
     queryKey: ['competitions'],
@@ -97,7 +121,7 @@ export function AppLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 scrollbar-thin">
-          {globalNav.map(({ to, label, icon: Icon, end }) => (
+          {visibleGlobalNav.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
