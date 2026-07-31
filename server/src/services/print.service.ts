@@ -4,6 +4,7 @@ import {
   generateResultsPdf,
   resolveReportCellValue,
   type GenerateReportInput,
+  type ResultRow,
 } from '@npha/pdf-engine';
 import type { PrintFormat, ReportType } from '@npha/shared';
 import { formatPilotName, formatScoreCm } from '@npha/utils';
@@ -50,9 +51,21 @@ function reportToHtml(input: GenerateReportInput): string {
         if (key === 'signature' || key === 'sign' || key.includes('signature')) {
           return `<td class="sig">&nbsp;</td>`;
         }
-        return `<td>${escapeHtml(resolveReportCellValue(col, row, scoreIdx))}</td>`;
+        const cell = resolveReportCellValue(col, row, scoreIdx);
+        if (cell.skip) return '';
+        const classes = [
+          cell.excluded ? 'excluded' : '',
+          cell.bold ? 'bold' : '',
+          row.rowKind === 'team_total' ? 'team-total' : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const rowspanAttr = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : '';
+        const classAttr = classes ? ` class="${classes}"` : '';
+        return `<td${rowspanAttr}${classAttr}>${escapeHtml(cell.text)}</td>`;
       });
-      return `<tr>${cells.join('')}</tr>`;
+      const trClass = row.rowKind === 'team_total' ? ' class="team-total-row"' : '';
+      return `<tr${trClass}>${cells.join('')}</tr>`;
     })
     .join('');
 
@@ -74,9 +87,17 @@ function reportToHtml(input: GenerateReportInput): string {
     .npha-report-preview .meta { font-size: 12px; color: #555; margin-bottom: 20px; }
     .npha-report-preview table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .npha-report-preview th,
-    .npha-report-preview td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; color: #111; }
-    .npha-report-preview th { background: #f3f6fa; font-weight: 600; }
-    .npha-report-preview tr:nth-child(even) td { background: #fafafa; }
+    .npha-report-preview td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; color: #111; vertical-align: middle; }
+    .npha-report-preview th { background: #1a365d; color: #fff; font-weight: 600; }
+    .npha-report-preview tr:nth-child(even) td:not(.excluded) { background: #fafafa; }
+    .npha-report-preview tr.team-total-row td { background: #e8eef5; font-weight: 600; }
+    .npha-report-preview td.excluded {
+      background: #d1d5db !important;
+      color: #4b5563;
+      text-decoration: line-through;
+      text-align: center;
+    }
+    .npha-report-preview td.bold { font-weight: 600; }
     .npha-report-preview td.sig { min-width: 140px; height: 32px; background: #fff; }
     .npha-report-preview .footer { margin-top: 24px; font-size: 11px; color: #666; }
     .npha-report-preview .approval {
@@ -437,19 +458,147 @@ async function buildReportInput(
   if (reportType === 'TEAM_RESULTS') {
     await recalculateRankings(competition.id);
     const rankings = await getTeamRankings(competition.id);
+
+    const rounds = await prisma.round.findMany({
+      where: {
+        competitionId: competition.id,
+        type: 'OFFICIAL',
+        status: { in: [...RANKING_ROUND_STATUSES] },
+      },
+      orderBy: { number: 'asc' },
+      select: { id: true, number: true },
+    });
+
+    const teams = await prisma.team.findMany({
+      where: { competitionId: competition.id },
+      include: {
+        members: {
+          include: {
+            pilot: { select: { id: true, firstName: true, lastName: true, pilotNumber: true } },
+          },
+          orderBy: [{ order: 'asc' }],
+        },
+      },
+    });
+    const teamById = new Map(teams.map((t) => [t.id, t]));
+
+    const teamScores = await prisma.teamScore.findMany({
+      where: {
+        teamId: { in: teams.map((t) => t.id) },
+        roundId: { in: rounds.map((r) => r.id) },
+      },
+    });
+
+    type PilotContrib = {
+      pilotId: string;
+      scoreCm: number;
+      counted: boolean;
+      reason?: string;
+    };
+
+    const contribByTeamRound = new Map<string, Map<string, PilotContrib>>();
+    const roundTotalByTeamRound = new Map<string, number>();
+
+    for (const ts of teamScores) {
+      const key = `${ts.teamId}:${ts.roundId}`;
+      roundTotalByTeamRound.set(key, ts.totalScoreCm);
+      const map = new Map<string, PilotContrib>();
+      const counted = (ts.countedPilots as PilotContrib[] | null) ?? [];
+      const discarded = (ts.discardedPilots as PilotContrib[] | null) ?? [];
+      for (const c of counted) map.set(c.pilotId, { ...c, counted: true });
+      for (const c of discarded) map.set(c.pilotId, { ...c, counted: false });
+      contribByTeamRound.set(key, map);
+    }
+
+    const scoreRows = await prisma.score.findMany({
+      where: {
+        roundId: { in: rounds.map((r) => r.id) },
+        status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+      },
+      select: { pilotId: true, roundId: true, finalScoreCm: true, resultType: true },
+    });
+    const rawScoreByPilotRound = new Map(
+      scoreRows.map((s) => [`${s.pilotId}:${s.roundId}`, s] as const),
+    );
+
+    const formatTeamCell = (
+      pilotId: string,
+      roundId: string,
+      contrib: PilotContrib | undefined,
+    ): { value: string; excluded?: boolean } => {
+      const raw = rawScoreByPilotRound.get(`${pilotId}:${roundId}`);
+      const cm = contrib?.scoreCm ?? raw?.finalScoreCm ?? null;
+      const resultType = raw?.resultType;
+      let value: string;
+      if (resultType && !['MEASURED', 'BULLSEYE', 'MAXIMUM'].includes(resultType)) {
+        value = resultType;
+      } else if (cm == null) {
+        value = '—';
+      } else {
+        value = formatScoreCm(cm);
+      }
+      return { value, excluded: contrib ? !contrib.counted : false };
+    };
+
+    const roundHeaders = rounds.map((r) => `R${r.number}`);
+    const rows: ResultRow[] = [];
+
+    for (const ranking of rankings) {
+      const team = teamById.get(ranking.teamId);
+      if (!team) continue;
+      const members = team.members.filter((m) => m.pilot);
+      if (members.length === 0) continue;
+
+      const span = members.length + 1; // pilots + Total row
+      const teamTotalLabel = formatScoreCm(ranking.totalScoreCm);
+
+      members.forEach((member, idx) => {
+        const pilot = member.pilot;
+        const roundCells = rounds.map((round) => {
+          const contrib = contribByTeamRound
+            .get(`${team.id}:${round.id}`)
+            ?.get(pilot.id);
+          return formatTeamCell(pilot.id, round.id, contrib);
+        });
+
+        rows.push({
+          rank: ranking.rank,
+          team: team.name,
+          name: formatPilotName(pilot.firstName, pilot.lastName),
+          scores: roundCells,
+          total: teamTotalLabel,
+          rowKind: 'team_pilot',
+          hideRank: idx > 0,
+          hideTeam: idx > 0,
+          rankRowspan: idx === 0 ? span : undefined,
+          teamRowspan: idx === 0 ? span : undefined,
+        });
+      });
+
+      rows.push({
+        rank: ranking.rank,
+        team: team.name,
+        name: 'Total',
+        scores: rounds.map((round) => {
+          const total = roundTotalByTeamRound.get(`${team.id}:${round.id}`);
+          return total != null ? formatScoreCm(total) : '—';
+        }),
+        total: teamTotalLabel,
+        rowKind: 'team_total',
+        hideRank: true,
+        hideTeam: true,
+      });
+    }
+
     return {
       reportType,
       format,
       branding,
       title: 'Team Results',
-      columns: ['Rank', 'Team', 'Country', 'Rounds', 'Total'],
-      rows: rankings.map((r) => ({
-        rank: r.rank,
-        name: r.team.name,
-        country: r.team.country?.name ?? '',
-        scores: [r.roundsScored],
-        total: formatScoreCm(r.totalScoreCm),
-      })),
+      subtitle: 'Excluded (worst) pilot score per round is highlighted',
+      columns: ['Rank', 'Team', 'Pilot Name', 'Team Total', ...roundHeaders],
+      rows,
+      footerNote: 'FAI Sporting Code Section 7C · Worst pilot score per team round excluded',
     };
   }
 

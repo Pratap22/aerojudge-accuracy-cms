@@ -22,15 +22,45 @@ export interface ReportBranding {
   directorName?: string;
 }
 
+export interface ReportCell {
+  text: string;
+  excluded?: boolean;
+  bold?: boolean;
+  rowspan?: number;
+  /** Cell covered by a rowspan from a previous row — omit in HTML / leave blank in PDF */
+  skip?: boolean;
+}
+
+export type ReportScoreValue =
+  | string
+  | number
+  | { value: string | number; excluded?: boolean };
+
 export interface ResultRow {
   rank: number;
   pilotNumber?: number;
   name: string;
   country?: string;
   team?: string;
-  scores: (number | string)[];
-  total: number | string;
+  scores: ReportScoreValue[];
+  total: ReportScoreValue;
   notes?: string;
+  rowKind?: 'default' | 'team_pilot' | 'team_total';
+  /** Blank Rank/Team on continuation rows (PDF); HTML uses rowspan on first row */
+  hideRank?: boolean;
+  hideTeam?: boolean;
+  rankRowspan?: number;
+  teamRowspan?: number;
+}
+
+function scoreValueText(value: ReportScoreValue | undefined): string {
+  if (value == null) return '';
+  if (typeof value === 'object') return String(value.value ?? '');
+  return String(value);
+}
+
+function scoreValueExcluded(value: ReportScoreValue | undefined): boolean {
+  return typeof value === 'object' && Boolean(value.excluded);
 }
 
 /**
@@ -41,30 +71,63 @@ export function resolveReportCellValue(
   column: string,
   row: ResultRow,
   scoreIdx: { current: number },
-): string {
+): ReportCell {
   const key = column.toLowerCase().trim();
 
-  if (key === 'rank' || key === '#' || key === 'order') return String(row.rank);
-  if (key === 'no' || key === 'number' || key === 'pilot no' || key === 'pilot number')
-    return row.pilotNumber != null ? String(row.pilotNumber) : '';
+  if (key === 'rank' || key === '#' || key === 'order') {
+    if (row.hideRank) return { text: '', skip: true };
+    return {
+      text: String(row.rank),
+      bold: row.rowKind === 'team_total',
+      rowspan: row.rankRowspan,
+    };
+  }
+  if (key === 'no' || key === 'number' || key === 'pilot no' || key === 'pilot number') {
+    return { text: row.pilotNumber != null ? String(row.pilotNumber) : '' };
+  }
+  if (key === 'team' && row.team != null) {
+    if (row.hideTeam) return { text: '', skip: true };
+    return {
+      text: row.team,
+      bold: row.rowKind === 'team_total',
+      rowspan: row.teamRowspan,
+    };
+  }
   if (
     key === 'name' ||
     key === 'team' ||
     key === 'pilot' ||
+    key === 'pilot name' ||
     key === 'metric' ||
     key === 'item'
   ) {
-    return row.name;
+    return { text: row.name, bold: row.rowKind === 'team_total' };
   }
-  if (key === 'country' || key.startsWith('country')) return row.country ?? '';
-  if (key === 'signature' || key === 'sign' || key.includes('signature')) return '';
-  if (key === 'total' || key === 'value' || key === 'score (cm)' || key.endsWith(' total'))
-    return String(row.total);
-  if (key === 'notes' || key === 'note') return row.notes ?? '';
+  if (key === 'country' || key.startsWith('country')) return { text: row.country ?? '' };
+  if (key === 'signature' || key === 'sign' || key.includes('signature')) return { text: '' };
+  if (
+    key === 'total' ||
+    key === 'team total' ||
+    key === 'value' ||
+    key === 'score (cm)' ||
+    key.endsWith(' total')
+  ) {
+    const t = row.total;
+    return {
+      text: scoreValueText(t),
+      excluded: scoreValueExcluded(t),
+      bold: row.rowKind === 'team_total' || key === 'team total',
+    };
+  }
+  if (key === 'notes' || key === 'note') return { text: row.notes ?? '' };
 
   const value = row.scores?.[scoreIdx.current];
   scoreIdx.current += 1;
-  return value != null ? String(value) : '';
+  return {
+    text: scoreValueText(value),
+    excluded: scoreValueExcluded(value),
+    bold: row.rowKind === 'team_total',
+  };
 }
 
 
@@ -105,13 +168,62 @@ async function qrBuffer(url: string): Promise<Buffer> {
   return QRCode.toBuffer(url, { type: 'png', width: 120, margin: 1 });
 }
 
+/** Relative width weights — name/team get more room than rank/score columns. */
+function columnWeight(column: string): number {
+  const key = column.toLowerCase().trim();
+  if (key === 'rank' || key === '#' || key === 'order') return 0.55;
+  if (key === 'no' || key === 'number' || key === 'pilot no' || key === 'pilot number') return 0.65;
+  if (key === 'name' || key === 'pilot name' || key === 'pilot') return 2.6;
+  if (key === 'team') return 2.4;
+  if (key === 'country') return 1.35;
+  if (key === 'team total') return 1.05;
+  if (key === 'total' || key === 'bullseyes' || key === 'value') return 0.95;
+  if (key === 'notes' || key === 'note' || key === 'gender' || key === 'club' || key === 'status')
+    return 1.2;
+  if (/^r\d+$/i.test(key)) return 0.7;
+  if (key.includes('signature') || key === 'sign') return 1.4;
+  return 1;
+}
+
+function isWrappingColumn(column: string): boolean {
+  const key = column.toLowerCase().trim();
+  return (
+    key === 'name' ||
+    key === 'pilot name' ||
+    key === 'pilot' ||
+    key === 'team' ||
+    key === 'country' ||
+    key === 'notes' ||
+    key === 'note'
+  );
+}
+
+function computeColumnWidths(columns: string[], usableWidth: number): number[] {
+  const weights = columns.map(columnWeight);
+  const sum = weights.reduce((a, b) => a + b, 0) || 1;
+  return weights.map((w) => (w / sum) * usableWidth);
+}
+
+function measureWrappedHeight(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  width: number,
+  fontSize: number,
+  bold: boolean,
+): number {
+  if (!text) return fontSize + 4;
+  doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(fontSize);
+  const height = doc.heightOfString(text, { width: Math.max(width, 8), lineGap: 1 });
+  return Math.max(fontSize + 4, height + 2);
+}
+
 export async function generateResultsPdf(input: GenerateReportInput): Promise<GeneratedPdf> {
   const size = pageSize(input.format);
   /** Reserved band at page bottom for approval + page numbers (outside content flow). */
   const FOOTER_BAND = 56;
   const doc = new PDFDocument({
     size,
-    margins: { top: 50, bottom: FOOTER_BAND + 8, left: 40, right: 40 },
+    margins: { top: 50, bottom: FOOTER_BAND + 8, left: 36, right: 36 },
     bufferPages: true,
     info: {
       Title: input.title,
@@ -150,50 +262,114 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
   // Table header
   const startX = doc.page.margins.left;
   const usableWidth = size[0] - doc.page.margins.left - doc.page.margins.right;
-  const colCount = Math.max(input.columns.length, 1);
-  const colWidth = usableWidth / colCount;
+  const colWidths = computeColumnWidths(input.columns, usableWidth);
+  const colXs = colWidths.reduce<number[]>((acc, _w, i) => {
+    acc.push(i === 0 ? startX : acc[i - 1] + colWidths[i - 1]);
+    return acc;
+  }, []);
   const contentBottom = size[1] - FOOTER_BAND - 90;
+  const FONT_SIZE = 8;
 
   const drawTableHeader = () => {
     const y = doc.y;
-    doc.rect(startX, y, usableWidth, 18).fill('#1a365d');
-    doc.fillColor('#fff').fontSize(8).font('Helvetica-Bold');
+    const headerH = Math.max(
+      18,
+      ...input.columns.map((col, i) =>
+        measureWrappedHeight(doc, col, colWidths[i] - 6, FONT_SIZE, true),
+      ),
+    );
+    doc.rect(startX, y, usableWidth, headerH + 4).fill('#1a365d');
+    doc.fillColor('#fff').fontSize(FONT_SIZE).font('Helvetica-Bold');
     input.columns.forEach((col, i) => {
-      doc.text(col, startX + i * colWidth + 3, y + 5, {
-        width: colWidth - 6,
-        ellipsis: true,
-        lineBreak: false,
+      doc.text(col, colXs[i] + 3, y + 3, {
+        width: colWidths[i] - 6,
+        lineGap: 1,
       });
     });
     doc.fillColor('#000').font('Helvetica');
-    doc.y = y + 22;
+    doc.y = y + headerH + 6;
   };
 
   drawTableHeader();
 
   for (const row of input.rows) {
-    if (doc.y > contentBottom) {
+    const scoreIdx = { current: 0 };
+    const cells = input.columns.map((col) => resolveReportCellValue(col, row, scoreIdx));
+
+    let rowH = row.rowKind === 'team_total' ? 16 : 14;
+    input.columns.forEach((col, i) => {
+      const cell = cells[i];
+      if (cell.skip || !cell.text) return;
+      if (!isWrappingColumn(col) && !cell.excluded) return;
+      if (isWrappingColumn(col)) {
+        const h = measureWrappedHeight(
+          doc,
+          cell.text,
+          colWidths[i] - 6,
+          FONT_SIZE,
+          Boolean(cell.bold),
+        );
+        rowH = Math.max(rowH, h + 4);
+      }
+    });
+
+    if (doc.y + rowH > contentBottom) {
       doc.addPage();
       drawTableHeader();
     }
 
-    const scoreIdx = { current: 0 };
-    const filled = input.columns.map((col) => resolveReportCellValue(col, row, scoreIdx));
-
     const rowY = doc.y;
-    if (row.rank % 2 === 0) {
-      doc.rect(startX, rowY - 2, usableWidth, 14).fill('#f7fafc');
+
+    if (row.rowKind === 'team_total') {
+      doc.rect(startX, rowY - 1, usableWidth, rowH).fill('#e8eef5');
+      doc.fillColor('#000');
+    } else if (row.rank % 2 === 0) {
+      doc.rect(startX, rowY - 1, usableWidth, rowH).fill('#f7fafc');
       doc.fillColor('#000');
     }
 
-    filled.forEach((val, i) => {
-      doc.fontSize(8).text(val, startX + i * colWidth + 3, rowY, {
-        width: colWidth - 6,
-        ellipsis: true,
-        lineBreak: false,
-      });
+    cells.forEach((cell, i) => {
+      if (cell.skip) return;
+      const x = colXs[i] + 3;
+      const w = colWidths[i] - 6;
+      const wrap = isWrappingColumn(input.columns[i]);
+
+      if (cell.excluded) {
+        doc.rect(colXs[i] + 1, rowY, colWidths[i] - 2, rowH - 1).fill('#d1d5db');
+        doc.fillColor('#4b5563');
+      } else {
+        doc.fillColor('#000');
+      }
+
+      doc.font(cell.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(FONT_SIZE);
+      // PDFKit advances doc.y on wrapped text — pin Y so sibling cells stay aligned.
+      if (wrap) {
+        doc.text(cell.text, x, rowY + 2, {
+          width: w,
+          lineGap: 1,
+        });
+        doc.y = rowY;
+      } else {
+        doc.text(cell.text, x, rowY + 2, {
+          width: w,
+          ellipsis: true,
+          lineBreak: false,
+        });
+        doc.y = rowY;
+        if (cell.excluded && cell.text) {
+          const tw = Math.min(doc.widthOfString(cell.text), w);
+          doc
+            .moveTo(x, rowY + 7)
+            .lineTo(x + tw, rowY + 7)
+            .strokeColor('#4b5563')
+            .lineWidth(0.8)
+            .stroke();
+          doc.strokeColor('#000').lineWidth(1);
+        }
+      }
     });
-    doc.y = rowY + 14;
+    doc.fillColor('#000').font('Helvetica');
+    doc.y = rowY + rowH;
   }
 
   // Signatures — keep above footer band
