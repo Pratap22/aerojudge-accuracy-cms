@@ -84,11 +84,13 @@ export function emitRoundStatus(
   competitionId: string,
   roundId: string,
   status: RoundStatus,
+  number?: number,
 ): void {
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))
     .to(SOCKET_ROOMS.round(roundId))
-    .emit('round:status', { competitionId, roundId, status });
+    .to(SOCKET_ROOMS.display(competitionId))
+    .emit('round:status', { competitionId, roundId, status, number });
 }
 
 export function emitRankingUpdated(competitionId: string, category: RankingCategory): void {

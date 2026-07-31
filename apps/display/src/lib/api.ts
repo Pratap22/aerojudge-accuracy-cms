@@ -63,3 +63,16 @@ export interface LatestPublicScore {
 export function fetchLatestScore(idOrSlug: string): Promise<LatestPublicScore | null> {
   return publicFetch<LatestPublicScore | null>(`/${idOrSlug}/latest-score`);
 }
+
+export interface PublicRoundStatusRow {
+  id: string;
+  number: number;
+  status: string;
+}
+
+export function fetchRoundsStatus(idOrSlug: string): Promise<{
+  competitionId: string;
+  rounds: PublicRoundStatusRow[];
+}> {
+  return publicFetch(`/${idOrSlug}/rounds-status`);
+}

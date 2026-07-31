@@ -79,7 +79,7 @@ export const start = [
   validateParams(roundParams),
   asyncHandler(async (req: Request, res: Response) => {
     const round = await roundService.startRound(req.params.competitionId, req.params.roundId);
-    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
     sendSuccess(res, round);
   }),
 ];
@@ -88,7 +88,7 @@ export const pause = [
   validateParams(roundParams),
   asyncHandler(async (req: Request, res: Response) => {
     const round = await roundService.pauseRound(req.params.competitionId, req.params.roundId);
-    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
     sendSuccess(res, round);
   }),
 ];
@@ -97,7 +97,7 @@ export const resume = [
   validateParams(roundParams),
   asyncHandler(async (req: Request, res: Response) => {
     const round = await roundService.resumeRound(req.params.competitionId, req.params.roundId);
-    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
     sendSuccess(res, round);
   }),
 ];
@@ -111,7 +111,7 @@ export const close = [
       req.user?.id,
     );
     const round = await roundService.closeRound(req.params.competitionId, req.params.roundId);
-    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
     const recalc = await scoringService.recalculateRankings(req.params.competitionId);
     for (const category of recalc.categories) {
       emitRankingUpdated(req.params.competitionId, category);
@@ -124,7 +124,7 @@ export const reopen = [
   validateParams(roundParams),
   asyncHandler(async (req: Request, res: Response) => {
     const round = await roundService.reopenRound(req.params.competitionId, req.params.roundId);
-    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
     sendSuccess(res, round);
   }),
 ];
@@ -138,7 +138,7 @@ export const approve = [
       req.user?.id,
     );
     const round = await roundService.approveRound(req.params.competitionId, req.params.roundId);
-    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
     await scoringService.recalculateRankings(req.params.competitionId);
     sendSuccess(res, round);
   }),
@@ -154,7 +154,7 @@ export const lock = [
       req.user?.id,
     );
     const round = await roundService.lockRound(req.params.competitionId, req.params.roundId);
-    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status);
+    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
     await scoringService.recalculateRankings(req.params.competitionId);
     sendSuccess(res, round);
   }),

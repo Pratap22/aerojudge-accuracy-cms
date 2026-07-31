@@ -81,6 +81,7 @@ describe('organization-based authorization', () => {
 
   it('chief judge bundle includes score approval without hardcoding role checks', () => {
     expect(hasOrgPermission('CHIEF_JUDGE', 'score:approve_chief')).toBe(true);
+    expect(hasOrgPermission('MEET_DIRECTOR', 'score:approve_chief')).toBe(true);
     expect(hasOrgPermission('CHIEF_JUDGE', 'competition:delete')).toBe(false);
   });
 

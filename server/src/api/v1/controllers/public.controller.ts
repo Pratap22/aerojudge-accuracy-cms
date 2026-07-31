@@ -48,6 +48,14 @@ export const getRoundResults = [
   }),
 ];
 
+export const getRoundsStatus = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const status = await publicService.getPublicRoundsStatus(req.params.slug);
+    sendSuccess(res, status);
+  }),
+];
+
 export const getLatestScore = [
   validateParams(slugParams),
   asyncHandler(async (req: Request, res: Response) => {

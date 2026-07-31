@@ -95,13 +95,20 @@ export function PilotHero({
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 200 }}
             >
-              <ScoreDisplay
-                scoreCm={liveScoreCm ?? null}
-                isBullseye={isBullseye || liveScoreCm === 0}
-                resultLabel={resultLabel}
-                size="xl"
-                className="border-sky-500/30 bg-broadcast-navy-light/80"
-              />
+              {resultLabel ? (
+                <div className="rounded-xl border border-sky-500/30 bg-broadcast-navy-light/80 px-8 py-8 text-center">
+                  <p className="font-display text-6xl uppercase tracking-[0.12em] text-sky-100">
+                    {resultLabel}
+                  </p>
+                </div>
+              ) : (
+                <ScoreDisplay
+                  scoreCm={liveScoreCm ?? null}
+                  isBullseye={isBullseye || liveScoreCm === 0}
+                  size="xl"
+                  className="border-sky-500/30 bg-broadcast-navy-light/80"
+                />
+              )}
             </motion.div>
           ) : (
             <div className="rounded-xl border border-dashed border-sky-500/20 bg-broadcast-navy-light/40 px-6 py-10 text-center">

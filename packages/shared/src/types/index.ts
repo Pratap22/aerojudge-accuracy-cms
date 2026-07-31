@@ -372,7 +372,12 @@ export interface SocketEvents {
       countryCode?: string;
     };
   };
-  'round:status': { competitionId: string; roundId: string; status: RoundStatus };
+  'round:status': {
+    competitionId: string;
+    roundId: string;
+    status: RoundStatus;
+    number?: number;
+  };
   'ranking:updated': { competitionId: string; category: RankingCategory };
   'flight:status': { competitionId: string; flightId: string; status: FlightStatus };
   'announcement:new': { competitionId: string; title: string; body: string; priority: string };

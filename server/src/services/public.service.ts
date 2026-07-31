@@ -238,6 +238,16 @@ export async function getPublicRoundResults(slug: string, roundNumber: number) {
   return { competition, round, scores };
 }
 
+export async function getPublicRoundsStatus(slugOrId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+  const rounds = await prisma.round.findMany({
+    where: { competitionId: competition.id },
+    select: { id: true, number: true, status: true },
+    orderBy: { number: 'asc' },
+  });
+  return { competitionId: competition.id, rounds };
+}
+
 export async function getLatestPublicScore(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
 

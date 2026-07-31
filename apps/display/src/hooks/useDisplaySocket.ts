@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { ComputedScore, RankingCategory } from '@npha/shared';
 import { connectDisplaySocket, disconnectSocket, onSocketEvent } from '../lib/socket';
 import type { DisplayLayoutType, LiveScore, WindData } from '../lib/types';
@@ -30,8 +30,15 @@ function resultLabelFromScore(score: ComputedScore): string | undefined {
     : undefined;
 }
 
-export function useDisplaySocket(competitionId: string | undefined, onRankingUpdate?: () => void) {
+export function useDisplaySocket(
+  competitionId: string | undefined,
+  onRankingUpdate?: () => void,
+  onRoundStatus?: () => void,
+  activeRoundNumber?: number | null,
+) {
   const [state, setState] = useState<DisplaySocketState>(initialState);
+  const activeRoundRef = useRef(activeRoundNumber ?? null);
+  activeRoundRef.current = activeRoundNumber ?? null;
 
   const seedLatestScore = useCallback((score: LiveScore | null) => {
     if (!score) return;
@@ -58,6 +65,20 @@ export function useDisplaySocket(competitionId: string | undefined, onRankingUpd
         ...prev,
         latestScore: score,
         currentPilotId: prev.currentPilotId ?? score.pilotId,
+      };
+    });
+  }, []);
+
+  const clearStaleScoresBeforeRound = useCallback((activeRoundNumber: number) => {
+    setState((prev) => {
+      if (!prev.latestScore) return prev;
+      if (prev.latestScore.roundNumber >= activeRoundNumber) return prev;
+      return {
+        ...prev,
+        latestScore: null,
+        lastLiveScoreAt: null,
+        currentPilotId: null,
+        currentFlightId: null,
       };
     });
   }, []);
@@ -94,7 +115,10 @@ export function useDisplaySocket(competitionId: string | undefined, onRankingUpd
             scoreCm: score.finalScoreCm,
             isBullseye: score.isBullseye,
             resultLabel: resultLabelFromScore(score),
-            roundNumber: prev.latestScore?.roundNumber ?? 0,
+            roundNumber:
+              activeRoundRef.current ??
+              prev.latestScore?.roundNumber ??
+              0,
             rank: 0,
           },
         }));
@@ -104,6 +128,10 @@ export function useDisplaySocket(competitionId: string | undefined, onRankingUpd
         if (payload.competitionId !== competitionId) return;
         setState((prev) => ({ ...prev, lastRankingUpdate: payload.category }));
         onRankingUpdate?.();
+      }),
+      onSocketEvent('round:status', (payload) => {
+        if (payload.competitionId !== competitionId) return;
+        onRoundStatus?.();
       }),
       onSocketEvent('display:layout', (payload) => {
         if (payload.competitionId !== competitionId) return;
@@ -125,7 +153,7 @@ export function useDisplaySocket(competitionId: string | undefined, onRankingUpd
       unsubs.forEach((unsub) => unsub());
       disconnectSocket();
     };
-  }, [competitionId, onRankingUpdate]);
+  }, [competitionId, onRankingUpdate, onRoundStatus]);
 
-  return { ...state, seedLatestScore };
+  return { ...state, seedLatestScore, clearStaleScoresBeforeRound };
 }

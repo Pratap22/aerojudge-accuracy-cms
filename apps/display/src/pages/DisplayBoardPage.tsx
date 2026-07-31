@@ -5,16 +5,77 @@ import { Loader2 } from 'lucide-react';
 import { DisplayControls } from '../components/DisplayControls';
 import { LayoutRouter } from '../layouts/LayoutRouter';
 import { CurrentPilotLayout } from '../layouts/CurrentPilotLayout';
+import { RoundClosedLayout } from '../layouts/RoundClosedLayout';
+import { RoundAwaitingLayout } from '../layouts/RoundAwaitingLayout';
 import { Top10Layout } from '../layouts/Top10Layout';
 import { TopWomenLayout } from '../layouts/TopWomenLayout';
 import { TopTeamsLayout } from '../layouts/TopTeamsLayout';
 import { CountryLayout } from '../layouts/CountryLayout';
 import { NextPilotsLayout } from '../layouts/NextPilotsLayout';
 import { SponsorsLayout } from '../layouts/SponsorsLayout';
-import { useCompetition, useLatestScore, useResults, toLeaderboardEntries } from '../hooks/useCompetition';
+import { useCompetition, useLatestScore, useResults, useRoundsStatus, toLeaderboardEntries } from '../hooks/useCompetition';
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
+
+const LIVE_ROUND_STATUSES = new Set(['ACTIVE', 'OPEN', 'PAUSED', 'BRIEFING']);
+const CLOSED_LIKE_STATUSES = new Set([
+  'CLOSED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'LOCKED',
+]);
+
+function resolveRoundPhase(rounds: { number: number; status: string }[] | undefined): {
+  phase: 'live' | 'closed' | 'idle';
+  activeRoundNumber: number | null;
+  closedRoundNumber: number | null;
+  nextRoundNumber: number | null;
+} {
+  if (!rounds?.length) {
+    return {
+      phase: 'idle',
+      activeRoundNumber: null,
+      closedRoundNumber: null,
+      nextRoundNumber: null,
+    };
+  }
+
+  const active = [...rounds]
+    .filter((r) => LIVE_ROUND_STATUSES.has(r.status))
+    .sort((a, b) => b.number - a.number)[0];
+  if (active) {
+    return {
+      phase: 'live',
+      activeRoundNumber: active.number,
+      closedRoundNumber: null,
+      nextRoundNumber: null,
+    };
+  }
+
+  const closed = [...rounds]
+    .filter((r) => CLOSED_LIKE_STATUSES.has(r.status))
+    .sort((a, b) => b.number - a.number)[0];
+  if (!closed) {
+    return {
+      phase: 'idle',
+      activeRoundNumber: null,
+      closedRoundNumber: null,
+      nextRoundNumber: null,
+    };
+  }
+
+  const scheduledNext = rounds
+    .filter((r) => r.status === 'SCHEDULED' && r.number > closed.number)
+    .sort((a, b) => a.number - b.number)[0];
+
+  return {
+    phase: 'closed',
+    activeRoundNumber: null,
+    closedRoundNumber: closed.number,
+    nextRoundNumber: scheduledNext?.number ?? closed.number + 1,
+  };
+}
 
 export function DisplayBoardPage() {
   const { competitionId } = useParams<{ competitionId: string }>();
@@ -33,11 +94,34 @@ export function DisplayBoardPage() {
   const { data: teamResults } = useResults('TEAM');
   const { data: countryResults } = useResults('COUNTRY');
   const { data: persistedLatest } = useLatestScore();
+  const { data: roundsStatus, invalidate: refreshRoundsStatus } = useRoundsStatus();
 
-  const socketState = useDisplaySocket(competition?.id, refreshOverall);
+  const roundPhase = useMemo(
+    () => resolveRoundPhase(roundsStatus?.rounds),
+    [roundsStatus?.rounds],
+  );
+
+  const socketState = useDisplaySocket(
+    competition?.id,
+    refreshOverall,
+    refreshRoundsStatus,
+    roundPhase.activeRoundNumber,
+  );
+
+  useEffect(() => {
+    if (roundPhase.activeRoundNumber == null) return;
+    socketState.clearStaleScoresBeforeRound(roundPhase.activeRoundNumber);
+  }, [roundPhase.activeRoundNumber, socketState.clearStaleScoresBeforeRound]);
 
   useEffect(() => {
     if (!persistedLatest) return;
+    // Ignore scores from a previous round once a newer round is live.
+    if (
+      roundPhase.activeRoundNumber != null &&
+      persistedLatest.roundNumber < roundPhase.activeRoundNumber
+    ) {
+      return;
+    }
     socketState.seedLatestScore({
       pilotId: persistedLatest.pilotId,
       pilotNumber: persistedLatest.pilotNumber,
@@ -50,7 +134,11 @@ export function DisplayBoardPage() {
       roundNumber: persistedLatest.roundNumber,
       rank: 0,
     });
-  }, [persistedLatest, socketState.seedLatestScore]);
+  }, [
+    persistedLatest,
+    socketState.seedLatestScore,
+    roundPhase.activeRoundNumber,
+  ]);
 
   // Pin Current when a judge enters a live score.
   useEffect(() => {
@@ -180,12 +268,35 @@ export function DisplayBoardPage() {
     (latestScore?.roundNumber && latestScore.roundNumber > 0
       ? latestScore.roundNumber
       : null) ??
-    persistedLatest?.roundNumber ??
+    (roundPhase.activeRoundNumber != null ? null : persistedLatest?.roundNumber) ??
+    roundPhase.activeRoundNumber ??
     1;
-  const lastScoreCm = latestScore?.scoreCm ?? null;
-  const lastIsBullseye = latestScore?.isBullseye ?? false;
-  const lastResultLabel = latestScore?.resultLabel;
-  const hasLastScore = Boolean(latestScore);
+
+  const scoreForActiveRound =
+    roundPhase.phase === 'live' &&
+    roundPhase.activeRoundNumber != null &&
+    latestScore != null &&
+    latestScore.roundNumber === roundPhase.activeRoundNumber;
+
+  const awaitingFirstScore =
+    roundPhase.phase === 'live' &&
+    roundPhase.activeRoundNumber != null &&
+    !scoreForActiveRound;
+
+  const lastScoreCm = scoreForActiveRound ? (latestScore?.scoreCm ?? null) : null;
+  const lastIsBullseye = scoreForActiveRound ? (latestScore?.isBullseye ?? false) : false;
+  const lastResultLabel = scoreForActiveRound ? latestScore?.resultLabel : undefined;
+  const hasLastScore = scoreForActiveRound;
+
+  const currentLayoutProps = {
+    pilot: currentPilot,
+    competitionName: competition?.name,
+    roundNumber: roundPhase.activeRoundNumber ?? lastScoreRound,
+    liveScoreCm: lastScoreCm,
+    isBullseye: lastIsBullseye,
+    resultLabel: lastResultLabel,
+    hasLastScore,
+  };
 
   if (compLoading) {
     return (
@@ -209,19 +320,30 @@ export function DisplayBoardPage() {
   }
 
   const renderLayout = () => {
+    const showRoundInterstitial = activeLayout === 'current' || activeLayout === 'next';
+
+    if (showRoundInterstitial && roundPhase.phase === 'closed') {
+      return (
+        <RoundClosedLayout
+          closedRoundNumber={roundPhase.closedRoundNumber!}
+          nextRoundNumber={roundPhase.nextRoundNumber!}
+          competitionName={competition.name}
+        />
+      );
+    }
+
+    if (showRoundInterstitial && awaitingFirstScore) {
+      return (
+        <RoundAwaitingLayout
+          roundNumber={roundPhase.activeRoundNumber!}
+          competitionName={competition.name}
+        />
+      );
+    }
+
     switch (activeLayout) {
       case 'current':
-        return (
-          <CurrentPilotLayout
-            pilot={currentPilot}
-            competitionName={competition.name}
-            roundNumber={lastScoreRound}
-            liveScoreCm={lastScoreCm}
-            isBullseye={lastIsBullseye}
-            resultLabel={lastResultLabel}
-            hasLastScore={hasLastScore}
-          />
-        );
+        return <CurrentPilotLayout {...currentLayoutProps} />;
       case 'top10':
         return (
           <Top10Layout
@@ -240,17 +362,7 @@ export function DisplayBoardPage() {
       case 'sponsors':
         return <SponsorsLayout />;
       default:
-        return (
-          <CurrentPilotLayout
-            pilot={currentPilot}
-            competitionName={competition.name}
-            roundNumber={lastScoreRound}
-            liveScoreCm={lastScoreCm}
-            isBullseye={lastIsBullseye}
-            resultLabel={lastResultLabel}
-            hasLastScore={hasLastScore}
-          />
-        );
+        return <CurrentPilotLayout {...currentLayoutProps} />;
     }
   };
 
@@ -276,7 +388,17 @@ export function DisplayBoardPage() {
       </motion.header>
 
       <main className="h-full pt-20 pb-16">
-        <LayoutRouter layoutKey={activeLayout}>{renderLayout()}</LayoutRouter>
+        <LayoutRouter
+          layoutKey={
+            awaitingFirstScore
+              ? `awaiting-r${roundPhase.activeRoundNumber}`
+              : roundPhase.phase === 'closed'
+                ? `closed-r${roundPhase.closedRoundNumber}`
+                : activeLayout
+          }
+        >
+          {renderLayout()}
+        </LayoutRouter>
       </main>
 
       <DisplayControls

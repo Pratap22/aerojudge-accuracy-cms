@@ -16,7 +16,7 @@ export const PERMISSIONS = {
   'round:close': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE', 'JUDGE'],
   'score:enter': ['SUPER_ADMIN', 'CHIEF_JUDGE', 'JUDGE', 'SCOREKEEPER'],
   'score:confirm': ['SUPER_ADMIN', 'CHIEF_JUDGE', 'SCOREKEEPER'],
-  'score:approve_chief': ['SUPER_ADMIN', 'CHIEF_JUDGE'],
+  'score:approve_chief': ['SUPER_ADMIN', 'CHIEF_JUDGE', 'COMPETITION_DIRECTOR'],
   'score:approve_director': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR'],
   'results:publish': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE'],
   'print:generate': [
@@ -122,6 +122,7 @@ const MEET_DIRECTOR_PERMISSIONS: Permission[] = [
   'round:manage',
   'round:start',
   'round:close',
+  'score:approve_chief',
   'score:approve_director',
   'results:publish',
   'print:generate',
