@@ -5,7 +5,7 @@ export function LeaderboardPage() {
   return (
     <Layout>
       <div className="mx-auto max-w-7xl px-6 py-12">
-        <LiveLeaderboard title="Live Leaderboard" showSearch />
+        <LiveLeaderboard showSearch />
       </div>
     </Layout>
   );

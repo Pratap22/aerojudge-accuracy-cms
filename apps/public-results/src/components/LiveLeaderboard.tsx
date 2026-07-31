@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { Input, LeaderboardTable } from '@npha/ui';
-import { useResults, toLeaderboardEntries } from '../hooks/useCompetition';
+import { useCompetition, useResults, toLeaderboardEntries } from '../hooks/useCompetition';
+import { isCompetitionCompleted } from '../lib/competitionStatus';
 
 interface LiveLeaderboardProps {
   title?: string;
@@ -10,9 +11,12 @@ interface LiveLeaderboardProps {
   maxRows?: number;
 }
 
-export function LiveLeaderboard({ title = 'Live Leaderboard', showSearch = true, maxRows }: LiveLeaderboardProps) {
+export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeaderboardProps) {
+  const { data: competition } = useCompetition();
   const { data: results, isLoading, error } = useResults('OVERALL');
   const [search, setSearch] = useState('');
+  const completed = isCompetitionCompleted(competition?.status);
+  const heading = title ?? (completed ? 'Final Results' : 'Live Leaderboard');
 
   const entries = useMemo(() => {
     const all = toLeaderboardEntries(results);
@@ -46,7 +50,7 @@ export function LiveLeaderboard({ title = 'Live Leaderboard', showSearch = true,
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-display text-3xl font-bold text-white">{title}</h2>
+        <h2 className="font-display text-3xl font-bold text-white">{heading}</h2>
         {showSearch && (
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-400/50" />
@@ -70,11 +74,13 @@ export function LiveLeaderboard({ title = 'Live Leaderboard', showSearch = true,
         />
       </div>
 
-      {results?.official && (
-        <p className="text-center text-sm text-sky-400/50">
-          Official results · Updated live
-        </p>
-      )}
+      <p className="text-center text-sm text-sky-400/50">
+        {completed
+          ? 'Competition completed · Official final standings'
+          : results?.official
+            ? 'Official results · Updated live'
+            : 'Provisional results · Updated live'}
+      </p>
     </motion.div>
   );
 }

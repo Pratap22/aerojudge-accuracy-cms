@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import type { PublicCompetition } from '../lib/types';
 import { competitionPath } from '../lib/api';
 import { formatDate } from '../lib/utils';
+import { isCompetitionCompleted } from '../lib/competitionStatus';
 
 interface HeroProps {
   competition: PublicCompetition;
@@ -12,6 +13,8 @@ interface HeroProps {
 }
 
 export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) {
+  const completed = isCompetitionCompleted(competition.status);
+
   return (
     <section className="relative min-h-[85vh] overflow-hidden">
       {/* Atmospheric mountain gradient background */}
@@ -32,7 +35,8 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
         style={{
           background: `linear-gradient(to top, #050d1a 0%, transparent 100%),
             polygon(0% 100%, 0% 60%, 15% 45%, 30% 55%, 45% 35%, 60% 50%, 75% 30%, 90% 45%, 100% 25%, 100% 100%)`,
-          clipPath: 'polygon(0% 100%, 0% 60%, 15% 45%, 30% 55%, 45% 35%, 60% 50%, 75% 30%, 90% 45%, 100% 25%, 100% 100%)',
+          clipPath:
+            'polygon(0% 100%, 0% 60%, 15% 45%, 30% 55%, 45% 35%, 60% 50%, 75% 30%, 90% 45%, 100% 25%, 100% 100%)',
           backgroundColor: '#0a1628',
         }}
       />
@@ -43,9 +47,7 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <p className="mb-4 font-serif text-lg italic text-sky-300/80">
-            {competition.organizer}
-          </p>
+          <p className="mb-4 font-serif text-lg italic text-sky-300/80">{competition.organizer}</p>
           <h1 className="mb-2 font-display text-7xl font-bold leading-none tracking-tight text-white md:text-8xl lg:text-9xl">
             {competition.name}
           </h1>
@@ -53,15 +55,22 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
             {competition.venue}
             {competition.country ? ` · ${competition.country}` : ''}
           </h2>
-          <p className="mb-12 text-sky-400/60">
+          <p className="mb-4 text-sky-400/60">
             {formatDate(competition.startDate)} – {formatDate(competition.endDate)}
           </p>
+          {completed ? (
+            <p className="mb-12 text-sm uppercase tracking-[0.3em] text-amber-300/80">
+              Competition completed · Official final standings
+            </p>
+          ) : (
+            <div className="mb-12" />
+          )}
 
           <Link
             to={competitionPath(competitionId, 'results')}
             className="group inline-flex items-center gap-3 rounded-full bg-sky-500 px-8 py-4 text-lg font-semibold text-[#050d1a] transition-all hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-500/25"
           >
-            View Full Results
+            {completed ? 'View Final Results' : 'View Full Results'}
             <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
           </Link>
         </motion.div>
@@ -73,7 +82,9 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
             transition={{ delay: 0.4, duration: 0.6 }}
             className="mt-16 border-t border-white/10 pt-12"
           >
-            <p className="mb-6 text-sm uppercase tracking-[0.3em] text-sky-400/70">Live Leaderboard</p>
+            <p className="mb-6 text-sm uppercase tracking-[0.3em] text-sky-400/70">
+              {completed ? 'Final Podium' : 'Live Leaderboard'}
+            </p>
             <div className="grid gap-4 sm:grid-cols-3">
               {topPilots.slice(0, 3).map((pilot) => (
                 <div key={pilot.rank} className="flex items-baseline gap-4">

@@ -1,21 +1,25 @@
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Radio } from 'lucide-react';
+import { CheckCircle2, Radio } from 'lucide-react';
 import { competitionPath } from '../lib/api';
-
-const NAV_ITEMS = [
-  { path: '', label: 'Home' },
-  { path: 'results', label: 'Live Results' },
-  { path: 'pilots', label: 'Pilots' },
-  { path: 'women', label: 'Women' },
-  { path: 'teams', label: 'Teams' },
-  { path: 'countries', label: 'Countries' },
-  { path: 'statistics', label: 'Statistics' },
-];
+import { useCompetition } from '../hooks/useCompetition';
+import { isCompetitionCompleted } from '../lib/competitionStatus';
 
 export function Navigation() {
   const { competitionId } = useParams<{ competitionId: string }>();
   const id = competitionId ?? '';
+  const { data: competition } = useCompetition();
+  const completed = isCompetitionCompleted(competition?.status);
+
+  const navItems = [
+    { path: '', label: 'Home' },
+    { path: 'results', label: completed ? 'Final Results' : 'Live Results' },
+    { path: 'pilots', label: 'Pilots' },
+    { path: 'women', label: 'Women' },
+    { path: 'teams', label: 'Teams' },
+    { path: 'countries', label: 'Countries' },
+    { path: 'statistics', label: 'Statistics' },
+  ];
 
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-[#050d1a]/80 backdrop-blur-md">
@@ -26,7 +30,7 @@ export function Navigation() {
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">
-          {NAV_ITEMS.map(({ path, label }) => (
+          {navItems.map(({ path, label }) => (
             <Link
               key={path}
               to={path ? competitionPath(id, path) : competitionPath(id)}
@@ -37,14 +41,25 @@ export function Navigation() {
           ))}
         </div>
 
-        <motion.div
-          animate={{ opacity: [0.6, 1, 0.6] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5"
-        >
-          <Radio className="h-3 w-3 text-emerald-400" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Live</span>
-        </motion.div>
+        {completed ? (
+          <div className="flex items-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1.5">
+            <CheckCircle2 className="h-3 w-3 text-sky-300" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-sky-300">
+              Completed
+            </span>
+          </div>
+        ) : (
+          <motion.div
+            animate={{ opacity: [0.6, 1, 0.6] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5"
+          >
+            <Radio className="h-3 w-3 text-emerald-400" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+              Live
+            </span>
+          </motion.div>
+        )}
       </div>
     </nav>
   );

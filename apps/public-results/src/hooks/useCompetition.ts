@@ -48,6 +48,14 @@ export function useResults(category: RankingCategory = 'OVERALL') {
       onSocketEvent('score:updated', () => {
         queryClient.invalidateQueries({ queryKey: ['results', slug] });
       }),
+      onSocketEvent('competition:status', () => {
+        queryClient.invalidateQueries({ queryKey: ['competition', slug] });
+        queryClient.invalidateQueries({ queryKey: ['results', slug] });
+      }),
+      onSocketEvent('sync:required', () => {
+        queryClient.invalidateQueries({ queryKey: ['competition', slug] });
+        queryClient.invalidateQueries({ queryKey: ['results', slug] });
+      }),
     ];
 
     return () => {
