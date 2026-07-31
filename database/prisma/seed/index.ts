@@ -512,17 +512,17 @@ async function seedRound1(
     },
   });
 
+  // Re-seed must avoid (roundId, flightOrder) clashes when reshuffling:
+  // updating order A→1 while another row still has order 1 fails the unique constraint.
+  await prisma.flight.deleteMany({ where: { roundId: round.id } });
+
   const shuffled = shuffle(pilots);
   const flights: Array<{ id: string; pilotId: string; flightOrder: number }> = [];
 
   for (let i = 0; i < shuffled.length; i++) {
     const pilot = shuffled[i];
-    const flight = await prisma.flight.upsert({
-      where: {
-        roundId_pilotId: { roundId: round.id, pilotId: pilot.id },
-      },
-      update: { flightOrder: i + 1 },
-      create: {
+    const flight = await prisma.flight.create({
+      data: {
         roundId: round.id,
         pilotId: pilot.id,
         flightOrder: i + 1,

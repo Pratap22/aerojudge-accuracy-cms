@@ -8,7 +8,7 @@
     "generate": "prisma generate --schema=./prisma/schema.prisma",
     "migrate": "prisma migrate dev --schema=./prisma/schema.prisma",
     "migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
-    "seed": "tsx prisma/seed/index.ts",
+    "seed": "node --env-file=../.env --import tsx prisma/seed/index.ts",
     "reset": "prisma migrate reset --schema=./prisma/schema.prisma --force",
     "studio": "prisma studio --schema=./prisma/schema.prisma"
   },
@@ -16,7 +16,7 @@
     "@prisma/client": "^5.12.1"
   },
   "prisma": {
-    "seed": "tsx prisma/seed/index.ts"
+    "seed": "node --env-file=../.env --import tsx prisma/seed/index.ts"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
