@@ -41,6 +41,7 @@ interface ReportPreview {
   id: string;
   html: string;
   status: 'DRAFT' | 'APPROVED' | 'PUBLISHED' | 'PREVIEW';
+  approvalLine?: string;
 }
 
 interface RoundOption {
@@ -101,19 +102,35 @@ export function ReportsPage() {
 
   const approveMutation = useMutation({
     mutationFn: (reportId: string) =>
-      api.post(`/competitions/${activeCompetitionId}/reports/${reportId}/approve`),
-    onSuccess: (_, reportId) => {
-      setPreview((p) => (p?.id === reportId ? { ...p, status: 'APPROVED' } : p));
+      api.post<{
+        id: string;
+        status: string;
+        html?: string;
+        approvalLine?: string;
+      }>(`/competitions/${activeCompetitionId}/reports/${reportId}/approve`),
+    onSuccess: (data, reportId) => {
+      setPreview((p) =>
+        p?.id === reportId
+          ? {
+              ...p,
+              status: 'APPROVED',
+              html: data.html ?? p.html,
+              approvalLine: data.approvalLine,
+            }
+          : p,
+      );
     },
   });
 
   const handlePrint = () => {
+    if (!preview) return;
     const win = window.open('', '_blank');
-    if (win && preview) {
-      win.document.write(preview.html);
-      win.document.close();
-      win.print();
-    }
+    if (!win) return;
+    win.document.write(preview.html);
+    win.document.close();
+    // Let styles paint before the browser print dialog
+    win.focus();
+    setTimeout(() => win.print(), 50);
   };
 
   const handleDownload = async () => {

@@ -76,6 +76,31 @@ function reportToHtml(input: GenerateReportInput): string {
     .npha-report-preview tr:nth-child(even) td { background: #fafafa; }
     .npha-report-preview td.sig { min-width: 140px; height: 32px; background: #fff; }
     .npha-report-preview .footer { margin-top: 24px; font-size: 11px; color: #666; }
+    .npha-report-preview .approval {
+      margin-top: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #111;
+    }
+    @media print {
+      .npha-report-preview { padding: 12px 16px 48px; }
+      .print-page-footer {
+        position: fixed;
+        bottom: 12px;
+        left: 16px;
+        right: 16px;
+        text-align: center;
+        font-size: 10px;
+        color: #111;
+        border-top: 1px solid #ccc;
+        padding-top: 6px;
+        background: #fff;
+      }
+      .npha-report-preview .approval { display: none; }
+    }
+    @media screen {
+      .print-page-footer { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -92,11 +117,16 @@ function reportToHtml(input: GenerateReportInput): string {
       <tbody>${bodyRows || `<tr><td colspan="${input.columns.length}">No data available</td></tr>`}</tbody>
     </table>
     <div class="footer">
-      ${input.approvalLine ? `<div><strong>${escapeHtml(input.approvalLine)}</strong></div>` : ''}
+      ${input.approvalLine ? `<div class="approval">${escapeHtml(input.approvalLine)}</div>` : ''}
       ${escapeHtml(input.footerNote ?? 'FAI Sporting Code Section 7C · Preview')}
       · ${escapeHtml(input.branding.publicResultsUrl)}
     </div>
   </div>
+  ${
+    input.approvalLine
+      ? `<div class="print-page-footer">${escapeHtml(input.approvalLine)}</div>`
+      : ''
+  }
 </body>
 </html>`;
 }
@@ -277,20 +307,56 @@ export async function approvePrint(
   });
   if (!record) throw AppError.notFound('Print record not found');
 
-  return prisma.printHistory.update({
+  const user = await prisma.user.findUnique({
+    where: { id: approver.userId },
+    select: { firstName: true, lastName: true },
+  });
+  if (!user) throw AppError.notFound('Approver not found');
+
+  const approvedAt = new Date();
+  const approvalLine = buildApprovalLine({
+    firstName: user.firstName,
+    lastName: user.lastName,
+    roleLabel: approver.roleLabel,
+    approvedAt,
+  });
+
+  const competition = await getCompetition(competitionId);
+  const reportInput = await buildReportInput(
+    competition,
+    record.reportType as ReportType,
+    (record.format as PrintFormat) ?? 'A4_PORTRAIT',
+    record.roundId ?? undefined,
+  );
+  reportInput.approvalLine = approvalLine;
+  const html = reportToHtml(reportInput);
+
+  const previousMeta =
+    record.metadataJson && typeof record.metadataJson === 'object' && !Array.isArray(record.metadataJson)
+      ? (record.metadataJson as Record<string, unknown>)
+      : {};
+
+  const updated = await prisma.printHistory.update({
     where: { id: printId },
     data: {
       status: 'APPROVED',
-      approvedAt: new Date(),
+      approvedAt,
       approvedById: approver.userId,
       approvedByRole: approver.roleLabel,
-      // Force next download to regenerate with approval footer
       fileUrl: null,
+      metadataJson: {
+        ...previousMeta,
+        html,
+        title: reportInput.title,
+        approvalLine,
+      },
     },
     include: {
       approvedBy: { select: { id: true, firstName: true, lastName: true } },
     },
   });
+
+  return { ...updated, html, approvalLine };
 }
 
 async function buildReportInput(
