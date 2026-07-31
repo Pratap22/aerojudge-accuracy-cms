@@ -61,6 +61,7 @@ describe('OrganizationService', () => {
     const repo = mockRepo({
       findBySlug: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue(created),
+      findById: vi.fn().mockResolvedValue(created),
     });
     const service = new OrganizationService(repo);
     const result = await service.create({

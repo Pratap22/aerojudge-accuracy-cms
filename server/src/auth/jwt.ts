@@ -1,6 +1,6 @@
 import type { SignOptions } from 'jsonwebtoken';
 import jwt from 'jsonwebtoken';
-import type { Role } from '@npha/shared';
+import type { OrgRole, Role } from '@npha/shared';
 import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 
@@ -9,7 +9,11 @@ export interface AccessTokenPayload {
   email: string;
   firstName: string;
   lastName: string;
+  /** Platform / legacy global role */
   role: Role;
+  /** Active organization context (optional until selected) */
+  organizationId?: string;
+  orgRole?: OrgRole;
   type: 'access';
 }
 
@@ -17,6 +21,16 @@ export interface RefreshTokenPayload {
   sub: string;
   tokenId: string;
   type: 'refresh';
+}
+
+export interface AccessTokenUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: Role;
+  organizationId?: string | null;
+  orgRole?: OrgRole | null;
 }
 
 function parseExpiresIn(value: string): number {
@@ -28,13 +42,12 @@ function parseExpiresIn(value: string): number {
   return amount * (multipliers[unit] ?? 60);
 }
 
-export function signAccessToken(user: {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: Role;
-}): string {
+/**
+ * Signs an identity-only access token.
+ * Organization context is per-tab via `X-Organization-Id` (not JWT claims),
+ * so the same session can use different orgs in different browser tabs.
+ */
+export function signAccessToken(user: AccessTokenUser): string {
   const payload: AccessTokenPayload = {
     sub: user.id,
     email: user.email,
@@ -43,6 +56,7 @@ export function signAccessToken(user: {
     role: user.role,
     type: 'access',
   };
+
   return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
     expiresIn: env.JWT_ACCESS_EXPIRES_IN,
   } as SignOptions);

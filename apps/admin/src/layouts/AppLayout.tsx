@@ -52,7 +52,7 @@ function competitionIdFromPath(pathname: string): string | undefined {
 }
 
 export function AppLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, currentOrganization, organizations, selectOrganization } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -86,9 +86,11 @@ export function AppLayout() {
             <div className="min-w-0">
               <p className="text-sm font-bold tracking-wide">AeroJudge</p>
               <p className="truncate text-xs text-sidebar-foreground/70">
-                {activeCompetition
-                  ? `${activeCompetition.code} · Active`
-                  : 'Select a competition'}
+                {currentOrganization
+                  ? currentOrganization.shortName
+                  : activeCompetition
+                    ? `${activeCompetition.code} · Active`
+                    : 'Select an organization'}
               </p>
             </div>
           </div>
@@ -142,6 +144,30 @@ export function AppLayout() {
         </nav>
 
         <div className="border-t border-white/10 p-4">
+          {organizations.length > 0 && (
+            <div className="mb-3 space-y-1">
+              <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                Organization
+              </p>
+              <select
+                className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1.5 text-xs text-sidebar-foreground"
+                aria-label="Current organization"
+                value={currentOrganization?.organizationId ?? ''}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id) void selectOrganization(id);
+                }}
+              >
+                {organizations
+                  .filter((o) => o.status === 'ACTIVE')
+                  .map((o) => (
+                    <option key={o.organizationId} value={o.organizationId} className="text-foreground">
+                      {o.shortName} — {o.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
           <div className="mb-3 flex items-center justify-between">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">

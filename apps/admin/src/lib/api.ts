@@ -1,8 +1,9 @@
 import type { ApiResponse, AuthTokens } from '@npha/shared';
-import { API_VERSION } from '@npha/shared';
+import { API_VERSION, ORGANIZATION_HEADER } from '@npha/shared';
 
 const ACCESS_TOKEN_KEY = 'npha_access_token';
 const REFRESH_TOKEN_KEY = 'npha_refresh_token';
+const ORGANIZATION_ID_KEY = 'npha_organization_id';
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -12,14 +13,41 @@ export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
+/**
+ * Active org is per browser tab (sessionStorage) so one login session can open
+ * different organizations in different tabs. Tokens stay in localStorage.
+ */
+export function getOrganizationId(): string | null {
+  const fromSession = sessionStorage.getItem(ORGANIZATION_ID_KEY);
+  if (fromSession) return fromSession;
+  // One-time migrate from older localStorage-based org context
+  const legacy = localStorage.getItem(ORGANIZATION_ID_KEY);
+  if (legacy) {
+    sessionStorage.setItem(ORGANIZATION_ID_KEY, legacy);
+    localStorage.removeItem(ORGANIZATION_ID_KEY);
+    return legacy;
+  }
+  return null;
+}
+
+export function setOrganizationId(organizationId: string | null): void {
+  localStorage.removeItem(ORGANIZATION_ID_KEY);
+  if (organizationId) sessionStorage.setItem(ORGANIZATION_ID_KEY, organizationId);
+  else sessionStorage.removeItem(ORGANIZATION_ID_KEY);
+}
+
 export function setTokens(tokens: AuthTokens): void {
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  if (tokens.refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  }
 }
 
 export function clearTokens(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(ORGANIZATION_ID_KEY);
+  sessionStorage.removeItem(ORGANIZATION_ID_KEY);
 }
 
 let refreshPromise: Promise<string | null> | null = null;
@@ -31,7 +59,10 @@ async function refreshAccessToken(): Promise<string | null> {
   const response = await fetch(`/api/${API_VERSION}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify({
+      refreshToken,
+      organizationId: getOrganizationId() ?? undefined,
+    }),
   });
 
   if (!response.ok) {
@@ -39,10 +70,24 @@ async function refreshAccessToken(): Promise<string | null> {
     return null;
   }
 
-  const json = (await response.json()) as ApiResponse<AuthTokens>;
+  const json = (await response.json()) as ApiResponse<{
+    tokens?: AuthTokens;
+    accessToken?: string;
+    refreshToken?: string;
+    expiresIn?: number;
+  }>;
   if (json.success && json.data) {
-    setTokens(json.data);
-    return json.data.accessToken;
+    const tokens: AuthTokens = json.data.tokens ?? {
+      accessToken: json.data.accessToken ?? '',
+      refreshToken: json.data.refreshToken ?? refreshToken,
+      expiresIn: json.data.expiresIn ?? 900,
+    };
+    if (!tokens.accessToken) {
+      clearTokens();
+      return null;
+    }
+    setTokens(tokens);
+    return tokens.accessToken;
   }
 
   clearTokens();
@@ -94,6 +139,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
     if (token) {
       requestHeaders.Authorization = `Bearer ${token}`;
+    }
+
+    const organizationId = getOrganizationId();
+    if (organizationId) {
+      requestHeaders[ORGANIZATION_HEADER] = organizationId;
     }
 
     return fetch(buildUrl(path, params), {

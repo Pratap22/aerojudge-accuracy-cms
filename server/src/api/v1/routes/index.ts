@@ -17,6 +17,10 @@ import statisticsRoutes from './statistics.routes.js';
 import syncRoutes from './sync.routes.js';
 import publicRoutes from './public.routes.js';
 import { organizationRoutes } from '../../../modules/organization/index.js';
+import { competitionScopedGuards } from '../middleware/org-scope.js';
+import { requireAuth, resolveOrganizationContext } from '../../../auth/rbac.js';
+import { prisma } from '../../../config/prisma.js';
+import { AppError, asyncHandler } from '../../../utils/errors.js';
 
 const router = Router();
 
@@ -27,19 +31,47 @@ router.use('/sync', syncRoutes);
 router.use('/public', publicRoutes);
 
 router.use('/competitions', competitionsRoutes);
-router.use('/competitions/:competitionId/pilots', pilotsRoutes);
-router.use('/competitions/:competitionId/teams', teamsRoutes);
-router.use('/competitions/:competitionId/rounds', roundsRoutes);
-router.use('/competitions/:competitionId/rounds/:roundId/approvals', approvalsRoutes);
-router.use('/competitions/:competitionId/results', resultsRoutes);
-router.use('/competitions/:competitionId/rankings', rankingsRoutes);
-router.use('/competitions/:competitionId/reports', printRoutes);
-router.use('/competitions/:competitionId/announcements', announcementsRoutes);
-router.use('/competitions/:competitionId/weather', weatherRoutes);
-router.use('/competitions/:competitionId/display-layouts', displayRoutes);
-router.use('/competitions/:competitionId/statistics', statisticsRoutes);
 
-router.use('/scores', scoresRoutes);
+const nested = Router({ mergeParams: true });
+nested.use(...competitionScopedGuards);
+nested.use('/pilots', pilotsRoutes);
+nested.use('/teams', teamsRoutes);
+nested.use('/rounds', roundsRoutes);
+nested.use('/rounds/:roundId/approvals', approvalsRoutes);
+nested.use('/results', resultsRoutes);
+nested.use('/rankings', rankingsRoutes);
+nested.use('/reports', printRoutes);
+nested.use('/announcements', announcementsRoutes);
+nested.use('/weather', weatherRoutes);
+nested.use('/display-layouts', displayRoutes);
+nested.use('/statistics', statisticsRoutes);
+
+router.use('/competitions/:competitionId', nested);
+
+/** Scores are competition-scoped via flight → round → competition. */
+router.use(
+  '/scores',
+  requireAuth,
+  resolveOrganizationContext,
+  asyncHandler(async (req, _res, next) => {
+    // Org context optional until we can resolve competition from body/params
+    if (req.body?.flightId && req.organizationId) {
+      const flight = await prisma.flight.findUnique({
+        where: { id: req.body.flightId },
+        select: { round: { select: { competitionId: true, competition: { select: { organizationId: true } } } } },
+      });
+      if (
+        flight &&
+        flight.round.competition.organizationId !== req.organizationId
+      ) {
+        next(AppError.forbidden('Flight belongs to another organization'));
+        return;
+      }
+    }
+    next();
+  }),
+  scoresRoutes,
+);
 
 router.get('/health', (_req, res) => {
   res.json({ success: true, data: { status: 'ok', version: 'v1' } });

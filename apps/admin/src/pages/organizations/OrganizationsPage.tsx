@@ -56,8 +56,8 @@ export function OrganizationsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const pageSize = 20;
 
-  const canRead = user && hasPermission(user.role, 'organization:read');
-  const canManage = user && hasPermission(user.role, 'organization:manage');
+  const canRead = user && (user.organizations?.length || hasPermission(user.role, 'organization:read') || hasPermission(user.role, 'platform:organizations'));
+  const canManage = user && hasPermission(user.role, 'platform:organizations');
 
   const queryKey = useMemo(
     () => ['organizations', { search, page, pageSize }] as const,

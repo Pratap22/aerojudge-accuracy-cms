@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '../../config/env.js';
+import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/errors.js';
 import {
   OrganizationRepository,
@@ -24,17 +25,32 @@ export class OrganizationService {
 
   /**
    * Lists organizations with pagination and filters.
+   * Non-platform users only see organizations they belong to.
    */
-  async list(query: ListOrganizationsQuery) {
-    return this.repo.findMany(query);
+  async list(
+    query: ListOrganizationsQuery & { memberUserId?: string; platformAdmin?: boolean },
+  ) {
+    const scoped = query.platformAdmin
+      ? query
+      : { ...query, memberUserId: query.memberUserId };
+    return this.repo.findMany(scoped);
   }
 
   /**
    * Returns a single organization or throws NOT_FOUND.
+   * When `memberUserId` is provided, enforces membership.
    */
-  async getById(id: string) {
+  async getById(id: string, memberUserId?: string) {
     const org = await this.repo.findById(id);
     if (!org) throw AppError.notFound('Organization not found');
+    if (memberUserId) {
+      const membership = await prisma.organizationMember.findUnique({
+        where: { organizationId_userId: { organizationId: id, userId: memberUserId } },
+      });
+      if (!membership || membership.status === 'INACTIVE' || membership.status === 'SUSPENDED') {
+        throw AppError.forbidden('Not a member of this organization');
+      }
+    }
     return org;
   }
 
@@ -65,11 +81,26 @@ export class OrganizationService {
 
   /**
    * Creates a new organization (unique slug).
+   * Optionally seeds the creating user as ORGANIZATION_OWNER when `ownerUserId` is provided.
    */
-  async create(data: CreateOrganizationInput) {
+  async create(data: CreateOrganizationInput, ownerUserId?: string) {
     const existing = await this.repo.findBySlug(data.slug);
     if (existing) throw AppError.conflict('Organization slug already exists');
-    return this.repo.create(data);
+    const org = await this.repo.create(data);
+    if (ownerUserId) {
+      await prisma.organizationMember.create({
+        data: {
+          organizationId: org.id,
+          userId: ownerUserId,
+          role: 'ORGANIZATION_OWNER',
+          status: 'ACTIVE',
+          joinedAt: new Date(),
+        },
+      });
+      const withOwner = await this.repo.findById(org.id);
+      return withOwner ?? org;
+    }
+    return org;
   }
 
   /**

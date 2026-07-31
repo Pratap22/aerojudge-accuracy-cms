@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  hasPermission,
+  hasEffectivePermission,
   updateOrganizationSchema,
   type Organization,
   type OrganizationSettingsInput,
@@ -27,8 +27,10 @@ import {
 import { api, getAccessToken } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { competitionPath } from '../../hooks/useCompetitionId';
+import { OrganizationMembersPage } from './OrganizationMembersPage';
+import { OrganizationRolesPage } from './OrganizationRolesPage';
 
-type Tab = 'details' | 'branding' | 'settings' | 'competitions';
+type Tab = 'details' | 'branding' | 'settings' | 'competitions' | 'members' | 'roles';
 
 interface OrgCompetition {
   id: string;
@@ -41,6 +43,15 @@ interface OrgCompetition {
   isPublished: boolean;
 }
 
+/** Members UI embedded in org detail (reads organizationId from route params). */
+function OrganizationMembersEmbedded(_props: { organizationId: string }) {
+  return <OrganizationMembersPage />;
+}
+
+function OrganizationRolesEmbedded(_props: { organizationId: string }) {
+  return <OrganizationRolesPage />;
+}
+
 /**
  * Organization detail: profile, branding, settings, competitions, status actions.
  */
@@ -51,8 +62,23 @@ export function OrganizationDetailPage() {
   const [tab, setTab] = useState<Tab>('details');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const canRead = user && hasPermission(user.role, 'organization:read');
-  const canManage = user && hasPermission(user.role, 'organization:manage');
+  const canRead =
+    !!user &&
+    (hasEffectivePermission({
+      platformRole: user.role,
+      orgRole: user.orgRole,
+      permissions: user.permissions,
+      permission: 'organization:read',
+    }) ||
+      !!user.organizations?.length);
+  const canManage =
+    !!user &&
+    hasEffectivePermission({
+      platformRole: user.role,
+      orgRole: user.orgRole,
+      permissions: user.permissions,
+      permission: 'organization:manage',
+    });
 
   const { data: org, isLoading } = useQuery({
     queryKey: ['organizations', organizationId],
@@ -177,6 +203,8 @@ export function OrganizationDetailPage() {
     { id: 'details', label: 'Details' },
     { id: 'branding', label: 'Branding' },
     { id: 'settings', label: 'Settings' },
+    { id: 'members', label: 'Users' },
+    { id: 'roles', label: 'Roles' },
     { id: 'competitions', label: 'Competitions' },
   ];
 
@@ -530,6 +558,10 @@ export function OrganizationDetailPage() {
           )}
         </form>
       )}
+
+      {tab === 'members' && <OrganizationMembersEmbedded organizationId={organizationId} />}
+
+      {tab === 'roles' && <OrganizationRolesEmbedded organizationId={organizationId} />}
 
       {tab === 'competitions' && (
         <div className="space-y-3">

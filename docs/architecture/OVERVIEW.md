@@ -128,10 +128,21 @@ Rejected approvals return the round to `CLOSED` for corrections before re-reques
 ## Authentication & RBAC
 
 - **JWT access tokens** (15 min) + **refresh tokens** (7 days) stored in `RefreshToken`
-- Role enum: `SUPER_ADMIN`, `COMPETITION_DIRECTOR`, `CHIEF_JUDGE`, `JUDGE`, etc.
-- **Permission strings** (e.g. `score:enter`, `round:close`, `organization:manage`) mapped to roles in server middleware
-- **Competition-scoped roles** via `CompetitionUser` for multi-event deployments
-- **Organization membership** via `OrganizationMember` for future SaaS tenancy
+- Access tokens are **identity-only**; active org is **per tab** via `X-Organization-Id` (`sessionStorage`)
+- Clients also send `X-Organization-Id`; the server **re-validates membership** on every request (never trusts the client alone)
+- Authorization is **permission-based**: built-in `OrgRole` values and custom `OrganizationRole` rows are permission bundles; checks use permissions such as `competition:create`, not `role === 'CHIEF_JUDGE'`
+- **Platform roles** on `User.role`: `SUPER_ADMIN` (Platform Administrator), `PLATFORM_SUPPORT`, `PLATFORM_DEVELOPER`
+- **Organization roles** on `OrganizationMember` — built-in `OrgRole` or custom `OrganizationRole` permission lists
+- Platform admins do **not** automatically access organization data — they need an explicit membership
+- Competitions are filtered and guarded by the current organization context
+- Legacy `PERMISSIONS` / `User.role` remain for transition; prefer `hasEffectivePermission` + membership permissions
+
+### Login flow
+
+1. `POST /auth/login` → user + memberships + tokens
+2. If one active membership → client stores that org in the tab
+3. If multiple → `requiresOrganizationSelection: true` → `POST /auth/select-organization` (tab-local)
+4. Subsequent API calls send Bearer + `X-Organization-Id`
 
 ---
 
@@ -142,6 +153,8 @@ flowchart LR
     Org[Organization]
     Org --> Settings[OrganizationSettings]
     Org --> Members[OrganizationMember]
+    Org --> Roles[OrganizationRole]
+    Roles --> Members
     Org --> Comps[Competitions]
     Comps --> Pilots
     Comps --> Teams

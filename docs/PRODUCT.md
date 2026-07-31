@@ -49,3 +49,11 @@ Examples (configurable data — not product branding):
 **Competitions** always belong to an organization (`organizationId`). Pilots, teams, sponsors, documents, certificates, and reports remain competition-scoped and are reached through the owning organization.
 
 Product branding remains **AeroJudge** by **Nepalabs**. Organization names and logos are tenant configuration managed in Admin → Organizations.
+
+## Access control
+
+Users authenticate once, then operate inside an **organization context**.
+
+- Platform administrators manage tenants and licenses but must join an organization to access its competitions.
+- Organization roles (Owner, Meet Director, Chief Judge, Scorer, Judge, …) drive day-to-day permissions.
+- See [AUTHENTICATION.md](guides/AUTHENTICATION.md).

@@ -17,6 +17,8 @@ datasource db {
 
 enum Role {
   SUPER_ADMIN
+  PLATFORM_SUPPORT
+  PLATFORM_DEVELOPER
   COMPETITION_DIRECTOR
   CHIEF_JUDGE
   JUDGE
@@ -34,6 +36,28 @@ enum UserStatus {
   SUSPENDED
 }
 
+// Organization-scoped operational roles (extensible)
+enum OrgRole {
+  ORGANIZATION_OWNER
+  CHIEF_JUDGE
+  MEET_DIRECTOR
+  SCORER
+  JUDGE
+  ANNOUNCER
+  DISPLAY_OPERATOR
+  LAUNCH_MARSHAL
+  GOAL_MARSHAL
+  REGISTRATION_OFFICER
+  VIEWER
+}
+
+enum OrganizationMemberStatus {
+  INVITED
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
@@ -41,6 +65,7 @@ model User {
   firstName    String
   lastName     String
   phone        String?
+  // Platform-level role (SUPER_ADMIN = Platform Administrator). Org access requires membership.
   role         Role       @default(PUBLIC_USER)
   status       UserStatus @default(ACTIVE)
   avatarUrl    String?
@@ -51,6 +76,7 @@ model User {
   refreshTokens      RefreshToken[]
   competitionRoles   CompetitionUser[]
   organizationMembers OrganizationMember[]
+  organizationInvitesSent OrganizationMember[] @relation("OrgMemberInvites")
   scoresEntered      Score[]           @relation("ScoreEnteredBy")
   scoreApprovals     ScoreApproval[]
   auditLogs          AuditLog[]
@@ -173,6 +199,7 @@ model Organization {
 
   settings     OrganizationSettings?
   members      OrganizationMember[]
+  roles        OrganizationRole[]
   competitions Competition[]
   ruleProfiles RuleProfile[]
 
@@ -210,18 +237,52 @@ model OrganizationSettings {
 }
 
 model OrganizationMember {
-  id             String       @id @default(cuid())
+  id             String                    @id @default(cuid())
   organizationId String
   userId         String
-  role           Role         @default(PUBLIC_USER)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  /// Built-in role key (permission bundle in @npha/shared). Ignored when customRoleId is set.
+  role           OrgRole                   @default(VIEWER)
+  /// Optional custom role with an explicit permission list (federation-defined).
+  customRoleId   String?
+  customRole     OrganizationRole?         @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  status         OrganizationMemberStatus  @default(ACTIVE)
+  invitedById    String?
+  invitedBy      User?                     @relation("OrgMemberInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+  joinedAt       DateTime?
+  lastLoginAt    DateTime?
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
 
   @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
+  @@index([status])
+  @@index([role])
+  @@index([customRoleId])
+}
+
+/// Custom (or org-cloned) roles: named permission bundles without code changes.
+model OrganizationRole {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String
+  name           String
+  description    String?
+  /// Explicit permission strings, e.g. ["competition:create", "score:approve_chief"]
+  permissions    Json
+  /// Optional built-in role this custom role was based on
+  basedOnOrgRole OrgRole?
+  isSystemClone  Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  members OrganizationMember[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
 }
 
 // ─────────────────────────────────────────────

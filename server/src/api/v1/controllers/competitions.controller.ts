@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { createCompetitionSchema, paginationSchema } from '@npha/shared';
 import { ScoringEngine } from '@npha/scoring-engine';
 import { z } from 'zod';
-import { asyncHandler } from '../../../utils/errors.js';
+import { asyncHandler, AppError } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as competitionService from '../../../services/competition.service.js';
 import * as dashboardService from '../../../services/dashboard.service.js';
@@ -32,7 +32,14 @@ const settingsSchema = z.object({
 export const list = [
   validateQuery(paginationSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const result = await competitionService.listCompetitions(req.query as never);
+    if (!req.organizationId) {
+      sendSuccess(res, [], 200, { page: 1, pageSize: 50, total: 0 });
+      return;
+    }
+    const result = await competitionService.listCompetitions({
+      ...(req.query as Record<string, unknown>),
+      organizationId: req.organizationId,
+    } as Parameters<typeof competitionService.listCompetitions>[0]);
     sendSuccess(res, result.items, 200, {
       page: result.page,
       pageSize: result.pageSize,
@@ -44,7 +51,10 @@ export const list = [
 export const get = [
   validateParams(idParams),
   asyncHandler(async (req: Request, res: Response) => {
-    const competition = await competitionService.getCompetition(req.params.id);
+    const competition = await competitionService.getCompetition(
+      req.params.id,
+      req.organizationId,
+    );
     sendSuccess(res, competition);
   }),
 ];
@@ -52,9 +62,13 @@ export const get = [
 export const create = [
   validateBody(createCompetitionSchema),
   asyncHandler(async (req: Request, res: Response) => {
+    if (!req.organizationId) {
+      throw AppError.forbidden('Organization context required to create a competition');
+    }
     const data = req.body;
     const competition = await competitionService.createCompetition({
       ...data,
+      organizationId: req.organizationId,
       startDate: new Date(data.startDate),
       endDate: new Date(data.endDate),
     });

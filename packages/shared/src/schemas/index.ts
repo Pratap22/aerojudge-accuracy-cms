@@ -97,6 +97,8 @@ export const createUserSchema = z.object({
   lastName: z.string().min(1),
   role: z.enum([
     'SUPER_ADMIN',
+    'PLATFORM_SUPPORT',
+    'PLATFORM_DEVELOPER',
     'COMPETITION_DIRECTOR',
     'CHIEF_JUDGE',
     'JUDGE',
@@ -212,3 +214,55 @@ export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
 export type UpdateOrganizationStatusInput = z.infer<typeof updateOrganizationStatusSchema>;
 export type OrganizationSettingsInput = z.infer<typeof organizationSettingsSchema>;
 export type ListOrganizationsQuery = z.infer<typeof listOrganizationsQuerySchema>;
+
+export const selectOrganizationSchema = z.object({
+  organizationId: z.string().min(1),
+});
+
+export const orgRoleSchema = z.enum([
+  'ORGANIZATION_OWNER',
+  'CHIEF_JUDGE',
+  'MEET_DIRECTOR',
+  'SCORER',
+  'JUDGE',
+  'ANNOUNCER',
+  'DISPLAY_OPERATOR',
+  'LAUNCH_MARSHAL',
+  'GOAL_MARSHAL',
+  'REGISTRATION_OFFICER',
+  'VIEWER',
+]);
+
+export const inviteOrganizationMemberSchema = z.object({
+  email: z.string().email(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  password: z.string().min(8).optional(),
+  role: orgRoleSchema.default('VIEWER'),
+});
+
+export const updateOrganizationMemberSchema = z.object({
+  role: orgRoleSchema.optional(),
+  customRoleId: z.string().min(1).nullable().optional(),
+  status: z.enum(['INVITED', 'ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+});
+
+export const createOrganizationRoleSchema = z.object({
+  key: z
+    .string()
+    .min(2)
+    .max(80)
+    .regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/, 'Use lowercase snake_case keys'),
+  name: z.string().min(2).max(120),
+  description: z.string().max(500).optional(),
+  permissions: z.array(z.string().min(1)).min(1),
+  basedOnOrgRole: orgRoleSchema.optional(),
+});
+
+export const updateOrganizationRoleSchema = createOrganizationRoleSchema.partial();
+
+export type SelectOrganizationInput = z.infer<typeof selectOrganizationSchema>;
+export type InviteOrganizationMemberInput = z.infer<typeof inviteOrganizationMemberSchema>;
+export type UpdateOrganizationMemberInput = z.infer<typeof updateOrganizationMemberSchema>;
+export type CreateOrganizationRoleInput = z.infer<typeof createOrganizationRoleSchema>;
+export type UpdateOrganizationRoleInput = z.infer<typeof updateOrganizationRoleSchema>;

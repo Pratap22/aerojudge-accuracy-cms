@@ -39,10 +39,26 @@ Interactive documentation: **http://localhost:4000/api/docs**
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/auth/login` | No | Email/password login → access + refresh tokens |
-| POST | `/auth/refresh` | No | Refresh access token |
+| POST | `/auth/login` | No | Email/password → tokens, memberships, org selection flag |
+| POST | `/auth/select-organization` | Yes | Select org for this client/tab (identity token unchanged) |
+| POST | `/auth/refresh` | No | Refresh access token (optional `organizationId`) |
 | POST | `/auth/logout` | No | Revoke refresh token |
-| GET | `/auth/me` | Yes | Current user profile |
+| GET | `/auth/me` | Yes | Current user + memberships + active org context |
+
+Send organization context on every tenant API call:
+
+```
+Authorization: Bearer <access_token>
+X-Organization-Id: <organizationId>
+```
+
+### Organization context model
+
+- A user may belong to many organizations via `OrganizationMember`
+- Permissions come from the membership **permission bundle** (built-in `OrgRole` or custom `OrganizationRole`)
+- Platform administrators (`SUPER_ADMIN`) manage tenants/licenses but need membership to enter an org
+- One session can use different orgs in different tabs (`sessionStorage` + `X-Organization-Id`)
+- Cross-organization access is rejected server-side
 
 ---
 
@@ -71,9 +87,19 @@ Organizations are the multi-tenant root: federations, clubs, and commercial cust
 | PATCH | `/organizations/:id/status` | `organization:manage` | Activate, deactivate, or archive |
 | PUT | `/organizations/:id/settings` | `organization:manage` | Update settings defaults (print, display, rules, …) |
 | POST | `/organizations/:id/logo` | `organization:manage` | Upload logo (`multipart/form-data`, field `logo`) |
-| GET | `/organizations/:id/competitions` | `organization:read` | List competitions owned by the organization |
+| GET | `/organizations/:id/competitions` | Member | List competitions owned by the organization |
+| GET | `/organizations/:id/members` | `organization:members` | List members |
+| POST | `/organizations/:id/members` | `organization:members` | Invite / add member |
+| PATCH | `/organizations/:id/members/:memberId` | `organization:members` | Change role / custom role / status |
+| DELETE | `/organizations/:id/members/:memberId` | `organization:members` | Deactivate membership |
+| GET | `/organizations/:id/roles` | `organization:members` | List custom roles |
+| POST | `/organizations/:id/roles` | `organization:roles` | Create custom role (permission bundle) |
+| PATCH | `/organizations/:id/roles/:roleId` | `organization:roles` | Update custom role |
+| DELETE | `/organizations/:id/roles/:roleId` | `organization:roles` | Delete custom role |
 
-Hard deletion is not exposed. Organizations with competitions should be archived rather than removed. `Competition.organizationId` is required; create competition may omit it to use the default active organization.
+Hard deletion is not exposed. Organizations with competitions should be archived rather than removed. `Competition.organizationId` is required; create competition uses the **current organization context**.
+
+Platform-only: `POST /organizations`, `PATCH /organizations/:id/status` require `platform:organizations`.
 
 ---
 

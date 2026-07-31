@@ -80,9 +80,17 @@ const options: swaggerJsdoc.Options = {
             content: { 'application/json': { schema: { $ref: '#/components/schemas/LoginRequest' } } },
           },
           responses: {
-            '200': { description: 'Tokens and user profile' },
+            '200': { description: 'Tokens, user, organizations, requiresOrganizationSelection' },
             '401': { description: 'Invalid credentials' },
           },
+        },
+      },
+      '/auth/select-organization': {
+        post: {
+          tags: ['Auth'],
+          summary: 'Select organization context after login',
+          security: [{ bearerAuth: [] }],
+          responses: { '200': { description: 'Access token bound to organization' } },
         },
       },
       '/auth/refresh': {

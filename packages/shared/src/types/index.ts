@@ -2,6 +2,8 @@
 
 export type Role =
   | 'SUPER_ADMIN'
+  | 'PLATFORM_SUPPORT'
+  | 'PLATFORM_DEVELOPER'
   | 'COMPETITION_DIRECTOR'
   | 'CHIEF_JUDGE'
   | 'JUDGE'
@@ -11,6 +13,22 @@ export type Role =
   | 'ANNOUNCER'
   | 'DISPLAY_OPERATOR'
   | 'PUBLIC_USER';
+
+/** Organization-scoped roles. */
+export type OrgRole =
+  | 'ORGANIZATION_OWNER'
+  | 'CHIEF_JUDGE'
+  | 'MEET_DIRECTOR'
+  | 'SCORER'
+  | 'JUDGE'
+  | 'ANNOUNCER'
+  | 'DISPLAY_OPERATOR'
+  | 'LAUNCH_MARSHAL'
+  | 'GOAL_MARSHAL'
+  | 'REGISTRATION_OFFICER'
+  | 'VIEWER';
+
+export type OrganizationMemberStatus = 'INVITED' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 
 export type CompetitionStatus =
   | 'DRAFT'
@@ -250,8 +268,39 @@ export interface AuthUser {
   email: string;
   firstName: string;
   lastName: string;
+  /** Platform / legacy global role. Org access requires membership. */
   role: Role;
   avatarUrl?: string | null;
+  /** Active organization context (when selected for this tab). */
+  organizationId?: string | null;
+  orgRole?: OrgRole | null;
+  /** Effective permissions for the active org membership (this tab). */
+  permissions?: string[];
+  organizations?: AuthOrganizationMembership[];
+}
+
+/** Membership summary returned at login /me for organization selector. */
+export interface AuthOrganizationMembership {
+  id: string;
+  organizationId: string;
+  name: string;
+  shortName: string;
+  slug: string;
+  logoUrl?: string | null;
+  role: OrgRole;
+  /** Present when a custom OrganizationRole is assigned. */
+  customRoleId?: string | null;
+  customRoleName?: string | null;
+  /** Effective permission bundle for this membership. */
+  permissions: string[];
+  status: OrganizationMemberStatus;
+}
+
+export interface LoginResult {
+  user: AuthUser;
+  tokens: AuthTokens;
+  organizations: AuthOrganizationMembership[];
+  requiresOrganizationSelection: boolean;
 }
 
 /** Organization tenant (SaaS root entity). */
@@ -331,6 +380,8 @@ export interface SocketEvents {
 
 export const ROLES: Role[] = [
   'SUPER_ADMIN',
+  'PLATFORM_SUPPORT',
+  'PLATFORM_DEVELOPER',
   'COMPETITION_DIRECTOR',
   'CHIEF_JUDGE',
   'JUDGE',

@@ -189,6 +189,34 @@ async function seedUsers() {
   return created;
 }
 
+async function seedOrganizationMembers(organizationId: string, users: Map<Role, string>) {
+  const roleMap: Array<{ userRole: Role; orgRole: 'ORGANIZATION_OWNER' | 'MEET_DIRECTOR' | 'CHIEF_JUDGE' | 'JUDGE' | 'SCORER' }> = [
+    { userRole: Role.SUPER_ADMIN, orgRole: 'ORGANIZATION_OWNER' },
+    { userRole: Role.COMPETITION_DIRECTOR, orgRole: 'MEET_DIRECTOR' },
+    { userRole: Role.CHIEF_JUDGE, orgRole: 'CHIEF_JUDGE' },
+    { userRole: Role.JUDGE, orgRole: 'JUDGE' },
+    { userRole: Role.SCOREKEEPER, orgRole: 'SCORER' },
+  ];
+
+  for (const { userRole, orgRole } of roleMap) {
+    const userId = users.get(userRole);
+    if (!userId) continue;
+    await prisma.organizationMember.upsert({
+      where: {
+        organizationId_userId: { organizationId, userId },
+      },
+      update: { role: orgRole, status: 'ACTIVE', joinedAt: new Date() },
+      create: {
+        organizationId,
+        userId,
+        role: orgRole,
+        status: 'ACTIVE',
+        joinedAt: new Date(),
+      },
+    });
+  }
+}
+
 async function seedOrganization() {
   const org = await prisma.organization.upsert({
     where: { slug: 'npha' },
@@ -698,6 +726,9 @@ async function main() {
 
   const users = await seedUsers();
   console.log('✓ Staff users created (Super Admin, Director, Chief Judge, Judge, Scorekeeper)');
+
+  await seedOrganizationMembers(organization.id, users);
+  console.log('✓ Organization memberships assigned (explicit — platform role alone is not enough)');
 
   const competition = await seedCompetition(organization.id);
   console.log(`✓ Competition: ${competition.name}`);

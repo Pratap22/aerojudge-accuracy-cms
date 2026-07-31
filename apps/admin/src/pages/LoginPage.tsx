@@ -3,16 +3,27 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, type LoginInput } from '@npha/shared';
-import { Target } from 'lucide-react';
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from '@npha/ui';
+import { Building2, Target } from 'lucide-react';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+} from '@npha/ui';
 import { useAuth } from '../lib/auth';
 import { ApiError } from '../lib/api';
 
 export function LoginPage() {
-  const { login, isAuthenticated } = useAuth();
+  const { login, selectOrganization, isAuthenticated, requiresOrganizationSelection, organizations } =
+    useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState(false);
 
   const {
     register,
@@ -23,8 +34,9 @@ export function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
-  if (isAuthenticated) {
-    const from = (location.state as { from?: Location })?.from?.pathname ?? '/competitions';
+  const from = (location.state as { from?: Location })?.from?.pathname ?? '/competitions';
+
+  if (isAuthenticated && !requiresOrganizationSelection && !selecting) {
     navigate(from, { replace: true });
     return null;
   }
@@ -32,13 +44,28 @@ export function LoginPage() {
   const onSubmit = async (data: LoginInput) => {
     setError(null);
     try {
-      await login(data.email, data.password);
-      const from = (location.state as { from?: Location })?.from?.pathname ?? '/competitions';
+      const result = await login(data.email, data.password);
+      if (result.requiresOrganizationSelection) {
+        setSelecting(true);
+        return;
+      }
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Login failed. Check your credentials.');
     }
   };
+
+  const onSelectOrg = async (organizationId: string) => {
+    setError(null);
+    try {
+      await selectOrganization(organizationId);
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to select organization.');
+    }
+  };
+
+  const showSelector = selecting || requiresOrganizationSelection;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-sky-900 p-4">
@@ -49,28 +76,69 @@ export function LoginPage() {
           </div>
           <div>
             <CardTitle className="text-2xl">AeroJudge</CardTitle>
-            <CardDescription>Professional competition management for air sports</CardDescription>
+            <CardDescription>
+              {showSelector
+                ? 'Select an organization to continue'
+                : 'Professional competition management for air sports'}
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" {...register('email')} />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+          {showSelector ? (
+            <div className="space-y-3">
+              {organizations
+                .filter((o) => o.status === 'ACTIVE')
+                .map((org) => (
+                  <Button
+                    key={org.organizationId}
+                    variant="outline"
+                    className="flex h-auto w-full items-start justify-start gap-3 p-4 text-left"
+                    onClick={() => void onSelectOrg(org.organizationId)}
+                  >
+                    <Building2 className="mt-0.5 h-5 w-5 shrink-0" />
+                    <span>
+                      <span className="block font-semibold">{org.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {org.shortName} · {org.role.replace(/_/g, ' ')}
+                      </span>
+                    </span>
+                  </Button>
+                ))}
+              {error && (
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" autoComplete="current-password" {...register('password')} />
-              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
-            </div>
-            {error && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>
-            )}
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Signing in…' : 'Sign in'}
-            </Button>
-          </form>
+          ) : (
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" autoComplete="email" {...register('email')} />
+                {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  {...register('password')}
+                />
+                {errors.password && (
+                  <p className="text-sm text-destructive">{errors.password.message}</p>
+                )}
+              </div>
+              {error && (
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? 'Signing in…' : 'Sign in'}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

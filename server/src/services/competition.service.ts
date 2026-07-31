@@ -10,8 +10,10 @@ export async function listCompetitions(query: {
   pageSize: number;
   search?: string;
   status?: string;
+  organizationId?: string;
 }) {
   const where: Prisma.CompetitionWhereInput = {};
+  if (query.organizationId) where.organizationId = query.organizationId;
   if (query.search) {
     where.OR = [
       { name: { contains: query.search, mode: 'insensitive' } },
@@ -34,7 +36,7 @@ export async function listCompetitions(query: {
   return { items, total, page: query.page, pageSize: query.pageSize };
 }
 
-export async function getCompetition(id: string) {
+export async function getCompetition(id: string, organizationId?: string) {
   const competition = await prisma.competition.findUnique({
     where: { id },
     include: {
@@ -44,6 +46,9 @@ export async function getCompetition(id: string) {
     },
   });
   if (!competition) throw AppError.notFound('Competition not found');
+  if (organizationId && competition.organizationId !== organizationId) {
+    throw AppError.forbidden('Competition belongs to another organization');
+  }
   return competition;
 }
 
@@ -69,7 +74,9 @@ export async function createCompetition(data: {
   organizationId?: string;
 }) {
   const { maximumScoreCm, organizationId: orgIdInput, ...competitionData } = data;
-  const organizationId = await organizationService.resolveOrganizationId(orgIdInput);
+  // Prefer explicit caller context; fall back to resolve for legacy clients
+  const organizationId =
+    orgIdInput ?? (await organizationService.resolveOrganizationId(undefined));
 
   const slug = slugify(`${data.code}-${data.name}`);
   const existing = await prisma.competition.findFirst({

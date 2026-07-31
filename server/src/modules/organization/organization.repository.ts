@@ -21,9 +21,18 @@ export class OrganizationRepository {
 
   /**
    * Lists organizations with optional search/status filters and pagination.
+   * When `memberUserId` is set, only orgs the user belongs to are returned.
    */
-  async findMany(query: ListOrganizationsQuery) {
+  async findMany(query: ListOrganizationsQuery & { memberUserId?: string }) {
     const where: Prisma.OrganizationWhereInput = {};
+    if (query.memberUserId) {
+      where.members = {
+        some: {
+          userId: query.memberUserId,
+          status: { in: ['ACTIVE', 'INVITED'] },
+        },
+      };
+    }
     if (query.search) {
       where.OR = [
         { name: { contains: query.search, mode: 'insensitive' } },

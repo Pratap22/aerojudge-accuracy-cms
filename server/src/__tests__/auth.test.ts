@@ -45,15 +45,14 @@ describe('rbac hasPermission', () => {
     expect(hasPermission('PUBLIC_USER', 'score:enter')).toBe(false);
   });
 
-  it('allows super admin all checked permissions', () => {
+  it('allows super admin platform organization management', () => {
     expect(hasPermission('SUPER_ADMIN', 'user:manage')).toBe(true);
-    expect(hasPermission('SUPER_ADMIN', 'competition:delete')).toBe(true);
-    expect(hasPermission('SUPER_ADMIN', 'organization:manage')).toBe(true);
+    expect(hasPermission('SUPER_ADMIN', 'platform:organizations')).toBe(true);
   });
 
-  it('allows directors to read organizations', () => {
+  it('allows directors to read organizations (legacy)', () => {
     expect(hasPermission('COMPETITION_DIRECTOR', 'organization:read')).toBe(true);
-    expect(hasPermission('COMPETITION_DIRECTOR', 'organization:manage')).toBe(false);
+    expect(hasPermission('COMPETITION_DIRECTOR', 'platform:organizations')).toBe(false);
   });
 });
 
