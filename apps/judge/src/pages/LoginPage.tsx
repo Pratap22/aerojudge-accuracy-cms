@@ -46,8 +46,8 @@ export function LoginPage() {
           <Target className="h-8 w-8 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white">NPHA Judge</h1>
-          <p className="text-slate-400">Target scoring terminal</p>
+          <h1 className="text-2xl font-bold text-white">AeroJudge</h1>
+          <p className="text-slate-400">Judge scoring terminal</p>
         </div>
       </div>
 

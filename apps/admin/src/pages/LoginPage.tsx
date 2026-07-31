@@ -48,8 +48,8 @@ export function LoginPage() {
             <Target className="h-7 w-7 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-2xl">NPHA Accuracy CMS</CardTitle>
-            <CardDescription>Official competition management portal</CardDescription>
+            <CardTitle className="text-2xl">AeroJudge</CardTitle>
+            <CardDescription>Professional competition management for air sports</CardDescription>
           </div>
         </CardHeader>
         <CardContent>

@@ -43,10 +43,6 @@ export interface Sponsor {
   name: string;
 }
 
-export const DEFAULT_SPONSORS: Sponsor[] = [
-  { id: '1', name: 'NPHA' },
-  { id: '2', name: 'FAI' },
-  { id: '3', name: 'Nepal Tourism Board' },
-];
+export const DEFAULT_SPONSORS: Sponsor[] = [];
 
 export type OverlayWidget = 'lowerthird' | 'scorebug' | 'wind' | 'sponsors' | 'countdown';

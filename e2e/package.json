@@ -2,7 +2,7 @@
   "name": "@npha/e2e",
   "version": "1.0.0",
   "private": true,
-  "description": "End-to-end tests for NPHA Accuracy CMS",
+  "description": "End-to-end tests for AeroJudge",
   "scripts": {
     "test": "playwright test",
     "test:e2e": "playwright test",

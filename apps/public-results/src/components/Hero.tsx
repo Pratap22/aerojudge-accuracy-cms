@@ -43,17 +43,15 @@ export function Hero({ competition, slug, topPilots = [] }: HeroProps) {
           transition={{ duration: 0.8 }}
         >
           <p className="mb-4 font-serif text-lg italic text-sky-300/80">
-            Nepal Paragliding & Hang Gliding Association
+            {competition.organizer}
           </p>
           <h1 className="mb-2 font-display text-7xl font-bold leading-none tracking-tight text-white md:text-8xl lg:text-9xl">
-            NPHA
+            {competition.name}
           </h1>
           <h2 className="mb-8 max-w-3xl font-serif text-3xl font-light text-sky-100 md:text-4xl">
-            {competition.name}
+            {competition.venue}
+            {competition.country ? ` · ${competition.country}` : ''}
           </h2>
-          <p className="mb-2 text-lg text-sky-300/70">
-            {competition.venue} · {competition.country}
-          </p>
           <p className="mb-12 text-sky-400/60">
             {formatDate(competition.startDate)} – {formatDate(competition.endDate)}
           </p>

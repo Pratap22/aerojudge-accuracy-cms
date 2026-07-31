@@ -19,8 +19,8 @@ export function Navigation() {
     <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-[#050d1a]/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <Link to={`/${slug}`} className="group flex items-center gap-3">
-          <span className="font-display text-2xl font-bold tracking-tight text-white">NPHA</span>
-          <span className="hidden text-sm text-sky-300/70 sm:inline">Accuracy</span>
+          <span className="font-display text-2xl font-bold tracking-tight text-white">AeroJudge</span>
+          <span className="hidden text-sm text-sky-300/70 sm:inline">Results</span>
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">

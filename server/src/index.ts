@@ -54,7 +54,7 @@ export { app, httpServer };
 
 export function startServer(): void {
   httpServer.listen(env.PORT, () => {
-    console.log(`NPHA Accuracy CMS API listening on port ${env.PORT}`);
+    console.log(`AeroJudge API listening on port ${env.PORT}`);
     console.log(`Swagger docs: http://localhost:${env.PORT}/api/docs`);
     console.log(`API base: http://localhost:${env.PORT}${env.API_PREFIX}`);
   });

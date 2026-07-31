@@ -1,4 +1,4 @@
-/** Shared domain types for NPHA Accuracy CMS – FAI Section 7C aligned */
+/** Shared domain types for AeroJudge – FAI Section 7C aligned */
 
 export type Role =
   | 'SUPER_ADMIN'

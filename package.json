@@ -2,8 +2,8 @@
   "name": "npha-accuracy-cms",
   "version": "1.0.0",
   "private": true,
-  "description": "Nepal Paragliding & Hang Gliding Association - FAI Category 2 Paragliding Accuracy Competition Management System",
-  "author": "NPHA",
+  "description": "AeroJudge by Nepalabs – Professional competition management platform for air sports (Paragliding Accuracy)",
+  "author": "Nepalabs",
   "license": "MIT",
   "workspaces": [
     "apps/*",

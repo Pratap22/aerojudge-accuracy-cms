@@ -1,5 +1,6 @@
 /**
- * NPHA Accuracy CMS – development seed data
+ * AeroJudge – development seed data
+ * Sample tenant uses NPHA as an example organization / early customer.
  * Run: npm run seed --workspace=@npha/database
  */
 import bcrypt from 'bcryptjs';
@@ -638,7 +639,7 @@ async function seedWeather(competitionId: string) {
 }
 
 async function main() {
-  console.log('🌱 Seeding NPHA Accuracy CMS database...\n');
+  console.log('🌱 Seeding AeroJudge database (sample org: NPHA)…\n');
 
   const countryMap = await seedCountries();
   console.log(`✓ ${COUNTRIES.length} countries upserted`);

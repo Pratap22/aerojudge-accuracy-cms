@@ -1,4 +1,4 @@
-# Docker Compose – NPHA Accuracy CMS
+# Docker Compose – AeroJudge
 # Usage: npm run docker:up   (from repo root)
 #        docker compose -f docker/docker-compose.yml up -d --build
 

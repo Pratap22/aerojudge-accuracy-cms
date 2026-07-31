@@ -1,4 +1,4 @@
-# NPHA Accuracy CMS – Vite SPA (multi-stage, nginx-served)
+# AeroJudge – Vite SPA (multi-stage, nginx-served)
 # Build: docker build -f docker/Dockerfile.web --build-arg APP_NAME=admin --build-arg BASE_PATH=/admin/ .
 ARG APP_NAME=admin
 ARG BASE_PATH=/

@@ -5,10 +5,10 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.3',
     info: {
-      title: 'NPHA Accuracy CMS API',
+      title: 'AeroJudge API',
       version: '1.0.0',
       description:
-        'FAI Section 7C compliant paragliding accuracy competition management API for Nepal Paragliding & Hang Gliding Association.',
+        'FAI Section 7C compliant air sports competition management API by Nepalabs (AeroJudge). Organizations and branding are configurable per competition.',
     },
     servers: [{ url: `http://localhost:${env.PORT}${env.API_PREFIX}`, description: 'Local' }],
     components: {

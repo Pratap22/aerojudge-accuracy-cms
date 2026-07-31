@@ -12,7 +12,7 @@ test.describe('Judge scoring UI', () => {
 
     await page.goto('/login');
 
-    await expect(page.getByRole('heading', { name: 'NPHA Judge' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'AeroJudge' })).toBeVisible();
     await expect(page.getByRole('button', { name: /start scoring session/i })).toBeVisible();
   });
 

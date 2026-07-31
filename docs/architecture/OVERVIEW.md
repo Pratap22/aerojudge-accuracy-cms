@@ -1,6 +1,6 @@
 # Architecture Overview
 
-NPHA Accuracy CMS follows a **clean architecture** pattern with strict separation between presentation, application, domain logic, and infrastructure.
+AeroJudge follows a **clean architecture** pattern with strict separation between presentation, application, domain logic, and infrastructure.
 
 ---
 

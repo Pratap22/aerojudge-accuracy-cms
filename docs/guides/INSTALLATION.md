@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide walks through setting up NPHA Accuracy CMS for local development or self-hosted deployment.
+This guide walks through setting up AeroJudge for local development or self-hosted deployment.
 
 ---
 
@@ -94,7 +94,7 @@ Expected output includes:
 
 - 10 countries
 - 5 staff users (admin, director, chief judge, judge, scorekeeper)
-- **NPHA National Accuracy Championship 2024** (`publicSlug: npha-acc-2024`)
+- **NPHA National Accuracy Championship 2024** (`publicSlug: npha-acc-2024`) — sample seed competition for an **example organization** (NPHA), not product branding.
 - 24 pilots, 4 national teams
 - Round 1 with sample scores
 

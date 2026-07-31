@@ -1,6 +1,6 @@
 # Competition Operations Guide
 
-This guide describes how officials run a competition day using NPHA Accuracy CMS — from morning setup through scoring, approval, printing, and publishing results.
+This guide describes how officials run a competition day using AeroJudge — from morning setup through scoring, approval, printing, and publishing results.
 
 ---
 

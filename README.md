@@ -1,8 +1,12 @@
-# NPHA Accuracy CMS
+# AeroJudge
 
-**Nepal Paragliding & Hang Gliding Association — FAI Category 2 Paragliding Accuracy Competition Management System**
+**AeroJudge by Nepalabs — Professional Competition Management Platform for Air Sports**
 
-A full-stack monorepo for running paragliding accuracy competitions in compliance with the FAI Sporting Code Section 7C. NPHA Accuracy CMS covers registration, round management, live scoring, dual approval workflows, PDF reporting, public results, venue displays, and broadcast overlays.
+A commercial SaaS monorepo for running air sports competitions. The initial release focuses on **paragliding accuracy** in compliance with the FAI Sporting Code Section 7C. AeroJudge covers registration, round management, live scoring, dual approval workflows, PDF reporting, public results, venue displays, and broadcast overlays.
+
+Organizations (e.g. NPHA, FAI, APPI, or any federation) are configurable per competition — not baked into the product.
+
+See also [docs/PRODUCT.md](docs/PRODUCT.md).
 
 ---
 
@@ -12,7 +16,7 @@ A full-stack monorepo for running paragliding accuracy competitions in complianc
 - **Pilot & team management** — CSV import, QR/barcode lookup, national team validation (3+1 reserve)
 - **Round operations** — Random/seeded flight order, launch control, pause/resume, reflight rounds
 - **Live scoring** — Touch-optimised judge terminal with bullseye shortcuts, offline queue sync
-- **FAI scoring engine** — Isolated `@npha/scoring-engine` package with configurable rule profiles (FAI 2022, NPHA local, custom)
+- **FAI scoring engine** — Isolated `@npha/scoring-engine` package with configurable rule profiles (FAI 2022, national/local, custom)
 - **Approval workflow** — Chief Judge + Competition Director sign-off before results lock
 - **Rankings** — Individual, team, women, junior, and country categories with tie-break rules
 - **PDF reports** — Round score sheets, start lists, final results with QR links to public results
@@ -126,7 +130,9 @@ Access via **http://localhost** (Nginx routes all apps).
 
 ---
 
-## Default Credentials
+## Default Credentials (local seed)
+
+Sample seed data uses **NPHA as an example organization** (early customer / demo tenant), not as the product brand.
 
 | Role | Email | Password |
 |------|-------|----------|
@@ -156,7 +162,7 @@ Access via **http://localhost** (Nginx routes all apps).
 
 ## FAI Compliance Notes
 
-NPHA Accuracy CMS implements **FAI Sporting Code Section 7C** (Paragliding Accuracy) for **Category 2** events:
+AeroJudge implements **FAI Sporting Code Section 7C** (Paragliding Accuracy) for **Category 2** events:
 
 - Distance measured in centimetres from target centre; bullseye = 0 cm, maximum = 1000 cm (configurable)
 - Team scoring: best 3 of 4 pilots per round (reserve substitution rules supported)
@@ -165,7 +171,7 @@ NPHA Accuracy CMS implements **FAI Sporting Code Section 7C** (Paragliding Accur
 - Dual approval: Chief Judge and Competition Director must approve before round results lock
 - Full audit trail retained for protest periods and FAI record requests
 
-Rule profiles are versioned (`FAI_2022`, `NPHA_LOCAL`, `CUSTOM`) per competition. See [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) for scoring engine isolation details.
+Rule profiles are versioned (`FAI_2022`, `NPHA_LOCAL`, `CUSTOM`, etc.) per competition — the `NPHA_LOCAL` identifier is a legacy profile key for a national/local adaptation sample, not product branding. See [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md).
 
 ---
 
@@ -195,6 +201,7 @@ npm run docker:logs      # Follow container logs
 
 | Guide | Description |
 |-------|-------------|
+| [Product](docs/PRODUCT.md) | AeroJudge vision and roadmap |
 | [Installation](docs/guides/INSTALLATION.md) | Prerequisites, env, migrate, seed |
 | [Competition Operations](docs/guides/COMPETITION_OPS.md) | Running a competition day |
 | [API Reference](docs/api/API.md) | `/api/v1` endpoint overview |
@@ -206,7 +213,7 @@ npm run docker:logs      # Follow container logs
 ## Project Structure
 
 ```
-npha-accuracy-cms/
+npha-accuracy-cms/          # repository folder (legacy name)
 ├── apps/                  # Vite React frontends
 │   ├── admin/
 │   ├── judge/
@@ -228,8 +235,10 @@ npha-accuracy-cms/
 └── uploads/               # Runtime file storage
 ```
 
+> Workspace package names (`@npha/*`) are technical identifiers and may be renamed in a future migration. User-facing branding is **AeroJudge**.
+
 ---
 
 ## License
 
-[MIT](LICENSE) — Copyright © 2024 Nepal Paragliding & Hang Gliding Association (NPHA)
+[MIT](LICENSE) — Copyright © 2024–2026 Nepalabs

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "NPHA Accuracy CMS – Express API server",
+  "description": "AeroJudge – Express API server",
   "main": "./dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

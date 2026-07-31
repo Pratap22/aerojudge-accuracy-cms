@@ -1,4 +1,4 @@
-/** Shared utility helpers for NPHA Accuracy CMS */
+/** Shared utility helpers for AeroJudge */
 
 export function slugify(text: string): string {
   return text

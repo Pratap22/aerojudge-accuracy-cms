@@ -85,12 +85,7 @@ export interface Sponsor {
   tagline?: string;
 }
 
-export const DEFAULT_SPONSORS: Sponsor[] = [
-  { id: '1', name: 'NPHA', tagline: 'Nepal Paragliding & Hang Gliding Association' },
-  { id: '2', name: 'FAI', tagline: 'World Air Sports Federation' },
-  { id: '3', name: 'Nepal Tourism Board', tagline: 'Naturally Nepal' },
-  { id: '4', name: 'Sky Sports Nepal', tagline: 'Fly Higher' },
-];
+export const DEFAULT_SPONSORS: Sponsor[] = [];
 
 export const AUTO_LAYOUT_SEQUENCE: DisplayLayoutType[] = [
   'current',

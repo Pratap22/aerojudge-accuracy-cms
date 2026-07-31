@@ -1,6 +1,7 @@
 /**
  * FAI Sporting Code Section 7C – Configurable Rule Profiles
- * Versioned so future FAI / NPHA local rule changes do not require app rewrites.
+ * Versioned so future FAI / national-local rule changes do not require app rewrites.
+ * `NPHA_LOCAL` is a legacy profile key for an example national adaptation (sample customer data).
  */
 
 import {
@@ -28,9 +29,10 @@ const RULE_PROFILES: Record<RuleSetVersion, RuleConfig> = {
     teamScoringPilots: 3,
     juniorMaxAge: 25,
     customRules: {
+      // Example national federation metadata for this legacy profile key — not AeroJudge branding
       federation: 'NPHA',
       country: 'Nepal',
-      notes: 'Nepal Paragliding & Hang Gliding Association local accuracy rules based on FAI 7C',
+      notes: 'Example national/local accuracy rules based on FAI 7C (sample organization: NPHA)',
     },
   },
 

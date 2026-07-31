@@ -33,7 +33,7 @@ function App() {
       <header className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-sky-400/60">Announcer Console</p>
-          <h1 className="text-2xl font-bold text-white">{competition?.name ?? 'NPHA Accuracy'}</h1>
+          <h1 className="text-2xl font-bold text-white">{competition?.name ?? 'AeroJudge'}</h1>
         </div>
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2">
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Live</span>

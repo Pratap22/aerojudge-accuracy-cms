@@ -1,4 +1,4 @@
-// NPHA Accuracy CMS – PostgreSQL schema
+// AeroJudge – PostgreSQL schema
 // Authoritative competition data model aligned with FAI Sporting Code Section 7C
 
 generator client {

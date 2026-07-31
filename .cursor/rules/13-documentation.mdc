@@ -11,6 +11,7 @@ Canonical docs live under `docs/` plus root `README.md`.
 | Path | Purpose |
 |------|---------|
 | `README.md` | Overview, ports, credentials, commands |
+| `docs/PRODUCT.md` | AeroJudge product vision (Nepalabs) |
 | `docs/guides/INSTALLATION.md` | Setup, env, migrate, seed, Docker |
 | `docs/guides/COMPETITION_OPS.md` | Day-of ops by role |
 | `docs/api/API.md` | `/api/v1` overview |

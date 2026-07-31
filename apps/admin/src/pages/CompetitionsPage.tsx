@@ -45,9 +45,9 @@ interface CompetitionFormProps {
 const EMPTY_VALUES: CreateCompetitionInput = {
   name: '',
   code: '',
-  organizer: 'Nepal Paragliding & Hang Gliding Association',
+  organizer: '',
   venue: '',
-  country: 'Nepal',
+  country: '',
   location: '',
   startDate: new Date().toISOString().slice(0, 10),
   endDate: new Date().toISOString().slice(0, 10),
@@ -109,7 +109,7 @@ export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFo
           </div>
           <div className="space-y-2">
             <Label htmlFor="code">Code</Label>
-            <Input id="code" placeholder="NPHA-2026" {...register('code')} />
+            <Input id="code" placeholder="ACC-2026" {...register('code')} />
             {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
           </div>
           <div className="space-y-2">
@@ -181,7 +181,7 @@ export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFo
               <SelectContent>
                 <SelectItem value="FAI_2022">FAI 2022</SelectItem>
                 <SelectItem value="FAI_FUTURE">FAI Future</SelectItem>
-                <SelectItem value="NPHA_LOCAL">NPHA Local</SelectItem>
+                <SelectItem value="NPHA_LOCAL">National / Local</SelectItem>
                 <SelectItem value="CUSTOM">Custom</SelectItem>
               </SelectContent>
             </Select>

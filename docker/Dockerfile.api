@@ -1,4 +1,4 @@
-# NPHA Accuracy CMS – API server (multi-stage)
+# AeroJudge – API server (multi-stage)
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json turbo.json ./

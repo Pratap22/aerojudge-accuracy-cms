@@ -82,7 +82,7 @@ export function AppLayout() {
               <Target className="h-5 w-5 text-secondary-foreground" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold tracking-wide">NPHA Accuracy</p>
+              <p className="text-sm font-bold tracking-wide">AeroJudge</p>
               <p className="truncate text-xs text-sidebar-foreground/70">
                 {activeCompetition
                   ? `${activeCompetition.code} · Active`

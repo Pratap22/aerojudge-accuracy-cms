@@ -148,7 +148,7 @@ function App() {
         className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-8 py-4"
       >
         <div>
-          <p className="text-xs uppercase tracking-[0.4em] text-sky-400/60">NPHA Accuracy</p>
+          <p className="text-xs uppercase tracking-[0.4em] text-sky-400/60">AeroJudge</p>
           <h1 className="font-display text-2xl uppercase tracking-wider text-white">{competition.name}</h1>
         </div>
         {socketState.wind && (

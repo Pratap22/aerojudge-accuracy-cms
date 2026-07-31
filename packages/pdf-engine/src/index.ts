@@ -78,7 +78,7 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
       Title: input.title,
       Author: input.branding.organizer,
       Subject: `${input.branding.competitionName} – ${input.reportType}`,
-      Creator: 'NPHA Accuracy CMS',
+      Creator: 'AeroJudge',
     },
   });
 
