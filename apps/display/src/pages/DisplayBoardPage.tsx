@@ -7,7 +7,7 @@ import { LayoutRouter } from '../layouts/LayoutRouter';
 import { CurrentPilotLayout } from '../layouts/CurrentPilotLayout';
 import { RoundClosedLayout } from '../layouts/RoundClosedLayout';
 import { RoundAwaitingLayout } from '../layouts/RoundAwaitingLayout';
-import { CompletedPodiumLayout } from '../layouts/CompletedPodiumLayout';
+import { CompletedPodiumLayout, type PodiumCategory } from '../layouts/CompletedPodiumLayout';
 import { Top10Layout } from '../layouts/Top10Layout';
 import { TopWomenLayout } from '../layouts/TopWomenLayout';
 import { TopTeamsLayout } from '../layouts/TopTeamsLayout';
@@ -98,6 +98,7 @@ export function DisplayBoardPage() {
   const { data: roundsStatus, invalidate: refreshRoundsStatus } = useRoundsStatus();
 
   const competitionCompleted = competition?.status === 'COMPLETED';
+  const [podiumCategory, setPodiumCategory] = useState<PodiumCategory>('individual');
 
   const roundPhase = useMemo(
     () => resolveRoundPhase(roundsStatus?.rounds),
@@ -204,6 +205,23 @@ export function DisplayBoardPage() {
   const womenEntries = useMemo(() => toLeaderboardEntries(womenResults), [womenResults]);
   const teamEntries = useMemo(() => toLeaderboardEntries(teamResults), [teamResults]);
   const countryEntries = useMemo(() => toLeaderboardEntries(countryResults), [countryResults]);
+
+  // Rotate individual ↔ team podium when the competition is finished.
+  useEffect(() => {
+    if (!competitionCompleted) {
+      setPodiumCategory('individual');
+      return;
+    }
+    if (teamEntries.length === 0) {
+      setPodiumCategory('individual');
+      return;
+    }
+    const intervalMs = Math.max(getAutoInterval(), 12) * 1000;
+    const timer = setInterval(() => {
+      setPodiumCategory((prev) => (prev === 'individual' ? 'team' : 'individual'));
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [competitionCompleted, teamEntries.length]);
 
   const currentPilot = useMemo((): PublicRankingRow | null => {
     const rankings = overallResults?.rankings ?? [];
@@ -327,10 +345,12 @@ export function DisplayBoardPage() {
 
   const renderLayout = () => {
     if (competitionCompleted) {
+      const entries = podiumCategory === 'team' ? teamEntries : overallEntries;
       return (
         <CompletedPodiumLayout
           competitionName={competition.name}
-          entries={overallEntries}
+          entries={entries}
+          category={podiumCategory}
         />
       );
     }
@@ -402,11 +422,11 @@ export function DisplayBoardPage() {
         )}
       </motion.header>
 
-      <main className="h-full pt-20 pb-16">
+      <main className={`h-full pt-20 ${competitionCompleted ? 'pb-0' : 'pb-16'}`}>
         <LayoutRouter
           layoutKey={
             competitionCompleted
-              ? 'completed-podium'
+              ? `completed-podium-${podiumCategory}`
               : awaitingFirstScore
                 ? `awaiting-r${roundPhase.activeRoundNumber}`
                 : roundPhase.phase === 'closed'

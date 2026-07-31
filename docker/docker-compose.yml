@@ -62,6 +62,8 @@ services:
       UPLOAD_DIR: /app/uploads
       PRINT_ARCHIVE_DIR: /app/uploads/documents/prints
       PUBLIC_RESULTS_URL: ${PUBLIC_RESULTS_URL:-http://localhost/results}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost}
+      API_URL: ${API_URL:-http://localhost}
       MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-10}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-15000}

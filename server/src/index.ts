@@ -17,7 +17,12 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-app.use(helmet());
+app.use(
+  helmet({
+    // Allow admin/judge/display (other origins) to render /uploads images via <img src>.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+);
 app.use(
   cors({
     origin: env.corsOrigins,
@@ -27,7 +32,15 @@ app.use(
 app.use(morgan(env.isProduction ? 'combined' : 'dev'));
 app.use(express.json({ limit: `${env.MAX_FILE_SIZE_MB}mb` }));
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(env.uploadDir));
+app.use(
+  '/uploads',
+  (_req, res, next) => {
+    // Explicit for static assets (logos) loaded cross-origin from Vite apps.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(env.uploadDir),
+);
 
 app.use(
   rateLimit({
