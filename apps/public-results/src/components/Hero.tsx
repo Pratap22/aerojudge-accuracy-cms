@@ -2,15 +2,16 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import type { PublicCompetition } from '../lib/types';
+import { competitionPath } from '../lib/api';
 import { formatDate } from '../lib/utils';
 
 interface HeroProps {
   competition: PublicCompetition;
-  slug: string;
+  competitionId: string;
   topPilots?: { rank: number; name: string; score: number; country: string }[];
 }
 
-export function Hero({ competition, slug, topPilots = [] }: HeroProps) {
+export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) {
   return (
     <section className="relative min-h-[85vh] overflow-hidden">
       {/* Atmospheric mountain gradient background */}
@@ -57,7 +58,7 @@ export function Hero({ competition, slug, topPilots = [] }: HeroProps) {
           </p>
 
           <Link
-            to={`/${slug}/results`}
+            to={competitionPath(competitionId, 'results')}
             className="group inline-flex items-center gap-3 rounded-full bg-sky-500 px-8 py-4 text-lg font-semibold text-[#050d1a] transition-all hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-500/25"
           >
             View Full Results

@@ -1,14 +1,16 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import type { ComputedScore } from '@npha/shared';
-import { fetchCompetition, fetchResults, getCompetitionSlug } from '../lib/api';
+import { fetchCompetition, fetchResults } from '../lib/api';
 import { connectAnnouncerSocket, disconnectSocket, onSocketEvent } from '../lib/socket';
 import type { Announcement, LiveScoreEvent, WindData } from '../lib/types';
 import { pilotFullName } from '../lib/utils';
 import type { PublicRankingRow, PublicResults } from '../lib/types';
 
 export function useAnnouncerData() {
-  const slug = getCompetitionSlug();
+  const { competitionId: routeId } = useParams<{ competitionId: string }>();
+  const slug = (routeId ?? '').trim();
   const queryClient = useQueryClient();
 
   const [currentPilotId, setCurrentPilotId] = useState<string | null>(null);
@@ -54,9 +56,7 @@ export function useAnnouncerData() {
         if (payload.competitionId !== compId) return;
         const score = payload.score as ComputedScore;
         const pilot = payload.pilot;
-        const pilotName = pilot
-          ? pilotFullName(pilot.firstName, pilot.lastName)
-          : '';
+        const pilotName = pilot ? pilotFullName(pilot.firstName, pilot.lastName) : '';
 
         setLatestScore({
           pilotId: score.pilotId,
@@ -71,7 +71,6 @@ export function useAnnouncerData() {
           rank: 0,
         });
 
-        // Keep current pilot in sync with the just-scored pilot
         setCurrentPilotId((prev) => {
           if (score.pilotId !== prev) setPreviousPilotId(prev);
           return score.pilotId;
@@ -121,7 +120,6 @@ export function useAnnouncerData() {
   const currentIdx = currentPilot ? rankings.findIndex((r) => r.id === currentPilot.id) : -1;
   const nextPilot = currentIdx >= 0 ? rankings[currentIdx + 1] ?? null : null;
 
-  // Enrich latest score with ranking data once results refresh
   const enrichedLatestScore: LiveScoreEvent | null = latestScore
     ? {
         ...latestScore,
@@ -158,7 +156,7 @@ export function useAnnouncerData() {
 
   return {
     competition: competitionQuery.data,
-    isLoading: competitionQuery.isLoading || resultsQuery.isLoading,
+    isLoading: Boolean(slug) && (competitionQuery.isLoading || resultsQuery.isLoading),
     currentPilot,
     previousPilot,
     nextPilot,

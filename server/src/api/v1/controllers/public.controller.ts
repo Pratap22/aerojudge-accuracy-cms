@@ -11,6 +11,13 @@ const categoryQuery = z.object({
   category: z.enum(['OVERALL', 'WOMEN', 'JUNIOR', 'TEAM', 'COUNTRY']).default('OVERALL'),
 });
 
+export const listCompetitions = [
+  asyncHandler(async (_req: Request, res: Response) => {
+    const competitions = await publicService.listPublicCompetitions();
+    sendSuccess(res, competitions);
+  }),
+];
+
 export const getCompetition = [
   validateParams(slugParams),
   asyncHandler(async (req: Request, res: Response) => {

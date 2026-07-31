@@ -1,20 +1,22 @@
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Hero } from '../components/Hero';
 import { useCompetition, useResults } from '../hooks/useCompetition';
 import { pilotFullName, formatScore } from '../lib/utils';
 
 export function HomePage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { competitionId } = useParams<{ competitionId: string }>();
   const { data: competition, isLoading, error } = useCompetition();
   const { data: results } = useResults('OVERALL');
 
-  if (!slug) {
+  if (!competitionId) {
     return (
       <Layout>
         <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-          <h1 className="font-display text-4xl text-white">Missing competition slug</h1>
-          <p className="mt-4 text-sky-300/70">Open a URL like /your-competition-slug</p>
+          <h1 className="font-display text-4xl text-white">Missing competition</h1>
+          <Link to="/" className="mt-4 text-sky-400 hover:underline">
+            Browse competitions
+          </Link>
         </div>
       </Layout>
     );
@@ -36,6 +38,9 @@ export function HomePage() {
         <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
           <h1 className="font-display text-4xl text-white">Competition Not Found</h1>
           <p className="mt-4 text-sky-300/70">This competition may not be published or does not exist.</p>
+          <Link to="/" className="mt-6 text-sky-400 hover:underline">
+            Browse competitions
+          </Link>
         </div>
       </Layout>
     );
@@ -51,7 +56,7 @@ export function HomePage() {
 
   return (
     <Layout>
-      <Hero competition={competition} slug={slug} topPilots={topPilots} />
+      <Hero competition={competition} competitionId={competitionId} topPilots={topPilots} />
     </Layout>
   );
 }

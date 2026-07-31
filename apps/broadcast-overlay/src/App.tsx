@@ -1,31 +1,24 @@
-import { useMemo } from 'react';
-import { LowerThird } from './components/LowerThird';
-import { ScoreBug } from './components/ScoreBug';
-import { Countdown } from './components/Countdown';
-import { WindWidget } from './components/WindWidget';
-import { SponsorStrip } from './components/SponsorStrip';
-import { RankChangeToastList } from './components/RankChangeToast';
-import { useOverlayData } from './hooks/useOverlayData';
-import { getEnabledWidgets } from './lib/utils';
+import { Navigate, Route, Routes, useSearchParams } from 'react-router-dom';
+import { CompetitionListPage } from './pages/CompetitionListPage';
+import { OverlayPage } from './pages/OverlayPage';
+import { competitionPath } from './lib/api';
+
+function LegacyCompetitionRedirect() {
+  const [params] = useSearchParams();
+  const legacy = (params.get('competition') ?? import.meta.env.VITE_COMPETITION_SLUG ?? '').trim();
+  if (legacy) {
+    return <Navigate to={competitionPath(legacy)} replace />;
+  }
+  return <CompetitionListPage />;
+}
 
 function App() {
-  const { currentPilot, latestScoreCm, isBullseye, wind, rankToasts } = useOverlayData();
-  const widgets = useMemo(() => getEnabledWidgets(), []);
-
   return (
-    <div className="pointer-events-none fixed inset-0">
-      <LowerThird pilot={currentPilot} visible={widgets.has('lowerthird')} />
-      <ScoreBug
-        pilot={currentPilot}
-        liveScoreCm={latestScoreCm}
-        isBullseye={isBullseye}
-        visible={widgets.has('scorebug')}
-      />
-      <Countdown visible={widgets.has('countdown')} />
-      <WindWidget wind={wind} visible={widgets.has('wind')} />
-      <SponsorStrip visible={widgets.has('sponsors')} />
-      <RankChangeToastList toasts={rankToasts} />
-    </div>
+    <Routes>
+      <Route path="/" element={<LegacyCompetitionRedirect />} />
+      <Route path="/competition/:competitionId" element={<OverlayPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

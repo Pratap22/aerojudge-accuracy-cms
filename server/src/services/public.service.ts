@@ -2,9 +2,46 @@ import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { recalculateRankings } from './scoring.service.js';
 
-export async function getPublicCompetition(slug: string) {
+const ACTIVE_STATUSES = new Set(['REGISTRATION', 'PRACTICE', 'OFFICIAL', 'PAUSED']);
+const PAST_STATUSES = new Set(['COMPLETED', 'ARCHIVED', 'CANCELLED']);
+
+const publicCompetitionSelect = {
+  id: true,
+  name: true,
+  code: true,
+  organizer: true,
+  venue: true,
+  country: true,
+  startDate: true,
+  endDate: true,
+  status: true,
+  publicSlug: true,
+  settings: { select: { livePublicResults: true } },
+} as const;
+
+/** Resolve by competition id or publicSlug. */
+export async function getPublicCompetition(slugOrId: string) {
   const competition = await prisma.competition.findFirst({
-    where: { publicSlug: slug, isPublished: true },
+    where: {
+      isPublished: true,
+      OR: [{ id: slugOrId }, { publicSlug: slugOrId }],
+    },
+    select: publicCompetitionSelect,
+  });
+  if (!competition) throw AppError.notFound('Competition not found');
+  if (!competition.settings?.livePublicResults) {
+    throw AppError.forbidden('Public results are not enabled for this competition');
+  }
+  return competition;
+}
+
+export async function listPublicCompetitions() {
+  const competitions = await prisma.competition.findMany({
+    where: {
+      isPublished: true,
+      settings: { livePublicResults: true },
+      status: { not: 'DRAFT' },
+    },
     select: {
       id: true,
       name: true,
@@ -16,14 +53,14 @@ export async function getPublicCompetition(slug: string) {
       endDate: true,
       status: true,
       publicSlug: true,
-      settings: { select: { livePublicResults: true } },
     },
+    orderBy: [{ startDate: 'desc' }, { name: 'asc' }],
   });
-  if (!competition) throw AppError.notFound('Competition not found');
-  if (!competition.settings?.livePublicResults) {
-    throw AppError.forbidden('Public results are not enabled for this competition');
-  }
-  return competition;
+
+  const active = competitions.filter((c) => ACTIVE_STATUSES.has(c.status));
+  const past = competitions.filter((c) => PAST_STATUSES.has(c.status));
+
+  return { active, past };
 }
 
 export async function getPublicResults(slug: string, category = 'OVERALL') {

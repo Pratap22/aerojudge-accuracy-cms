@@ -298,7 +298,8 @@ Base: `/public`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/:slug` | Public competition info |
+| GET | `/competitions` | List published competitions (`active` / `past`) |
+| GET | `/:slug` | Public competition info (id or publicSlug) |
 | GET | `/:slug/results?category=OVERALL` | Published rankings |
 | GET | `/:slug/rounds?round=1` | Round results |
 

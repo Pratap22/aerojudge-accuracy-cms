@@ -1,36 +1,38 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useParams } from 'react-router-dom';
 import type { RankingCategory } from '@npha/shared';
-import { fetchCompetition, fetchResults, getCompetitionSlug } from '../lib/api';
+import { fetchCompetition, fetchResults } from '../lib/api';
 import type { PublicResults } from '../lib/types';
 
-export function useCompetitionSlug(): string {
-  return getCompetitionSlug();
+export function useCompetitionId(): string {
+  const { competitionId } = useParams<{ competitionId: string }>();
+  return (competitionId ?? '').trim();
 }
 
 export function useCompetition() {
-  const slug = useCompetitionSlug();
+  const competitionId = useCompetitionId();
   return useQuery({
-    queryKey: ['competition', slug],
-    queryFn: () => fetchCompetition(slug),
+    queryKey: ['competition', competitionId],
+    queryFn: () => fetchCompetition(competitionId),
     staleTime: 60_000,
-    enabled: Boolean(slug),
+    enabled: Boolean(competitionId),
   });
 }
 
 export function useResults(category: RankingCategory = 'OVERALL') {
-  const slug = useCompetitionSlug();
+  const competitionId = useCompetitionId();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['results', slug, category],
-    queryFn: () => fetchResults(slug, category),
+    queryKey: ['results', competitionId, category],
+    queryFn: () => fetchResults(competitionId, category),
     staleTime: 10_000,
     refetchInterval: 30_000,
-    enabled: Boolean(slug),
+    enabled: Boolean(competitionId),
   });
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['results', slug] });
+    queryClient.invalidateQueries({ queryKey: ['results', competitionId] });
   };
 
   return { ...query, invalidate };

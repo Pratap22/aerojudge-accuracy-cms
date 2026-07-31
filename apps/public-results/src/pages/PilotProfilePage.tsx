@@ -3,11 +3,12 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Target } from 'lucide-react';
 import { RankBadge, ScoreDisplay } from '@npha/ui';
 import { Layout } from '../components/Layout';
+import { competitionPath } from '../lib/api';
 import { useResults } from '../hooks/useCompetition';
 import { countryCodeToEmoji, formatScore, pilotFullName } from '../lib/utils';
 
 export function PilotProfilePage() {
-  const { slug, pilotNumber } = useParams<{ slug: string; pilotNumber: string }>();
+  const { competitionId, pilotNumber } = useParams<{ competitionId: string; pilotNumber: string }>();
   const { data: results, isLoading } = useResults('OVERALL');
 
   const pilot = results?.rankings.find((r) => r.pilot.pilotNumber === Number(pilotNumber));
@@ -27,7 +28,10 @@ export function PilotProfilePage() {
       <Layout>
         <div className="mx-auto max-w-7xl px-6 py-12 text-center">
           <h1 className="font-display text-3xl text-white">Pilot Not Found</h1>
-          <Link to={`/${slug}/pilots`} className="mt-4 inline-block text-sky-400 hover:underline">
+          <Link
+            to={competitionPath(competitionId ?? '', 'pilots')}
+            className="mt-4 inline-block text-sky-400 hover:underline"
+          >
             Back to pilot search
           </Link>
         </div>
@@ -39,7 +43,7 @@ export function PilotProfilePage() {
     <Layout>
       <div className="mx-auto max-w-4xl px-6 py-12">
         <Link
-          to={`/${slug}/pilots`}
+          to={competitionPath(competitionId ?? '', 'pilots')}
           className="mb-8 inline-flex items-center gap-2 text-sky-400 hover:text-sky-300"
         >
           <ArrowLeft className="h-4 w-4" />

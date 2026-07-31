@@ -1,6 +1,6 @@
 import type { ApiResponse, RankingCategory } from '@npha/shared';
 import { API_VERSION } from '@npha/shared';
-import type { PublicCompetition, PublicResults } from './types';
+import type { PublicCompetition, PublicCompetitionList, PublicResults } from './types';
 
 async function publicFetch<T>(path: string, params?: Record<string, string | number>): Promise<T> {
   const url = new URL(`/api/${API_VERSION}/public${path}`, window.location.origin);
@@ -17,15 +17,21 @@ async function publicFetch<T>(path: string, params?: Record<string, string | num
   return json.data;
 }
 
-export function getCompetitionSlug(): string {
-  const params = new URLSearchParams(window.location.search);
-  return (params.get('competition') ?? import.meta.env.VITE_COMPETITION_SLUG ?? '').trim();
+export function competitionPath(competitionId: string): string {
+  return `/competition/${competitionId}`;
 }
 
-export function fetchCompetition(slug: string): Promise<PublicCompetition> {
-  return publicFetch<PublicCompetition>(`/${slug}`);
+export function fetchCompetitions(): Promise<PublicCompetitionList> {
+  return publicFetch<PublicCompetitionList>('/competitions');
 }
 
-export function fetchResults(slug: string, category: RankingCategory = 'OVERALL'): Promise<PublicResults> {
-  return publicFetch<PublicResults>(`/${slug}/results`, { category });
+export function fetchCompetition(idOrSlug: string): Promise<PublicCompetition> {
+  return publicFetch<PublicCompetition>(`/${idOrSlug}`);
+}
+
+export function fetchResults(
+  idOrSlug: string,
+  category: RankingCategory = 'OVERALL',
+): Promise<PublicResults> {
+  return publicFetch<PublicResults>(`/${idOrSlug}/results`, { category });
 }

@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Radio } from 'lucide-react';
+import { competitionPath } from '../lib/api';
 
 const NAV_ITEMS = [
   { path: '', label: 'Home' },
@@ -13,12 +14,13 @@ const NAV_ITEMS = [
 ];
 
 export function Navigation() {
-  const { slug } = useParams<{ slug: string }>();
+  const { competitionId } = useParams<{ competitionId: string }>();
+  const id = competitionId ?? '';
 
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-[#050d1a]/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link to={`/${slug}`} className="group flex items-center gap-3">
+        <Link to={competitionPath(id)} className="group flex items-center gap-3">
           <span className="font-display text-2xl font-bold tracking-tight text-white">AeroJudge</span>
           <span className="hidden text-sm text-sky-300/70 sm:inline">Results</span>
         </Link>
@@ -27,7 +29,7 @@ export function Navigation() {
           {NAV_ITEMS.map(({ path, label }) => (
             <Link
               key={path}
-              to={path ? `/${slug}/${path}` : `/${slug}`}
+              to={path ? competitionPath(id, path) : competitionPath(id)}
               className="rounded-lg px-3 py-2 text-sm font-medium text-sky-100/80 transition-colors hover:bg-white/5 hover:text-white"
             >
               {label}

@@ -3,6 +3,7 @@ import * as ctrl from '../controllers/public.controller.js';
 
 const router = Router();
 
+router.get('/competitions', ...ctrl.listCompetitions);
 router.get('/:slug', ...ctrl.getCompetition);
 router.get('/:slug/results', ...ctrl.getResults);
 router.get('/:slug/rounds', ...ctrl.getRoundResults);

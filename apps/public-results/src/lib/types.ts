@@ -12,6 +12,13 @@ export interface PublicCompetition {
   settings?: { livePublicResults: boolean };
 }
 
+export type PublicCompetitionSummary = Omit<PublicCompetition, 'settings'>;
+
+export interface PublicCompetitionList {
+  active: PublicCompetitionSummary[];
+  past: PublicCompetitionSummary[];
+}
+
 export interface PublicPilot {
   pilotNumber: number;
   firstName: string;

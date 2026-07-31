@@ -7,8 +7,8 @@ import { connectPublicSocket, disconnectSocket, onSocketEvent } from '../lib/soc
 import type { PublicResults } from '../lib/types';
 
 export function useSlug(): string {
-  const { slug } = useParams<{ slug: string }>();
-  return (slug ?? import.meta.env.VITE_DEFAULT_SLUG ?? '').trim();
+  const { competitionId } = useParams<{ competitionId: string }>();
+  return (competitionId ?? '').trim();
 }
 
 export function useCompetition() {

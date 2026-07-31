@@ -11,6 +11,13 @@ export interface PublicCompetition {
   publicSlug: string;
 }
 
+export type PublicCompetitionSummary = PublicCompetition;
+
+export interface PublicCompetitionList {
+  active: PublicCompetitionSummary[];
+  past: PublicCompetitionSummary[];
+}
+
 export interface PublicPilot {
   pilotNumber: number;
   firstName: string;

@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { Input } from '@npha/ui';
-import { useResults } from '../hooks/useCompetition';
-import { useSlug } from '../hooks/useCompetition';
+import { competitionPath } from '../lib/api';
+import { useResults, useSlug } from '../hooks/useCompetition';
 import { countryCodeToEmoji, formatScore, pilotFullName } from '../lib/utils';
 
 export function PilotSearch() {
-  const slug = useSlug();
+  const competitionId = useSlug();
   const { data: results } = useResults('OVERALL');
   const [search, setSearch] = useState('');
 
@@ -45,7 +45,7 @@ export function PilotSearch() {
             transition={{ delay: index * 0.03 }}
           >
             <Link
-              to={`/${slug}/pilots/${row.pilot.pilotNumber}`}
+              to={competitionPath(competitionId, 'pilots', String(row.pilot.pilotNumber))}
               className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-500/30 hover:bg-white/10"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 font-bold text-sky-300">

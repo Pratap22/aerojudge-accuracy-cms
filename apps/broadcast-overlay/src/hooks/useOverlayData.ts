@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import type { ComputedScore } from '@npha/shared';
-import { fetchCompetition, fetchResults, getCompetitionSlug } from '../lib/api';
+import { fetchCompetition, fetchResults } from '../lib/api';
 import { connectOverlaySocket, disconnectSocket, onSocketEvent } from '../lib/socket';
 import type { RankChangeToast, WindData } from '../lib/types';
 import type { PublicRankingRow } from '../lib/types';
 
 export function useOverlayData() {
-  const slug = getCompetitionSlug();
+  const { competitionId: routeId } = useParams<{ competitionId: string }>();
+  const slug = (routeId ?? '').trim();
   const queryClient = useQueryClient();
 
   const [currentPilotId, setCurrentPilotId] = useState<string | null>(null);
@@ -103,6 +105,6 @@ export function useOverlayData() {
     isBullseye,
     wind,
     rankToasts,
-    isLoading: competitionQuery.isLoading,
+    isLoading: Boolean(slug) && competitionQuery.isLoading,
   };
 }

@@ -2,7 +2,25 @@ export interface PublicCompetition {
   id: string;
   name: string;
   code: string;
+  organizer?: string;
+  venue?: string;
+  country?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
   publicSlug: string;
+}
+
+export type PublicCompetitionSummary = Required<
+  Pick<
+    PublicCompetition,
+    'id' | 'name' | 'code' | 'publicSlug' | 'organizer' | 'venue' | 'country' | 'startDate' | 'endDate' | 'status'
+  >
+>;
+
+export interface PublicCompetitionList {
+  active: PublicCompetitionSummary[];
+  past: PublicCompetitionSummary[];
 }
 
 export interface PublicPilot {
