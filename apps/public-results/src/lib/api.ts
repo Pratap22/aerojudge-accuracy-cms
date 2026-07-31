@@ -1,8 +1,12 @@
-import type { ApiResponse, RankingCategory } from '@npha/shared';
+import type { ApiResponse, PublicPilotRegistrationInput, RankingCategory } from '@npha/shared';
 import { API_VERSION } from '@npha/shared';
 import type { PublicCompetition, PublicCompetitionList, PublicResults, RoundResults } from './types';
 
-async function publicFetch<T>(path: string, params?: Record<string, string | number>): Promise<T> {
+async function publicFetch<T>(
+  path: string,
+  params?: Record<string, string | number>,
+  init?: RequestInit,
+): Promise<T> {
   const url = new URL(`/api/${API_VERSION}/public${path}`, window.location.origin);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
@@ -10,7 +14,7 @@ async function publicFetch<T>(path: string, params?: Record<string, string | num
     }
   }
 
-  const response = await fetch(url);
+  const response = await fetch(url, init);
   const json = (await response.json()) as ApiResponse<T>;
 
   if (!response.ok || !json.success || json.data === undefined) {
@@ -42,4 +46,67 @@ export function fetchResults(
 
 export function fetchRoundResults(idOrSlug: string, round: number): Promise<RoundResults> {
   return publicFetch<RoundResults>(`/${idOrSlug}/rounds`, { round });
+}
+
+export interface PublicCountry {
+  id: string;
+  code: string;
+  code2: string;
+  name: string;
+}
+
+export function fetchCountries(): Promise<PublicCountry[]> {
+  return publicFetch<PublicCountry[]>('/countries');
+}
+
+export interface PublicPilotListItem {
+  id: string;
+  pilotNumber: number;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  nationality: string | null;
+  club: string | null;
+  glider: string | null;
+  status: string;
+  isWomen: boolean;
+  isJunior: boolean;
+  country: { name: string; code: string; code2: string } | null;
+}
+
+export interface PublicPilotList {
+  competitionId: string;
+  competitionName: string;
+  registrationOpen: boolean;
+  pilots: PublicPilotListItem[];
+}
+
+export function fetchPilots(idOrSlug: string): Promise<PublicPilotList> {
+  return publicFetch<PublicPilotList>(`/${idOrSlug}/pilots`);
+}
+
+export interface RegisteredPilot {
+  id: string;
+  pilotNumber: number;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  nationality: string | null;
+  club: string | null;
+  glider: string | null;
+  status: string;
+  country: { name: string; code: string; code2: string } | null;
+  competitionId: string;
+  competitionName: string;
+}
+
+export function registerPilot(
+  idOrSlug: string,
+  body: PublicPilotRegistrationInput,
+): Promise<RegisteredPilot> {
+  return publicFetch<RegisteredPilot>(`/${idOrSlug}/register`, undefined, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }

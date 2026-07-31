@@ -1,19 +1,32 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Target } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Target } from 'lucide-react';
 import { RankBadge, ScoreDisplay } from '@npha/ui';
 import { Layout } from '../components/Layout';
-import { competitionPath } from '../lib/api';
+import { competitionPath, fetchPilots } from '../lib/api';
 import { useResults } from '../hooks/useCompetition';
 import { countryCodeToEmoji, formatScore, pilotFullName } from '../lib/utils';
 
 export function PilotProfilePage() {
   const { competitionId, pilotNumber } = useParams<{ competitionId: string; pilotNumber: string }>();
-  const { data: results, isLoading } = useResults('OVERALL');
+  const location = useLocation();
+  const justRegistered = Boolean((location.state as { justRegistered?: boolean } | null)?.justRegistered);
+  const num = Number(pilotNumber);
 
-  const pilot = results?.rankings.find(
-    (r) => r.pilot && r.pilot.pilotNumber === Number(pilotNumber),
+  const { data: results, isLoading: resultsLoading } = useResults('OVERALL');
+  const { data: pilotList, isLoading: listLoading } = useQuery({
+    queryKey: ['public-pilots', competitionId],
+    queryFn: () => fetchPilots(competitionId!),
+    enabled: Boolean(competitionId),
+  });
+
+  const rankingRow = results?.rankings.find(
+    (r) => r.pilot && r.pilot.pilotNumber === num,
   );
+  const listPilot = pilotList?.pilots.find((p) => p.pilotNumber === num);
+
+  const isLoading = resultsLoading || listLoading;
 
   if (isLoading) {
     return (
@@ -25,7 +38,7 @@ export function PilotProfilePage() {
     );
   }
 
-  if (!pilot?.pilot) {
+  if (!rankingRow?.pilot && !listPilot) {
     return (
       <Layout>
         <div className="mx-auto max-w-7xl px-6 py-12 text-center">
@@ -34,14 +47,21 @@ export function PilotProfilePage() {
             to={competitionPath(competitionId ?? '', 'pilots')}
             className="mt-4 inline-block text-sky-400 hover:underline"
           >
-            Back to pilot search
+            Back to pilots
           </Link>
         </div>
       </Layout>
     );
   }
 
-  const profile = pilot.pilot;
+  const profile = rankingRow?.pilot ?? {
+    pilotNumber: listPilot!.pilotNumber,
+    firstName: listPilot!.firstName,
+    lastName: listPilot!.lastName,
+    nationality: listPilot!.nationality,
+    country: listPilot!.country,
+  };
+
   return (
     <Layout>
       <div className="mx-auto max-w-4xl px-6 py-12">
@@ -52,6 +72,16 @@ export function PilotProfilePage() {
           <ArrowLeft className="h-4 w-4" />
           All Pilots
         </Link>
+
+        {justRegistered && (
+          <div className="mb-8 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-200">
+            <CheckCircle2 className="h-5 w-5 shrink-0" />
+            <p className="text-sm">
+              Registration received. You are pilot #{profile.pilotNumber} — organisers can see you
+              in the competition pilot list.
+            </p>
+          </div>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -70,89 +100,67 @@ export function PilotProfilePage() {
                 {countryCodeToEmoji(profile.country?.code ?? '')}{' '}
                 {profile.country?.name ?? profile.nationality ?? '—'}
               </p>
+              {listPilot?.club && (
+                <p className="mt-1 text-sm text-sky-400/70">{listPilot.club}</p>
+              )}
             </div>
-            <div className="ml-auto">
-              <RankBadge rank={pilot.rank} size="lg" />
-            </div>
+            {rankingRow && (
+              <div className="ml-auto">
+                <RankBadge rank={rankingRow.rank} size="lg" />
+              </div>
+            )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-4">
-            <StatBox label="Total Score" value={`${formatScore(pilot.totalScoreCm)} cm`} />
-            <StatBox label="Rounds Flown" value={String(pilot.roundsFlown)} />
-            <StatBox label="Bullseyes" value={String(pilot.bullseyes)} highlight={pilot.bullseyes > 0} />
-            <StatBox label="Rank" value={`#${pilot.rank}`} />
-          </div>
+          {rankingRow ? (
+            <div className="grid gap-4 sm:grid-cols-4">
+              <StatBox label="Total Score" value={`${formatScore(rankingRow.totalScoreCm)} cm`} />
+              <StatBox label="Rounds Flown" value={String(rankingRow.roundsFlown)} />
+              <StatBox label="Bullseyes" value={String(rankingRow.bullseyes)} />
+              <StatBox label="Rank" value={`#${rankingRow.rank}`} />
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <StatBox label="Status" value={(listPilot?.status ?? 'REGISTERED').replace(/_/g, ' ')} />
+              <StatBox label="Glider" value={listPilot?.glider ?? '—'} />
+              <StatBox
+                label="Category"
+                value={
+                  listPilot?.isWomen
+                    ? 'Women'
+                    : listPilot?.isJunior
+                      ? 'Junior'
+                      : 'Open'
+                }
+              />
+            </div>
+          )}
         </motion.div>
 
-        <section>
-          <h2 className="mb-6 font-display text-2xl text-white">Rank History</h2>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <div className="h-2 rounded-full bg-white/10">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.max(5, 100 - pilot.rank)}%` }}
-                    transition={{ duration: 1 }}
-                    className="h-full rounded-full bg-sky-500"
-                  />
-                </div>
-              </div>
-              <span className="font-mono text-2xl font-bold text-white">#{pilot.rank}</span>
-            </div>
-            <p className="mt-4 text-sm text-sky-300/60">
-              Current overall ranking after {pilot.roundsFlown} round{pilot.roundsFlown !== 1 ? 's' : ''}
+        {rankingRow && (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <h2 className="mb-4 flex items-center gap-2 font-display text-xl text-white">
+              <Target className="h-5 w-5 text-sky-400" />
+              Scores
+            </h2>
+            <p className="text-sky-300/60">
+              Overall standing after {rankingRow.roundsFlown} round
+              {rankingRow.roundsFlown !== 1 ? 's' : ''}.
             </p>
-          </div>
-        </section>
-
-        {pilot.bullseyes > 0 && (
-          <section className="mt-8">
-            <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-6">
-              <Target className="h-8 w-8 text-emerald-400" />
-              <div>
-                <p className="font-semibold text-emerald-300">
-                  {pilot.bullseyes} Bullseye{pilot.bullseyes !== 1 ? 's' : ''}
-                </p>
-                <p className="text-sm text-emerald-400/70">Perfect accuracy landings</p>
-              </div>
+            <div className="mt-4">
+              <ScoreDisplay scoreCm={rankingRow.totalScoreCm} size="lg" />
             </div>
-          </section>
+          </div>
         )}
-
-        <section className="mt-8">
-          <ScoreDisplay
-            scoreCm={pilot.totalScoreCm}
-            pilotName={pilotFullName(profile.firstName, profile.lastName)}
-            pilotNumber={profile.pilotNumber}
-            size="lg"
-            className="border-white/10 bg-white/5"
-          />
-        </section>
       </div>
     </Layout>
   );
 }
 
-function StatBox({
-  label,
-  value,
-  highlight = false,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
+function StatBox({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      className={`rounded-xl border p-4 ${
-        highlight ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-white/5'
-      }`}
-    >
-      <p className="text-xs uppercase tracking-wider text-sky-400/70">{label}</p>
-      <p className={`mt-1 font-mono text-2xl font-bold ${highlight ? 'text-emerald-400' : 'text-white'}`}>
-        {value}
-      </p>
+    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+      <p className="text-xs uppercase tracking-wider text-sky-400/60">{label}</p>
+      <p className="mt-1 font-display text-xl text-white">{value}</p>
     </div>
   );
 }

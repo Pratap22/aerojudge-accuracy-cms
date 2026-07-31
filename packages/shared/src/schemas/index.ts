@@ -58,6 +58,44 @@ export const createPilotSchema = z.object({
 
 export const updatePilotSchema = createPilotSchema.partial();
 
+/** Public self-registration — pilot number is assigned by the server. */
+export const publicPilotRegistrationSchema = z.object({
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).default('MALE'),
+  /** ISO 3166-1 alpha-3 (e.g. IND, NPL) */
+  countryCode: z
+    .union([
+      z
+        .string()
+        .trim()
+        .toUpperCase()
+        .regex(/^[A-Z]{3}$/, 'Use a 3-letter country code'),
+      z.literal(''),
+      z.undefined(),
+    ])
+    .transform((v) => (v == null || v === '' ? undefined : v))
+    .optional(),
+  nationality: optionalString,
+  faiLicense: optionalString,
+  civlId: optionalString,
+  club: optionalString,
+  dateOfBirth: z.preprocess(
+    (v) => (v == null || v === '' ? undefined : v),
+    z
+      .union([
+        z.string().datetime(),
+        z.coerce.date(),
+        z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      ])
+      .optional(),
+  ),
+  glider: optionalString,
+  harness: optionalString,
+  emergencyContact: optionalString,
+  emergencyPhone: optionalString,
+});
+
 export const createTeamSchema = z.object({
   name: z.string().min(2),
   type: z.enum(['NATIONAL', 'CLUB', 'WOMEN', 'MIXED', 'OPEN', 'CUSTOM']).default('NATIONAL'),
@@ -203,6 +241,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
 export type CreatePilotInput = z.infer<typeof createPilotSchema>;
 export type UpdatePilotInput = z.infer<typeof updatePilotSchema>;
+export type PublicPilotRegistrationInput = z.infer<typeof publicPilotRegistrationSchema>;
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
 export type CreateRoundInput = z.infer<typeof createRoundSchema>;
 export type UpdateRoundTypeInput = z.infer<typeof updateRoundTypeSchema>;

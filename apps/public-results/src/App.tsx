@@ -4,6 +4,7 @@ import { HomePage } from './pages/HomePage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { PilotsPage } from './pages/PilotsPage';
 import { PilotProfilePage } from './pages/PilotProfilePage';
+import { RegisterPage } from './pages/RegisterPage';
 import { WomenPage, TeamsPage, CountriesPage } from './pages/CategoryPages';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { competitionPath } from './lib/api';
@@ -39,6 +40,7 @@ function App() {
       <Route path="/competition/:competitionId/results" element={<LeaderboardPage />} />
       <Route path="/competition/:competitionId/pilots" element={<PilotsPage />} />
       <Route path="/competition/:competitionId/pilots/:pilotNumber" element={<PilotProfilePage />} />
+      <Route path="/competition/:competitionId/register" element={<RegisterPage />} />
       <Route path="/competition/:competitionId/women" element={<WomenPage />} />
       <Route path="/competition/:competitionId/teams" element={<TeamsPage />} />
       <Route path="/competition/:competitionId/countries" element={<CountriesPage />} />
@@ -48,6 +50,7 @@ function App() {
       <Route path="/:slug/results" element={<LegacySlugRedirect suffix="results" />} />
       <Route path="/:slug/pilots" element={<LegacySlugRedirect suffix="pilots" />} />
       <Route path="/:slug/pilots/:pilotNumber" element={<LegacyPilotRedirect />} />
+      <Route path="/:slug/register" element={<LegacySlugRedirect suffix="register" />} />
       <Route path="/:slug/women" element={<LegacySlugRedirect suffix="women" />} />
       <Route path="/:slug/teams" element={<LegacySlugRedirect suffix="teams" />} />
       <Route path="/:slug/countries" element={<LegacySlugRedirect suffix="countries" />} />

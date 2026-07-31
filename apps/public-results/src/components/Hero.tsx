@@ -1,10 +1,15 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, UserPlus, Users } from 'lucide-react';
 import type { PublicCompetition } from '../lib/types';
 import { competitionPath } from '../lib/api';
 import { formatDate } from '../lib/utils';
-import { isCompetitionCompleted } from '../lib/competitionStatus';
+import {
+  hasCompetitionStarted,
+  isCompetitionCompleted,
+  isPreEvent,
+  isRegistrationOpen,
+} from '../lib/competitionStatus';
 
 interface HeroProps {
   competition: PublicCompetition;
@@ -14,10 +19,12 @@ interface HeroProps {
 
 export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) {
   const completed = isCompetitionCompleted(competition.status);
+  const started = hasCompetitionStarted(competition.status);
+  const preEvent = isPreEvent(competition.status);
+  const registrationOpen = isRegistrationOpen(competition.status);
 
   return (
     <section className="relative min-h-[85vh] overflow-hidden">
-      {/* Atmospheric mountain gradient background */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628] via-[#0f2744] to-[#050d1a]" />
       <div
         className="absolute inset-0 opacity-40"
@@ -29,12 +36,9 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
           `,
         }}
       />
-      {/* Mountain silhouette */}
       <div
         className="absolute bottom-0 left-0 right-0 h-64 opacity-30"
         style={{
-          background: `linear-gradient(to top, #050d1a 0%, transparent 100%),
-            polygon(0% 100%, 0% 60%, 15% 45%, 30% 55%, 45% 35%, 60% 50%, 75% 30%, 90% 45%, 100% 25%, 100% 100%)`,
           clipPath:
             'polygon(0% 100%, 0% 60%, 15% 45%, 30% 55%, 45% 35%, 60% 50%, 75% 30%, 90% 45%, 100% 25%, 100% 100%)',
           backgroundColor: '#0a1628',
@@ -62,20 +66,46 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
             <p className="mb-12 text-sm uppercase tracking-[0.3em] text-amber-300/80">
               Competition completed · Official final standings
             </p>
+          ) : preEvent ? (
+            <p className="mb-12 text-sm uppercase tracking-[0.3em] text-amber-300/80">
+              Registration open · Competition has not started
+            </p>
           ) : (
             <div className="mb-12" />
           )}
 
-          <Link
-            to={competitionPath(competitionId, 'results')}
-            className="group inline-flex items-center gap-3 rounded-full bg-sky-500 px-8 py-4 text-lg font-semibold text-[#050d1a] transition-all hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-500/25"
-          >
-            {completed ? 'View Final Results' : 'View Full Results'}
-            <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-          </Link>
+          {preEvent ? (
+            <div className="flex flex-wrap gap-4">
+              {registrationOpen && (
+                <Link
+                  to={competitionPath(competitionId, 'register')}
+                  className="group inline-flex items-center gap-3 rounded-full bg-sky-500 px-8 py-4 text-lg font-semibold text-[#050d1a] transition-all hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-500/25"
+                >
+                  <UserPlus className="h-5 w-5" />
+                  Register as pilot
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Link>
+              )}
+              <Link
+                to={competitionPath(competitionId, 'pilots')}
+                className="inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/5 px-8 py-4 text-lg font-semibold text-white transition-all hover:border-sky-400/40 hover:bg-white/10"
+              >
+                <Users className="h-5 w-5" />
+                View pilots
+              </Link>
+            </div>
+          ) : (
+            <Link
+              to={competitionPath(competitionId, 'results')}
+              className="group inline-flex items-center gap-3 rounded-full bg-sky-500 px-8 py-4 text-lg font-semibold text-[#050d1a] transition-all hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-500/25"
+            >
+              {completed ? 'View Final Results' : 'View Full Results'}
+              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+            </Link>
+          )}
         </motion.div>
 
-        {topPilots.length > 0 && (
+        {started && topPilots.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}

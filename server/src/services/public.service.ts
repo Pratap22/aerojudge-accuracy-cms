@@ -1,4 +1,6 @@
+import { generateQrPayload } from '@npha/utils';
 import { prisma } from '../config/prisma.js';
+import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { recalculateRankings } from './scoring.service.js';
@@ -351,4 +353,175 @@ export async function getPublicSponsors(slugOrId: string) {
     displayOrder: row.displayOrder,
     isActive: row.isActive,
   }));
+}
+
+const PUBLIC_REGISTRATION_STATUSES = new Set(['REGISTRATION', 'PRACTICE']);
+
+export async function listPublicCountries() {
+  return prisma.country.findMany({
+    select: { id: true, code: true, code2: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+}
+
+export async function listPublicPilots(slugOrId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+  const pilots = await prisma.pilot.findMany({
+    where: {
+      competitionId: competition.id,
+      status: { notIn: ['WITHDRAWN', 'DISQUALIFIED'] },
+    },
+    orderBy: [{ pilotNumber: 'asc' }],
+    select: {
+      id: true,
+      pilotNumber: true,
+      firstName: true,
+      lastName: true,
+      gender: true,
+      nationality: true,
+      club: true,
+      glider: true,
+      status: true,
+      isWomen: true,
+      isJunior: true,
+      country: { select: { name: true, code: true, code2: true } },
+    },
+  });
+  return {
+    competitionId: competition.id,
+    competitionName: competition.name,
+    registrationOpen: PUBLIC_REGISTRATION_STATUSES.has(competition.status),
+    pilots,
+  };
+}
+
+export async function registerPublicPilot(
+  slugOrId: string,
+  input: {
+    firstName: string;
+    lastName: string;
+    gender: 'MALE' | 'FEMALE' | 'OTHER';
+    countryCode?: string;
+    nationality?: string;
+    faiLicense?: string;
+    civlId?: string;
+    club?: string;
+    dateOfBirth?: string | Date;
+    glider?: string;
+    harness?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
+  },
+) {
+  const competition = await getPublicCompetition(slugOrId);
+
+  if (!PUBLIC_REGISTRATION_STATUSES.has(competition.status)) {
+    throw AppError.badRequest(
+      'Pilot registration is closed for this competition',
+      'REGISTRATION_CLOSED',
+    );
+  }
+
+  const full = await prisma.competition.findUnique({
+    where: { id: competition.id },
+    select: {
+      publicSlug: true,
+      brandingJson: true,
+      settings: { select: { juniorMaxAge: true, juniorCategoryEnabled: true } },
+    },
+  });
+
+  const pilotCount = await prisma.pilot.count({ where: { competitionId: competition.id } });
+  const branding = (full?.brandingJson ?? null) as { maxPilots?: number } | null;
+  const cap = branding?.maxPilots;
+  if (cap != null && Number.isFinite(cap) && pilotCount >= cap) {
+    throw AppError.badRequest(
+      `Registration is full (${cap} pilots maximum)`,
+      'REGISTRATION_FULL',
+    );
+  }
+
+  let countryId: string | undefined;
+  let nationality = input.nationality;
+  if (input.countryCode) {
+    const country = await prisma.country.findUnique({ where: { code: input.countryCode } });
+    if (!country) {
+      throw AppError.badRequest(`Unknown country code: ${input.countryCode}`, 'INVALID_COUNTRY');
+    }
+    countryId = country.id;
+    nationality = nationality ?? country.name;
+  }
+
+  const maxNumber = await prisma.pilot.aggregate({
+    where: { competitionId: competition.id },
+    _max: { pilotNumber: true },
+  });
+  const pilotNumber = (maxNumber._max.pilotNumber ?? 0) + 1;
+
+  let dateOfBirth: Date | undefined;
+  if (input.dateOfBirth) {
+    dateOfBirth =
+      input.dateOfBirth instanceof Date
+        ? input.dateOfBirth
+        : new Date(input.dateOfBirth);
+    if (Number.isNaN(dateOfBirth.getTime())) {
+      throw AppError.badRequest('Invalid date of birth');
+    }
+  }
+
+  const juniorMaxAge = full?.settings?.juniorMaxAge ?? 25;
+  let isJunior = false;
+  if (dateOfBirth && full?.settings?.juniorCategoryEnabled !== false) {
+    const ageMs = Date.now() - dateOfBirth.getTime();
+    const ageYears = ageMs / (365.25 * 24 * 60 * 60 * 1000);
+    isJunior = ageYears < juniorMaxAge;
+  }
+
+  const qrCode = generateQrPayload(
+    env.PUBLIC_RESULTS_URL,
+    full?.publicSlug ?? competition.publicSlug,
+    `/pilot/${pilotNumber}`,
+  );
+
+  const pilot = await prisma.pilot.create({
+    data: {
+      competitionId: competition.id,
+      pilotNumber,
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      gender: input.gender,
+      nationality: nationality ?? null,
+      countryId: countryId ?? null,
+      faiLicense: input.faiLicense ?? null,
+      civlId: input.civlId ?? null,
+      club: input.club ?? null,
+      dateOfBirth: dateOfBirth ?? null,
+      glider: input.glider ?? null,
+      harness: input.harness ?? null,
+      emergencyContact: input.emergencyContact ?? null,
+      emergencyPhone: input.emergencyPhone ?? null,
+      status: 'REGISTERED',
+      isWomen: input.gender === 'FEMALE',
+      isJunior,
+      qrCode,
+    },
+    include: {
+      country: { select: { name: true, code: true, code2: true } },
+    },
+  });
+
+  return {
+    id: pilot.id,
+    pilotNumber: pilot.pilotNumber,
+    firstName: pilot.firstName,
+    lastName: pilot.lastName,
+    gender: pilot.gender,
+    nationality: pilot.nationality,
+    club: pilot.club,
+    glider: pilot.glider,
+    status: pilot.status,
+    country: pilot.country,
+    competitionId: competition.id,
+    competitionName: competition.name,
+  };
 }

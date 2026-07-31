@@ -12,6 +12,15 @@
   body {
     @apply bg-[#050d1a] font-sans text-white antialiased;
   }
+
+  /* Opaque select menus on this dark surface (Radix portals) */
+  [data-radix-select-content] {
+    @apply !bg-[#0a1628] !text-sky-50 border-sky-500/30;
+  }
+
+  [data-radix-select-item][data-highlighted] {
+    @apply !bg-sky-500/20 !text-white;
+  }
 }
 
 @layer utilities {

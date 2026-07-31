@@ -1,9 +1,10 @@
 import type { Request, Response } from 'express';
+import { publicPilotRegistrationSchema } from '@npha/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as publicService from '../../../services/public.service.js';
-import { validateParams, validateQuery } from '../middleware/validate.js';
+import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
 
 const slugParams = z.object({ slug: z.string().min(1) });
 const roundQuery = z.object({ round: z.coerce.number().int().positive() });
@@ -69,5 +70,29 @@ export const getSponsors = [
   asyncHandler(async (req: Request, res: Response) => {
     const sponsors = await publicService.getPublicSponsors(req.params.slug);
     sendSuccess(res, sponsors);
+  }),
+];
+
+export const listCountries = [
+  asyncHandler(async (_req: Request, res: Response) => {
+    const countries = await publicService.listPublicCountries();
+    sendSuccess(res, countries);
+  }),
+];
+
+export const listPilots = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const pilots = await publicService.listPublicPilots(req.params.slug);
+    sendSuccess(res, pilots);
+  }),
+];
+
+export const registerPilot = [
+  validateParams(slugParams),
+  validateBody(publicPilotRegistrationSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const pilot = await publicService.registerPublicPilot(req.params.slug, req.body);
+    sendSuccess(res, pilot, 201);
   }),
 ];
