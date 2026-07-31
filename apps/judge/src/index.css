@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;

@@ -46,6 +46,7 @@ export function ScoringPage() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingCount, setPendingCount] = useState(getPendingCount());
   const [confirmed, setConfirmed] = useState(false);
+  const [pilotPickerOpen, setPilotPickerOpen] = useState(false);
 
   const { data: flights, refetch } = useQuery({
     queryKey: ['judge-flights', competitionId, roundId],
@@ -210,19 +211,21 @@ export function ScoringPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <header className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
+    <div className="flex h-dvh flex-col overflow-hidden bg-slate-900 text-white">
+      <header className="flex shrink-0 items-center justify-between border-b border-slate-700 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <Button variant="ghost" size="sm" onClick={() => navigate('/rounds')} className="text-slate-400">
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <ArrowLeft className="mr-1 h-4 w-4" />
           Rounds
         </Button>
         <div className="text-center">
-          <p className="font-mono text-lg font-bold text-sky-400">
+          <p className="font-mono text-base font-bold text-sky-400">
             R{roundMeta?.number ?? '—'}
+            {roundMeta?.status ? (
+              <span className="ml-2 text-xs font-normal text-slate-400">{roundMeta.status}</span>
+            ) : null}
           </p>
-          <p className="max-w-[14rem] truncate text-xs text-slate-400">
-            {roundMeta?.name || (roundMeta?.number != null ? `Round ${roundMeta.number}` : 'Loading…')}
-            {roundMeta?.status ? ` · ${roundMeta.status}` : ''}
+          <p className="text-[10px] text-slate-500">
+            Pilot {currentIndex + 1}/{flights?.length ?? 0}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -235,11 +238,11 @@ export function ScoringPage() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-3 lg:p-6">
-        <div className="space-y-6 lg:col-span-2">
+      <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-1 gap-2 overflow-hidden p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:gap-3 sm:p-3 lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-4 lg:p-4">
+        <section className="flex min-h-0 flex-col gap-1.5 overflow-hidden sm:gap-2">
           {scoresReadOnly && (
-            <div className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm text-slate-300">
-              Round is <strong>{roundMeta?.status}</strong> — scores are final and cannot be changed.
+            <div className="shrink-0 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-slate-300">
+              Round is <strong>{roundMeta?.status}</strong> — scores are final.
             </div>
           )}
 
@@ -247,10 +250,11 @@ export function ScoringPage() {
             {currentFlight && (
               <motion.div
                 key={currentFlight.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15 }}
+                className="shrink-0"
               >
                 <PilotDisplay
                   pilots={
@@ -268,80 +272,85 @@ export function ScoringPage() {
                   lastName={currentFlight.lastName}
                   country={currentFlight.country}
                   countryCode={currentFlight.countryCode}
+                  onOpenChange={setPilotPickerOpen}
                 />
               </motion.div>
             )}
           </AnimatePresence>
 
-          <QuickScoreButtons
-            selected={resultType}
-            onSelect={handleQuickSelect}
-            disabled={confirmMutation.isPending || scoresReadOnly}
-            maximumScoreCm={maximumScoreCm}
-          />
-
-          <NumericKeypad
-            value={distanceInput}
-            onChange={handleDistanceChange}
-            disabled={confirmMutation.isPending || scoresReadOnly || resultType !== 'MEASURED'}
-          />
+          <div className="shrink-0">
+            <QuickScoreButtons
+              selected={resultType}
+              onSelect={handleQuickSelect}
+              disabled={confirmMutation.isPending || scoresReadOnly}
+              maximumScoreCm={maximumScoreCm}
+            />
+          </div>
 
           {resultType !== 'MEASURED' && !scoresReadOnly && (
-            <p className="text-center text-sm text-slate-400">
-              Tap <strong className="text-slate-200">{resultType}</strong> again to clear and enter a
-              measured distance
+            <p className="shrink-0 text-center text-xs text-slate-400">
+              Tap <strong className="text-slate-200">{resultType}</strong> again to enter a measured
+              distance
             </p>
           )}
 
-          <div className="flex gap-3">
+          <div className="min-h-0 flex-1">
+            <NumericKeypad
+              value={distanceInput}
+              onChange={handleDistanceChange}
+              disabled={confirmMutation.isPending || scoresReadOnly || resultType !== 'MEASURED'}
+              keyboardEnabled={!pilotPickerOpen}
+              fill
+            />
+          </div>
+
+          <div className="flex shrink-0 flex-col gap-1.5">
             <Button
               size="lg"
-              className="h-16 flex-1 text-xl font-bold"
+              className="h-12 w-full text-base font-bold sm:h-14 sm:text-lg"
               disabled={!canConfirm}
               onClick={() => confirmMutation.mutate()}
             >
               {confirmed ? (
                 <>
-                  <CheckCircle className="mr-2 h-6 w-6" />
+                  <CheckCircle className="mr-2 h-5 w-5" />
                   Score Saved
                 </>
               ) : (
                 'Confirm Score'
               )}
             </Button>
-          </div>
 
-          {confirmed && !scoresReadOnly && (
-            <div className="flex justify-center gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setConfirmed(false);
-                  confirmMutation.reset();
-                }}
-              >
-                Edit score
-              </Button>
-              {flights && currentIndex < flights.length - 1 && (
+            {confirmed && !scoresReadOnly && (
+              <div className="flex justify-center gap-2">
                 <Button
+                  size="sm"
+                  variant="secondary"
                   onClick={() => {
-                    setCurrentIndex((i) => i + 1);
                     setConfirmed(false);
                     confirmMutation.reset();
                   }}
                 >
-                  Next pilot
+                  Edit score
                 </Button>
-              )}
-            </div>
-          )}
+                {flights && currentIndex < flights.length - 1 && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setCurrentIndex((i) => i + 1);
+                      setConfirmed(false);
+                      confirmMutation.reset();
+                    }}
+                  >
+                    Next pilot
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
 
-          <p className="text-center text-sm text-slate-500">
-            Pilot {currentIndex + 1} of {flights?.length ?? 0} — use the # dropdown to switch
-          </p>
-        </div>
-
-        <aside className="rounded-xl bg-slate-800/50 p-4 lg:p-6">
+        <aside className="hidden min-h-0 overflow-hidden rounded-xl bg-slate-800/50 p-3 lg:flex lg:flex-col">
           <OnDeckList
             pilots={
               flights?.map((f) => ({
