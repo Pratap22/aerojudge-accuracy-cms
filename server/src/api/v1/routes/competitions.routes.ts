@@ -60,5 +60,12 @@ router.post(
   requirePermission('competition:publish'),
   ...ctrl.publish,
 );
+router.post(
+  '/:id/complete',
+  requireOrgContext,
+  requireCompetitionInOrg,
+  requirePermission('competition:update'),
+  ...ctrl.complete,
+);
 
 export default router;

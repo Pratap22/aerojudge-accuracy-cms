@@ -154,6 +154,17 @@ export function emitSyncRequired(competitionId: string): void {
   getIo().to(SOCKET_ROOMS.competition(competitionId)).emit('sync:required', { competitionId });
 }
 
+export function emitCompetitionStatus(
+  competitionId: string,
+  status: string,
+): void {
+  getIo()
+    .to(SOCKET_ROOMS.competition(competitionId))
+    .to(SOCKET_ROOMS.display(competitionId))
+    .to(SOCKET_ROOMS.public(competitionId))
+    .emit('competition:status', { competitionId, status });
+}
+
 export function emitCurrentPilot(
   competitionId: string,
   pilotId: string | null,

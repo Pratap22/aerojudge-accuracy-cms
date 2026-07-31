@@ -4,6 +4,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
+  CheckCircle2,
   Clock,
   Play,
   Target,
@@ -24,6 +25,7 @@ import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api } from '../lib/api';
 import { onSocketEvent } from '../lib/socket';
 import { competitionPath, useCompetitionId } from '../hooks/useCompetitionId';
+import { usePermission } from '../hooks/usePermission';
 
 interface DashboardStats {
   totalPilots: number;
@@ -65,6 +67,7 @@ export function DashboardPage() {
   const competitionId = useCompetitionId();
   const queryClient = useQueryClient();
   const liveStatus = 'Connected';
+  const canUpdateCompetition = usePermission('competition:update');
 
   const { data: competitions } = useQuery({
     queryKey: ['competitions'],
@@ -84,17 +87,31 @@ export function DashboardPage() {
     },
   });
 
+  const completeMutation = useMutation({
+    mutationFn: () => api.post<CompetitionSummary>(`/competitions/${competitionId}/complete`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competitions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['rankings'] });
+    },
+  });
+
   useEffect(() => {
     if (!competitionId) return;
     const unsubRound = onSocketEvent('round:status', () => refetch());
     const unsubWind = onSocketEvent('wind:updated', () => refetch());
     const unsubScore = onSocketEvent('score:updated', () => refetch());
+    const unsubComp = onSocketEvent('competition:status', () => {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['competitions'] });
+    });
     return () => {
       unsubRound();
       unsubWind();
       unsubScore();
+      unsubComp();
     };
-  }, [competitionId, refetch]);
+  }, [competitionId, refetch, queryClient]);
 
   if (!competitionId) {
     return <Navigate to="/competitions" replace />;
@@ -104,6 +121,10 @@ export function DashboardPage() {
   const needsPublish =
     activeCompetition &&
     (!activeCompetition.isPublished || activeCompetition.status === 'DRAFT');
+  const canClose =
+    canUpdateCompetition &&
+    activeCompetition &&
+    !['COMPLETED', 'ARCHIVED', 'CANCELLED', 'DRAFT'].includes(activeCompetition.status);
 
   return (
     <div className="space-y-6">
@@ -136,6 +157,21 @@ export function DashboardPage() {
               Publish competition
             </Button>
           )}
+          {canClose && (
+            <Button
+              variant="outline"
+              disabled={completeMutation.isPending}
+              onClick={() => {
+                const ok = window.confirm(
+                  'Close this competition? Open rounds will be closed and the venue display will show the final podium (1st–3rd). This is typically used when flying stops early (e.g. weather).',
+                );
+                if (ok) completeMutation.mutate();
+              }}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              {completeMutation.isPending ? 'Closing…' : 'Close competition'}
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link to={competitionPath(competitionId, 'rounds')}>
               <Play className="mr-2 h-4 w-4" />
@@ -150,6 +186,21 @@ export function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {activeCompetition?.status === 'COMPLETED' && (
+        <Card className="border-emerald-500/30 bg-emerald-500/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-emerald-700 dark:text-emerald-400">
+              <Trophy className="h-5 w-5" />
+              Competition completed
+            </CardTitle>
+            <CardDescription>
+              Final standings are locked for display. Venue boards show the overall podium
+              (1st–3rd). You can still generate reports and publish results.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {competitions && competitions.length > 1 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

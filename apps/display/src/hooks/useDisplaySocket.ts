@@ -133,6 +133,16 @@ export function useDisplaySocket(
         if (payload.competitionId !== competitionId) return;
         onRoundStatus?.();
       }),
+      onSocketEvent('competition:status', (payload) => {
+        if (payload.competitionId !== competitionId) return;
+        onRoundStatus?.();
+        onRankingUpdate?.();
+      }),
+      onSocketEvent('sync:required', (payload) => {
+        if (payload.competitionId !== competitionId) return;
+        onRoundStatus?.();
+        onRankingUpdate?.();
+      }),
       onSocketEvent('display:layout', (payload) => {
         if (payload.competitionId !== competitionId) return;
         setState((prev) => ({

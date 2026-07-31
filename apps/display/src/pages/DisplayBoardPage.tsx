@@ -7,6 +7,7 @@ import { LayoutRouter } from '../layouts/LayoutRouter';
 import { CurrentPilotLayout } from '../layouts/CurrentPilotLayout';
 import { RoundClosedLayout } from '../layouts/RoundClosedLayout';
 import { RoundAwaitingLayout } from '../layouts/RoundAwaitingLayout';
+import { CompletedPodiumLayout } from '../layouts/CompletedPodiumLayout';
 import { Top10Layout } from '../layouts/Top10Layout';
 import { TopWomenLayout } from '../layouts/TopWomenLayout';
 import { TopTeamsLayout } from '../layouts/TopTeamsLayout';
@@ -88,13 +89,15 @@ export function DisplayBoardPage() {
   const [now, setNow] = useState(() => Date.now());
   const lastHandledScoreAt = useRef<number | null>(null);
 
-  const { data: competition, isLoading: compLoading, error: compError } = useCompetition();
+  const { data: competition, isLoading: compLoading, error: compError, refetch: refetchCompetition } = useCompetition();
   const { data: overallResults, invalidate: refreshOverall } = useResults('OVERALL');
   const { data: womenResults } = useResults('WOMEN');
   const { data: teamResults } = useResults('TEAM');
   const { data: countryResults } = useResults('COUNTRY');
   const { data: persistedLatest } = useLatestScore();
   const { data: roundsStatus, invalidate: refreshRoundsStatus } = useRoundsStatus();
+
+  const competitionCompleted = competition?.status === 'COMPLETED';
 
   const roundPhase = useMemo(
     () => resolveRoundPhase(roundsStatus?.rounds),
@@ -104,7 +107,10 @@ export function DisplayBoardPage() {
   const socketState = useDisplaySocket(
     competition?.id,
     refreshOverall,
-    refreshRoundsStatus,
+    () => {
+      refreshRoundsStatus();
+      void refetchCompetition();
+    },
     roundPhase.activeRoundNumber,
   );
 
@@ -320,6 +326,15 @@ export function DisplayBoardPage() {
   }
 
   const renderLayout = () => {
+    if (competitionCompleted) {
+      return (
+        <CompletedPodiumLayout
+          competitionName={competition.name}
+          entries={overallEntries}
+        />
+      );
+    }
+
     const showRoundInterstitial = activeLayout === 'current' || activeLayout === 'next';
 
     if (showRoundInterstitial && roundPhase.phase === 'closed') {
@@ -390,23 +405,27 @@ export function DisplayBoardPage() {
       <main className="h-full pt-20 pb-16">
         <LayoutRouter
           layoutKey={
-            awaitingFirstScore
-              ? `awaiting-r${roundPhase.activeRoundNumber}`
-              : roundPhase.phase === 'closed'
-                ? `closed-r${roundPhase.closedRoundNumber}`
-                : activeLayout
+            competitionCompleted
+              ? 'completed-podium'
+              : awaitingFirstScore
+                ? `awaiting-r${roundPhase.activeRoundNumber}`
+                : roundPhase.phase === 'closed'
+                  ? `closed-r${roundPhase.closedRoundNumber}`
+                  : activeLayout
           }
         >
           {renderLayout()}
         </LayoutRouter>
       </main>
 
-      <DisplayControls
-        layout={controlsLayout}
-        onLayoutChange={handleLayoutChange}
-        kioskMode={kioskMode}
-        onKioskToggle={() => setKioskMode((k) => !k)}
-      />
+      {!competitionCompleted && (
+        <DisplayControls
+          layout={controlsLayout}
+          onLayoutChange={handleLayoutChange}
+          kioskMode={kioskMode}
+          onKioskToggle={() => setKioskMode((k) => !k)}
+        />
+      )}
     </div>
   );
 }

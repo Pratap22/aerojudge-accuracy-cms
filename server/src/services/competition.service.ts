@@ -194,6 +194,40 @@ export async function publishCompetition(id: string) {
   });
 }
 
+/**
+ * Mark the competition finished (e.g. weather stop).
+ * Closes any in-progress rounds and sets status to COMPLETED.
+ */
+export async function completeCompetition(id: string) {
+  const competition = await getCompetition(id);
+
+  if (competition.status === 'COMPLETED') {
+    return competition;
+  }
+  if (competition.status === 'CANCELLED' || competition.status === 'ARCHIVED') {
+    throw AppError.badRequest(`Cannot complete a ${competition.status.toLowerCase()} competition`);
+  }
+  if (competition.status === 'DRAFT') {
+    throw AppError.badRequest('Publish the competition before closing it');
+  }
+
+  const liveStatuses = ['ACTIVE', 'OPEN', 'PAUSED', 'BRIEFING'] as const;
+  await prisma.round.updateMany({
+    where: {
+      competitionId: id,
+      type: 'OFFICIAL',
+      status: { in: [...liveStatuses] },
+    },
+    data: { status: 'CLOSED', closedAt: new Date() },
+  });
+
+  return prisma.competition.update({
+    where: { id },
+    data: { status: 'COMPLETED' },
+    include: { settings: true },
+  });
+}
+
 export function settingsToRuleOverrides(
   settings?: NonNullable<Awaited<ReturnType<typeof getCompetition>>['settings']> | null,
 ): Partial<RuleConfig> {

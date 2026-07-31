@@ -386,6 +386,10 @@ export interface SocketEvents {
   'pilot:current': { competitionId: string; pilotId: string | null; flightId: string | null };
   'results:published': { competitionId: string; roundId: string; category: string };
   'sync:required': { competitionId: string };
+  'competition:status': {
+    competitionId: string;
+    status: CompetitionStatus;
+  };
 }
 
 export const ROLES: Role[] = [

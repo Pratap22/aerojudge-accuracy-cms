@@ -142,6 +142,32 @@ export const publish = [
   }),
 ];
 
+export const complete = [
+  validateParams(idParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const before = await competitionService.getCompetition(req.params.id);
+    const competition = await competitionService.completeCompetition(req.params.id);
+
+    const { recalculateRankings } = await import('../../../services/scoring.service.js');
+    await recalculateRankings(competition.id);
+
+    const { emitCompetitionStatus, emitSyncRequired } = await import('../../../socket/index.js');
+    emitCompetitionStatus(competition.id, competition.status);
+    emitSyncRequired(competition.id);
+
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: competition.id,
+      action: 'UPDATE',
+      entityType: 'Competition',
+      entityId: competition.id,
+      before: { status: before.status },
+      after: { status: competition.status },
+    });
+    sendSuccess(res, competition);
+  }),
+];
+
 export const dashboard = [
   validateParams(idParams),
   asyncHandler(async (req: Request, res: Response) => {
