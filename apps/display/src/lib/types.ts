@@ -88,7 +88,9 @@ export interface WindData {
 export interface Sponsor {
   id: string;
   name: string;
-  logoUrl?: string;
+  type?: string;
+  logoUrl?: string | null;
+  websiteUrl?: string | null;
   tagline?: string;
 }
 

@@ -63,3 +63,11 @@ export const getLatestScore = [
     sendSuccess(res, latest);
   }),
 ];
+
+export const getSponsors = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const sponsors = await publicService.getPublicSponsors(req.params.slug);
+    sendSuccess(res, sponsors);
+  }),
+];

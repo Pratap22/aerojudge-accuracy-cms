@@ -19,6 +19,7 @@ import {
   Users,
   UsersRound,
   Building2,
+  Handshake,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
 import { hasEffectivePermission, hasPermission, isPlatformRole, type Permission } from '@npha/shared';
@@ -52,6 +53,13 @@ const competitionNav: Array<{
   },
   { segment: 'pilots', label: 'Pilots', icon: Users, end: false, anyOf: ['pilot:manage'] },
   { segment: 'teams', label: 'Teams', icon: UsersRound, end: false, anyOf: ['team:manage'] },
+  {
+    segment: 'sponsors',
+    label: 'Sponsors',
+    icon: Handshake,
+    end: false,
+    anyOf: ['competition:update'],
+  },
   {
     segment: 'rounds',
     label: 'Rounds',

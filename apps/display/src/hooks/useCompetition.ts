@@ -1,8 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import type { RankingCategory } from '@npha/shared';
-import { fetchCompetition, fetchLatestScore, fetchResults, fetchRoundsStatus } from '../lib/api';
-import type { PublicResults } from '../lib/types';
+import { fetchCompetition, fetchLatestScore, fetchResults, fetchRoundsStatus, fetchSponsors } from '../lib/api';
+import type { PublicResults, Sponsor } from '../lib/types';
+import { useEffect } from 'react';
+import { connectDisplaySocket, onSocketEvent } from '../lib/socket';
 
 export function useCompetitionId(): string {
   const { competitionId } = useParams<{ competitionId: string }>();
@@ -17,6 +19,42 @@ export function useCompetition() {
     staleTime: 60_000,
     enabled: Boolean(competitionId),
   });
+}
+
+export function useSponsors() {
+  const competitionId = useCompetitionId();
+  const queryClient = useQueryClient();
+  const { data: competition } = useCompetition();
+  const roomKey = competition?.id ?? competitionId;
+
+  const query = useQuery({
+    queryKey: ['sponsors', competitionId],
+    queryFn: async (): Promise<Sponsor[]> => {
+      const rows = await fetchSponsors(competitionId);
+      return rows.map((s) => ({
+        id: s.id,
+        name: s.name,
+        type: s.type,
+        logoUrl: s.logoUrl,
+        websiteUrl: s.websiteUrl,
+        tagline: s.type,
+      }));
+    },
+    staleTime: 30_000,
+    enabled: Boolean(competitionId),
+  });
+
+  useEffect(() => {
+    if (!roomKey) return;
+    connectDisplaySocket(roomKey);
+    const unsub = onSocketEvent('sponsors:updated', (payload) => {
+      if (payload.competitionId !== roomKey && payload.competitionId !== competitionId) return;
+      queryClient.invalidateQueries({ queryKey: ['sponsors', competitionId] });
+    });
+    return () => unsub();
+  }, [roomKey, competitionId, queryClient]);
+
+  return query;
 }
 
 export function useLatestScore() {

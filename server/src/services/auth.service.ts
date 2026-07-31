@@ -18,6 +18,7 @@ import {
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { resolveMembershipPermissions } from '../auth/permissions.js';
 import { AppError } from '../utils/errors.js';
+import { toAbsoluteAssetUrl } from '../utils/assets.js';
 
 function toAuthUser(
   user: {
@@ -98,7 +99,7 @@ export async function listUserOrganizations(
       name: m.organization.name,
       shortName: m.organization.shortName,
       slug: m.organization.slug,
-      logoUrl: m.organization.logoUrl,
+      logoUrl: toAbsoluteAssetUrl(m.organization.logoUrl),
       role: m.role,
       customRoleId: m.customRoleId,
       customRoleName: m.customRole?.name ?? null,

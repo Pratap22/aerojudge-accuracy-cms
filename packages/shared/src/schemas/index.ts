@@ -261,8 +261,33 @@ export const createOrganizationRoleSchema = z.object({
 
 export const updateOrganizationRoleSchema = createOrganizationRoleSchema.partial();
 
+export const SPONSOR_TYPES = [
+  'TITLE',
+  'PRESENTING',
+  'GOLD',
+  'SILVER',
+  'BRONZE',
+  'STANDARD',
+] as const;
+
+export const sponsorTypeSchema = z.enum(SPONSOR_TYPES);
+
+export const createSponsorSchema = z.object({
+  name: z.string().min(1).max(200),
+  type: sponsorTypeSchema.default('STANDARD'),
+  websiteUrl: optionalString,
+  logoUrl: optionalString,
+  displayOrder: z.number().int().min(0).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const updateSponsorSchema = createSponsorSchema.partial();
+
 export type SelectOrganizationInput = z.infer<typeof selectOrganizationSchema>;
 export type InviteOrganizationMemberInput = z.infer<typeof inviteOrganizationMemberSchema>;
 export type UpdateOrganizationMemberInput = z.infer<typeof updateOrganizationMemberSchema>;
 export type CreateOrganizationRoleInput = z.infer<typeof createOrganizationRoleSchema>;
 export type UpdateOrganizationRoleInput = z.infer<typeof updateOrganizationRoleSchema>;
+export type CreateSponsorInput = z.infer<typeof createSponsorSchema>;
+export type UpdateSponsorInput = z.infer<typeof updateSponsorSchema>;
+export type SponsorType = z.infer<typeof sponsorTypeSchema>;

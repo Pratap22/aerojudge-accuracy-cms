@@ -19,6 +19,9 @@ const envSchema = z.object({
   MAX_FILE_SIZE_MB: z.coerce.number().positive().default(10),
   PRINT_ARCHIVE_DIR: z.string().default('./uploads/documents/prints'),
   PUBLIC_RESULTS_URL: z.string().url().default('http://localhost:3003'),
+  /** Public origin for API + /uploads (absolute logo URLs). Falls back to API_URL or localhost:PORT. */
+  PUBLIC_API_URL: z.string().url().optional(),
+  API_URL: z.string().url().optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(15_000),
 });
@@ -40,6 +43,11 @@ export const env = {
   maxFileSizeBytes: raw.MAX_FILE_SIZE_MB * 1024 * 1024,
   isProduction: raw.NODE_ENV === 'production',
   isTest: raw.NODE_ENV === 'test',
+  publicApiUrl: (
+    raw.PUBLIC_API_URL ??
+    raw.API_URL ??
+    `http://localhost:${raw.PORT}`
+  ).replace(/\/+$/, ''),
 } as const;
 
 export type Env = typeof env;

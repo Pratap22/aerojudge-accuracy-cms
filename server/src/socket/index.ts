@@ -165,6 +165,14 @@ export function emitCompetitionStatus(
     .emit('competition:status', { competitionId, status });
 }
 
+export function emitSponsorsUpdated(competitionId: string): void {
+  getIo()
+    .to(SOCKET_ROOMS.competition(competitionId))
+    .to(SOCKET_ROOMS.display(competitionId))
+    .to(SOCKET_ROOMS.public(competitionId))
+    .emit('sponsors:updated', { competitionId });
+}
+
 export function emitCurrentPilot(
   competitionId: string,
   pilotId: string | null,

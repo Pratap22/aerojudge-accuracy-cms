@@ -7,6 +7,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { CompetitionsPage } from './pages/CompetitionsPage';
 import { PilotsPage } from './pages/PilotsPage';
 import { TeamsPage } from './pages/TeamsPage';
+import { SponsorsPage } from './pages/SponsorsPage';
 import { RoundsPage } from './pages/RoundsPage';
 import { ScoringPage } from './pages/ScoringPage';
 import { RankingsPage } from './pages/RankingsPage';
@@ -53,6 +54,14 @@ export default function App() {
           element={
             <RequirePermission anyOf={['team:manage']}>
               <TeamsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/sponsors"
+          element={
+            <RequirePermission anyOf={['competition:update']}>
+              <SponsorsPage />
             </RequirePermission>
           }
         />

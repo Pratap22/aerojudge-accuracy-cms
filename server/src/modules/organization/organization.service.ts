@@ -3,6 +3,7 @@ import path from 'node:path';
 import { env } from '../../config/env.js';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/errors.js';
+import { buildUploadUrl, toAbsoluteAssetUrl } from '../../utils/assets.js';
 import {
   OrganizationRepository,
   organizationRepository,
@@ -33,7 +34,14 @@ export class OrganizationService {
     const scoped = query.platformAdmin
       ? query
       : { ...query, memberUserId: query.memberUserId };
-    return this.repo.findMany(scoped);
+    const result = await this.repo.findMany(scoped);
+    return {
+      ...result,
+      items: result.items.map((org) => ({
+        ...org,
+        logoUrl: toAbsoluteAssetUrl(org.logoUrl),
+      })),
+    };
   }
 
   /**
@@ -51,7 +59,10 @@ export class OrganizationService {
         throw AppError.forbidden('Not a member of this organization');
       }
     }
-    return org;
+    return {
+      ...org,
+      logoUrl: toAbsoluteAssetUrl(org.logoUrl),
+    };
   }
 
   /**
@@ -114,7 +125,10 @@ export class OrganizationService {
         throw AppError.conflict('Organization slug already exists');
       }
     }
-    return this.repo.update(id, data);
+    return this.repo.update(id, data).then((org) => ({
+      ...org,
+      logoUrl: toAbsoluteAssetUrl(org.logoUrl),
+    }));
   }
 
   /**
@@ -175,8 +189,12 @@ export class OrganizationService {
     const filePath = path.join(dir, filename);
     await writeFile(filePath, file.buffer);
 
-    const logoUrl = `/uploads/organizations/${id}/${filename}`;
-    return this.repo.updateLogo(id, logoUrl);
+    const logoUrl = buildUploadUrl('organizations', id, filename);
+    const updated = await this.repo.updateLogo(id, logoUrl);
+    return {
+      ...updated,
+      logoUrl: toAbsoluteAssetUrl(updated.logoUrl),
+    };
   }
 
   /**

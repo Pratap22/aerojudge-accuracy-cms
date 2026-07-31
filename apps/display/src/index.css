@@ -37,4 +37,19 @@
     );
     pointer-events: none;
   }
+
+  .sponsor-marquee {
+    animation-name: sponsor-marquee;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+}
+
+@keyframes sponsor-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }

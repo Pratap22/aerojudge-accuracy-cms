@@ -607,12 +607,12 @@ async function seedSponsors(competitionId: string) {
   await prisma.sponsor.deleteMany({ where: { competitionId } });
 
   const sponsors = [
-    { name: 'NPHA – Nepal Paragliding & Hang Gliding Association', tier: 'TITLE', displayOrder: 1 },
-    { name: 'Visit Nepal 2024', tier: 'GOLD', displayOrder: 2 },
-    { name: 'Pokhara Tourism Board', tier: 'GOLD', displayOrder: 3 },
-    { name: 'Himalayan Outdoor Gear', tier: 'SILVER', displayOrder: 4 },
-    { name: 'Annapurna Brewery', tier: 'STANDARD', displayOrder: 5 },
-    { name: 'Lake City Hotel Pokhara', tier: 'STANDARD', displayOrder: 6 },
+    { name: 'SkyPeak Aviation', tier: 'TITLE', displayOrder: 1 },
+    { name: 'Alpine Air Sports', tier: 'GOLD', displayOrder: 2 },
+    { name: 'Summit Outdoor Gear', tier: 'GOLD', displayOrder: 3 },
+    { name: 'CloudLine Instruments', tier: 'SILVER', displayOrder: 4 },
+    { name: 'Ridgeview Hotels', tier: 'STANDARD', displayOrder: 5 },
+    { name: 'Thermal Brew Co.', tier: 'STANDARD', displayOrder: 6 },
   ];
 
   for (const s of sponsors) {

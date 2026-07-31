@@ -76,3 +76,18 @@ export function fetchRoundsStatus(idOrSlug: string): Promise<{
 }> {
   return publicFetch(`/${idOrSlug}/rounds-status`);
 }
+
+export interface PublicSponsor {
+  id: string;
+  competitionId: string;
+  name: string;
+  type: string;
+  logoUrl: string | null;
+  websiteUrl: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export function fetchSponsors(idOrSlug: string): Promise<PublicSponsor[]> {
+  return publicFetch<PublicSponsor[]>(`/${idOrSlug}/sponsors`);
+}

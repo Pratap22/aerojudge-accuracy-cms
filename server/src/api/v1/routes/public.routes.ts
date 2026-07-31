@@ -9,5 +9,6 @@ router.get('/:slug/results', ...ctrl.getResults);
 router.get('/:slug/rounds', ...ctrl.getRoundResults);
 router.get('/:slug/rounds-status', ...ctrl.getRoundsStatus);
 router.get('/:slug/latest-score', ...ctrl.getLatestScore);
+router.get('/:slug/sponsors', ...ctrl.getSponsors);
 
 export default router;

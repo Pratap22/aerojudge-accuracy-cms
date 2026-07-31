@@ -390,6 +390,19 @@ export interface SocketEvents {
     competitionId: string;
     status: CompetitionStatus;
   };
+  'sponsors:updated': { competitionId: string };
+}
+
+export interface CompetitionSponsor {
+  id: string;
+  competitionId: string;
+  name: string;
+  /** Sponsor tier/type — TITLE, GOLD, SILVER, etc. */
+  type: string;
+  logoUrl: string | null;
+  websiteUrl: string | null;
+  displayOrder: number;
+  isActive: boolean;
 }
 
 export const ROLES: Role[] = [

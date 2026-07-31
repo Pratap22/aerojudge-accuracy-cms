@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
+import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { recalculateRankings } from './scoring.service.js';
 
 const ACTIVE_STATUSES = new Set(['REGISTRATION', 'PRACTICE', 'OFFICIAL', 'PAUSED']);
@@ -299,4 +300,22 @@ export async function getLatestPublicScore(slugOrId: string) {
     roundNumber: score.round.number,
     enteredAt: score.enteredAt,
   };
+}
+
+export async function getPublicSponsors(slugOrId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+  const rows = await prisma.sponsor.findMany({
+    where: { competitionId: competition.id, isActive: true },
+    orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    competitionId: row.competitionId,
+    name: row.name,
+    type: row.tier,
+    logoUrl: toAbsoluteAssetUrl(row.logoUrl),
+    websiteUrl: row.websiteUrl,
+    displayOrder: row.displayOrder,
+    isActive: row.isActive,
+  }));
 }
