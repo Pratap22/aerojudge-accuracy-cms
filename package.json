@@ -5,6 +5,14 @@
   "description": "AeroJudge by Nepalabs – Professional competition management platform for air sports (Paragliding Accuracy)",
   "author": "Nepalabs",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pratap22/aerojudge-accuracy-cms.git"
+  },
+  "homepage": "https://github.com/Pratap22/aerojudge-accuracy-cms#readme",
+  "bugs": {
+    "url": "https://github.com/Pratap22/aerojudge-accuracy-cms/issues"
+  },
   "workspaces": [
     "apps/*",
     "packages/*",

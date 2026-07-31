@@ -23,8 +23,8 @@ Optional:
 ## 1. Clone and install
 
 ```bash
-git clone https://github.com/npha/npha-accuracy-cms.git
-cd npha-accuracy-cms
+git clone https://github.com/Pratap22/aerojudge-accuracy-cms.git
+cd aerojudge-accuracy-cms
 npm install
 ```
 

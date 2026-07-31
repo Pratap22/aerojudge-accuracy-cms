@@ -33,34 +33,34 @@ See also [docs/PRODUCT.md](docs/PRODUCT.md).
 ```mermaid
 flowchart TB
     subgraph Clients
-        Admin[Admin Portal :3000]
-        Judge[Judge Terminal :3001]
-        Display[Display Board :3002]
-        Public[Public Results :3003]
-        Announcer[Announcer :3004]
-        Overlay[Broadcast Overlay :3005]
+        Admin["Admin Portal :3000"]
+        Judge["Judge Terminal :3001"]
+        Display["Display Board :3002"]
+        Public["Public Results :3003"]
+        Announcer["Announcer :3004"]
+        Overlay["Broadcast Overlay :3005"]
     end
 
     subgraph Gateway
-        Nginx[Nginx :80/443]
+        Nginx["Nginx :80/443"]
     end
 
     subgraph Backend
-        API[Express API :4000]
-        Socket[Socket.IO]
-        Scoring[@npha/scoring-engine]
-        PDF[@npha/pdf-engine]
+        API["Express API :4000"]
+        Socket["Socket.IO"]
+        Scoring["scoring-engine"]
+        PDF["pdf-engine"]
     end
 
     subgraph Data
-        PG[(PostgreSQL)]
-        Redis[(Redis – optional)]
-        Uploads[(Upload Volume)]
+        PG[("PostgreSQL")]
+        Redis[("Redis – optional")]
+        Uploads[("Upload Volume")]
     end
 
     Admin & Judge & Display & Public & Announcer & Overlay --> Nginx
-    Nginx -->|/api /socket.io| API
-    Nginx -->|/admin /judge …| Clients
+    Nginx -->|"/api /socket.io"| API
+    Nginx -->|"/admin /judge …"| Clients
     API --> Socket
     API --> Scoring & PDF
     API --> PG
@@ -213,7 +213,7 @@ npm run docker:logs      # Follow container logs
 ## Project Structure
 
 ```
-npha-accuracy-cms/          # repository folder (legacy name)
+aerojudge-accuracy-cms/
 ├── apps/                  # Vite React frontends
 │   ├── admin/
 │   ├── judge/
@@ -235,7 +235,7 @@ npha-accuracy-cms/          # repository folder (legacy name)
 └── uploads/               # Runtime file storage
 ```
 
-> Workspace package names (`@npha/*`) are technical identifiers and may be renamed in a future migration. User-facing branding is **AeroJudge**.
+> GitHub: [Pratap22/aerojudge-accuracy-cms](https://github.com/Pratap22/aerojudge-accuracy-cms). Workspace package names (`@npha/*`) are technical identifiers and may be renamed in a future migration. User-facing branding is **AeroJudge**.
 
 ---
 
