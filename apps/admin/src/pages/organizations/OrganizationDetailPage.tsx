@@ -167,6 +167,10 @@ export function OrganizationDetailPage() {
 
   const logoMutation = useMutation({
     mutationFn: async (file: File) => {
+      const maxBytes = 2 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        throw new Error('Organization logo is too large. Maximum size is 2 MB.');
+      }
       const formData = new FormData();
       formData.append('logo', file);
       const res = await apiFetch(`/organizations/${organizationId}/logo`, {
@@ -397,17 +401,30 @@ export function OrganizationDetailPage() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) logoMutation.mutate(file);
+                      e.target.value = '';
                     }}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={logoMutation.isPending}
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload logo
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={logoMutation.isPending}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      {logoMutation.isPending ? 'Uploading…' : 'Upload logo'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      PNG, JPEG, WebP, or SVG · max 2 MB
+                    </p>
+                    {logoMutation.isError && (
+                      <p className="text-sm text-destructive">
+                        {logoMutation.error instanceof Error
+                          ? logoMutation.error.message
+                          : 'Upload failed'}
+                      </p>
+                    )}
+                  </div>
                 </>
               )}
             </div>

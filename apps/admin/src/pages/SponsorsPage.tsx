@@ -136,6 +136,10 @@ export function SponsorsPage() {
 
   const uploadMutation = useMutation({
     mutationFn: async ({ id, file }: { id: string; file: File }) => {
+      const maxBytes = 5 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        throw new Error('Sponsor logo is too large. Maximum size is 5 MB.');
+      }
       const formData = new FormData();
       formData.append('logo', file);
       return apiRequest<CompetitionSponsor>(
@@ -215,6 +219,14 @@ export function SponsorsPage() {
           Add {singular.toLowerCase()}
         </Button>
       </div>
+
+      {uploadMutation.isError && (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {uploadMutation.error instanceof Error
+            ? uploadMutation.error.message
+            : 'Logo upload failed'}
+        </p>
+      )}
 
       <Card>
         <CardHeader>

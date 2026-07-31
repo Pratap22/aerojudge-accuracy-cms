@@ -63,4 +63,14 @@ describe('AppError', () => {
     expect(err.statusCode).toBe(404);
     expect(err.code).toBe('NOT_FOUND');
   });
+
+  it('maps Multer file-too-large to a 413 AppError', async () => {
+    const multer = await import('multer');
+    const { multerErrorToAppError } = await import('../utils/upload.js');
+    const err = new multer.default.MulterError('LIMIT_FILE_SIZE', 'logo');
+    const appErr = multerErrorToAppError(err, 2 * 1024 * 1024, 'Organization logo');
+    expect(appErr.statusCode).toBe(413);
+    expect(appErr.code).toBe('FILE_TOO_LARGE');
+    expect(appErr.message).toContain('2 MB');
+  });
 });

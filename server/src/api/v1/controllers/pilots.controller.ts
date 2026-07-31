@@ -1,8 +1,6 @@
 import type { Request, Response } from 'express';
-import multer from 'multer';
 import { createPilotSchema, paginationSchema, updatePilotSchema } from '@npha/shared';
 import { z } from 'zod';
-import { env } from '../../../config/env.js';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as pilotService from '../../../services/pilot.service.js';
@@ -13,11 +11,6 @@ const competitionParams = z.object({ competitionId: z.string().min(1) });
 const pilotParams = z.object({ competitionId: z.string().min(1), pilotId: z.string().min(1) });
 const searchQuery = z.object({ q: z.string().min(1), limit: z.coerce.number().int().min(1).max(50).optional() });
 const qrParams = z.object({ competitionId: z.string().min(1), code: z.string().min(1) });
-
-export const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: env.maxFileSizeBytes },
-});
 
 export const list = [
   validateParams(competitionParams),

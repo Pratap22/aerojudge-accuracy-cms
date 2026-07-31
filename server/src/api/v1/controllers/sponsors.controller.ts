@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { createSponsorSchema, updateSponsorSchema } from '@npha/shared';
-import multer from 'multer';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
@@ -12,11 +11,6 @@ const competitionParams = z.object({ competitionId: z.string().min(1) });
 const sponsorParams = z.object({
   competitionId: z.string().min(1),
   sponsorId: z.string().min(1),
-});
-
-export const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 export const list = [

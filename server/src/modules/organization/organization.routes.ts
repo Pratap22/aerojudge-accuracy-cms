@@ -6,6 +6,7 @@ import {
   resolveOrganizationContext,
   requireOrgMatchesParam,
 } from '../../auth/rbac.js';
+import { singleFileUpload } from '../../utils/upload.js';
 import * as ctrl from './organization.controller.js';
 
 /**
@@ -13,6 +14,8 @@ import * as ctrl from './organization.controller.js';
  * Mounted at /api/v1/organizations
  */
 const router = Router();
+
+export const ORG_LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
 router.use(requireAuth, resolveOrganizationContext);
 
@@ -47,7 +50,7 @@ router.post(
   '/:id/logo',
   requireOrgMatchesParam('id'),
   requirePermission('organization:manage'),
-  ctrl.upload.single('logo'),
+  singleFileUpload('logo', { maxBytes: ORG_LOGO_MAX_BYTES, label: 'Organization logo' }),
   ...ctrl.uploadLogo,
 );
 router.get('/:id/competitions', ...ctrl.listCompetitions);

@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import multer from 'multer';
 import { sendError } from './response.js';
 
 export class AppError extends Error {
@@ -32,6 +33,14 @@ export class AppError extends Error {
     return new AppError(409, code, message);
   }
 
+  static payloadTooLarge(
+    message: string,
+    code = 'PAYLOAD_TOO_LARGE',
+    details?: unknown,
+  ): AppError {
+    return new AppError(413, code, message, details);
+  }
+
   static internal(message = 'Internal server error', code = 'INTERNAL_ERROR'): AppError {
     return new AppError(500, code, message);
   }
@@ -49,6 +58,15 @@ export function asyncHandler(fn: AsyncRequestHandler) {
   };
 }
 
+function isMulterError(err: unknown): err is multer.MulterError {
+  return (
+    err instanceof multer.MulterError ||
+    (typeof err === 'object' &&
+      err !== null &&
+      (err as { name?: string }).name === 'MulterError')
+  );
+}
+
 export function errorHandler(
   err: unknown,
   _req: Request,
@@ -57,6 +75,21 @@ export function errorHandler(
 ): void {
   if (err instanceof AppError) {
     sendError(res, err.statusCode, err.code, err.message, err.details);
+    return;
+  }
+
+  if (isMulterError(err)) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      sendError(res, 413, 'FILE_TOO_LARGE', 'File is too large. Please upload a smaller file.', {
+        code: err.code,
+        field: err.field,
+      });
+      return;
+    }
+    sendError(res, 400, 'UPLOAD_ERROR', err.message || 'Upload failed', {
+      code: err.code,
+      field: err.field,
+    });
     return;
   }
 

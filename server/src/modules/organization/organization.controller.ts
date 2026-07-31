@@ -1,5 +1,4 @@
 import type { Request, Response } from 'express';
-import multer from 'multer';
 import {
   createOrganizationRoleSchema,
   createOrganizationSchema,
@@ -29,12 +28,6 @@ import { organizationRoleService } from './organization-role.service.js';
 const idParams = z.object({ id: z.string().min(1) });
 const memberParams = z.object({ id: z.string().min(1), memberId: z.string().min(1) });
 const roleParams = z.object({ id: z.string().min(1), roleId: z.string().min(1) });
-
-/** Multer memory storage for organization logo uploads. */
-export const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
-});
 
 /**
  * GET /organizations — paginated list (membership-scoped unless platform admin).
