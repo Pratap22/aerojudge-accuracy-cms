@@ -81,7 +81,7 @@ export interface PublicSponsor {
   id: string;
   competitionId: string;
   name: string;
-  type: string;
+  type: string | null;
   logoUrl: string | null;
   websiteUrl: string | null;
   displayOrder: number;

@@ -397,8 +397,8 @@ export interface CompetitionSponsor {
   id: string;
   competitionId: string;
   name: string;
-  /** Sponsor tier/type — TITLE, GOLD, SILVER, etc. */
-  type: string;
+  /** Sponsor tier/type — TITLE, GOLD, SILVER, etc. Null when tiers are unused. */
+  type: string | null;
   logoUrl: string | null;
   websiteUrl: string | null;
   displayOrder: number;

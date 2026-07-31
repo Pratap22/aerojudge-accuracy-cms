@@ -8,27 +8,30 @@ interface DisplayControlsProps {
   onLayoutChange: (layout: DisplayLayoutType) => void;
   kioskMode: boolean;
   onKioskToggle: () => void;
+  /** Competition partners label — Sponsors / Supporters */
+  partnersLabel?: string;
 }
-
-const LAYOUTS: { id: DisplayLayoutType; label: string }[] = [
-  { id: 'current', label: 'Current' },
-  { id: 'top10', label: 'Top 10' },
-  { id: 'women', label: 'Women' },
-  { id: 'teams', label: 'Teams' },
-  { id: 'country', label: 'Country' },
-  { id: 'next', label: 'Next' },
-  { id: 'sponsors', label: 'Sponsors' },
-  { id: 'auto', label: 'Auto' },
-];
 
 export function DisplayControls({
   layout,
   onLayoutChange,
   kioskMode,
   onKioskToggle,
+  partnersLabel = 'Sponsors',
 }: DisplayControlsProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [visible, setVisible] = useState(!kioskMode);
+
+  const layouts = [
+    { id: 'current' as const, label: 'Current' },
+    { id: 'top10' as const, label: 'Top 10' },
+    { id: 'women' as const, label: 'Women' },
+    { id: 'teams' as const, label: 'Teams' },
+    { id: 'country' as const, label: 'Country' },
+    { id: 'next' as const, label: 'Next' },
+    { id: 'sponsors' as const, label: partnersLabel },
+    { id: 'auto' as const, label: 'Auto' },
+  ];
 
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
@@ -61,7 +64,7 @@ export function DisplayControls({
     >
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-3">
         <div className="flex flex-wrap gap-2">
-          {LAYOUTS.map(({ id, label }) => (
+          {layouts.map(({ id, label }) => (
             <button
               key={id}
               type="button"

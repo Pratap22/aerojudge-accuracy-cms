@@ -9,7 +9,11 @@ export interface PublicCompetition {
   endDate: string;
   status: string;
   publicSlug: string;
-  settings?: { livePublicResults: boolean };
+  settings?: {
+    livePublicResults: boolean;
+    partnersLabel?: string;
+    partnerTiersEnabled?: boolean;
+  };
 }
 
 export type PublicCompetitionSummary = Omit<PublicCompetition, 'settings'>;
@@ -88,7 +92,7 @@ export interface WindData {
 export interface Sponsor {
   id: string;
   name: string;
-  type?: string;
+  type?: string | null;
   logoUrl?: string | null;
   websiteUrl?: string | null;
   tagline?: string;

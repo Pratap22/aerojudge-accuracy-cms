@@ -55,7 +55,7 @@ const competitionNav: Array<{
   { segment: 'teams', label: 'Teams', icon: UsersRound, end: false, anyOf: ['team:manage'] },
   {
     segment: 'sponsors',
-    label: 'Sponsors',
+    label: 'Partners',
     icon: Handshake,
     end: false,
     anyOf: ['competition:update'],

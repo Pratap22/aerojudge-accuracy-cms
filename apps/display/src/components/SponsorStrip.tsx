@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { SPONSOR_TYPES } from '@npha/shared';
-import { useSponsors } from '../hooks/useCompetition';
+import { useCompetition, useSponsors } from '../hooks/useCompetition';
 import type { Sponsor } from '../lib/types';
 
 interface SponsorStripProps {
@@ -22,7 +22,7 @@ const TYPE_LABELS: Record<string, string> = {
   STANDARD: 'Standard',
 };
 
-function typeRank(type: string | undefined): number {
+function typeRank(type: string | undefined | null): number {
   const key = (type ?? 'STANDARD').toUpperCase();
   const idx = TYPE_ORDER.indexOf(key as (typeof TYPE_ORDER)[number]);
   return idx === -1 ? TYPE_ORDER.length : idx;
@@ -68,14 +68,18 @@ function SponsorMark({ sponsor }: { sponsor: Sponsor }) {
 
 function SponsorTypeGroup({
   group,
+  showTypeLabel,
 }: {
   group: { type: string; label: string; sponsors: Sponsor[] };
+  showTypeLabel: boolean;
 }) {
   return (
     <div className="mx-5 flex h-full shrink-0 items-center gap-4 border-r border-sky-500/20 pr-6 last:border-r-0">
-      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.28em] text-sky-400">
-        {group.label}
-      </span>
+      {showTypeLabel && (
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.28em] text-sky-400">
+          {group.label}
+        </span>
+      )}
       <div className="flex h-full items-center gap-4">
         {group.sponsors.map((sponsor) => (
           <SponsorMark key={sponsor.id} sponsor={sponsor} />
@@ -86,9 +90,18 @@ function SponsorTypeGroup({
 }
 
 export function SponsorStrip({ sponsors, variant = 'strip' }: SponsorStripProps) {
+  const { data: competition } = useCompetition();
   const { data: fetched = [] } = useSponsors();
   const items = (sponsors?.length ? sponsors : fetched).filter(Boolean);
-  const groups = useMemo(() => groupSponsorsByType(items), [items]);
+  const partnersLabel = competition?.settings?.partnersLabel?.trim() || 'Sponsors';
+  const tiersEnabled = competition?.settings?.partnerTiersEnabled ?? true;
+
+  const groups = useMemo(() => {
+    if (!tiersEnabled) {
+      return [{ type: 'ALL', label: partnersLabel, sponsors: items }];
+    }
+    return groupSponsorsByType(items);
+  }, [items, tiersEnabled, partnersLabel]);
 
   if (items.length === 0) return null;
 
@@ -98,7 +111,7 @@ export function SponsorStrip({ sponsors, variant = 'strip' }: SponsorStripProps)
         {groups.map((group) => (
           <div key={group.type} className="w-full max-w-5xl">
             <p className="mb-4 text-center text-sm uppercase tracking-[0.35em] text-sky-400/80">
-              {group.label} sponsors
+              {tiersEnabled ? `${group.label} ${partnersLabel.toLowerCase()}` : partnersLabel}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-8">
               {group.sponsors.map((sponsor) => (
@@ -136,7 +149,7 @@ export function SponsorStrip({ sponsors, variant = 'strip' }: SponsorStripProps)
       className={`flex ${STRIP_HEIGHT} w-full shrink-0 items-center gap-4 overflow-hidden border-t border-sky-500/20 bg-broadcast-navy-mid/95 px-5`}
     >
       <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.3em] text-sky-400">
-        Sponsors
+        {partnersLabel}
       </span>
       <div className="relative h-full min-w-0 flex-1 overflow-hidden">
         <div
@@ -144,7 +157,11 @@ export function SponsorStrip({ sponsors, variant = 'strip' }: SponsorStripProps)
           style={{ animationDuration: `${durationSec}s` }}
         >
           {loop.map((group, i) => (
-            <SponsorTypeGroup key={`${group.type}-${i}`} group={group} />
+            <SponsorTypeGroup
+              key={`${group.type}-${i}`}
+              group={group}
+              showTypeLabel={tiersEnabled}
+            />
           ))}
         </div>
       </div>

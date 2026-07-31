@@ -272,9 +272,13 @@ export const SPONSOR_TYPES = [
 
 export const sponsorTypeSchema = z.enum(SPONSOR_TYPES);
 
+/** Common labels for competition partners (free-form string also allowed). */
+export const PARTNER_LABEL_OPTIONS = ['Sponsors', 'Supporters'] as const;
+
 export const createSponsorSchema = z.object({
   name: z.string().min(1).max(200),
-  type: sponsorTypeSchema.default('STANDARD'),
+  /** Omit or null when the competition does not use sponsor tiers */
+  type: sponsorTypeSchema.nullable().optional(),
   websiteUrl: optionalString,
   logoUrl: optionalString,
   displayOrder: z.number().int().min(0).optional(),
@@ -282,6 +286,11 @@ export const createSponsorSchema = z.object({
 });
 
 export const updateSponsorSchema = createSponsorSchema.partial();
+
+export const partnersDisplaySettingsSchema = z.object({
+  partnersLabel: z.string().min(1).max(40).optional(),
+  partnerTiersEnabled: z.boolean().optional(),
+});
 
 export type SelectOrganizationInput = z.infer<typeof selectOrganizationSchema>;
 export type InviteOrganizationMemberInput = z.infer<typeof inviteOrganizationMemberSchema>;
@@ -291,3 +300,4 @@ export type UpdateOrganizationRoleInput = z.infer<typeof updateOrganizationRoleS
 export type CreateSponsorInput = z.infer<typeof createSponsorSchema>;
 export type UpdateSponsorInput = z.infer<typeof updateSponsorSchema>;
 export type SponsorType = z.infer<typeof sponsorTypeSchema>;
+export type PartnersDisplaySettings = z.infer<typeof partnersDisplaySettingsSchema>;

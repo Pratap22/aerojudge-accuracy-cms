@@ -27,6 +27,8 @@ const settingsSchema = z.object({
   juniorMaxAge: z.number().int().optional(),
   countryRankingEnabled: z.boolean().optional(),
   livePublicResults: z.boolean().optional(),
+  partnersLabel: z.string().min(1).max(40).optional(),
+  partnerTiersEnabled: z.boolean().optional(),
 });
 
 export const list = [

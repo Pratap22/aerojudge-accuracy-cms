@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { SPONSOR_TYPES } from '@npha/shared';
-import { useSponsors } from '../hooks/useCompetition';
+import { useCompetition, useSponsors } from '../hooks/useCompetition';
 import type { Sponsor } from '../lib/types';
 
 const TYPE_ORDER = [...SPONSOR_TYPES];
@@ -38,8 +38,18 @@ function groupSponsorsByType(items: Sponsor[]) {
 }
 
 export function SponsorsLayout() {
+  const { data: competition } = useCompetition();
   const { data: sponsors = [], isLoading } = useSponsors();
-  const groups = useMemo(() => groupSponsorsByType(sponsors), [sponsors]);
+  const partnersLabel = competition?.settings?.partnersLabel?.trim() || 'Sponsors';
+  const tiersEnabled = competition?.settings?.partnerTiersEnabled ?? true;
+
+  const groups = useMemo(() => {
+    if (!tiersEnabled) {
+      return [{ type: 'ALL', label: partnersLabel, sponsors }];
+    }
+    return groupSponsorsByType(sponsors);
+  }, [sponsors, tiersEnabled, partnersLabel]);
+
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -53,16 +63,16 @@ export function SponsorsLayout() {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-sky-400/60">Loading sponsors…</p>
+        <p className="text-sky-400/60">Loading {partnersLabel.toLowerCase()}…</p>
       </div>
     );
   }
 
-  if (groups.length === 0) {
+  if (groups.length === 0 || sponsors.length === 0) {
     return (
       <div className="flex h-full items-center justify-center bg-gradient-to-br from-broadcast-navy via-broadcast-navy-mid to-broadcast-navy-light p-16">
         <p className="font-display text-3xl uppercase tracking-[0.3em] text-sky-400/50">
-          No sponsors configured
+          No {partnersLabel.toLowerCase()} configured
         </p>
       </div>
     );
@@ -70,6 +80,10 @@ export function SponsorsLayout() {
 
   const current = groups[index % groups.length];
   if (!current) return null;
+
+  const heading = tiersEnabled
+    ? `${current.label} ${partnersLabel.toLowerCase()}`
+    : partnersLabel;
 
   return (
     <div className="relative flex h-full items-center justify-center bg-gradient-to-br from-broadcast-navy via-broadcast-navy-mid to-broadcast-navy-light p-16">
@@ -82,9 +96,7 @@ export function SponsorsLayout() {
           transition={{ duration: 0.5 }}
           className="w-full max-w-6xl text-center"
         >
-          <p className="mb-10 text-sm uppercase tracking-[0.4em] text-sky-400/80">
-            {current.label} sponsors
-          </p>
+          <p className="mb-10 text-sm uppercase tracking-[0.4em] text-sky-400/80">{heading}</p>
           <div className="flex flex-wrap items-center justify-center gap-10">
             {current.sponsors.map((sponsor) => (
               <div key={sponsor.id} className="flex flex-col items-center gap-3">
@@ -111,16 +123,18 @@ export function SponsorsLayout() {
           </div>
         </motion.div>
       </AnimatePresence>
-      <div className="absolute bottom-12 flex gap-2">
-        {groups.map((g, i) => (
-          <div
-            key={g.type}
-            className={`h-2 w-2 rounded-full transition-colors ${
-              i === index ? 'bg-sky-400' : 'bg-sky-500/30'
-            }`}
-          />
-        ))}
-      </div>
+      {groups.length > 1 && (
+        <div className="absolute bottom-12 flex gap-2">
+          {groups.map((g, i) => (
+            <div
+              key={g.type}
+              className={`h-2 w-2 rounded-full transition-colors ${
+                i === index ? 'bg-sky-400' : 'bg-sky-500/30'
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

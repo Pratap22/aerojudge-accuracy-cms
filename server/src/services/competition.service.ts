@@ -151,7 +151,37 @@ export async function updateSettings(
   data: Partial<RuleConfig> & Record<string, unknown>,
 ) {
   await getCompetition(competitionId);
-  const { version: _v, customRules, tieBreakPriority, ...settingsFields } = data;
+  const { version: _v, customRules, tieBreakPriority, ...rest } = data;
+
+  const allowedKeys = [
+    'bullseyeScoreCm',
+    'maximumScoreCm',
+    'measuringUnit',
+    'discardWorstRounds',
+    'discardAfterRounds',
+    'allowReflights',
+    'maxReflightsPerRound',
+    'teamSize',
+    'teamScoringPilots',
+    'teamAllowReserves',
+    'teamMaxReserves',
+    'womenCategoryEnabled',
+    'juniorCategoryEnabled',
+    'juniorMaxAge',
+    'countryRankingEnabled',
+    'autoPrintOnRoundClose',
+    'requireChiefJudgeApproval',
+    'requireDirectorApproval',
+    'livePublicResults',
+    'offlineModeEnabled',
+    'partnersLabel',
+    'partnerTiersEnabled',
+  ] as const;
+
+  const settingsFields: Record<string, unknown> = {};
+  for (const key of allowedKeys) {
+    if (rest[key] !== undefined) settingsFields[key] = rest[key];
+  }
 
   const updateData: Prisma.CompetitionSettingsUpdateInput = {
     ...settingsFields,

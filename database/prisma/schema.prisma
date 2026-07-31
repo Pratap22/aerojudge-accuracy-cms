@@ -384,6 +384,10 @@ model CompetitionSettings {
   requireDirectorApproval Boolean @default(true)
   livePublicResults       Boolean @default(true)
   offlineModeEnabled      Boolean @default(true)
+  // UI/public label for partners, e.g. Sponsors or Supporters
+  partnersLabel           String  @default("Sponsors")
+  // When false, partner type/tier is unused (govt / supporters-style events)
+  partnerTiersEnabled     Boolean @default(true)
   customRulesJson         Json?
   tieBreakRulesJson       Json?
   penaltyRulesJson        Json?
@@ -850,7 +854,8 @@ model Sponsor {
   name          String
   logoUrl       String?
   websiteUrl    String?
-  tier          String   @default("STANDARD") // TITLE | GOLD | SILVER | STANDARD
+  // TITLE | PRESENTING | GOLD | SILVER | BRONZE | STANDARD; null when tiers unused
+  tier          String?
   displayOrder  Int      @default(0)
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())

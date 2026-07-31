@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  PARTNER_LABEL_OPTIONS,
   SPONSOR_TYPES,
   createSponsorSchema,
   type CompetitionSponsor,
@@ -43,6 +44,21 @@ const TYPE_LABELS: Record<SponsorType, string> = {
   STANDARD: 'Standard',
 };
 
+interface CompetitionWithPartners {
+  id: string;
+  settings?: {
+    partnersLabel?: string;
+    partnerTiersEnabled?: boolean;
+  } | null;
+}
+
+function singularLabel(label: string): string {
+  if (label.toLowerCase().endsWith('s') && label.length > 1) {
+    return label.slice(0, -1);
+  }
+  return label;
+}
+
 export function SponsorsPage() {
   const competitionId = useCompetitionId();
   const queryClient = useQueryClient();
@@ -50,6 +66,16 @@ export function SponsorsPage() {
   const [editing, setEditing] = useState<CompetitionSponsor | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
+
+  const { data: competition } = useQuery({
+    queryKey: ['competition', competitionId],
+    queryFn: () => api.get<CompetitionWithPartners>(`/competitions/${competitionId}`),
+    enabled: !!competitionId,
+  });
+
+  const partnersLabel = competition?.settings?.partnersLabel?.trim() || 'Sponsors';
+  const tiersEnabled = competition?.settings?.partnerTiersEnabled ?? true;
+  const singular = singularLabel(partnersLabel);
 
   const { data: sponsors = [], isLoading } = useQuery({
     queryKey: ['sponsors', competitionId],
@@ -66,13 +92,21 @@ export function SponsorsPage() {
     formState: { errors },
   } = useForm<CreateSponsorInput>({
     resolver: zodResolver(createSponsorSchema),
-    defaultValues: { name: '', type: 'STANDARD', websiteUrl: undefined },
+    defaultValues: { name: '', type: tiersEnabled ? 'STANDARD' : null, websiteUrl: undefined },
   });
 
   const selectedType = watch('type');
 
-  const invalidate = () =>
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['sponsors', competitionId] });
+    queryClient.invalidateQueries({ queryKey: ['competition', competitionId] });
+  };
+
+  const partnersSettingsMutation = useMutation({
+    mutationFn: (data: { partnersLabel: string; partnerTiersEnabled: boolean }) =>
+      api.put(`/competitions/${competitionId}/settings`, data),
+    onSuccess: invalidate,
+  });
 
   const createMutation = useMutation({
     mutationFn: (data: CreateSponsorInput) =>
@@ -80,7 +114,7 @@ export function SponsorsPage() {
     onSuccess: () => {
       invalidate();
       setFormOpen(false);
-      reset({ name: '', type: 'STANDARD' });
+      reset({ name: '', type: tiersEnabled ? 'STANDARD' : null });
     },
   });
 
@@ -91,7 +125,7 @@ export function SponsorsPage() {
       invalidate();
       setFormOpen(false);
       setEditing(null);
-      reset({ name: '', type: 'STANDARD' });
+      reset({ name: '', type: tiersEnabled ? 'STANDARD' : null });
     },
   });
 
@@ -117,17 +151,21 @@ export function SponsorsPage() {
 
   const openCreate = () => {
     setEditing(null);
-    reset({ name: '', type: 'STANDARD', websiteUrl: undefined });
+    reset({ name: '', type: tiersEnabled ? 'STANDARD' : null, websiteUrl: undefined });
     setFormOpen(true);
   };
 
   const openEdit = (sponsor: CompetitionSponsor) => {
     setEditing(sponsor);
+    const type =
+      sponsor.type && SPONSOR_TYPES.includes(sponsor.type as SponsorType)
+        ? (sponsor.type as SponsorType)
+        : tiersEnabled
+          ? 'STANDARD'
+          : null;
     reset({
       name: sponsor.name,
-      type: (SPONSOR_TYPES.includes(sponsor.type as SponsorType)
-        ? sponsor.type
-        : 'STANDARD') as SponsorType,
+      type,
       websiteUrl: sponsor.websiteUrl ?? undefined,
       isActive: sponsor.isActive,
     });
@@ -135,56 +173,124 @@ export function SponsorsPage() {
   };
 
   const onSubmit = handleSubmit((data) => {
-    if (editing) updateMutation.mutate({ id: editing.id, data });
-    else createMutation.mutate(data);
+    const payload: CreateSponsorInput = {
+      ...data,
+      type: tiersEnabled ? (data.type ?? 'STANDARD') : null,
+    };
+    if (editing) updateMutation.mutate({ id: editing.id, data: payload });
+    else createMutation.mutate(payload);
   });
 
   const byType = useMemo(() => {
+    if (!tiersEnabled) {
+      return [['ALL', sponsors] as const];
+    }
     const map = new Map<string, CompetitionSponsor[]>();
     for (const s of sponsors) {
-      const key = s.type || 'STANDARD';
+      const key = s.type || 'UNTITLED';
       const list = map.get(key) ?? [];
       list.push(s);
       map.set(key, list);
     }
     return [...map.entries()];
-  }, [sponsors]);
+  }, [sponsors, tiersEnabled]);
+
+  const labelPreset =
+    PARTNER_LABEL_OPTIONS.includes(partnersLabel as (typeof PARTNER_LABEL_OPTIONS)[number])
+      ? partnersLabel
+      : 'custom';
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Sponsors</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{partnersLabel}</h1>
           <p className="text-muted-foreground">
-            Manage competition sponsors (name, type, logo). Active sponsors appear in a moving
-            carousel on the venue display.
+            Manage competition {partnersLabel.toLowerCase()} (name
+            {tiersEnabled ? ', type' : ''}, logo). Active entries appear on the venue display.
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
-          Add sponsor
+          Add {singular.toLowerCase()}
         </Button>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Display terminology</CardTitle>
+          <CardDescription>
+            Government or association events often use &quot;Supporters&quot; without sponsor tiers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-end gap-4">
+          <div className="space-y-2">
+            <Label>Label</Label>
+            <Select
+              value={labelPreset}
+              onValueChange={(v) => {
+                if (v === 'custom') return;
+                partnersSettingsMutation.mutate({
+                  partnersLabel: v,
+                  partnerTiersEnabled: tiersEnabled,
+                });
+              }}
+            >
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PARTNER_LABEL_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt}>
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <label className="flex items-center gap-2 pb-2 text-sm">
+            <input
+              type="checkbox"
+              className="rounded"
+              checked={tiersEnabled}
+              onChange={(e) => {
+                partnersSettingsMutation.mutate({
+                  partnersLabel,
+                  partnerTiersEnabled: e.target.checked,
+                });
+              }}
+            />
+            Use sponsor tiers (Title, Gold, Silver…)
+          </label>
+        </CardContent>
+      </Card>
+
       {isLoading ? (
-        <p className="text-muted-foreground">Loading sponsors…</p>
+        <p className="text-muted-foreground">Loading {partnersLabel.toLowerCase()}…</p>
       ) : sponsors.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Handshake className="h-5 w-5" />
-              No sponsors yet
+              No {partnersLabel.toLowerCase()} yet
             </CardTitle>
-            <CardDescription>Add title, gold, silver, and other sponsor partners.</CardDescription>
+            <CardDescription>
+              Add {singular.toLowerCase()} partners
+              {tiersEnabled ? ' with optional tiers' : ''}.
+            </CardDescription>
           </CardHeader>
         </Card>
       ) : (
         <div className="space-y-6">
           {byType.map(([type, items]) => (
             <div key={type} className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                {TYPE_LABELS[type as SponsorType] ?? type}
-              </h2>
+              {tiersEnabled && (
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  {type === 'UNTITLED'
+                    ? 'No type'
+                    : (TYPE_LABELS[type as SponsorType] ?? type)}
+                </h2>
+              )}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map((sponsor) => (
                   <Card key={sponsor.id}>
@@ -193,9 +299,11 @@ export function SponsorsPage() {
                         <div className="min-w-0">
                           <CardTitle className="truncate text-base">{sponsor.name}</CardTitle>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            <Badge variant="secondary">
-                              {TYPE_LABELS[sponsor.type as SponsorType] ?? sponsor.type}
-                            </Badge>
+                            {tiersEnabled && sponsor.type && (
+                              <Badge variant="secondary">
+                                {TYPE_LABELS[sponsor.type as SponsorType] ?? sponsor.type}
+                              </Badge>
+                            )}
                             {!sponsor.isActive && <Badge variant="outline">Inactive</Badge>}
                           </div>
                         </div>
@@ -266,32 +374,36 @@ export function SponsorsPage() {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? 'Edit sponsor' : 'Add sponsor'}</DialogTitle>
+            <DialogTitle>
+              {editing ? `Edit ${singular.toLowerCase()}` : `Add ${singular.toLowerCase()}`}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="sponsor-name">Name</Label>
-              <Input id="sponsor-name" {...register('name')} placeholder="Sponsor name" />
+              <Input id="sponsor-name" {...register('name')} placeholder={`${singular} name`} />
               {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
-            <div className="space-y-2">
-              <Label>Type</Label>
-              <Select
-                value={selectedType}
-                onValueChange={(v) => setValue('type', v as SponsorType)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SPONSOR_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {TYPE_LABELS[t]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {tiersEnabled && (
+              <div className="space-y-2">
+                <Label>Type (optional)</Label>
+                <Select
+                  value={selectedType ?? 'STANDARD'}
+                  onValueChange={(v) => setValue('type', v as SponsorType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SPONSOR_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {TYPE_LABELS[t]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="sponsor-website">Website (optional)</Label>
               <Input

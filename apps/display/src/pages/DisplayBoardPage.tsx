@@ -444,6 +444,7 @@ export function DisplayBoardPage() {
           onLayoutChange={handleLayoutChange}
           kioskMode={kioskMode}
           onKioskToggle={() => setKioskMode((k) => !k)}
+          partnersLabel={competition.settings?.partnersLabel?.trim() || 'Sponsors'}
         />
       )}
     </div>

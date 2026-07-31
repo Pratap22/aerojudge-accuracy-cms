@@ -17,7 +17,13 @@ const publicCompetitionSelect = {
   endDate: true,
   status: true,
   publicSlug: true,
-  settings: { select: { livePublicResults: true } },
+  settings: {
+    select: {
+      livePublicResults: true,
+      partnersLabel: true,
+      partnerTiersEnabled: true,
+    },
+  },
 } as const;
 
 /** Resolve by competition id or publicSlug. */

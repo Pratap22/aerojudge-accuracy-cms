@@ -11,7 +11,7 @@ function mapSponsor(row: {
   id: string;
   competitionId: string;
   name: string;
-  tier: string;
+  tier: string | null;
   logoUrl: string | null;
   websiteUrl: string | null;
   displayOrder: number;
@@ -59,7 +59,7 @@ export async function createSponsor(competitionId: string, input: CreateSponsorI
     data: {
       competitionId,
       name: input.name,
-      tier: input.type ?? 'STANDARD',
+      tier: input.type ?? null,
       websiteUrl: input.websiteUrl,
       logoUrl: input.logoUrl,
       displayOrder: input.displayOrder ?? (maxOrder._max.displayOrder ?? 0) + 1,
@@ -79,7 +79,7 @@ export async function updateSponsor(
     where: { id: sponsorId },
     data: {
       ...(input.name != null ? { name: input.name } : {}),
-      ...(input.type != null ? { tier: input.type } : {}),
+      ...(input.type !== undefined ? { tier: input.type } : {}),
       ...(input.websiteUrl !== undefined ? { websiteUrl: input.websiteUrl ?? null } : {}),
       ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl ?? null } : {}),
       ...(input.displayOrder != null ? { displayOrder: input.displayOrder } : {}),
