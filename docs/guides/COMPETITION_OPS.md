@@ -14,7 +14,6 @@ This guide describes how officials run a competition day using AeroJudge — fro
 | Scorekeeper | Admin | Confirm scores, manage flight order |
 | Launch Marshal | Admin (optional) | Mark pilots launched / on deck |
 | Display Operator | Display app | Venue screens |
-| Announcer | Announcer app | Pilot call-ups, live announcements |
 
 ---
 

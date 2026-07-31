@@ -9,7 +9,7 @@ alwaysApply: false
 ## App split
 
 - **Admin / Judge:** full `@npha/ui` + Query + forms; judge has offline queue (`apps/judge/src/lib/offline-queue.ts`).
-- **Display / Public / Announcer / Overlay:** leaner UIs; often Socket.IO-driven; null-safe country/pilot fields.
+- **Display / Public:** leaner UIs; often Socket.IO-driven; null-safe country/pilot fields.
 
 ## Design system
 

@@ -125,8 +125,6 @@ npm run dev --workspace=@npha/admin       # Admin :3000
 npm run dev --workspace=@npha/judge       # Judge :3001
 npm run dev --workspace=@npha/display     # Display :3002
 npm run dev --workspace=@npha/public-results  # Public :3003
-npm run dev --workspace=@npha/announcer   # Announcer :3004
-npm run dev --workspace=@npha/broadcast-overlay  # Overlay :3005
 ```
 
 ---

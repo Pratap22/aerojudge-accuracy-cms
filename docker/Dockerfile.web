@@ -11,8 +11,6 @@ COPY apps/admin/package.json ./apps/admin/
 COPY apps/judge/package.json ./apps/judge/
 COPY apps/display/package.json ./apps/display/
 COPY apps/public-results/package.json ./apps/public-results/
-COPY apps/announcer/package.json ./apps/announcer/
-COPY apps/broadcast-overlay/package.json ./apps/broadcast-overlay/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/utils/package.json ./packages/utils/
 COPY packages/ui/package.json ./packages/ui/

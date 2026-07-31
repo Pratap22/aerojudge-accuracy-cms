@@ -58,7 +58,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh-secret-min-32-chars-long!}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-7d}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost/admin,http://localhost/judge,http://localhost/display,http://localhost/results,http://localhost/announcer,http://localhost/overlay}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost/admin,http://localhost/judge,http://localhost/display,http://localhost/results}
       UPLOAD_DIR: /app/uploads
       PRINT_ARCHIVE_DIR: /app/uploads/documents/prints
       PUBLIC_RESULTS_URL: ${PUBLIC_RESULTS_URL:-http://localhost/results}
@@ -142,36 +142,6 @@ services:
     networks:
       - npha
 
-  announcer:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.web
-      args:
-        APP_NAME: announcer
-        BASE_PATH: /announcer/
-    container_name: npha-announcer
-    restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_healthy
-    networks:
-      - npha
-
-  broadcast-overlay:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.web
-      args:
-        APP_NAME: broadcast-overlay
-        BASE_PATH: /overlay/
-    container_name: npha-broadcast-overlay
-    restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_healthy
-    networks:
-      - npha
-
   nginx:
     image: nginx:1.27-alpine
     container_name: npha-nginx
@@ -188,8 +158,6 @@ services:
       - judge
       - display
       - public-results
-      - announcer
-      - broadcast-overlay
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/admin/"]
       interval: 30s

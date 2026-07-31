@@ -15,13 +15,15 @@ export function PilotSearch() {
   const pilots = useMemo(() => {
     if (!results?.rankings) return [];
     const q = search.toLowerCase();
-    return results.rankings.filter(
-      (r) =>
-        !q ||
+    return results.rankings.filter((r) => {
+      if (!r.pilot) return false;
+      if (!q) return true;
+      return (
         pilotFullName(r.pilot.firstName, r.pilot.lastName).toLowerCase().includes(q) ||
         String(r.pilot.pilotNumber).includes(q) ||
-        r.pilot.country?.code?.toLowerCase().includes(q),
-    );
+        Boolean(r.pilot.country?.code?.toLowerCase().includes(q))
+      );
+    });
   }, [results, search]);
 
   return (
@@ -37,7 +39,9 @@ export function PilotSearch() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {pilots.map((row, index) => (
+        {pilots.map((row, index) => {
+          const pilot = row.pilot!;
+          return (
           <motion.div
             key={row.id}
             initial={{ opacity: 0, y: 10 }}
@@ -45,19 +49,19 @@ export function PilotSearch() {
             transition={{ delay: index * 0.03 }}
           >
             <Link
-              to={competitionPath(competitionId, 'pilots', String(row.pilot.pilotNumber))}
+              to={competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))}
               className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-500/30 hover:bg-white/10"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 font-bold text-sky-300">
-                {row.pilot.pilotNumber}
+                {pilot.pilotNumber}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-white">
-                  {pilotFullName(row.pilot.firstName, row.pilot.lastName)}
+                  {pilotFullName(pilot.firstName, pilot.lastName)}
                 </p>
                 <p className="text-sm text-sky-300/60">
-                  {countryCodeToEmoji(row.pilot.country?.code ?? '')}{' '}
-                  {row.pilot.country?.name ?? row.pilot.nationality ?? '—'}
+                  {countryCodeToEmoji(pilot.country?.code ?? '')}{' '}
+                  {pilot.country?.name ?? pilot.nationality ?? '—'}
                 </p>
               </div>
               <div className="text-right">
@@ -66,7 +70,8 @@ export function PilotSearch() {
               </div>
             </Link>
           </motion.div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

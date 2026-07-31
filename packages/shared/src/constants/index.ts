@@ -343,8 +343,6 @@ export const SOCKET_ROOMS = {
   round: (id: string) => `round:${id}`,
   display: (id: string) => `display:${id}`,
   public: (slug: string) => `public:${slug}`,
-  announcer: (id: string) => `announcer:${id}`,
-  broadcast: (id: string) => `broadcast:${id}`,
 } as const;
 
 export const API_VERSION = 'v1';

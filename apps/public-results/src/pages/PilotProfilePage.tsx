@@ -11,7 +11,9 @@ export function PilotProfilePage() {
   const { competitionId, pilotNumber } = useParams<{ competitionId: string; pilotNumber: string }>();
   const { data: results, isLoading } = useResults('OVERALL');
 
-  const pilot = results?.rankings.find((r) => r.pilot.pilotNumber === Number(pilotNumber));
+  const pilot = results?.rankings.find(
+    (r) => r.pilot && r.pilot.pilotNumber === Number(pilotNumber),
+  );
 
   if (isLoading) {
     return (
@@ -23,7 +25,7 @@ export function PilotProfilePage() {
     );
   }
 
-  if (!pilot) {
+  if (!pilot?.pilot) {
     return (
       <Layout>
         <div className="mx-auto max-w-7xl px-6 py-12 text-center">
@@ -39,6 +41,7 @@ export function PilotProfilePage() {
     );
   }
 
+  const profile = pilot.pilot;
   return (
     <Layout>
       <div className="mx-auto max-w-4xl px-6 py-12">
@@ -57,15 +60,15 @@ export function PilotProfilePage() {
         >
           <div className="mb-6 flex items-start gap-6">
             <span className="flex h-16 w-16 items-center justify-center rounded-full bg-sky-500 font-display text-3xl text-[#050d1a]">
-              {pilot.pilot.pilotNumber}
+              {profile.pilotNumber}
             </span>
             <div>
               <h1 className="font-display text-4xl font-bold text-white">
-                {pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName)}
+                {pilotFullName(profile.firstName, profile.lastName)}
               </h1>
               <p className="mt-2 text-lg text-sky-300">
-                {countryCodeToEmoji(pilot.pilot.country?.code ?? '')}{' '}
-                {pilot.pilot.country?.name ?? pilot.pilot.nationality ?? '—'}
+                {countryCodeToEmoji(profile.country?.code ?? '')}{' '}
+                {profile.country?.name ?? profile.nationality ?? '—'}
               </p>
             </div>
             <div className="ml-auto">
@@ -120,8 +123,8 @@ export function PilotProfilePage() {
         <section className="mt-8">
           <ScoreDisplay
             scoreCm={pilot.totalScoreCm}
-            pilotName={pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName)}
-            pilotNumber={pilot.pilot.pilotNumber}
+            pilotName={pilotFullName(profile.firstName, profile.lastName)}
+            pilotNumber={profile.pilotNumber}
             size="lg"
             className="border-white/10 bg-white/5"
           />

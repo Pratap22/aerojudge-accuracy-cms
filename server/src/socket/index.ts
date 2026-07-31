@@ -47,10 +47,6 @@ export function initSocket(httpServer: HttpServer): Server {
       socket.join(SOCKET_ROOMS.public(slug));
     });
 
-    socket.on('join:announcer', (competitionId: string) => {
-      socket.join(SOCKET_ROOMS.announcer(competitionId));
-    });
-
     socket.on('leave:competition', (competitionId: string) => {
       socket.leave(SOCKET_ROOMS.competition(competitionId));
     });
@@ -80,7 +76,6 @@ export function emitScoreUpdated(
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))
     .to(SOCKET_ROOMS.round(roundId))
-    .to(SOCKET_ROOMS.announcer(competitionId))
     .to(SOCKET_ROOMS.display(competitionId))
     .emit('score:updated', { competitionId, roundId, score, pilot });
 }
@@ -119,7 +114,6 @@ export function emitAnnouncement(
 ): void {
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))
-    .to(SOCKET_ROOMS.announcer(competitionId))
     .emit('announcement:new', { competitionId, ...announcement });
 }
 

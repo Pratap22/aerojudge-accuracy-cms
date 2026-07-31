@@ -176,7 +176,7 @@ Socket.IO rooms are scoped by `competitionId`:
 
 | Room | Subscribers |
 |------|-------------|
-| `competition:{id}` | Admin, Display, Announcer |
+| `competition:{id}` | Admin, Display, Judge |
 | `round:{id}` | Judge terminals for active round |
 
 Events are emitted after DB commits to avoid stale reads.

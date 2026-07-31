@@ -49,7 +49,10 @@ export function StatisticsPage() {
           <section className="mt-16">
             <h2 className="mb-6 font-display text-2xl text-white">Top Performers</h2>
             <div className="space-y-3">
-              {results.rankings.slice(0, 5).map((r) => (
+              {results.rankings
+                .filter((r) => r.pilot)
+                .slice(0, 5)
+                .map((r) => (
                 <div
                   key={r.id}
                   className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-6 py-4"
@@ -57,7 +60,7 @@ export function StatisticsPage() {
                   <div className="flex items-center gap-4">
                     <span className="font-display text-2xl text-sky-400/60">#{r.rank}</span>
                     <span className="font-semibold text-white">
-                      {r.pilot.firstName} {r.pilot.lastName}
+                      {r.pilot!.firstName} {r.pilot!.lastName}
                     </span>
                   </div>
                   <div className="flex items-center gap-6 text-sm">

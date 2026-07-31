@@ -2,7 +2,7 @@
 
 **AeroJudge by Nepalabs — Professional Competition Management Platform for Air Sports**
 
-A commercial SaaS monorepo for running air sports competitions. The initial release focuses on **paragliding accuracy** in compliance with the FAI Sporting Code Section 7C. AeroJudge covers registration, round management, live scoring, dual approval workflows, PDF reporting, public results, venue displays, and broadcast overlays.
+A commercial SaaS monorepo for running air sports competitions. The initial release focuses on **paragliding accuracy** in compliance with the FAI Sporting Code Section 7C. AeroJudge covers registration, round management, live scoring, dual approval workflows, PDF reporting, public results, and venue displays.
 
 Organizations (e.g. NPHA, FAI, APPI, or any federation) are first-class tenants that own competitions — not baked into the product. Manage them under Admin → Organizations.
 
@@ -21,7 +21,7 @@ See also [docs/PRODUCT.md](docs/PRODUCT.md).
 - **Approval workflow** — Chief Judge + Competition Director sign-off before results lock
 - **Rankings** — Individual, team, women, junior, and country categories with tie-break rules
 - **PDF reports** — Round score sheets, start lists, final results with QR links to public results
-- **Real-time updates** — Socket.IO for displays, announcer, and admin dashboards
+- **Real-time updates** — Socket.IO for displays, judge terminals, and admin dashboards
 - **Public results** — SEO-friendly slug-based leaderboard (`/results/?slug=…`)
 - **Role-based access** — 10 roles from Super Admin to Display Operator
 - **Audit trail** — Immutable log of score changes, approvals, and configuration updates
@@ -38,8 +38,6 @@ flowchart TB
         Judge["Judge Terminal :3001"]
         Display["Display Board :3002"]
         Public["Public Results :3003"]
-        Announcer["Announcer :3004"]
-        Overlay["Broadcast Overlay :3005"]
     end
 
     subgraph Gateway
@@ -59,7 +57,7 @@ flowchart TB
         Uploads[("Upload Volume")]
     end
 
-    Admin & Judge & Display & Public & Announcer & Overlay --> Nginx
+    Admin & Judge & Display & Public --> Nginx
     Nginx -->|"/api /socket.io"| API
     Nginx -->|"/admin /judge …"| Clients
     API --> Socket
@@ -155,8 +153,6 @@ Sample seed data uses **NPHA as an example organization** (early customer / demo
 | Judge | http://localhost:3001 | Touch scoring (login + org context) |
 | Display | http://localhost:3002 | Venue leaderboards (`/competition/:id`) |
 | Public Results | http://localhost:3003 | Public leaderboard (`/competition/:id`) |
-| Announcer | http://localhost:3004 | Live announcements (`/competition/:id`) |
-| Broadcast Overlay | http://localhost:3005 | OBS browser source (`/competition/:id`) |
 | API | http://localhost:4000/api/v1 · Swagger `/api/docs` | REST + Socket.IO |
 
 Seed sample competitions appear on each app’s home list when published with public results enabled. Legacy `?competition=` and `/:slug` URLs redirect to `/competition/:id`.
@@ -221,9 +217,7 @@ aerojudge-accuracy-cms/
 │   ├── admin/
 │   ├── judge/
 │   ├── display/
-│   ├── public-results/
-│   ├── announcer/
-│   └── broadcast-overlay/
+│   └── public-results/
 ├── packages/
 │   ├── shared/            # Zod schemas, types
 │   ├── scoring-engine/    # FAI scoring logic (isolated)
