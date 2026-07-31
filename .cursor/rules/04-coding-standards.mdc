@@ -1,0 +1,59 @@
+---
+description: TypeScript, React, naming, and shared-schema conventions
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Coding Standards
+
+## Stack (required)
+
+| Use | Notes |
+|-----|--------|
+| **TypeScript** | Strict mode (`tsconfig.base.json`). Target ES2022. **No `any`.** |
+| **Prisma** | All persistence via `@npha/database` / services — no ad-hoc SQL in apps. |
+| **React Query** | TanStack Query for server state (admin/judge). |
+| **React Hook Form** | Forms with `zodResolver`. |
+| **Zod** | Shared schemas in `@npha/shared` when possible; route-local only for one-offs. |
+
+Prettier: single quotes, semicolons, trailing commas, printWidth 100. Server ESM: `.js` suffixes on relative imports.
+
+## Style
+
+- Meaningful names
+- Reusable components and reusable hooks
+- Small functions
+- No duplicated code — extract shared helpers/components/hooks
+- Prefer **composition** over inheritance
+- Prefer **enums** (or shared const unions from `@npha/shared`) over magic strings
+- **Every exported function** should be documented (JSDoc: purpose, params, return)
+
+## Server shape
+
+```typescript
+// routes → controllers (validate + call) → services
+export const create = [
+  validateParams(competitionParams),
+  validateBody(createPilotSchema),
+  asyncHandler(async (req, res) => { /* … */ }),
+];
+```
+
+- Throw `AppError`; wrap handlers in `asyncHandler`.
+
+## React
+
+- Functional components; prefer `@npha/ui` primitives over one-off duplicates.
+- Authenticated downloads: `fetch` + Bearer + blob — never bare `window.open` on protected routes.
+- Sanitize API nulls before form `reset` (nullish-friendly Zod).
+
+## Naming
+
+- Server: `*.routes.ts`, `*.controller.ts`, `*.service.ts`
+- UI package components: kebab-case under `packages/ui/src/components/`
+
+## Don’t
+
+- No `any` (use `unknown` + narrowing, or proper types).
+- Don’t invent permission/status strings — use `PERMISSIONS` / shared enums.
+- Don’t add `useMemo`/`useCallback` by default unless that path already needs them.

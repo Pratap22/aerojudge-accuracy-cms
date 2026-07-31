@@ -1,0 +1,55 @@
+---
+description: AeroJudge product vision (Nepalabs)
+alwaysApply: true
+---
+
+# AeroJudge Product Vision
+
+**Company:** Nepalabs  
+**Product:** AeroJudge  
+**Tagline:** Professional Competition Management for Air Sports
+
+## Mission
+
+Build the world's best competition management platform for air sports.
+
+The software must manage an entire competition from registration until official results.
+
+## Roadmap
+
+**Version 1 focuses on:** Paragliding Accuracy (FAI Section 7C-aligned scoring, settings-driven).
+
+**Future versions may support:** Hang Gliding · XC · Aerobatics · Powered Paragliding · Drone Sports.
+
+## Quality bar
+
+- Commercial **SaaS** quality — never demo-quality software.
+- Multi-tenant / multi-organization ready in design: branding, orgs, sponsors, and locale data are data-driven.
+
+## Hard rules — never hardcode
+
+Do **not** hardcode any of the following into product UI, PDFs, seeds used as defaults, copy, or business logic:
+
+- Nepal
+- NPHA (or any single association)
+- Organizations
+- Sponsors
+- Countries
+
+Everything must be **configurable** (tenant/org settings, competition settings, or admin-managed reference data).
+
+## Current V1 surface (this monorepo)
+
+Registration → rounds → live scoring → dual approval → rankings → official prints → public results → venue display / announcer / OBS overlay.
+
+| App | Port | Role |
+|-----|------|------|
+| `apps/admin` | 3000 | Competition operations |
+| `apps/judge` | 3001 | Touch scoring (+ offline queue) |
+| `apps/display` | 3002 | Venue leaderboards |
+| `apps/public-results` | 3003 | Public slug results |
+| `apps/announcer` | 3004 | Live announcements |
+| `apps/broadcast-overlay` | 3005 | OBS browser source |
+| `server` | 4000 | REST API + Socket.IO |
+
+> Package names like `@npha/*` may still exist in this repo as legacy workspace IDs — treat them as technical identifiers, not product branding. New user-facing strings must say **AeroJudge** / configurable org data.

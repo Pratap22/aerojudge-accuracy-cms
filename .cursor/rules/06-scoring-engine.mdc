@@ -1,0 +1,46 @@
+---
+description: AeroJudge scoring engine — sole source of scoring logic
+globs: "{packages/scoring-engine/**,server/src/services/scoring*.ts,packages/shared/src/types/**}"
+alwaysApply: false
+---
+
+# Scoring Engine
+
+The Scoring Engine is the **heart of AeroJudge**.
+
+## Hard rules
+
+- **Never** implement scoring logic in the UI.
+- **Never** duplicate scoring calculations in services, controllers, or apps.
+- Scoring must exist **only** inside `packages/scoring-engine`.
+- Package stays pure TypeScript — **no** Express, Prisma, or React.
+- Server services orchestrate persistence and **call** the engine; they do not reimplement math.
+- Every score calculation must be **auditable** (deterministic inputs → outputs; retain enough context for audit/replay).
+
+## Must support
+
+| Area | Notes |
+|------|--------|
+| **FAI Sporting Code** | Section 7C-aligned accuracy defaults |
+| **Versioned rules** | Rule profiles / rule-set versions |
+| **Custom rule profiles** | Overrides via competition settings |
+| **Bullseye** | 0 cm |
+| **Penalty** | Applied per rules |
+| **DNF / ABS** | Max / rule-defined treatment |
+| **Reflight** | Excluded until replaced per rules |
+| **Disqualification** | DSQ handling |
+| **Tie breaking** | Ordered criteria from resolved profile |
+| **Discard rules** | After N rounds, drop worst K (settings-driven) |
+| **Team scoring** | Best N of M (+ reserves) from settings |
+
+Also: MEASURED, MAXIMUM, DNS as used by the schema/engine.
+
+## Resolution path
+
+`Competition.ruleSet` + `CompetitionSettings` → `settingsToRuleOverrides` (`competition.service.ts`) → `ScoringEngine.resolveRules` (`profiles.ts`).
+
+Settings remain the operational source of truth — do not silently hardcode Cat 1-only limits.
+
+## Tests
+
+Cover rule and calculation changes with Vitest in `packages/scoring-engine/src/__tests__/`.

@@ -1,0 +1,33 @@
+---
+description: How the AI agent should behave in this repo
+alwaysApply: true
+---
+
+# AI Behavior
+
+## Defaults
+
+- Prefer small, targeted diffs that match existing patterns.
+- Read nearby code and shared packages before inventing new abstractions.
+- Use `@npha/shared` schemas/types/permissions instead of duplicating them.
+- Keep scoring math inside `@npha/scoring-engine`; keep Prisma in services.
+
+## When fixing bugs
+
+- Trace API shape ↔ UI assumptions (null country, nested pilot, pagination max 200).
+- For auth failures on downloads/exports, check Bearer + blob pattern first.
+- For “CSS broken” in admin after reports, suspect unscoped injected HTML before rewriting the design system.
+
+## Do not
+
+- Commit unless the user asks; do not force-push or skip hooks.
+- Add unsolicited markdown docs or README sprawl — update existing `docs/` when needed.
+- Start long-running `npm run dev` unless the user needs it or servers are down for the task.
+- Mention these rule files unless asked.
+
+## Product judgment
+
+- Product is **AeroJudge** (Nepalabs) — commercial SaaS quality, not demo software.
+- Never hardcode Nepal, NPHA, organizations, sponsors, or countries; use configurable settings / reference data.
+- Settings-driven FAI flexibility over rigid Cat 1 defaults.
+- Explicit publish; dual approval before locking official scores when settings require it.

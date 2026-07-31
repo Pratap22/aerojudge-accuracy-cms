@@ -1,0 +1,26 @@
+---
+description: Where and how to maintain project documentation
+globs: "{README.md,docs/**/*.md}"
+alwaysApply: false
+---
+
+# Documentation
+
+Canonical docs live under `docs/` plus root `README.md`.
+
+| Path | Purpose |
+|------|---------|
+| `README.md` | Overview, ports, credentials, commands |
+| `docs/guides/INSTALLATION.md` | Setup, env, migrate, seed, Docker |
+| `docs/guides/COMPETITION_OPS.md` | Day-of ops by role |
+| `docs/api/API.md` | `/api/v1` overview |
+| `docs/architecture/OVERVIEW.md` | Layers, scoring isolation, sockets |
+| `docs/architecture/ER_DIAGRAM.md` | Entity relationships |
+
+## Rules
+
+- Update the relevant existing doc when behavior/ports/env/API contracts change — don’t create parallel guides.
+- Keep seed credentials and ports in sync with `.env.example` and README.
+- Document permission names and publish/approval flows accurately.
+- Prefer linking to Swagger (`/api/docs`) for exhaustive endpoint lists; keep `API.md` as the narrative map.
+- Cursor rules (`.cursor/rules/`) are agent guidance — not a substitute for user-facing docs.

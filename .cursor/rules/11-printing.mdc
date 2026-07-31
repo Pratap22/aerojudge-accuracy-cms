@@ -1,0 +1,25 @@
+---
+description: Report preview, approve, and PDF download flow
+globs: "{server/src/**/print*.ts,packages/pdf-engine/**,apps/admin/src/pages/ReportsPage.tsx}"
+alwaysApply: false
+---
+
+# Printing
+
+Routes: `/competitions/:competitionId/reports` (`print.routes.ts`, `print.service.ts`, `@npha/pdf-engine`).
+
+## Flow (Admin Reports)
+
+1. `POST …/preview` → HTML preview + `PrintHistory` `PREVIEW`
+2. `POST …/:printId/approve` → `APPROVED` (`print:approve`)
+3. `GET …/:printId/download` → PDF (Bearer + blob download in UI)
+
+Permissions: `print:generate` vs `print:approve`. Statuses: `PENDING|PREVIEW|APPROVED|PRINTED|ARCHIVED|FAILED`.
+
+## Rules
+
+- Do not enable Print/Download until the report is **approved** (unless product explicitly changes this).
+- Preview HTML must not leak global CSS into the admin shell — render in an **iframe** / `srcDoc`.
+- PDF generation stays in `@npha/pdf-engine`; services pass data + branding only.
+- Round-scoped reports (round results, launch order) require a selected round.
+- Authenticate downloads; never rely on cookie-less `window.open` for PDF/CSV.

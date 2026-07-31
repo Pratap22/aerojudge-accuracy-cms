@@ -1,0 +1,31 @@
+---
+description: FAI Section 7C compliance and rule-profile isolation
+globs: "{packages/scoring-engine/**,server/src/services/scoring*.ts,packages/shared/src/types/**,apps/**/pages/{Scoring,Rankings,Settings}Page.tsx}"
+alwaysApply: false
+---
+
+# FAI Compliance
+
+The **FAI Sporting Code Section 7C** is the authoritative source for Paragliding Accuracy.
+
+All calculations, rankings, penalties, tie-breaking, reflights, and team scoring must comply with the **configured rule profile**.
+
+## Hard rules
+
+- Rules must **never** be hardcoded into the UI.
+- Scoring decisions belong in `packages/scoring-engine` (see `06-scoring-engine.mdc`).
+- When a rule is **ambiguous**, isolate the implementation behind the Rule Engine — do not embed assumptions throughout apps or services.
+- Every scoring decision should be **traceable** through audit logs so officials can explain how results were produced.
+
+## Rule Engine must support
+
+- **FAI 2022** (and equivalent profile defaults)
+- **Future FAI revisions** (versioned profiles)
+- **National adaptations**
+- **Custom competition rules** (settings / `CUSTOM` profile)
+
+Resolution: `Competition.ruleSet` + `CompetitionSettings` → `settingsToRuleOverrides` → `ScoringEngine.resolveRules`.
+
+## Product note
+
+Competition **Settings** remain the operational source of truth for a given event; FAI text informs defaults and profiles, not scattered UI constants.

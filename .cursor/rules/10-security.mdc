@@ -1,0 +1,31 @@
+---
+description: Auth, secrets, RBAC, and audit expectations
+globs: "{server/src/auth/**,server/src/config/env.ts,server/src/api/v1/middleware/**,apps/**/lib/api.ts,apps/**/lib/auth.tsx}"
+alwaysApply: false
+---
+
+# Security
+
+## Auth
+
+- JWT access + refresh (`server/src/auth/jwt.ts`); refresh tokens persisted (`RefreshToken`)
+- Passwords: bcrypt; never log tokens or password fields
+- Admin storage keys: `npha_access_token`, `npha_refresh_token`
+- Env: Zod-validated in `server/src/config/env.ts`; JWT secrets ≥ 32 chars
+
+## HTTP hardening
+
+- Helmet, CORS allowlist, rate limiting on the API
+- Uploads constrained by `UPLOAD_DIR` / size limits; print archives under `PRINT_ARCHIVE_DIR`
+
+## RBAC
+
+- Role → permission matrix lives in `@npha/shared`; middleware uses `hasPermission`
+- Sensitive ops (pilot manage, score enter/confirm, print approve, settings) must check permissions
+
+## Rules
+
+- Never commit `.env` secrets or paste production credentials into docs/rules.
+- Protected browser downloads must send Bearer headers (blob download) — `window.open` strips custom headers.
+- Prefer audit logging on create/update/delete for competition entities (`audit.ts`).
+- Do not weaken auth “for convenience” in public or display routes; use public slug endpoints instead.

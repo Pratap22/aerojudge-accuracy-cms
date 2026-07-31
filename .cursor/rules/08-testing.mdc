@@ -1,0 +1,24 @@
+---
+description: Unit and e2e testing expectations
+globs: "{**/*.{test,spec}.{ts,tsx},e2e/**/*,**/vitest*.{ts,mjs},**/playwright*.ts}"
+alwaysApply: false
+---
+
+# Testing
+
+| Kind | Where | Runner |
+|------|-------|--------|
+| Scoring unit | `packages/scoring-engine/src/__tests__/` | Vitest |
+| Server unit | `server/src/__tests__/` | Vitest |
+| PDF | `packages/pdf-engine` | Vitest |
+| E2E | `e2e/tests/` | Playwright |
+
+Commands: `npm run test`, `npm run test:e2e`.
+
+## Rules
+
+- New scoring/profile behavior needs unit tests in the scoring-engine package.
+- Auth, critical scoring orchestration, and public-results flows deserve coverage (unit and/or e2e under `e2e/tests/`).
+- Prefer deterministic fixtures over live network in unit tests.
+- E2E may start the API webServer unless `SKIP_WEBSERVER` is set — don’t assume ports are free without checking.
+- Do not add flaky time-based assertions; control clocks/seeds where discard/order matters.

@@ -1,0 +1,30 @@
+---
+description: Prisma schema, models, and competition-scoped data rules
+globs: "database/**/*.{prisma,ts}"
+alwaysApply: false
+---
+
+# Database
+
+- Schema: `database/prisma/schema.prisma`
+- Seed: `database/prisma/seed/index.ts`
+- Client consumed as `@npha/database` (see `server/src/config/prisma.ts`)
+
+## Conventions
+
+- IDs: `cuid()`
+- Prefer enums for status/role fields
+- Competition-scoped children always include `competitionId` (+ cascade where appropriate)
+- Unique public results key: `Competition.publicSlug`
+- Indexes on competition, status, slug, common lookup columns
+
+## Core models
+
+`Competition` + `CompetitionSettings` + `RuleProfile` · `Pilot` · `Team` / `TeamMember` · `Round` · `Flight` · `Score` / `ScoreApproval` / `Penalty` · `IndividualRanking` / `TeamRanking` · `PrintHistory` · `AuditLog` · `User` / `RefreshToken` / `CompetitionUser`
+
+## Rules
+
+- Migrations only via Prisma (`npm run db:migrate`) — do not hand-edit applied SQL as the source of truth.
+- Settings drive scoring overrides; do not hardcode rule knobs only in application code when a settings field exists.
+- Publish/visibility flags (`isPublished`, score status) must stay consistent with public API filtering.
+- After schema changes: `db:generate` and update seed if demo data breaks.

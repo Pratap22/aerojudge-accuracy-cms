@@ -1,0 +1,26 @@
+---
+description: Admin/judge/display UI patterns and design tokens
+globs: "{apps/**/*.tsx,packages/ui/**/*.{ts,tsx,css}}"
+alwaysApply: false
+---
+
+# UI / UX
+
+## App split
+
+- **Admin / Judge:** full `@npha/ui` + Query + forms; judge has offline queue (`apps/judge/src/lib/offline-queue.ts`).
+- **Display / Public / Announcer / Overlay:** leaner UIs; often Socket.IO-driven; null-safe country/pilot fields.
+
+## Design system
+
+- Tokens: `packages/ui/src/globals.css` (HSL CSS variables; light `:root` + `.dark`).
+- Sports widgets: `ScoreDisplay`, `RankBadge`, `PilotChip`, `LeaderboardTable`.
+- Admin theme: `ThemeProvider` + `npha_theme`; use `text-primary` for accents — **not** `text-secondary` (secondary is a surface color in dark mode).
+
+## Rules
+
+- Prefer existing `@npha/ui` components and tokens over new one-off card/button styles.
+- Pilot names: `formatPilotName` from `@npha/utils` → **FirstName LastName**.
+- Never inject unscoped HTML (`dangerouslySetInnerHTML` of report previews) into the admin shell — use an iframe/`srcDoc` for print previews.
+- Public/display mappers must tolerate `country: null` and nested vs flat pilot shapes.
+- Keep first-viewport / marketing rules out of ops UIs; these are tools, not landing pages.

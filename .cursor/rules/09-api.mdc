@@ -1,0 +1,33 @@
+---
+description: REST /api/v1 conventions, auth, and response envelope
+globs: "server/src/api/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# API
+
+- Prefix: `/api/v1` (`server/src/api/v1/routes/index.ts`)
+- Docs: `http://localhost:4000/api/docs`
+- Overview: `docs/api/API.md`
+
+## Patterns
+
+- Nested under competitions: `/competitions/:competitionId/{pilots,teams,rounds,results,reports,…}`
+- Auth: `Authorization: Bearer <access>`; refresh via `POST /auth/refresh`
+- Guards: `requireAuth`, `requirePermission`, `requireRoles` (`server/src/auth/rbac.ts`)
+- Permissions: `PERMISSIONS` in `@npha/shared` — never invent ad-hoc strings
+
+## Response envelope
+
+```json
+{ "success": true, "data": {}, "meta": { "timestamp": "…" } }
+```
+
+Errors: `{ success: false, error: { code, message }, meta }` via `sendSuccess` / `sendError`.
+
+## Rules
+
+- Validate params/query/body with Zod middleware before service calls.
+- Static path segments (`/export`, `/search`, `/import`) must be registered **before** `/:id` params.
+- Binary downloads (CSV/PDF) may bypass JSON envelope but still require auth + correct `Content-Disposition`.
+- Write audit logs for mutating competition/pilot/score/print actions via `writeAuditLog`.

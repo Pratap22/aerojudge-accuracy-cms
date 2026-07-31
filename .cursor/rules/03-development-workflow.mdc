@@ -1,0 +1,32 @@
+---
+description: Local development, Turbo, DB, and Docker workflow
+alwaysApply: true
+---
+
+# Development Workflow
+
+## Day-to-day
+
+```bash
+cp .env.example .env   # first time
+npm install
+npm run db:generate && npm run db:migrate && npm run db:seed
+npm run dev            # Turbo — all apps + API
+```
+
+Root scripts: `dev`, `build`, `test`, `test:e2e`, `lint`, `typecheck`, `db:*`, `docker:*`.
+
+## Ports
+
+Admin `3000` · Judge `3001` · Display `3002` · Public `3003` · Announcer `3004` · Overlay `3005` · API `4000` · Swagger `/api/docs`.
+
+## Local seed (dev only — not product branding)
+
+Sample login/slug values may appear in seed/README for local bootstrapping. Prefer generic, configurable org/competition data in new seed content; do not treat NPHA/Nepal strings as product defaults.
+
+## Rules
+
+- Prefer `npm run dev` from repo root over starting single workspaces unless debugging one app.
+- After changing `@npha/shared` / `@npha/utils` schemas or exports, ensure the package rebuilds (Turbo `dev` watch or `npm run build --workspace=@npha/shared`).
+- Do not commit secrets; use `.env` / `.env.example` patterns.
+- DB changes go through Prisma migrations in `database/` — never edit production data ad hoc in agent flows.
