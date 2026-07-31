@@ -63,20 +63,20 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-slate-900 to-slate-950 p-6">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6">
       <div className="mb-8 flex items-center gap-3">
         <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-sky-500">
           <Target className="h-8 w-8 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white">AeroJudge</h1>
-          <p className="text-slate-400">Judge scoring terminal</p>
+          <h1 className="text-2xl font-bold text-foreground">AeroJudge</h1>
+          <p className="text-muted-foreground">Judge scoring terminal</p>
         </div>
       </div>
 
-      <Card className="w-full max-w-md border-slate-700 bg-slate-800/50">
+      <Card className="w-full max-w-md border-border bg-card">
         <CardHeader>
-          <CardTitle className="text-white">
+          <CardTitle className="text-foreground">
             {showSelector ? 'Select organization' : 'Sign in to score'}
           </CardTitle>
         </CardHeader>
@@ -89,46 +89,48 @@ export function LoginPage() {
                   <Button
                     key={org.organizationId}
                     variant="outline"
-                    className="flex h-auto w-full items-start justify-start gap-3 border-slate-600 bg-slate-900/50 p-4 text-left text-white hover:bg-slate-700"
+                    className="flex h-auto w-full items-start justify-start gap-3 border-border bg-muted/40 p-4 text-left text-foreground hover:bg-muted"
                     onClick={() => void onSelectOrg(org.organizationId)}
                   >
                     <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-sky-400" />
                     <span>
                       <span className="block font-semibold">{org.name}</span>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-muted-foreground">
                         {org.shortName} · {(org.customRoleName ?? org.role).replace(/_/g, ' ')}
                       </span>
                     </span>
                   </Button>
                 ))}
               {error && (
-                <div className="rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-300">{error}</div>
+                <div className="rounded-lg bg-destructive/20 px-4 py-3 text-sm text-red-300">{error}</div>
               )}
             </div>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-300">
+                <Label htmlFor="email" className="text-muted-foreground">
                   Email
                 </Label>
                 <Input
                   id="email"
                   type="email"
                   autoComplete="email"
-                  className="h-12 border-slate-600 bg-slate-900 text-lg"
+                  placeholder="judge@example.com"
+                  className="h-12 border-input bg-background text-lg text-foreground placeholder:text-muted-foreground"
                   {...register('email')}
                 />
                 {errors.email && <p className="text-sm text-red-400">{errors.email.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-300">
+                <Label htmlFor="password" className="text-muted-foreground">
                   Password
                 </Label>
                 <Input
                   id="password"
                   type="password"
                   autoComplete="current-password"
-                  className="h-12 border-slate-600 bg-slate-900 text-lg"
+                  placeholder="••••••••"
+                  className="h-12 border-input bg-background text-lg text-foreground placeholder:text-muted-foreground"
                   {...register('password')}
                 />
                 {errors.password && (
@@ -136,7 +138,7 @@ export function LoginPage() {
                 )}
               </div>
               {error && (
-                <div className="rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-300">{error}</div>
+                <div className="rounded-lg bg-destructive/20 px-4 py-3 text-sm text-red-300">{error}</div>
               )}
               <Button type="submit" size="lg" className="h-14 w-full text-lg" disabled={isSubmitting}>
                 {isSubmitting ? 'Signing in…' : 'Start Scoring Session'}

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -41,6 +41,7 @@ interface CompetitionSummary {
   name: string;
   code: string;
   status: CompetitionStatus;
+  isPublished?: boolean;
   venue: string;
   startDate: string;
   endDate: string;
@@ -62,6 +63,7 @@ const statusVariant: Record<
 
 export function DashboardPage() {
   const competitionId = useCompetitionId();
+  const queryClient = useQueryClient();
   const liveStatus = 'Connected';
 
   const { data: competitions } = useQuery({
@@ -73,6 +75,13 @@ export function DashboardPage() {
     queryKey: ['dashboard', competitionId],
     queryFn: () => api.get<DashboardStats>(`/competitions/${competitionId}/dashboard`),
     enabled: !!competitionId,
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: () => api.post<CompetitionSummary>(`/competitions/${competitionId}/publish`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competitions'] });
+    },
   });
 
   useEffect(() => {
@@ -92,6 +101,9 @@ export function DashboardPage() {
   }
 
   const activeCompetition = competitions?.find((c) => c.id === competitionId);
+  const needsPublish =
+    activeCompetition &&
+    (!activeCompetition.isPublished || activeCompetition.status === 'DRAFT');
 
   return (
     <div className="space-y-6">
@@ -103,8 +115,27 @@ export function DashboardPage() {
               ? `${activeCompetition.name} · ${activeCompetition.venue}`
               : 'Loading competition…'}
           </p>
+          {activeCompetition && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge variant={statusVariant[activeCompetition.status]}>
+                {activeCompetition.status}
+              </Badge>
+              <Badge variant={activeCompetition.isPublished ? 'success' : 'outline'}>
+                {activeCompetition.isPublished ? 'Published' : 'Unpublished'}
+              </Badge>
+            </div>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {needsPublish && (
+            <Button
+              variant="secondary"
+              disabled={publishMutation.isPending}
+              onClick={() => publishMutation.mutate()}
+            >
+              Publish competition
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link to={competitionPath(competitionId, 'rounds')}>
               <Play className="mr-2 h-4 w-4" />

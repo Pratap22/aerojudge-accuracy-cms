@@ -125,9 +125,11 @@ export async function exportPilotsCsv(competitionId: string): Promise<string> {
       'lastName',
       'gender',
       'nationality',
-      'faiLicense',
-      'civlId',
       'club',
+      'glider',
+      'civlId',
+      'notes',
+      'faiLicense',
       'status',
     ],
     ...pilots.map((p) => [
@@ -136,9 +138,11 @@ export async function exportPilotsCsv(competitionId: string): Promise<string> {
       p.lastName,
       p.gender,
       p.nationality ?? '',
-      p.faiLicense ?? '',
-      p.civlId ?? '',
       p.club ?? '',
+      p.glider ?? '',
+      p.civlId ?? '',
+      p.notes ?? '',
+      p.faiLicense ?? '',
       p.status,
     ]),
   ];
@@ -151,26 +155,37 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
   const lines = csvContent.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) throw AppError.badRequest('CSV must include header and at least one row');
 
-  const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
+  const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase().replace(/[\s_]+/g, ''));
   const colIndex = (name: string): number => header.indexOf(name);
+  const col = (cols: string[], ...names: string[]): string | undefined => {
+    for (const name of names) {
+      const idx = colIndex(name);
+      if (idx >= 0 && cols[idx]?.trim()) return cols[idx].trim();
+    }
+    return undefined;
+  };
 
   const created = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvLine(lines[i]);
     if (cols.every((c) => !c)) continue;
 
-    const numIdx = colIndex('pilotnumber');
-    const numberIdx = colIndex('number');
-    const pilotNumber = Number(cols[numIdx >= 0 ? numIdx : numberIdx >= 0 ? numberIdx : 0]);
-    const firstNameIdx = colIndex('firstname');
-    const lastNameIdx = colIndex('lastname');
-    const firstName = firstNameIdx >= 0 ? cols[firstNameIdx] : cols[1];
-    const lastName = lastNameIdx >= 0 ? cols[lastNameIdx] : cols[2];
-    const genderIdx = colIndex('gender');
-    const gender = (genderIdx >= 0 ? cols[genderIdx] : 'MALE').toUpperCase() as 'MALE' | 'FEMALE' | 'OTHER';
-    const natIdx = colIndex('nationality');
-    const countryIdx = colIndex('country');
-    const nationality = natIdx >= 0 ? cols[natIdx] : countryIdx >= 0 ? cols[countryIdx] : undefined;
+    const pilotNumber = Number(
+      col(cols, 'pilotnumber', 'number', 'pilotno') ?? cols[0],
+    );
+    const firstName = col(cols, 'firstname') ?? cols[1];
+    const lastName = col(cols, 'lastname') ?? cols[2];
+    const genderRaw = (col(cols, 'gender') ?? 'MALE').toUpperCase();
+    const gender = (['MALE', 'FEMALE', 'OTHER'].includes(genderRaw) ? genderRaw : 'MALE') as
+      | 'MALE'
+      | 'FEMALE'
+      | 'OTHER';
+    const nationality = col(cols, 'nationality', 'country');
+    const faiLicense = col(cols, 'failicense', 'fai');
+    const civlId = col(cols, 'civlid', 'civilid');
+    const club = col(cols, 'club', 'team');
+    const glider = col(cols, 'glider');
+    const notes = col(cols, 'notes', 'serialno', 'serial');
 
     if (!pilotNumber || !firstName || !lastName) {
       throw AppError.badRequest(`Invalid row ${i + 1}: pilotNumber, firstName, lastName required`);
@@ -182,6 +197,12 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
       lastName,
       gender,
       nationality,
+      faiLicense,
+      civlId,
+      club,
+      glider,
+      notes,
+      isWomen: gender === 'FEMALE',
     });
     created.push(pilot);
   }

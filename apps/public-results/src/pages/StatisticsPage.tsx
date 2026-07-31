@@ -50,7 +50,7 @@ export function StatisticsPage() {
             <h2 className="mb-6 font-display text-2xl text-white">Top Performers</h2>
             <div className="space-y-3">
               {results.rankings
-                .filter((r) => r.pilot)
+                .flatMap((r) => (r.pilot ? [{ ...r, pilot: r.pilot }] : []))
                 .slice(0, 5)
                 .map((r) => (
                 <div
@@ -60,7 +60,7 @@ export function StatisticsPage() {
                   <div className="flex items-center gap-4">
                     <span className="font-display text-2xl text-sky-400/60">#{r.rank}</span>
                     <span className="font-semibold text-white">
-                      {r.pilot!.firstName} {r.pilot!.lastName}
+                      {r.pilot.firstName} {r.pilot.lastName}
                     </span>
                   </div>
                   <div className="flex items-center gap-6 text-sm">

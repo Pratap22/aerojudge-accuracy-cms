@@ -7,6 +7,15 @@ import { getCompetition } from './competition.service.js';
 
 const ACTIVE_STATUSES: RoundStatus[] = ['OPEN', 'ACTIVE', 'PAUSED'];
 
+/** Previous round must reach one of these before the next can be created. */
+const COMPLETED_FOR_NEXT_ROUND: RoundStatus[] = [
+  'CLOSED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'LOCKED',
+  'CANCELLED',
+];
+
 export async function listRounds(competitionId: string) {
   await getCompetition(competitionId);
   return prisma.round.findMany({
@@ -51,6 +60,16 @@ export async function createRound(
   if (existingCount >= competition.maxRounds) {
     throw AppError.badRequest(
       `Cannot create more than ${competition.maxRounds} rounds (Max Rounds setting)`,
+    );
+  }
+
+  const previousRound = await prisma.round.findFirst({
+    where: { competitionId },
+    orderBy: [{ number: 'desc' }, { createdAt: 'desc' }],
+  });
+  if (previousRound && !COMPLETED_FOR_NEXT_ROUND.includes(previousRound.status as RoundStatus)) {
+    throw AppError.badRequest(
+      `Cannot create the next round until Round ${previousRound.number} is completed (close, approve, or cancel it first). Current status: ${previousRound.status}`,
     );
   }
 

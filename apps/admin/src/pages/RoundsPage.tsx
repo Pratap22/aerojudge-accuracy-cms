@@ -67,6 +67,15 @@ const statusColors: Record<
 
 type RoundAction = 'start' | 'pause' | 'resume' | 'close' | 'reopen' | 'approve' | 'lock';
 
+/** Previous round must reach one of these before Create Round is allowed. */
+const COMPLETED_FOR_NEXT: RoundStatus[] = [
+  'CLOSED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'LOCKED',
+  'CANCELLED',
+];
+
 function normalizeRound(round: RoundApi) {
   return {
     ...round,
@@ -99,6 +108,14 @@ export function RoundsPage() {
   const maxRounds = competition?.maxRounds ?? 12;
   const nextNumber = (rounds.reduce((m, r) => Math.max(m, r.number), 0) || 0) + 1;
   const atMax = rounds.length >= maxRounds;
+
+  const previousRound = useMemo(() => {
+    if (rounds.length === 0) return null;
+    return [...rounds].sort((a, b) => b.number - a.number || a.name.localeCompare(b.name))[0];
+  }, [rounds]);
+  const previousCompleted =
+    !previousRound || COMPLETED_FOR_NEXT.includes(previousRound.status);
+  const canCreate = !atMax && previousCompleted;
 
   const actionMutation = useMutation({
     mutationFn: ({ roundId, action }: { roundId: string; action: RoundAction }) =>
@@ -214,7 +231,7 @@ export function RoundsPage() {
             </span>
           </p>
         </div>
-        <Button disabled={atMax} onClick={() => setCreateOpen(true)}>
+        <Button disabled={!canCreate} onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Create Round
         </Button>
@@ -268,6 +285,13 @@ export function RoundsPage() {
         <p className="text-sm text-muted-foreground">
           Maximum of {maxRounds} rounds reached. Increase Max Rounds in competition settings to add
           more.
+        </p>
+      )}
+      {!atMax && previousRound && !previousCompleted && (
+        <p className="text-sm text-muted-foreground">
+          Finish Round {previousRound.number} before creating the next one. Close it when scoring is
+          done (then approve / lock as needed). Current status:{' '}
+          <span className="font-medium text-foreground">{previousRound.status}</span>.
         </p>
       )}
 
@@ -385,8 +409,8 @@ export function RoundsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Max rounds is a limit ({maxRounds}). Each round is created when officials are ready to
-              fly it.
+              Max rounds is a limit ({maxRounds}). Create the next round only after the previous one
+              is closed (or approved / locked / cancelled).
             </p>
             <div className="space-y-2">
               <Label>Name</Label>
@@ -424,7 +448,7 @@ export function RoundsPage() {
               Cancel
             </Button>
             <Button
-              disabled={createMutation.isPending || atMax}
+              disabled={createMutation.isPending || !canCreate}
               onClick={() => createMutation.mutate()}
             >
               {createMutation.isPending ? 'Creating…' : `Create Round ${nextNumber}`}

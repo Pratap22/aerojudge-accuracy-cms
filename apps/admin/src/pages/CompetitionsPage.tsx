@@ -32,10 +32,11 @@ import { competitionPath } from '../hooks/useCompetitionId';
 interface Competition extends Omit<CreateCompetitionInput, 'location' | 'maximumScoreCm' | 'organizationId'> {
   id: string;
   status: CompetitionStatus;
+  isPublished?: boolean;
   location?: string | null;
   organizationId?: string;
   organization?: { id: string; name: string; shortName: string; slug: string } | null;
-  settings?: { maximumScoreCm?: number } | null;
+  settings?: { maximumScoreCm?: number; livePublicResults?: boolean } | null;
 }
 
 interface CompetitionFormProps {
@@ -243,6 +244,7 @@ export function CompetitionsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { data: competitions, isLoading } = useQuery({
     queryKey: ['competitions'],
     queryFn: () => api.get<Competition[]>('/competitions'),
@@ -250,6 +252,13 @@ export function CompetitionsPage() {
 
   /** Active competition inferred from any open competition URL (shareable path). */
   const activeFromPath = location.pathname.match(/^\/competitions\/([^/]+)/)?.[1];
+
+  const publishMutation = useMutation({
+    mutationFn: (id: string) => api.post<Competition>(`/competitions/${id}/publish`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competitions'] });
+    },
+  });
 
   const handleOpen = (comp: Competition) => {
     navigate(competitionPath(comp.id));
@@ -260,7 +269,9 @@ export function CompetitionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Competitions</h1>
-          <p className="text-muted-foreground">Manage FAI Category 2 accuracy events</p>
+          <p className="text-muted-foreground">
+            Open a competition to work on it. Publish to make it visible on Display / Public Results.
+          </p>
         </div>
         <Button onClick={() => setFormOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
@@ -273,25 +284,43 @@ export function CompetitionsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {competitions?.map((comp) => {
-            const isActive = comp.id === activeFromPath;
+            const isOpen = comp.id === activeFromPath;
+            const needsPublish = !comp.isPublished || comp.status === 'DRAFT';
             return (
-              <Card
-                key={comp.id}
-                className={isActive ? 'ring-2 ring-primary' : undefined}
-              >
+              <Card key={comp.id} className={isOpen ? 'ring-2 ring-primary' : undefined}>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle>{comp.name}</CardTitle>
-                    {isActive && <Badge variant="secondary">Open</Badge>}
+                    <div className="flex flex-wrap justify-end gap-1">
+                      <Badge variant={comp.status === 'DRAFT' ? 'outline' : 'success'}>
+                        {comp.status}
+                      </Badge>
+                      {comp.isPublished ? (
+                        <Badge variant="secondary">Published</Badge>
+                      ) : (
+                        <Badge variant="outline">Unpublished</Badge>
+                      )}
+                      {isOpen && <Badge variant="secondary">Open</Badge>}
+                    </div>
                   </div>
                   <CardDescription>
                     {comp.code} · {comp.venue}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => handleOpen(comp)}>
                     Open
                   </Button>
+                  {needsPublish && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={publishMutation.isPending}
+                      onClick={() => publishMutation.mutate(comp.id)}
+                    >
+                      Publish
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
