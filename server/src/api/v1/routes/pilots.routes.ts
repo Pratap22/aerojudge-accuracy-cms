@@ -11,6 +11,7 @@ router.get('/search', ...ctrl.search);
 router.get('/qr/:code', ...ctrl.qrLookup);
 router.post('/', requirePermission('pilot:manage'), ...ctrl.create);
 router.post('/import', requirePermission('pilot:manage'), ctrl.upload.single('file'), ...ctrl.importCsv);
+router.get('/export', requirePermission('pilot:manage'), ...ctrl.exportCsv);
 router.get('/:pilotId', ...ctrl.get);
 router.patch('/:pilotId', requirePermission('pilot:manage'), ...ctrl.update);
 router.put('/:pilotId', requirePermission('pilot:manage'), ...ctrl.update);

@@ -1,4 +1,4 @@
-import { generateQrPayload, parseCsvLine, formatPilotName } from '@npha/utils';
+import { generateQrPayload, parseCsvLine, formatPilotName, toCsv } from '@npha/utils';
 import type { Prisma } from '@npha/database';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
@@ -109,6 +109,41 @@ export async function getPilotByQr(competitionId: string, qrCode: string) {
   });
   if (!pilot) throw AppError.notFound('Pilot not found for QR code');
   return pilot;
+}
+
+export async function exportPilotsCsv(competitionId: string): Promise<string> {
+  await getCompetition(competitionId);
+  const pilots = await prisma.pilot.findMany({
+    where: { competitionId },
+    orderBy: { pilotNumber: 'asc' },
+  });
+
+  const rows: string[][] = [
+    [
+      'pilotNumber',
+      'firstName',
+      'lastName',
+      'gender',
+      'nationality',
+      'faiLicense',
+      'civlId',
+      'club',
+      'status',
+    ],
+    ...pilots.map((p) => [
+      String(p.pilotNumber),
+      p.firstName,
+      p.lastName,
+      p.gender,
+      p.nationality ?? '',
+      p.faiLicense ?? '',
+      p.civlId ?? '',
+      p.club ?? '',
+      p.status,
+    ]),
+  ];
+
+  return toCsv(rows);
 }
 
 export async function importPilotsFromCsv(competitionId: string, csvContent: string) {

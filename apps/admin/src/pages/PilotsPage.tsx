@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@npha/ui';
-import { api } from '../lib/api';
+import { api, getAccessToken } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
 interface Pilot {
@@ -113,8 +113,37 @@ export function PilotsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pilots'] }),
   });
 
-  const handleExport = () => {
-    window.open(`/api/v1/competitions/${activeCompetitionId}/pilots/export?format=csv`, '_blank');
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExport = async () => {
+    if (!activeCompetitionId) return;
+    setExportError(null);
+    try {
+      const token = getAccessToken();
+      const response = await fetch(
+        `/api/v1/competitions/${activeCompetitionId}/pilots/export?format=csv`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        throw new Error(body?.error?.message ?? `Export failed (${response.status})`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pilots-${activeCompetitionId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Export failed');
+    }
   };
 
   const openCreate = () => {
@@ -164,7 +193,7 @@ export function PilotsPage() {
             <Upload className="mr-2 h-4 w-4" />
             Import CSV
           </Button>
-          <Button variant="outline" onClick={handleExport}>
+          <Button variant="outline" onClick={() => void handleExport()}>
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
@@ -174,6 +203,8 @@ export function PilotsPage() {
           </Button>
         </div>
       </div>
+
+      {exportError && <p className="text-sm text-destructive">{exportError}</p>}
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

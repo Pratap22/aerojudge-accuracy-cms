@@ -128,3 +128,16 @@ export const importCsv = [
     sendSuccess(res, result, 201);
   }),
 ];
+
+export const exportCsv = [
+  validateParams(competitionParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const csv = await pilotService.exportPilotsCsv(req.params.competitionId);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="pilots-${req.params.competitionId}.csv"`,
+    );
+    res.status(200).send(csv);
+  }),
+];
