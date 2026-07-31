@@ -14,6 +14,7 @@ import { useCompetition, useResults, toLeaderboardEntries } from './hooks/useCom
 import { useDisplaySocket } from './hooks/useDisplaySocket';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType } from './lib/types';
 import { getAutoInterval, getLayoutFromQuery, isKioskMode } from './lib/utils';
+import { getCompetitionSlug } from './lib/api';
 
 function App() {
   const queryLayout = getLayoutFromQuery() as DisplayLayoutType;
@@ -84,6 +85,23 @@ function App() {
     window.history.replaceState({}, '', url);
   }, []);
 
+  if (!getCompetitionSlug()) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-broadcast-navy p-8 text-center">
+        <p className="font-display text-4xl text-sky-300">Select a competition</p>
+        <p className="mt-4 text-sky-400/80">
+          Open with{' '}
+          <code className="rounded bg-black/40 px-2 py-1 text-sky-200">
+            ?competition=your-public-slug
+          </code>
+        </p>
+        <p className="mt-2 text-sm text-sky-500/70">
+          Or set <code className="text-sky-300">VITE_COMPETITION_SLUG</code> for local defaults.
+        </p>
+      </div>
+    );
+  }
+
   if (compLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-broadcast-navy">
@@ -95,8 +113,9 @@ function App() {
   if (compError || !competition) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-broadcast-navy p-8 text-center">
-        <p className="font-display text-4xl text-red-400">Connection Error</p>
-        <p className="mt-4 text-sky-300">Unable to load competition data. Check API connection.</p>
+        <p className="font-display text-4xl text-red-400">Competition not found</p>
+        <p className="mt-4 text-sky-300">Check the public slug and that results are published.</p>
+        <p className="mt-2 font-mono text-sm text-sky-500/80">slug: {getCompetitionSlug()}</p>
       </div>
     );
   }

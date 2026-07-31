@@ -28,6 +28,17 @@ function App() {
     );
   }
 
+  if (!competition) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-tent-navy p-8 text-center">
+        <p className="text-2xl font-bold text-sky-300">Select a competition</p>
+        <p className="mt-2 text-sky-400/80">
+          Open with <code className="text-sky-200">?competition=your-public-slug</code>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-tent-navy p-4 md:p-6">
       <header className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">

@@ -1,4 +1,4 @@
-import { Navigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Hero } from '../components/Hero';
 import { useCompetition, useResults } from '../hooks/useCompetition';
@@ -9,7 +9,16 @@ export function HomePage() {
   const { data: competition, isLoading, error } = useCompetition();
   const { data: results } = useResults('OVERALL');
 
-  if (!slug) return <Navigate to="/npha-acc-2024" replace />;
+  if (!slug) {
+    return (
+      <Layout>
+        <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+          <h1 className="font-display text-4xl text-white">Missing competition slug</h1>
+          <p className="mt-4 text-sky-300/70">Open a URL like /your-competition-slug</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (isLoading) {
     return (

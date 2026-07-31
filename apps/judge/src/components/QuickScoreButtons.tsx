@@ -36,11 +36,14 @@ export function QuickScoreButtons({
           type="button"
           disabled={disabled}
           className={cn(
-            'h-14 text-base font-bold text-white border-2 active:scale-95 transition-transform',
+            'h-14 text-base font-bold text-white border-2 transition-transform active:scale-95',
             className,
-            selected === type && 'ring-2 ring-white ring-offset-2 ring-offset-slate-900',
+            selected === type
+              ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900'
+              : 'border-transparent opacity-90',
           )}
           onClick={() => onSelect(type, distance)}
+          aria-pressed={selected === type}
         >
           {label}
         </Button>

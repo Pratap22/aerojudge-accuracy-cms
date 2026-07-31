@@ -7,17 +7,33 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { AuthTokens, AuthUser } from '@npha/shared';
-import { api, clearTokens, getAccessToken, setTokens } from './api';
+import type {
+  AuthOrganizationMembership,
+  AuthUser,
+  LoginResult,
+} from '@npha/shared';
+import {
+  api,
+  clearTokens,
+  getAccessToken,
+  getOrganizationId,
+  getRefreshToken,
+  setOrganizationId,
+  setTokens,
+} from './api';
 import { disconnectSocket } from './socket';
 
 interface AuthContextValue {
   user: AuthUser | null;
+  organizations: AuthOrganizationMembership[];
+  currentOrganization: AuthOrganizationMembership | null;
+  requiresOrganizationSelection: boolean;
   isLoading: boolean;
   isAuthenticated: boolean;
   competitionId: string | null;
   setCompetitionId: (id: string | null) => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  selectOrganization: (organizationId: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -26,6 +42,8 @@ const COMPETITION_KEY = 'npha_judge_competition';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [organizations, setOrganizations] = useState<AuthOrganizationMembership[]>([]);
+  const [requiresOrganizationSelection, setRequiresOrganizationSelection] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [competitionId, setCompetitionIdState] = useState<string | null>(() =>
     localStorage.getItem(COMPETITION_KEY),
@@ -43,42 +61,124 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return;
     }
+
     api
       .get<AuthUser>('/auth/me')
-      .then(setUser)
+      .then((me) => {
+        setUser(me);
+        setOrganizations(me.organizations ?? []);
+        const storedOrg = getOrganizationId();
+        const activeMemberships =
+          me.organizations?.filter((o) => o.status === 'ACTIVE') ?? [];
+
+        if (storedOrg && activeMemberships.some((o) => o.organizationId === storedOrg)) {
+          const membership = activeMemberships.find((o) => o.organizationId === storedOrg)!;
+          setUser({
+            ...me,
+            organizationId: membership.organizationId,
+            orgRole: membership.role,
+            permissions: membership.permissions,
+          });
+          setRequiresOrganizationSelection(false);
+        } else if (me.organizationId) {
+          setOrganizationId(me.organizationId);
+          setRequiresOrganizationSelection(false);
+        } else if (activeMemberships.length > 1) {
+          setRequiresOrganizationSelection(true);
+        } else if (activeMemberships.length === 1) {
+          setOrganizationId(activeMemberships[0].organizationId);
+          setUser({
+            ...me,
+            organizationId: activeMemberships[0].organizationId,
+            orgRole: activeMemberships[0].role,
+            permissions: activeMemberships[0].permissions,
+          });
+          setRequiresOrganizationSelection(false);
+        }
+      })
       .catch(() => {
         clearTokens();
         setUser(null);
+        setOrganizations([]);
       })
       .finally(() => setIsLoading(false));
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const result = await api.post<{ user: AuthUser; tokens: AuthTokens }>('/auth/login', {
-      email,
-      password,
-    });
+    const result = await api.post<LoginResult>('/auth/login', { email, password });
     setTokens(result.tokens);
     setUser(result.user);
+    setOrganizations(result.organizations);
+    setRequiresOrganizationSelection(result.requiresOrganizationSelection);
+    if (result.user.organizationId) {
+      setOrganizationId(result.user.organizationId);
+    } else {
+      setOrganizationId(null);
+    }
+    return result;
   }, []);
+
+  const selectOrganization = useCallback(async (organizationId: string) => {
+    const result = await api.post<LoginResult>('/auth/select-organization', {
+      organizationId,
+    });
+    if (result.tokens.accessToken) {
+      const refresh = getRefreshToken();
+      setTokens({
+        accessToken: result.tokens.accessToken,
+        refreshToken: result.tokens.refreshToken || refresh || '',
+        expiresIn: result.tokens.expiresIn,
+      });
+    }
+    setOrganizationId(organizationId);
+    setUser(result.user);
+    setOrganizations(result.organizations);
+    setRequiresOrganizationSelection(false);
+    setCompetitionId(null);
+  }, [setCompetitionId]);
 
   const logout = useCallback(() => {
     clearTokens();
+    setOrganizationId(null);
     setUser(null);
+    setOrganizations([]);
+    setRequiresOrganizationSelection(false);
+    setCompetitionId(null);
     disconnectSocket();
-  }, []);
+  }, [setCompetitionId]);
+
+  const currentOrganization = useMemo(() => {
+    const orgId = getOrganizationId() || user?.organizationId;
+    if (!orgId) return null;
+    return organizations.find((o) => o.organizationId === orgId) ?? null;
+  }, [user, organizations]);
 
   const value = useMemo(
     () => ({
       user,
+      organizations,
+      currentOrganization,
+      requiresOrganizationSelection,
       isLoading,
       isAuthenticated: !!user,
       competitionId,
       setCompetitionId,
       login,
+      selectOrganization,
       logout,
     }),
-    [user, isLoading, competitionId, setCompetitionId, login, logout],
+    [
+      user,
+      organizations,
+      currentOrganization,
+      requiresOrganizationSelection,
+      isLoading,
+      competitionId,
+      setCompetitionId,
+      login,
+      selectOrganization,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

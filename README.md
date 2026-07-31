@@ -149,15 +149,17 @@ Sample seed data uses **NPHA as an example organization** (early customer / demo
 
 ## Apps & Ports
 
-| App | Dev Port | Docker Path | Purpose |
-|-----|----------|-------------|---------|
-| Admin | 3000 | `/admin/` | Competition management portal |
-| Judge | 3001 | `/judge/` | Touch scoring terminal |
-| Display | 3002 | `/display/` | Venue leaderboard screens |
-| Public Results | 3003 | `/results/` | Public leaderboard |
-| Announcer | 3004 | `/announcer/` | Live announcements |
-| Broadcast Overlay | 3005 | `/overlay/` | OBS browser source |
-| API | 4000 | `/api/v1` | REST + Socket.IO |
+| App | Dev URL | Purpose |
+|-----|---------|---------|
+| Admin | http://localhost:3000 | Competition management (org RBAC) |
+| Judge | http://localhost:3001 | Touch scoring (login + org context) |
+| Display | http://localhost:3002/?competition=npha-acc-2024 | Venue leaderboards (public slug) |
+| Public Results | http://localhost:3003/npha-acc-2024 | Public leaderboard |
+| Announcer | http://localhost:3004/?competition=npha-acc-2024 | Live announcements |
+| Broadcast Overlay | http://localhost:3005/?competition=npha-acc-2024 | OBS browser source |
+| API | http://localhost:4000/api/v1 · Swagger `/api/docs` | REST + Socket.IO |
+
+Seed slug `npha-acc-2024` is sample data only — pass it explicitly (or via `VITE_COMPETITION_SLUG` / `VITE_DEFAULT_SLUG`), never treated as a product default.
 
 ---
 

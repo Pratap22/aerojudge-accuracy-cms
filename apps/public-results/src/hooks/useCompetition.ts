@@ -8,7 +8,7 @@ import type { PublicResults } from '../lib/types';
 
 export function useSlug(): string {
   const { slug } = useParams<{ slug: string }>();
-  return slug ?? import.meta.env.VITE_DEFAULT_SLUG ?? 'npha-acc-2024';
+  return (slug ?? import.meta.env.VITE_DEFAULT_SLUG ?? '').trim();
 }
 
 export function useCompetition() {
@@ -17,6 +17,7 @@ export function useCompetition() {
     queryKey: ['competition', slug],
     queryFn: () => fetchCompetition(slug),
     staleTime: 60_000,
+    enabled: Boolean(slug),
   });
 }
 
@@ -28,6 +29,7 @@ export function useResults(category: RankingCategory = 'OVERALL') {
     queryKey: ['results', slug, category],
     queryFn: () => fetchResults(slug, category),
     staleTime: 10_000,
+    enabled: Boolean(slug),
   });
 
   useEffect(() => {

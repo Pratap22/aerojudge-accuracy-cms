@@ -155,9 +155,27 @@ export function ScoringPage() {
 
   const handleQuickSelect = (type: ScoreResultType, distance: number | null) => {
     if (scoresReadOnly) return;
+    setConfirmed(false);
+    confirmMutation.reset();
+
+    // Tap again to clear special result and return to measured keypad entry
+    if (resultType === type && type !== 'MEASURED') {
+      setResultType('MEASURED');
+      setDistanceInput('');
+      return;
+    }
+
     setResultType(type);
     if (distance !== null) setDistanceInput(String(distance));
     else if (type !== 'MEASURED') setDistanceInput('');
+  };
+
+  const handleDistanceChange = (v: string) => {
+    if (scoresReadOnly) return;
+    setDistanceInput(v);
+    setResultType('MEASURED');
+    setConfirmed(false);
+    confirmMutation.reset();
   };
 
   const selectPilot = (flightId: string) => {
@@ -175,6 +193,13 @@ export function ScoringPage() {
     setPendingCount(getPendingCount());
     if (result.synced > 0) refetch();
   };
+
+  const canConfirm =
+    !confirmMutation.isPending &&
+    !confirmed &&
+    !scoresReadOnly &&
+    !!currentFlight &&
+    (resultType !== 'MEASURED' || distanceInput !== '');
 
   if (!competitionId) {
     return (
@@ -211,7 +236,7 @@ export function ScoringPage() {
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-6 p-4 lg:grid-cols-3 lg:p-6">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-2">
           {scoresReadOnly && (
             <div className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-sm text-slate-300">
               Round is <strong>{roundMeta?.status}</strong> — scores are final and cannot be changed.
@@ -257,19 +282,22 @@ export function ScoringPage() {
 
           <NumericKeypad
             value={distanceInput}
-            onChange={(v) => {
-              if (scoresReadOnly) return;
-              setDistanceInput(v);
-              setResultType('MEASURED');
-            }}
+            onChange={handleDistanceChange}
             disabled={confirmMutation.isPending || scoresReadOnly || resultType !== 'MEASURED'}
           />
+
+          {resultType !== 'MEASURED' && !scoresReadOnly && (
+            <p className="text-center text-sm text-slate-400">
+              Tap <strong className="text-slate-200">{resultType}</strong> again to clear and enter a
+              measured distance
+            </p>
+          )}
 
           <div className="flex gap-3">
             <Button
               size="lg"
               className="h-16 flex-1 text-xl font-bold"
-              disabled={confirmMutation.isPending || confirmed || scoresReadOnly}
+              disabled={!canConfirm}
               onClick={() => confirmMutation.mutate()}
             >
               {confirmed ? (
@@ -282,6 +310,31 @@ export function ScoringPage() {
               )}
             </Button>
           </div>
+
+          {confirmed && !scoresReadOnly && (
+            <div className="flex justify-center gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setConfirmed(false);
+                  confirmMutation.reset();
+                }}
+              >
+                Edit score
+              </Button>
+              {flights && currentIndex < flights.length - 1 && (
+                <Button
+                  onClick={() => {
+                    setCurrentIndex((i) => i + 1);
+                    setConfirmed(false);
+                    confirmMutation.reset();
+                  }}
+                >
+                  Next pilot
+                </Button>
+              )}
+            </div>
+          )}
 
           <p className="text-center text-sm text-slate-500">
             Pilot {currentIndex + 1} of {flights?.length ?? 0} — use the # dropdown to switch

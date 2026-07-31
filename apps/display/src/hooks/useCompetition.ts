@@ -13,6 +13,7 @@ export function useCompetition() {
     queryKey: ['competition', slug],
     queryFn: () => fetchCompetition(slug),
     staleTime: 60_000,
+    enabled: Boolean(slug),
   });
 }
 
@@ -25,6 +26,7 @@ export function useResults(category: RankingCategory = 'OVERALL') {
     queryFn: () => fetchResults(slug, category),
     staleTime: 10_000,
     refetchInterval: 30_000,
+    enabled: Boolean(slug),
   });
 
   const invalidate = () => {

@@ -19,7 +19,7 @@ async function publicFetch<T>(path: string, params?: Record<string, string | num
 
 export function getCompetitionSlug(): string {
   const params = new URLSearchParams(window.location.search);
-  return params.get('competition') ?? import.meta.env.VITE_COMPETITION_SLUG ?? 'npha-acc-2024';
+  return (params.get('competition') ?? import.meta.env.VITE_COMPETITION_SLUG ?? '').trim();
 }
 
 export function fetchCompetition(slug: string): Promise<PublicCompetition> {

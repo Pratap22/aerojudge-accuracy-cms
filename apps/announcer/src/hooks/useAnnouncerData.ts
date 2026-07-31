@@ -20,12 +20,14 @@ export function useAnnouncerData() {
   const competitionQuery = useQuery({
     queryKey: ['competition', slug],
     queryFn: () => fetchCompetition(slug),
+    enabled: Boolean(slug),
   });
 
   const resultsQuery = useQuery({
     queryKey: ['results', slug],
     queryFn: () => fetchResults(slug),
     staleTime: 10_000,
+    enabled: Boolean(slug),
   });
 
   const refreshResults = useCallback(() => {

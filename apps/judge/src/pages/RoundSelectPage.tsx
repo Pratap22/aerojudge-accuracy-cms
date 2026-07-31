@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight, LogOut, Target } from 'lucide-react';
 import { Badge, Button, Card, CardContent } from '@npha/ui';
 import type { RoundStatus } from '@npha/shared';
-import { api } from '../lib/api';
+import { api, getOrganizationId } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
 interface RoundOption {
@@ -35,12 +35,13 @@ const statusVariant: Record<RoundStatus, 'default' | 'secondary' | 'success' | '
 };
 
 export function RoundSelectPage() {
-  const { user, competitionId, setCompetitionId, logout } = useAuth();
+  const { user, competitionId, setCompetitionId, logout, currentOrganization } = useAuth();
   const navigate = useNavigate();
 
-  const { data: competitions } = useQuery({
-    queryKey: ['competitions'],
+  const { data: competitions, isLoading: compsLoading, error: compsError } = useQuery({
+    queryKey: ['competitions', currentOrganization?.organizationId ?? getOrganizationId()],
     queryFn: () => api.get<CompetitionOption[]>('/competitions'),
+    enabled: !!(currentOrganization?.organizationId || getOrganizationId()),
   });
 
   const activeCompId = competitionId ?? competitions?.[0]?.id;
@@ -74,7 +75,12 @@ export function RoundSelectPage() {
           <div>
             <p className="font-semibold">Select Round</p>
             <p className="text-sm text-slate-400">
-              {user?.firstName} {user?.lastName} · {user?.role.replace(/_/g, ' ')}
+              {user?.firstName} {user?.lastName}
+              {currentOrganization
+                ? ` · ${currentOrganization.shortName} · ${(currentOrganization.customRoleName ?? currentOrganization.role).replace(/_/g, ' ')}`
+                : user?.orgRole
+                  ? ` · ${user.orgRole.replace(/_/g, ' ')}`
+                  : ''}
             </p>
           </div>
         </div>
@@ -85,6 +91,16 @@ export function RoundSelectPage() {
       </header>
 
       <main className="mx-auto max-w-2xl p-6">
+        {compsError && (
+          <p className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-sm text-red-300">
+            {(compsError as Error).message || 'Failed to load competitions. Check organization context.'}
+          </p>
+        )}
+        {!compsLoading && competitions?.length === 0 && (
+          <p className="mb-4 text-center text-slate-400">
+            No competitions in this organization yet.
+          </p>
+        )}
         {competitions && competitions.length > 1 && (
           <div className="mb-6 flex flex-wrap gap-2">
             {competitions.map((c) => (
