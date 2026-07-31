@@ -426,7 +426,7 @@ export function DisplayBoardPage() {
         <LayoutRouter
           layoutKey={
             competitionCompleted
-              ? `completed-podium-${podiumCategory}`
+              ? 'completed-podium'
               : awaitingFirstScore
                 ? `awaiting-r${roundPhase.activeRoundNumber}`
                 : roundPhase.phase === 'closed'

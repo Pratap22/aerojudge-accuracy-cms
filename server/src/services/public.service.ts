@@ -229,7 +229,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           firstName: true,
           lastName: true,
           nationality: true,
-          country: { select: { name: true, code: true } },
+          country: { select: { name: true, code: true, code2: true } },
         },
       },
     },
@@ -240,7 +240,21 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
     category,
     official: !!result?.isOfficial,
     publishedAt: result?.publishedAt,
-    rankings,
+    rankings: rankings.map((r) => ({
+      ...r,
+      pilot: r.pilot
+        ? {
+            ...r.pilot,
+            country: r.pilot.country
+              ? {
+                  name: r.pilot.country.name,
+                  code: r.pilot.country.code2 || r.pilot.country.code,
+                  code2: r.pilot.country.code2,
+                }
+              : null,
+          }
+        : null,
+    })),
     payload: result?.payloadJson ?? null,
   };
 }

@@ -20,7 +20,10 @@ export interface LeaderboardEntry {
   lastName: string;
   /** When set, shown instead of first/last name (teams, countries) */
   displayName?: string;
+  /** ISO 3166-1 alpha-2 for flag emoji */
   countryCode2?: string;
+  /** Display name of the country (optional) */
+  countryName?: string;
   flagUrl?: string;
   /** Total score in cm (lower is better) */
   totalScoreCm: number;
