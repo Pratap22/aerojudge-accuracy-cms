@@ -46,6 +46,14 @@ export interface LeaderboardTableProps extends React.HTMLAttributes<HTMLDivEleme
   highlightPodium?: boolean;
 }
 
+/** ISO 3166-1 alpha-2 suitable for flag emoji (excludes placeholder XX). */
+function toFlagEmoji(code2: string | undefined): string | null {
+  if (!code2) return null;
+  const upper = code2.trim().toUpperCase();
+  if (upper.length !== 2 || upper === 'XX' || !/^[A-Z]{2}$/.test(upper)) return null;
+  return String.fromCodePoint(...upper.split('').map((c) => 127397 + c.charCodeAt(0)));
+}
+
 export function LeaderboardTable({
   entries,
   title,
@@ -79,6 +87,7 @@ export function LeaderboardTable({
             const label =
               entry.displayName ??
               `${entry.firstName}${entry.lastName ? ` ${entry.lastName}` : ''}`.trim();
+            const flagEmoji = toFlagEmoji(entry.countryCode2);
             return (
               <TableRow
                 key={`${entry.rank}-${entry.pilotNumber}-${label}`}
@@ -94,14 +103,9 @@ export function LeaderboardTable({
                 <TableCell>
                   {entry.hideNumber ? (
                     <div className="inline-flex items-center gap-2 font-medium">
-                      {entry.countryCode2 && (
+                      {flagEmoji && (
                         <span className="text-base leading-none" aria-hidden>
-                          {String.fromCodePoint(
-                            ...entry.countryCode2
-                              .toUpperCase()
-                              .split('')
-                              .map((c) => 127397 + c.charCodeAt(0)),
-                          )}
+                          {flagEmoji}
                         </span>
                       )}
                       <span>{label}</span>

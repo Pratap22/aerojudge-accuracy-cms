@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ClipboardList, LogOut, Target } from 'lucide-react';
@@ -52,19 +53,42 @@ export function RoundSelectPage() {
   const { user, competitionId, setCompetitionId, logout, currentOrganization } = useAuth();
   const navigate = useNavigate();
 
+  const orgId = currentOrganization?.organizationId ?? getOrganizationId();
+
   const { data: competitions, isLoading: compsLoading, error: compsError } = useQuery({
-    queryKey: ['competitions', currentOrganization?.organizationId ?? getOrganizationId()],
+    queryKey: ['competitions', orgId],
     queryFn: () => api.get<CompetitionOption[]>('/competitions'),
-    enabled: !!(currentOrganization?.organizationId || getOrganizationId()),
+    enabled: !!orgId,
+    refetchInterval: 10_000,
   });
 
-  const activeCompId = competitionId ?? competitions?.[0]?.id;
+  // Ignore a stale competitionId left in localStorage from a previous/deleted competition.
+  const activeCompId =
+    (competitionId && competitions?.some((c) => c.id === competitionId)
+      ? competitionId
+      : undefined) ?? competitions?.[0]?.id;
   const activeCompetition = competitions?.find((c) => c.id === activeCompId);
 
-  const { data: rounds, isLoading: roundsLoading } = useQuery({
+  useEffect(() => {
+    if (!competitions?.length) return;
+    if (competitionId && !competitions.some((c) => c.id === competitionId)) {
+      setCompetitionId(activeCompId ?? null);
+      return;
+    }
+    if (!competitionId && activeCompId) {
+      setCompetitionId(activeCompId);
+    }
+  }, [competitions, competitionId, activeCompId, setCompetitionId]);
+
+  const {
+    data: rounds,
+    isLoading: roundsLoading,
+    error: roundsError,
+  } = useQuery({
     queryKey: ['rounds', activeCompId],
     queryFn: () => api.get<RoundOption[]>(`/competitions/${activeCompId}/rounds`),
     enabled: !!activeCompId,
+    refetchInterval: 5_000,
   });
 
   const roundsNormalized = (rounds ?? []).map((r) => {
@@ -108,34 +132,51 @@ export function RoundSelectPage() {
       </header>
 
       <main className="mx-auto max-w-2xl p-6">
-        {compsError && (
+        {(compsError || roundsError) && (
           <p className="mb-4 rounded-lg bg-destructive/20 px-4 py-3 text-sm text-red-300">
-            {(compsError as Error).message ||
-              'Failed to load competitions. Check organization context.'}
+            {(compsError as Error | null)?.message ||
+              (roundsError as Error | null)?.message ||
+              'Failed to load competition data. Check organization context.'}
           </p>
         )}
 
-        {competitions && competitions.length > 1 && (
-          <div className="mb-6 flex flex-wrap gap-2">
-            {competitions.map((c) => (
-              <Button
-                key={c.id}
-                variant={c.id === activeCompId ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setCompetitionId(c.id)}
-              >
-                {c.code}
-              </Button>
-            ))}
+        {competitions && competitions.length > 0 && (
+          <div className="mb-6 space-y-2">
+            {activeCompetition && (
+              <p className="text-sm text-muted-foreground">
+                Competition:{' '}
+                <span className="font-medium text-foreground">{activeCompetition.name}</span>
+                <span className="text-muted-foreground"> ({activeCompetition.code})</span>
+              </p>
+            )}
+            {competitions.length > 1 && (
+              <div className="flex flex-wrap gap-2">
+                {competitions.map((c) => (
+                  <Button
+                    key={c.id}
+                    variant={c.id === activeCompId ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCompetitionId(c.id)}
+                  >
+                    {c.code}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {isLoading ? (
           <p className="py-16 text-center text-muted-foreground">Loading rounds…</p>
+        ) : !orgId ? (
+          <EmptyState
+            title="Organization required"
+            body="Sign out and sign in again, then select your organization so competitions can load."
+          />
         ) : !competitions?.length ? (
           <EmptyState
             title="No competition available"
-            body="This organization has no competitions yet. Ask the Meet Director or Chief Judge to create and publish a competition in Admin."
+            body="This organization has no competitions yet. Ask the Meet Director or Chief Judge to create a competition in Admin."
           />
         ) : !roundsNormalized.length ? (
           <EmptyState

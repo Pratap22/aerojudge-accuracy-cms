@@ -191,14 +191,93 @@ describe('calculateIndividualRankings', () => {
       resultType: 'DNF',
       finalScoreCm: 1000,
       roundId: 'r2',
+      isProvisional: true,
     });
     expect(filled[1].roundScores).toHaveLength(2);
-    expect(filled[1].roundScores.every((s) => s.resultType === 'DNF')).toBe(true);
+    expect(filled[1].roundScores.every((s) => s.resultType === 'DNF' && s.isProvisional)).toBe(
+      true,
+    );
 
     const rankings = calculateIndividualRankings(filled, rules);
     expect(rankings[0].pilotId).toBe('p1');
     expect(rankings[0].totalScoreCm).toBe(1010);
+    expect(rankings[0].roundsFlown).toBe(1);
     expect(rankings[1].totalScoreCm).toBe(2000);
+    expect(rankings[1].roundsFlown).toBe(0);
+  });
+
+  it('ranks a scored pilot ahead of unscored pilots using maximum for missing', () => {
+    const rules = { ...resolveCompetitionRules('FAI_2022'), maximumScoreCm: 500 };
+    const filled = fillMissingRoundScoresAsDnf(
+      [
+        { pilotId: 'p1', pilotNumber: 1, roundScores: [] },
+        {
+          pilotId: 'p30',
+          pilotNumber: 30,
+          roundScores: [
+            {
+              pilotId: 'p30',
+              roundId: 'r1',
+              roundNumber: 1,
+              finalScoreCm: 5,
+              resultType: 'MEASURED',
+              isBullseye: false,
+              isDiscarded: false,
+            },
+          ],
+        },
+        { pilotId: 'p2', pilotNumber: 2, roundScores: [] },
+      ],
+      [{ id: 'r1', number: 1 }],
+      rules,
+    );
+    const rankings = calculateIndividualRankings(filled, rules);
+    expect(rankings[0].pilotId).toBe('p30');
+    expect(rankings[0].rank).toBe(1);
+    expect(rankings[0].totalScoreCm).toBe(5);
+    expect(rankings[1].totalScoreCm).toBe(500);
+    expect(rankings[1].roundsFlown).toBe(0);
+  });
+
+  it('does not rank a maximum score above a better measured score', () => {
+    const rules = resolveCompetitionRules('FAI_2022');
+    const rankings = calculateIndividualRankings(
+      [
+        {
+          pilotId: 'p30',
+          pilotNumber: 30,
+          roundScores: [
+            {
+              pilotId: 'p30',
+              roundId: 'r1',
+              roundNumber: 1,
+              finalScoreCm: rules.maximumScoreCm,
+              resultType: 'MAXIMUM',
+              isBullseye: false,
+              isDiscarded: false,
+            },
+          ],
+        },
+        {
+          pilotId: 'p5',
+          pilotNumber: 5,
+          roundScores: [
+            {
+              pilotId: 'p5',
+              roundId: 'r1',
+              roundNumber: 1,
+              finalScoreCm: 12,
+              resultType: 'MEASURED',
+              isBullseye: false,
+              isDiscarded: false,
+            },
+          ],
+        },
+      ],
+      rules,
+    );
+    expect(rankings[0].pilotId).toBe('p5');
+    expect(rankings[1].pilotId).toBe('p30');
   });
 });
 

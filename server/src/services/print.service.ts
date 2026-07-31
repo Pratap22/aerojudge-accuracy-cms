@@ -1,13 +1,26 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { generateResultsPdf, type GenerateReportInput } from '@npha/pdf-engine';
+import {
+  generateResultsPdf,
+  resolveReportCellValue,
+  type GenerateReportInput,
+} from '@npha/pdf-engine';
 import type { PrintFormat, ReportType } from '@npha/shared';
 import { formatPilotName, formatScoreCm } from '@npha/utils';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { getCompetition } from './competition.service.js';
-import { getIndividualRankings, getTeamRankings } from './scoring.service.js';
+import { getIndividualRankings, getTeamRankings, recalculateRankings } from './scoring.service.js';
+
+const RANKING_ROUND_STATUSES = [
+  'ACTIVE',
+  'PAUSED',
+  'CLOSED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'LOCKED',
+] as const;
 
 function buildApprovalLine(input: {
   firstName: string;
@@ -31,23 +44,13 @@ function reportToHtml(input: GenerateReportInput): string {
   const headerCells = input.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
   const bodyRows = input.rows
     .map((row) => {
-      let scoreIdx = 0;
+      const scoreIdx = { current: 0 };
       const cells = input.columns.map((col) => {
-        const key = col.toLowerCase();
-        if (key.includes('rank') || key.includes('order')) return `<td>${escapeHtml(row.rank)}</td>`;
-        if (key === 'no' || key === 'number' || key.includes('pilot no'))
-          return `<td>${escapeHtml(row.pilotNumber ?? '')}</td>`;
-        if (key === 'name' || key === 'team' || key === 'pilot' || key === 'metric' || key === 'item')
-          return `<td>${escapeHtml(row.name)}</td>`;
-        if (key.includes('country')) return `<td>${escapeHtml(row.country ?? '')}</td>`;
-        if (key.includes('signature') || key.includes('sign'))
+        const key = col.toLowerCase().trim();
+        if (key === 'signature' || key === 'sign' || key.includes('signature')) {
           return `<td class="sig">&nbsp;</td>`;
-        if (key.includes('total') || key === 'value' || key.includes('score (cm)'))
-          return `<td>${escapeHtml(row.total)}</td>`;
-        if (key.includes('note')) return `<td>${escapeHtml(row.notes ?? '')}</td>`;
-        const value = row.scores?.[scoreIdx];
-        scoreIdx += 1;
-        return `<td>${escapeHtml(value ?? row.notes ?? '')}</td>`;
+        }
+        return `<td>${escapeHtml(resolveReportCellValue(col, row, scoreIdx))}</td>`;
       });
       return `<tr>${cells.join('')}</tr>`;
     })
@@ -376,19 +379,55 @@ async function buildReportInput(
 
   if (reportType === 'OVERALL_RESULTS' || reportType === 'WOMEN_RESULTS') {
     const category = reportType === 'WOMEN_RESULTS' ? 'WOMEN' : 'OVERALL';
+    // Refresh standings so live ACTIVE-round scores appear in the report.
+    await recalculateRankings(competition.id);
     const rankings = await getIndividualRankings(competition.id, category);
+
+    const rounds = await prisma.round.findMany({
+      where: {
+        competitionId: competition.id,
+        type: 'OFFICIAL',
+        status: { in: [...RANKING_ROUND_STATUSES] },
+      },
+      orderBy: { number: 'asc' },
+      select: { id: true, number: true },
+    });
+
+    const scores = await prisma.score.findMany({
+      where: {
+        roundId: { in: rounds.map((r) => r.id) },
+        status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+        finalScoreCm: { not: null },
+      },
+      select: { pilotId: true, roundId: true, finalScoreCm: true },
+    });
+    const scoreMap = new Map(
+      scores.map((s) => [`${s.pilotId}:${s.roundId}`, s.finalScoreCm as number]),
+    );
+
+    const maxCm =
+      (competition.settings as { maximumScoreCm?: number } | null)?.maximumScoreCm ?? 500;
+    const roundHeaders = rounds.map((r) => `R${r.number}`);
+    const scoredRankings = rankings.filter((r) => r.roundsFlown > 0);
     return {
       reportType,
       format,
       branding,
       title: category === 'WOMEN' ? "Women's Individual Results" : 'Overall Individual Results',
-      columns: ['Rank', 'No', 'Name', 'Country', 'Rounds', 'Bullseyes', 'Total'],
-      rows: rankings.map((r) => ({
+      columns: ['Rank', 'No', 'Name', 'Country', ...roundHeaders, 'Bullseyes', 'Total'],
+      rows: scoredRankings.map((r) => ({
         rank: r.rank,
         pilotNumber: r.pilot.pilotNumber,
         name: formatPilotName(r.pilot.firstName, r.pilot.lastName),
         country: r.pilot.country?.name ?? r.pilot.nationality ?? '',
-        scores: [r.roundsFlown, r.bullseyes],
+        scores: [
+          ...rounds.map((round) => {
+            const cm = scoreMap.get(`${r.pilotId}:${round.id}`);
+            // Missing round on overall sheet uses competition maximum (e.g. 500).
+            return formatScoreCm(cm ?? maxCm);
+          }),
+          r.bullseyes,
+        ],
         total: formatScoreCm(r.totalScoreCm),
         notes: `${r.roundsFlown}r / ${r.bullseyes}•`,
       })),
@@ -396,6 +435,7 @@ async function buildReportInput(
   }
 
   if (reportType === 'TEAM_RESULTS') {
+    await recalculateRankings(competition.id);
     const rankings = await getTeamRankings(competition.id);
     return {
       reportType,
@@ -481,13 +521,14 @@ async function buildReportInput(
   }
 
   if (reportType === 'ROUND_RESULTS') {
+    await recalculateRankings(competition.id);
     const round = roundId
       ? await prisma.round.findFirst({ where: { id: roundId, competitionId: competition.id } })
       : await prisma.round.findFirst({
           where: {
             competitionId: competition.id,
             type: 'OFFICIAL',
-            status: { in: ['APPROVED', 'LOCKED', 'CLOSED', 'ACTIVE'] },
+            status: { in: [...RANKING_ROUND_STATUSES] },
           },
           orderBy: [{ number: 'desc' }],
         });
@@ -505,9 +546,13 @@ async function buildReportInput(
     }
 
     const scores = await prisma.score.findMany({
-      where: { roundId: round.id },
+      where: {
+        roundId: round.id,
+        status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+        finalScoreCm: { not: null },
+      },
       include: { pilot: { include: { country: true } } },
-      orderBy: { finalScoreCm: 'asc' },
+      orderBy: [{ finalScoreCm: 'asc' }, { pilot: { pilotNumber: 'asc' } }],
     });
 
     return {
@@ -520,9 +565,9 @@ async function buildReportInput(
         rank: i + 1,
         pilotNumber: s.pilot.pilotNumber,
         name: formatPilotName(s.pilot.firstName, s.pilot.lastName),
-        country: s.pilot.country?.name ?? '',
-        scores: [s.finalScoreCm != null ? formatScoreCm(s.finalScoreCm) : '—'],
-        total: s.finalScoreCm != null ? formatScoreCm(s.finalScoreCm) : '—',
+        country: s.pilot.country?.name ?? s.pilot.nationality ?? '',
+        scores: [],
+        total: formatScoreCm(s.finalScoreCm),
       })),
     };
   }

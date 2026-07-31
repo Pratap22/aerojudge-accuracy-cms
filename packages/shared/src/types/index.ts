@@ -192,6 +192,11 @@ export interface RoundScoreEntry {
   resultType: ScoreResultType;
   isBullseye: boolean;
   isDiscarded: boolean;
+  /**
+   * Synthetic fill for a pilot who has not yet scored this round
+   * (live standings use maximumScoreCm). Not counted in roundsFlown.
+   */
+  isProvisional?: boolean;
 }
 
 export interface IndividualRankingResult {

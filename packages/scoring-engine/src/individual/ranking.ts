@@ -72,8 +72,9 @@ export function applyDiscardRules(
 }
 
 /**
- * For each countable round, pilots without a score receive DNF at maximumScoreCm.
- * Used so incomplete rounds still contribute correctly to totals (FAI Section 7C).
+ * For each listed round, pilots without a score receive DNF at maximumScoreCm
+ * (competition setting — e.g. 500). Existing scores are preserved and merged.
+ * Filled scores are marked isProvisional so roundsFlown stays accurate for UI filters.
  */
 export function fillMissingRoundScoresAsDnf(
   pilots: PilotRankingInput[],
@@ -84,10 +85,11 @@ export function fillMissingRoundScoresAsDnf(
 
   return pilots.map((pilot) => {
     const byRound = new Map(pilot.roundScores.map((s) => [s.roundId, s]));
-    const filled: RoundScoreEntry[] = rounds.map((round) => {
-      const existing = byRound.get(round.id);
-      if (existing) return existing;
-      return {
+    const filled: RoundScoreEntry[] = [...pilot.roundScores];
+
+    for (const round of rounds) {
+      if (byRound.has(round.id)) continue;
+      filled.push({
         pilotId: pilot.pilotId,
         roundId: round.id,
         roundNumber: round.number,
@@ -95,8 +97,10 @@ export function fillMissingRoundScoresAsDnf(
         resultType: 'DNF',
         isBullseye: false,
         isDiscarded: false,
-      };
-    });
+        isProvisional: true,
+      });
+    }
+
     return { ...pilot, roundScores: filled };
   });
 }
@@ -214,14 +218,16 @@ export function calculateIndividualRankings(
     );
 
     const totalScoreCm = kept.reduce((sum, s) => sum + s.finalScoreCm, 0);
-    const bullseyes = kept.filter((s) => s.isBullseye).length;
+    const actualFlown = kept.filter((s) => !s.isProvisional);
+    const bullseyes = actualFlown.filter((s) => s.isBullseye).length;
 
     return {
       pilotId: pilot.pilotId,
       category,
       rank: 0,
       totalScoreCm,
-      roundsFlown: kept.length,
+      // Only real (judge-entered) scores count as rounds flown — provisional max fills do not.
+      roundsFlown: actualFlown.length,
       bullseyes,
       discardedScoreCm: discarded.length ? discardedTotal : null,
       roundScores: [...kept, ...discarded],
@@ -230,9 +236,16 @@ export function calculateIndividualRankings(
     };
   });
 
-  // Sort by total ascending (lower is better), then tie-break
+  // Sort by total ascending (lower is better). Provisional max fills mean unscored
+  // pilots sit at maximumScoreCm rather than 0. Prefer pilots who have actually flown
+  // when totals are otherwise equal after fill.
   results.sort((a, b) => {
     if (a.totalScoreCm !== b.totalScoreCm) return a.totalScoreCm - b.totalScoreCm;
+
+    const aFlown = a.roundsFlown > 0;
+    const bFlown = b.roundsFlown > 0;
+    if (aFlown !== bFlown) return aFlown ? -1 : 1;
+
     const aInput = filtered.find((p) => p.pilotId === a.pilotId)!;
     const bInput = filtered.find((p) => p.pilotId === b.pilotId)!;
     const tb = comparePilotsForTieBreak(a, b, aInput, bInput, rules.tieBreakPriority);

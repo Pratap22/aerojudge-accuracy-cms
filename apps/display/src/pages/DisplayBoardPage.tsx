@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
@@ -14,7 +14,7 @@ import { SponsorsLayout } from '../layouts/SponsorsLayout';
 import { useCompetition, useLatestScore, useResults, toLeaderboardEntries } from '../hooks/useCompetition';
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
-import { getAutoInterval, getLayoutFromQuery, isKioskMode } from '../lib/utils';
+import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
 
 export function DisplayBoardPage() {
   const { competitionId } = useParams<{ competitionId: string }>();
@@ -22,6 +22,10 @@ export function DisplayBoardPage() {
   const [layout, setLayout] = useState<DisplayLayoutType>(queryLayout);
   const [autoIndex, setAutoIndex] = useState(0);
   const [kioskMode, setKioskMode] = useState(isKioskMode());
+  /** When set, force Current until this timestamp (ms). */
+  const [scoreFocusUntil, setScoreFocusUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const lastHandledScoreAt = useRef<number | null>(null);
 
   const { data: competition, isLoading: compLoading, error: compError } = useCompetition();
   const { data: overallResults, invalidate: refreshOverall } = useResults('OVERALL');
@@ -48,12 +52,45 @@ export function DisplayBoardPage() {
     });
   }, [persistedLatest, socketState.seedLatestScore]);
 
+  // Pin Current when a judge enters a live score.
+  useEffect(() => {
+    const at = socketState.lastLiveScoreAt;
+    if (!at || at === lastHandledScoreAt.current) return;
+    lastHandledScoreAt.current = at;
+    setScoreFocusUntil(at + getScoreHoldSeconds() * 1000);
+  }, [socketState.lastLiveScoreAt]);
+
+  // Tick while score-focus hold is active so we clear it on time.
+  useEffect(() => {
+    if (scoreFocusUntil <= 0) return;
+    if (Date.now() >= scoreFocusUntil) {
+      setScoreFocusUntil(0);
+      return;
+    }
+    setNow(Date.now());
+    const tick = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= scoreFocusUntil) {
+        setScoreFocusUntil(0);
+      }
+    }, 500);
+    return () => clearInterval(tick);
+  }, [scoreFocusUntil]);
+
+  const scoreFocusActive = scoreFocusUntil > 0 && now < scoreFocusUntil;
+
   const latestScore = socketState.latestScore;
   const lastScorePilotId = latestScore?.pilotId ?? socketState.currentPilotId;
 
-  const effectiveLayout = socketState.layoutOverride ?? layout;
-  const activeLayout: DisplayLayoutType =
-    effectiveLayout === 'auto' ? AUTO_LAYOUT_SEQUENCE[autoIndex] : effectiveLayout;
+  const baseLayout = socketState.layoutOverride ?? layout;
+  const inAuto = !scoreFocusActive && baseLayout === 'auto';
+  const controlsLayout: DisplayLayoutType = scoreFocusActive ? 'current' : baseLayout;
+  const activeLayout: DisplayLayoutType = scoreFocusActive
+    ? 'current'
+    : baseLayout === 'auto'
+      ? AUTO_LAYOUT_SEQUENCE[autoIndex]
+      : baseLayout;
 
   useEffect(() => {
     document.body.classList.toggle('kiosk-mode', kioskMode);
@@ -61,13 +98,13 @@ export function DisplayBoardPage() {
   }, [kioskMode]);
 
   useEffect(() => {
-    if (effectiveLayout !== 'auto') return;
+    if (!inAuto) return;
     const interval = getAutoInterval();
     const timer = setInterval(() => {
       setAutoIndex((i) => (i + 1) % AUTO_LAYOUT_SEQUENCE.length);
     }, interval * 1000);
     return () => clearInterval(timer);
-  }, [effectiveLayout]);
+  }, [inAuto]);
 
   const overallEntries = useMemo(() => toLeaderboardEntries(overallResults), [overallResults]);
   const womenEntries = useMemo(() => toLeaderboardEntries(womenResults), [womenResults]);
@@ -78,12 +115,9 @@ export function DisplayBoardPage() {
     const rankings = overallResults?.rankings ?? [];
     const findInRankings = (id: string | null | undefined) => {
       if (!id) return null;
-      return (
-        rankings.find((r) => r.id === id || r.pilotId === id) ?? null
-      );
+      return rankings.find((r) => r.id === id || r.pilotId === id) ?? null;
     };
 
-    // Prefer the pilot who was last scored by the judge
     const fromLastScore = findInRankings(lastScorePilotId);
     if (fromLastScore) return fromLastScore;
 
@@ -132,6 +166,7 @@ export function DisplayBoardPage() {
   }, [overallResults, currentPilot]);
 
   const handleLayoutChange = useCallback((newLayout: DisplayLayoutType) => {
+    setScoreFocusUntil(0);
     setLayout(newLayout);
     if (newLayout !== 'auto') {
       setAutoIndex(0);
@@ -245,7 +280,7 @@ export function DisplayBoardPage() {
       </main>
 
       <DisplayControls
-        layout={effectiveLayout}
+        layout={controlsLayout}
         onLayoutChange={handleLayoutChange}
         kioskMode={kioskMode}
         onKioskToggle={() => setKioskMode((k) => !k)}

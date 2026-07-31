@@ -185,16 +185,28 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
     settingsToRuleOverrides(competition.settings ?? undefined),
   );
 
-  // Only approved/locked official rounds count toward ranking; missing scores → DNF/max
+  // Official rounds that contribute to live + official standings.
+  // In-progress rounds count entered scores; DNF fill applies only after approve/lock.
+  const LIVE_OR_FINAL = [
+    'ACTIVE',
+    'PAUSED',
+    'CLOSED',
+    'PENDING_APPROVAL',
+    'APPROVED',
+    'LOCKED',
+  ] as const;
+
   const countableRounds = await prisma.round.findMany({
     where: {
       competitionId,
       type: 'OFFICIAL',
-      status: { in: ['APPROVED', 'LOCKED'] },
+      status: { in: [...LIVE_OR_FINAL] },
     },
     orderBy: { number: 'asc' },
-    select: { id: true, number: true },
+    select: { id: true, number: true, status: true },
   });
+
+  const roundsForScoreFill = countableRounds.map((r) => ({ id: r.id, number: r.number }));
 
   const pilots = await prisma.pilot.findMany({
     where: { competitionId },
@@ -232,8 +244,10 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
       ),
   }));
 
+  // Unscored pilots get maximumScoreCm (e.g. 500) for every countable round so
+  // overall totals are not treated as 0 / best. Provisional fills are excluded from roundsFlown.
   return {
-    pilots: ScoringEngine.fillMissingRoundScoresAsDnf(pilotInputs, countableRounds, rules),
+    pilots: ScoringEngine.fillMissingRoundScoresAsDnf(pilotInputs, roundsForScoreFill, rules),
     rules,
   };
 }

@@ -74,17 +74,19 @@ interface CountryRankingApi {
 }
 
 function mapIndividual(rows: IndividualRankingApi[]): RankingRow[] {
-  return rows.map((r) => ({
-    rank: r.rank,
-    id: r.pilotId,
-    name: r.pilot
-      ? `#${r.pilot.pilotNumber} ${r.pilot.firstName} ${r.pilot.lastName}`
-      : r.pilotId,
-    country: r.pilot?.country?.name ?? r.pilot?.country?.code,
-    totalScoreCm: r.totalScoreCm,
-    roundsFlown: r.roundsFlown,
-    bullseyes: r.bullseyes,
-  }));
+  return rows
+    .filter((r) => r.roundsFlown > 0)
+    .map((r) => ({
+      rank: r.rank,
+      id: r.pilotId,
+      name: r.pilot
+        ? `#${r.pilot.pilotNumber} ${r.pilot.firstName} ${r.pilot.lastName}`
+        : r.pilotId,
+      country: r.pilot?.country?.name ?? r.pilot?.country?.code,
+      totalScoreCm: r.totalScoreCm,
+      roundsFlown: r.roundsFlown,
+      bullseyes: r.bullseyes,
+    }));
 }
 
 function mapTeam(rows: TeamRankingApi[]): RankingRow[] {

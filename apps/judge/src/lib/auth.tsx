@@ -110,13 +110,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(result.user);
     setOrganizations(result.organizations);
     setRequiresOrganizationSelection(result.requiresOrganizationSelection);
+    setCompetitionId(null);
     if (result.user.organizationId) {
       setOrganizationId(result.user.organizationId);
     } else {
       setOrganizationId(null);
     }
     return result;
-  }, []);
+  }, [setCompetitionId]);
 
   const selectOrganization = useCallback(async (organizationId: string) => {
     const result = await api.post<LoginResult>('/auth/select-organization', {

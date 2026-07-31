@@ -57,7 +57,8 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
     .filter((row) => {
       if (category === 'TEAM') return Boolean(row?.team);
       if (category === 'COUNTRY') return Boolean(row?.country);
-      return Boolean(row?.pilot);
+      // Hide pilots who have not scored yet (provisional max-only totals).
+      return Boolean(row?.pilot) && (row.roundsFlown ?? 0) > 0;
     })
     .map((row) => {
       if (category === 'TEAM' && row.team) {
@@ -68,7 +69,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
           lastName: '',
           displayName: row.team.name,
           hideNumber: true,
-          countryCode2: row.team.country?.code ?? 'XX',
+          countryCode2: row.team.country?.code || undefined,
           totalScoreCm: row.totalScoreCm,
           roundsFlown: row.roundsFlown,
           bullseyes: row.bullseyes,
@@ -83,7 +84,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
           lastName: '',
           displayName: row.country.name,
           hideNumber: true,
-          countryCode2: row.country.code ?? 'XX',
+          countryCode2: row.country.code || undefined,
           totalScoreCm: row.totalScoreCm,
           roundsFlown: row.roundsFlown,
           bullseyes: row.bullseyes,
@@ -95,7 +96,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
         pilotNumber: row.pilot?.pilotNumber ?? 0,
         firstName: row.pilot?.firstName ?? '',
         lastName: row.pilot?.lastName ?? '',
-        countryCode2: row.pilot?.country?.code ?? row.pilot?.nationality ?? 'XX',
+        countryCode2: row.pilot?.country?.code || row.pilot?.nationality || undefined,
         totalScoreCm: row.totalScoreCm,
         roundsFlown: row.roundsFlown,
         bullseyes: row.bullseyes,

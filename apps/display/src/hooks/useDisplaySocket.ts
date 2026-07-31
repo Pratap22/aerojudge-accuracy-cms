@@ -7,6 +7,8 @@ interface DisplaySocketState {
   currentPilotId: string | null;
   currentFlightId: string | null;
   latestScore: LiveScore | null;
+  /** Timestamp of the last live score:updated from a judge (not seed/persist). */
+  lastLiveScoreAt: number | null;
   layoutOverride: DisplayLayoutType | null;
   wind: WindData | null;
   lastRankingUpdate: RankingCategory | null;
@@ -16,6 +18,7 @@ const initialState: DisplaySocketState = {
   currentPilotId: null,
   currentFlightId: null,
   latestScore: null,
+  lastLiveScoreAt: null,
   layoutOverride: null,
   wind: null,
   lastRankingUpdate: null,
@@ -80,6 +83,7 @@ export function useDisplaySocket(competitionId: string | undefined, onRankingUpd
         setState((prev) => ({
           ...prev,
           currentPilotId: score.pilotId,
+          lastLiveScoreAt: Date.now(),
           latestScore: {
             pilotId: score.pilotId,
             pilotNumber: pilot?.pilotNumber ?? prev.latestScore?.pilotNumber ?? 0,

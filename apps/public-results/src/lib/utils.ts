@@ -1,8 +1,8 @@
 import { formatScoreCm } from '@npha/utils';
 
 export function countryCodeToEmoji(code2: string): string {
-  const upper = code2.toUpperCase();
-  if (upper.length !== 2) return '';
+  const upper = code2.trim().toUpperCase();
+  if (upper.length !== 2 || upper === 'XX' || !/^[A-Z]{2}$/.test(upper)) return '';
   return String.fromCodePoint(...upper.split('').map((char) => 127397 + char.charCodeAt(0)));
 }
 

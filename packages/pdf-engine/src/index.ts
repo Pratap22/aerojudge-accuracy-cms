@@ -33,6 +33,41 @@ export interface ResultRow {
   notes?: string;
 }
 
+/**
+ * Map a column header to a cell value.
+ * Important: do not use key.includes('rank') — "Rounds" contains "rank" and would steal the rank value.
+ */
+export function resolveReportCellValue(
+  column: string,
+  row: ResultRow,
+  scoreIdx: { current: number },
+): string {
+  const key = column.toLowerCase().trim();
+
+  if (key === 'rank' || key === '#' || key === 'order') return String(row.rank);
+  if (key === 'no' || key === 'number' || key === 'pilot no' || key === 'pilot number')
+    return row.pilotNumber != null ? String(row.pilotNumber) : '';
+  if (
+    key === 'name' ||
+    key === 'team' ||
+    key === 'pilot' ||
+    key === 'metric' ||
+    key === 'item'
+  ) {
+    return row.name;
+  }
+  if (key === 'country' || key.startsWith('country')) return row.country ?? '';
+  if (key === 'signature' || key === 'sign' || key.includes('signature')) return '';
+  if (key === 'total' || key === 'value' || key === 'score (cm)' || key.endsWith(' total'))
+    return String(row.total);
+  if (key === 'notes' || key === 'note') return row.notes ?? '';
+
+  const value = row.scores?.[scoreIdx.current];
+  scoreIdx.current += 1;
+  return value != null ? String(value) : '';
+}
+
+
 export interface GenerateReportInput {
   reportType: ReportType;
   format: PrintFormat;
@@ -142,43 +177,8 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
       drawTableHeader();
     }
 
-    const values = input.columns.map((col) => {
-      const key = col.toLowerCase();
-      if (key.includes('rank') || key.includes('order')) return String(row.rank);
-      if (key === 'no' || key === 'number' || key.includes('pilot no'))
-        return row.pilotNumber != null ? String(row.pilotNumber) : '';
-      if (key === 'name' || key === 'team' || key === 'pilot' || key === 'metric' || key === 'item')
-        return row.name;
-      if (key.includes('country')) return row.country ?? '';
-      if (key.includes('signature') || key.includes('sign')) return '';
-      if (key.includes('total') || key === 'value' || key.includes('score (cm)'))
-        return String(row.total);
-      if (key.includes('note')) return row.notes ?? '';
-      return '';
-    });
-
-    // Fill remaining from scores when column mapping left blanks for middle fields
-    let scoreIdx = 0;
-    const filled = values.map((val, i) => {
-      const key = input.columns[i]?.toLowerCase() ?? '';
-      if (
-        val !== '' ||
-        key.includes('signature') ||
-        key.includes('sign') ||
-        key.includes('rank') ||
-        key.includes('order') ||
-        key === 'no' ||
-        key.includes('name') ||
-        key.includes('country') ||
-        key.includes('total') ||
-        key === 'value'
-      ) {
-        return val;
-      }
-      const next = row.scores[scoreIdx];
-      scoreIdx += 1;
-      return next != null ? String(next) : val;
-    });
+    const scoreIdx = { current: 0 };
+    const filled = input.columns.map((col) => resolveReportCellValue(col, row, scoreIdx));
 
     const rowY = doc.y;
     if (row.rank % 2 === 0) {

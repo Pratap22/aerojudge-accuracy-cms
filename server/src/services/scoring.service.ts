@@ -59,7 +59,13 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
   });
 
   const rounds = await prisma.round.findMany({
-    where: { competitionId, type: 'OFFICIAL', status: { in: ['APPROVED', 'LOCKED'] } },
+    where: {
+      competitionId,
+      type: 'OFFICIAL',
+      status: {
+        in: ['ACTIVE', 'PAUSED', 'CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'],
+      },
+    },
   });
 
   const teamRoundResults: TeamRoundScoreResult[] = [];

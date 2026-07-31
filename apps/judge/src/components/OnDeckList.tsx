@@ -1,4 +1,5 @@
 import { Badge, cn } from '@npha/ui';
+import { padPilotNumber } from '@npha/utils';
 
 interface OnDeckPilot {
   id: string;
@@ -13,6 +14,10 @@ interface OnDeckListProps {
   currentId: string | null;
   onSelect?: (flightId: string) => void;
   className?: string;
+}
+
+function formatPilotNo(n: number): string {
+  return padPilotNumber(n, 2);
 }
 
 export function OnDeckList({ pilots, currentId, onSelect, className }: OnDeckListProps) {
@@ -32,7 +37,9 @@ export function OnDeckList({ pilots, currentId, onSelect, className }: OnDeckLis
             onClick={() => onSelect?.(current.id)}
           >
             <div className="flex items-center gap-3 text-left">
-              <span className="font-mono text-lg font-bold text-sky-400">#{current.pilotNumber}</span>
+              <span className="font-mono text-lg font-bold text-sky-400">
+                {formatPilotNo(current.pilotNumber)}
+              </span>
               <span className="font-medium">
                 {current.firstName} {current.lastName}
               </span>
@@ -58,7 +65,7 @@ export function OnDeckList({ pilots, currentId, onSelect, className }: OnDeckLis
                 onClick={() => onSelect?.(p.id)}
               >
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-sky-400">#{p.pilotNumber}</span>
+                  <span className="font-mono text-sky-400">{formatPilotNo(p.pilotNumber)}</span>
                   <span>
                     {p.firstName} {p.lastName}
                   </span>
