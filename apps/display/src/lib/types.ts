@@ -14,6 +14,9 @@ export interface PublicCompetition {
     partnersLabel?: string;
     partnerTiersEnabled?: boolean;
   };
+  pilotCount?: number;
+  teamCount?: number;
+  roundCount?: number;
 }
 
 export type PublicCompetitionSummary = Omit<PublicCompetition, 'settings'>;

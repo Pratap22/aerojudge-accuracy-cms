@@ -5,6 +5,9 @@ import { getCompetition } from './competition.service.js';
 export async function getCompetitionStatistics(competitionId: string) {
   await getCompetition(competitionId);
 
+  const officialRoundFilter = { competitionId, type: 'OFFICIAL' as const };
+  const officialScoreFilter = { round: officialRoundFilter };
+
   const [
     totalFlights,
     totalBullseyes,
@@ -13,14 +16,14 @@ export async function getCompetitionStatistics(competitionId: string) {
     rankings,
     rounds,
   ] = await Promise.all([
-    prisma.flight.count({ where: { round: { competitionId } } }),
-    prisma.score.count({ where: { round: { competitionId }, isBullseye: true } }),
+    prisma.flight.count({ where: { round: officialRoundFilter } }),
+    prisma.score.count({ where: { ...officialScoreFilter, isBullseye: true } }),
     prisma.score.aggregate({
-      where: { round: { competitionId }, finalScoreCm: { not: null } },
+      where: { ...officialScoreFilter, finalScoreCm: { not: null } },
       _avg: { finalScoreCm: true },
     }),
     prisma.score.findFirst({
-      where: { round: { competitionId }, finalScoreCm: { not: null } },
+      where: { ...officialScoreFilter, finalScoreCm: { not: null } },
       orderBy: { finalScoreCm: 'asc' },
       include: {
         pilot: { select: { firstName: true, lastName: true } },
@@ -34,14 +37,14 @@ export async function getCompetitionStatistics(competitionId: string) {
       include: { pilot: { select: { firstName: true, lastName: true } } },
     }),
     prisma.round.findMany({
-      where: { competitionId, type: 'OFFICIAL' },
+      where: officialRoundFilter,
       orderBy: { number: 'asc' },
       select: { id: true, number: true },
     }),
   ]);
 
   const scoredFlights = await prisma.score.count({
-    where: { round: { competitionId }, finalScoreCm: { not: null } },
+    where: { ...officialScoreFilter, finalScoreCm: { not: null } },
   });
 
   const roundAverages = await Promise.all(

@@ -60,12 +60,35 @@ export async function listPublicCompetitions() {
       endDate: true,
       status: true,
       publicSlug: true,
+      _count: {
+        select: {
+          pilots: true,
+          teams: true,
+          rounds: { where: { type: 'OFFICIAL' } },
+        },
+      },
     },
     orderBy: [{ startDate: 'desc' }, { name: 'asc' }],
   });
 
-  const active = competitions.filter((c) => ACTIVE_STATUSES.has(c.status));
-  const past = competitions.filter((c) => PAST_STATUSES.has(c.status));
+  const mapSummary = (c: (typeof competitions)[number]) => ({
+    id: c.id,
+    name: c.name,
+    code: c.code,
+    organizer: c.organizer,
+    venue: c.venue,
+    country: c.country,
+    startDate: c.startDate,
+    endDate: c.endDate,
+    status: c.status,
+    publicSlug: c.publicSlug,
+    pilotCount: c._count.pilots,
+    teamCount: c._count.teams,
+    roundCount: c._count.rounds,
+  });
+
+  const active = competitions.filter((c) => ACTIVE_STATUSES.has(c.status)).map(mapSummary);
+  const past = competitions.filter((c) => PAST_STATUSES.has(c.status)).map(mapSummary);
 
   return { active, past };
 }
@@ -223,7 +246,11 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
 export async function getPublicRoundResults(slug: string, roundNumber: number) {
   const competition = await getPublicCompetition(slug);
   const round = await prisma.round.findFirst({
-    where: { competitionId: competition.id, number: roundNumber },
+    where: {
+      competitionId: competition.id,
+      number: roundNumber,
+      type: 'OFFICIAL',
+    },
   });
   if (!round) throw AppError.notFound('Round not found');
 

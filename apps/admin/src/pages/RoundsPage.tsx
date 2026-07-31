@@ -105,17 +105,23 @@ export function RoundsPage() {
   });
 
   const rounds = useMemo(() => (roundsRaw ?? []).map(normalizeRound), [roundsRaw]);
+  const officialRounds = useMemo(
+    () => rounds.filter((r) => r.type === 'OFFICIAL'),
+    [rounds],
+  );
   const maxRounds = competition?.maxRounds ?? 12;
   const nextNumber = (rounds.reduce((m, r) => Math.max(m, r.number), 0) || 0) + 1;
-  const atMax = rounds.length >= maxRounds;
-
+  const atMaxOfficial = officialRounds.length >= maxRounds;
   const previousRound = useMemo(() => {
     if (rounds.length === 0) return null;
     return [...rounds].sort((a, b) => b.number - a.number || a.name.localeCompare(b.name))[0];
   }, [rounds]);
   const previousCompleted =
     !previousRound || COMPLETED_FOR_NEXT.includes(previousRound.status);
-  const canCreate = !atMax && previousCompleted;
+  /** Dialog can open whenever the previous round is done; practice never hits the official max. */
+  const canOpenCreate = previousCompleted;
+  const canSubmitCreate =
+    previousCompleted && (roundType === 'PRACTICE' || !atMaxOfficial);
 
   const actionMutation = useMutation({
     mutationFn: ({ roundId, action }: { roundId: string; action: RoundAction }) =>
@@ -225,13 +231,14 @@ export function RoundsPage() {
         <div>
           <h1 className="text-2xl font-bold">Rounds</h1>
           <p className="text-muted-foreground">
-            Control round lifecycle · Max {maxRounds} rounds
+            Control round lifecycle · Max {maxRounds} official rounds
             <span className="mt-1 block text-xs">
-              Approve → Lock. Locked rounds are final (no score or round changes).
+              Practice rounds do not count toward results or the official max. Approve → Lock for
+              finals.
             </span>
           </p>
         </div>
-        <Button disabled={!canCreate} onClick={() => setCreateOpen(true)}>
+        <Button disabled={!canOpenCreate} onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Create Round
         </Button>
@@ -240,13 +247,18 @@ export function RoundsPage() {
       <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Created</CardTitle>
+            <CardTitle className="text-sm">Official rounds</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {rounds.length}
+              {officialRounds.length}
               <span className="text-base font-normal text-muted-foreground"> / {maxRounds}</span>
             </p>
+            {rounds.length > officialRounds.length && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                +{rounds.length - officialRounds.length} practice (not in results)
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -281,13 +293,13 @@ export function RoundsPage() {
         </Card>
       </div>
 
-      {atMax && (
+      {atMaxOfficial && (
         <p className="text-sm text-muted-foreground">
-          Maximum of {maxRounds} rounds reached. Increase Max Rounds in competition settings to add
-          more.
+          Maximum of {maxRounds} official rounds reached. You can still add practice rounds, or
+          increase Max Rounds in competition settings.
         </p>
       )}
-      {!atMax && previousRound && !previousCompleted && (
+      {previousRound && !previousCompleted && (
         <p className="text-sm text-muted-foreground">
           Finish Round {previousRound.number} before creating the next one. Close it when scoring is
           done (then approve / lock as needed). Current status:{' '}
@@ -409,8 +421,9 @@ export function RoundsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Max rounds is a limit ({maxRounds}). Create the next round only after the previous one
-              is closed (or approved / locked / cancelled).
+              Max {maxRounds} official rounds. Practice rounds do not count toward results or that
+              limit. Create the next round only after the previous one is closed (or approved /
+              locked / cancelled).
             </p>
             <div className="space-y-2">
               <Label>Name</Label>
@@ -448,7 +461,7 @@ export function RoundsPage() {
               Cancel
             </Button>
             <Button
-              disabled={createMutation.isPending || !canCreate}
+              disabled={createMutation.isPending || !canSubmitCreate}
               onClick={() => createMutation.mutate()}
             >
               {createMutation.isPending ? 'Creating…' : `Create Round ${nextNumber}`}

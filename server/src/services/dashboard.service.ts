@@ -18,10 +18,11 @@ export async function getCompetitionDashboard(competitionId: string) {
   ] = await Promise.all([
     prisma.pilot.count({ where: { competitionId } }),
     prisma.team.count({ where: { competitionId } }),
-    prisma.round.count({ where: { competitionId } }),
+    prisma.round.count({ where: { competitionId, type: 'OFFICIAL' } }),
     prisma.round.count({
       where: {
         competitionId,
+        type: 'OFFICIAL',
         status: { in: ['CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'] },
       },
     }),
@@ -37,7 +38,7 @@ export async function getCompetitionDashboard(competitionId: string) {
       where: {
         isBullseye: true,
         enteredAt: { gte: startOfDay },
-        round: { competitionId },
+        round: { competitionId, type: 'OFFICIAL' },
       },
     }),
     prisma.wind.findFirst({

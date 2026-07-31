@@ -56,10 +56,13 @@ export async function createRound(
   },
 ) {
   const competition = await getCompetition(competitionId);
-  const existingCount = await prisma.round.count({ where: { competitionId } });
-  if (existingCount >= competition.maxRounds) {
+  const existingOfficialCount = await prisma.round.count({
+    where: { competitionId, type: 'OFFICIAL' },
+  });
+  const creatingOfficial = (data.type ?? 'OFFICIAL') === 'OFFICIAL';
+  if (creatingOfficial && existingOfficialCount >= competition.maxRounds) {
     throw AppError.badRequest(
-      `Cannot create more than ${competition.maxRounds} rounds (Max Rounds setting)`,
+      `Cannot create more than ${competition.maxRounds} official rounds (Max Rounds setting). Practice rounds do not count.`,
     );
   }
 
@@ -109,6 +112,18 @@ export async function updateRound(
 
   if (['APPROVED'].includes(round.status)) {
     throw AppError.badRequest('Cannot change type of an approved round — reopen first if needed');
+  }
+
+  if (data.type === 'OFFICIAL' && round.type !== 'OFFICIAL') {
+    const competition = await getCompetition(competitionId);
+    const officialCount = await prisma.round.count({
+      where: { competitionId, type: 'OFFICIAL' },
+    });
+    if (officialCount >= competition.maxRounds) {
+      throw AppError.badRequest(
+        `Cannot promote to official — already at max ${competition.maxRounds} official rounds`,
+      );
+    }
   }
 
   const conflict = await prisma.round.findFirst({

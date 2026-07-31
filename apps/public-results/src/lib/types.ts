@@ -9,7 +9,14 @@ export interface PublicCompetition {
   endDate: string;
   status: string;
   publicSlug: string;
-  settings?: { livePublicResults: boolean };
+  settings?: {
+    livePublicResults: boolean;
+    partnersLabel?: string;
+    partnerTiersEnabled?: boolean;
+  };
+  pilotCount?: number;
+  teamCount?: number;
+  roundCount?: number;
 }
 
 export type PublicCompetitionSummary = Omit<PublicCompetition, 'settings'>;
