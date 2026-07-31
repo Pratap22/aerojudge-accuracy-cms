@@ -70,7 +70,10 @@ Then run migrations:
 ```bash
 npm run db:generate
 npm run db:migrate
+npm run db:seed
 ```
+
+The organizations migration creates a default sample organization (NPHA) and associates existing competitions with it. Product branding remains AeroJudge by Nepalabs.
 
 ### Option B — Docker PostgreSQL only
 

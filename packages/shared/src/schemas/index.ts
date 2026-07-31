@@ -25,6 +25,8 @@ export const createCompetitionSchema = z.object({
   maximumScoreCm: z.number().min(1).max(10000).default(1000),
   ruleSet: z.enum(['FAI_2022', 'FAI_FUTURE', 'NPHA_LOCAL', 'CUSTOM']).default('FAI_2022'),
   faiCategory: z.string().default('2'),
+  /** Owning organization; omitted → default/active organization. */
+  organizationId: z.string().min(1).optional(),
 });
 
 /** Optional string fields: API often returns null; treat null/empty as unset. */
@@ -116,6 +118,85 @@ export const paginationSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
 });
 
+const orgSlugSchema = z
+  .string()
+  .min(2)
+  .max(80)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase alphanumeric with hyphens');
+
+const hexColorSchema = z
+  .union([
+    z.string().regex(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, 'Must be a hex color'),
+    z.literal(''),
+    z.null(),
+    z.undefined(),
+  ])
+  .transform((v) => (v == null || v === '' ? undefined : v));
+
+export const organizationStatusSchema = z.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']);
+export const organizationPlanSchema = z.enum(['FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE']);
+
+export const createOrganizationSchema = z.object({
+  name: z.string().min(2).max(200),
+  shortName: z.string().min(1).max(50),
+  slug: orgSlugSchema,
+  description: optionalString,
+  website: optionalString,
+  email: z
+    .union([z.string().email(), z.null(), z.undefined(), z.literal('')])
+    .transform((v) => (v == null || v === '' ? undefined : v))
+    .optional(),
+  phone: optionalString,
+  address: optionalString,
+  city: optionalString,
+  state: optionalString,
+  country: optionalString,
+  timezone: z.string().min(1).max(80).default('UTC'),
+  currency: z.string().min(3).max(3).default('USD'),
+  primaryColor: hexColorSchema,
+  secondaryColor: hexColorSchema,
+  accentColor: hexColorSchema,
+  brandingJson: z.record(z.unknown()).optional(),
+  defaultRuleProfile: z.enum(['FAI_2022', 'FAI_FUTURE', 'NPHA_LOCAL', 'CUSTOM']).default('FAI_2022'),
+  plan: organizationPlanSchema.default('FREE'),
+  featureFlags: z.record(z.unknown()).optional(),
+  maxCompetitions: z.number().int().min(1).max(10000).default(10),
+  maxUsers: z.number().int().min(1).max(100000).default(25),
+});
+
+export const updateOrganizationSchema = createOrganizationSchema.partial().extend({
+  logoUrl: optionalString,
+  licenseKey: optionalString,
+});
+
+export const updateOrganizationStatusSchema = z.object({
+  status: organizationStatusSchema,
+  isActive: z.boolean().optional(),
+});
+
+export const organizationSettingsSchema = z.object({
+  generalJson: z.record(z.unknown()).nullable().optional(),
+  competitionDefaultsJson: z.record(z.unknown()).nullable().optional(),
+  printingDefaultsJson: z.record(z.unknown()).nullable().optional(),
+  displayDefaultsJson: z.record(z.unknown()).nullable().optional(),
+  certificatesJson: z.record(z.unknown()).nullable().optional(),
+  reportsJson: z.record(z.unknown()).nullable().optional(),
+  ruleProfileJson: z.record(z.unknown()).nullable().optional(),
+  notificationDefaultsJson: z.record(z.unknown()).nullable().optional(),
+});
+
+export const listOrganizationsQuerySchema = paginationSchema.extend({
+  status: organizationStatusSchema.optional(),
+  isActive: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      if (typeof v === 'boolean') return v;
+      return v === 'true';
+    }),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
 export type CreatePilotInput = z.infer<typeof createPilotSchema>;
@@ -126,3 +207,8 @@ export type UpdateRoundTypeInput = z.infer<typeof updateRoundTypeSchema>;
 export type EnterScoreInput = z.infer<typeof enterScoreSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
+export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
+export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
+export type UpdateOrganizationStatusInput = z.infer<typeof updateOrganizationStatusSchema>;
+export type OrganizationSettingsInput = z.infer<typeof organizationSettingsSchema>;
+export type ListOrganizationsQuery = z.infer<typeof listOrganizationsQuerySchema>;

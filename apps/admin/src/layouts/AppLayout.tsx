@@ -18,6 +18,7 @@ import {
   Trophy,
   Users,
   UsersRound,
+  Building2,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
 import { useAuth } from '../lib/auth';
@@ -28,6 +29,7 @@ import { competitionPath } from '../hooks/useCompetitionId';
 
 const globalNav = [
   { to: '/competitions', label: 'Competitions', icon: Trophy, end: true },
+  { to: '/organizations', label: 'Organizations', icon: Building2, end: false },
   { to: '/users', label: 'Judges / Users', icon: Shield, end: false },
 ];
 

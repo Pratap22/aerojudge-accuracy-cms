@@ -14,6 +14,8 @@ import { ReportsPage } from './pages/ReportsPage';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { AuditPage } from './pages/AuditPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { OrganizationsPage } from './pages/organizations/OrganizationsPage';
+import { OrganizationDetailPage } from './pages/organizations/OrganizationDetailPage';
 
 export default function App() {
   return (
@@ -38,6 +40,8 @@ export default function App() {
         <Route path="competitions/:competitionId/statistics" element={<StatisticsPage />} />
         <Route path="competitions/:competitionId/audit" element={<AuditPage />} />
         <Route path="competitions/:competitionId/settings" element={<SettingsPage />} />
+        <Route path="organizations" element={<OrganizationsPage />} />
+        <Route path="organizations/:organizationId" element={<OrganizationDetailPage />} />
         <Route path="users" element={<UsersPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/competitions" replace />} />

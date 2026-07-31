@@ -6,6 +6,12 @@ This diagram covers the core competition domain entities. See `database/prisma/s
 
 ```mermaid
 erDiagram
+    Organization ||--o{ Competition : owns
+    Organization ||--|| OrganizationSettings : configured_by
+    Organization ||--o{ OrganizationMember : includes
+    Organization ||--o{ RuleProfile : defaults
+    User ||--o{ OrganizationMember : belongs_to
+
     User ||--o{ Score : "enters"
     User ||--o{ ScoreApproval : "approves"
     User ||--o{ PrintHistory : "prints"
@@ -44,6 +50,16 @@ erDiagram
     Flight ||--|| Score : "has one"
     Score ||--o{ Penalty : "may have"
 
+    Organization {
+        string id PK
+        string name
+        string shortName
+        string slug UK
+        enum status
+        enum plan
+        boolean isActive
+    }
+
     User {
         string id PK
         string email UK
@@ -57,6 +73,7 @@ erDiagram
 
     Competition {
         string id PK
+        string organizationId FK
         string name
         string code UK
         string publicSlug UK

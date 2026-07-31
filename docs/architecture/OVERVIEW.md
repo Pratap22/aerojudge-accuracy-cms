@@ -129,8 +129,31 @@ Rejected approvals return the round to `CLOSED` for corrections before re-reques
 
 - **JWT access tokens** (15 min) + **refresh tokens** (7 days) stored in `RefreshToken`
 - Role enum: `SUPER_ADMIN`, `COMPETITION_DIRECTOR`, `CHIEF_JUDGE`, `JUDGE`, etc.
-- **Permission strings** (e.g. `score:enter`, `round:close`) mapped to roles in server middleware
+- **Permission strings** (e.g. `score:enter`, `round:close`, `organization:manage`) mapped to roles in server middleware
 - **Competition-scoped roles** via `CompetitionUser` for multi-event deployments
+- **Organization membership** via `OrganizationMember` for future SaaS tenancy
+
+---
+
+## Organizations (multi-tenant root)
+
+```mermaid
+flowchart LR
+    Org[Organization]
+    Org --> Settings[OrganizationSettings]
+    Org --> Members[OrganizationMember]
+    Org --> Comps[Competitions]
+    Comps --> Pilots
+    Comps --> Teams
+    Comps --> Sponsors
+    Comps --> Documents
+    Org --> RuleProfiles[Rule profiles]
+```
+
+- Module: `server/src/modules/organization` (repository → service → controller → routes)
+- Admin UI: Organizations list + detail (branding, settings, competitions)
+- Migration seeds a default organization (NPHA sample) and backfills `Competition.organizationId`
+- Product brand is AeroJudge / Nepalabs; org names are data
 
 ---
 

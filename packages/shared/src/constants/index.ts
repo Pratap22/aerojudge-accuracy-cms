@@ -25,6 +25,8 @@ export const PERMISSIONS = {
   ],
   'print:approve': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE'],
   'user:manage': ['SUPER_ADMIN'],
+  'organization:read': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR'],
+  'organization:manage': ['SUPER_ADMIN'],
   'display:control': ['SUPER_ADMIN', 'DISPLAY_OPERATOR', 'COMPETITION_DIRECTOR'],
   'announce': ['SUPER_ADMIN', 'ANNOUNCER', 'COMPETITION_DIRECTOR'],
   'weather:update': [

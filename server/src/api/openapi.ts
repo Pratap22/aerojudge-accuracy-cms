@@ -8,7 +8,7 @@ const options: swaggerJsdoc.Options = {
       title: 'AeroJudge API',
       version: '1.0.0',
       description:
-        'FAI Section 7C compliant air sports competition management API by Nepalabs (AeroJudge). Organizations and branding are configurable per competition.',
+        'FAI Section 7C compliant air sports competition management API by Nepalabs (AeroJudge). Organizations are first-class tenants that own competitions; branding is configurable per organization and competition.',
     },
     servers: [{ url: `http://localhost:${env.PORT}${env.API_PREFIX}`, description: 'Local' }],
     components: {
@@ -113,6 +113,78 @@ const options: swaggerJsdoc.Options = {
           summary: 'Current user profile',
           security: [{ bearerAuth: [] }],
           responses: { '200': { description: 'User profile' } },
+        },
+      },
+      '/organizations': {
+        get: {
+          tags: ['Organizations'],
+          summary: 'List organizations',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'page', in: 'query', schema: { type: 'integer' } },
+            { name: 'pageSize', in: 'query', schema: { type: 'integer' } },
+            { name: 'search', in: 'query', schema: { type: 'string' } },
+            { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'ARCHIVED'] } },
+          ],
+          responses: { '200': { description: 'Paginated organizations' } },
+        },
+        post: {
+          tags: ['Organizations'],
+          summary: 'Create organization',
+          security: [{ bearerAuth: [] }],
+          responses: { '201': { description: 'Created' } },
+        },
+      },
+      '/organizations/{id}': {
+        get: {
+          tags: ['Organizations'],
+          summary: 'Get organization by ID',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Organization details' } },
+        },
+        put: {
+          tags: ['Organizations'],
+          summary: 'Update organization',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Updated' } },
+        },
+      },
+      '/organizations/{id}/status': {
+        patch: {
+          tags: ['Organizations'],
+          summary: 'Activate, deactivate, or archive organization',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Status updated' } },
+        },
+      },
+      '/organizations/{id}/settings': {
+        put: {
+          tags: ['Organizations'],
+          summary: 'Update organization settings defaults',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Settings updated' } },
+        },
+      },
+      '/organizations/{id}/logo': {
+        post: {
+          tags: ['Organizations'],
+          summary: 'Upload organization logo',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Logo uploaded' } },
+        },
+      },
+      '/organizations/{id}/competitions': {
+        get: {
+          tags: ['Organizations'],
+          summary: 'List competitions for an organization',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { '200': { description: 'Competitions' } },
         },
       },
       '/competitions': {

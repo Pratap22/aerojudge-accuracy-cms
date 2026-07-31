@@ -20,7 +20,7 @@ alwaysApply: false
 
 ## Core models
 
-`Competition` + `CompetitionSettings` + `RuleProfile` · `Pilot` · `Team` / `TeamMember` · `Round` · `Flight` · `Score` / `ScoreApproval` / `Penalty` · `IndividualRanking` / `TeamRanking` · `PrintHistory` · `AuditLog` · `User` / `RefreshToken` / `CompetitionUser`
+`Organization` + `OrganizationSettings` + `OrganizationMember` · `Competition` + `CompetitionSettings` + `RuleProfile` · `Pilot` · `Team` / `TeamMember` · `Round` · `Flight` · `Score` / `ScoreApproval` / `Penalty` · `IndividualRanking` / `TeamRanking` · `PrintHistory` · `AuditLog` · `User` / `RefreshToken` / `CompetitionUser`
 
 ## Rules
 

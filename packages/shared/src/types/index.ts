@@ -24,6 +24,10 @@ export type CompetitionStatus =
 
 export type RuleSetVersion = 'FAI_2022' | 'FAI_FUTURE' | 'NPHA_LOCAL' | 'CUSTOM';
 
+export type OrganizationStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+
+export type OrganizationPlan = 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+
 export type RoundStatus =
   | 'SCHEDULED'
   | 'BRIEFING'
@@ -248,6 +252,56 @@ export interface AuthUser {
   lastName: string;
   role: Role;
   avatarUrl?: string | null;
+}
+
+/** Organization tenant (SaaS root entity). */
+export interface Organization {
+  id: string;
+  name: string;
+  shortName: string;
+  slug: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  website?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  timezone: string;
+  currency: string;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  accentColor?: string | null;
+  brandingJson?: Record<string, unknown> | null;
+  defaultRuleProfile: RuleSetVersion;
+  status: OrganizationStatus;
+  isActive: boolean;
+  plan: OrganizationPlan;
+  licenseKey?: string | null;
+  featureFlags?: Record<string, unknown> | null;
+  maxCompetitions: number;
+  maxUsers: number;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  settings?: OrganizationSettings | null;
+  _count?: { competitions?: number; members?: number };
+}
+
+export interface OrganizationSettings {
+  id: string;
+  organizationId: string;
+  generalJson?: Record<string, unknown> | null;
+  competitionDefaultsJson?: Record<string, unknown> | null;
+  printingDefaultsJson?: Record<string, unknown> | null;
+  displayDefaultsJson?: Record<string, unknown> | null;
+  certificatesJson?: Record<string, unknown> | null;
+  reportsJson?: Record<string, unknown> | null;
+  ruleProfileJson?: Record<string, unknown> | null;
+  notificationDefaultsJson?: Record<string, unknown> | null;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export interface SocketEvents {

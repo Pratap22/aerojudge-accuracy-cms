@@ -27,6 +27,7 @@ app.use(
 app.use(morgan(env.isProduction ? 'combined' : 'dev'));
 app.use(express.json({ limit: `${env.MAX_FILE_SIZE_MB}mb` }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(env.uploadDir));
 
 app.use(
   rateLimit({

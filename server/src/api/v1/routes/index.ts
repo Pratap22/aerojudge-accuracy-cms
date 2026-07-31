@@ -16,11 +16,13 @@ import displayRoutes from './display.routes.js';
 import statisticsRoutes from './statistics.routes.js';
 import syncRoutes from './sync.routes.js';
 import publicRoutes from './public.routes.js';
+import { organizationRoutes } from '../../../modules/organization/index.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);
+router.use('/organizations', organizationRoutes);
 router.use('/sync', syncRoutes);
 router.use('/public', publicRoutes);
 

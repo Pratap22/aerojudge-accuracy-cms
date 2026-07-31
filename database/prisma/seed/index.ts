@@ -189,45 +189,94 @@ async function seedUsers() {
   return created;
 }
 
-async function seedCompetition() {
+async function seedOrganization() {
+  const org = await prisma.organization.upsert({
+    where: { slug: 'npha' },
+    update: {
+      name: 'Nepal Paragliding & Hang Gliding Association',
+      shortName: 'NPHA',
+      isActive: true,
+      status: 'ACTIVE',
+    },
+    create: {
+      id: 'org_npha_default_migration',
+      name: 'Nepal Paragliding & Hang Gliding Association',
+      shortName: 'NPHA',
+      slug: 'npha',
+      description:
+        'Sample organization / early AeroJudge customer for local development. Not product branding.',
+      country: 'Nepal',
+      timezone: 'Asia/Kathmandu',
+      currency: 'NPR',
+      primaryColor: '#0b1f33',
+      secondaryColor: '#1e3a5f',
+      accentColor: '#0ea5e9',
+      defaultRuleProfile: RuleSetVersion.FAI_2022,
+      status: 'ACTIVE',
+      isActive: true,
+      plan: 'PROFESSIONAL',
+      maxCompetitions: 100,
+      maxUsers: 100,
+      settings: { create: {} },
+    },
+  });
+
+  await prisma.organizationSettings.upsert({
+    where: { organizationId: org.id },
+    update: {},
+    create: { organizationId: org.id },
+  });
+
+  return org;
+}
+
+async function seedCompetition(organizationId: string) {
   const startDate = new Date('2024-11-15T08:00:00+05:45');
   const endDate = new Date('2024-11-17T18:00:00+05:45');
 
-  const competition = await prisma.competition.upsert({
-    where: { code: 'NPHA-ACC-2024' },
-    update: {
-      name: 'NPHA National Accuracy Championship 2024',
-      status: CompetitionStatus.OFFICIAL,
-      isPublished: true,
-    },
-    create: {
-      name: 'NPHA National Accuracy Championship 2024',
-      code: 'NPHA-ACC-2024',
-      organizer: 'Nepal Paragliding & Hang Gliding Association (NPHA)',
-      venue: 'Sarangkot Launch, Pokhara',
-      country: 'Nepal',
-      location: 'Pokhara, Kaski District',
-      latitude: 28.2096,
-      longitude: 83.9856,
-      startDate,
-      endDate,
-      practiceDays: 1,
-      officialDays: 2,
-      maxRounds: 8,
-      practiceRounds: 2,
-      targetDiameterCm: 200,
-      ruleSet: RuleSetVersion.FAI_2022,
-      status: CompetitionStatus.OFFICIAL,
-      faiCategory: '2',
-      publicSlug: 'npha-acc-2024',
-      isPublished: true,
-      brandingJson: {
-        primaryColor: '#0b1f33',
-        accentColor: '#0ea5e9',
-        logoText: 'NPHA Accuracy 2024',
-      },
+  const existing = await prisma.competition.findFirst({
+    where: {
+      OR: [{ code: 'NPHA-ACC-2024' }, { publicSlug: 'npha-acc-2024' }],
     },
   });
+
+  const competitionData = {
+    organizationId,
+    name: 'NPHA National Accuracy Championship 2024',
+    code: 'NPHA-ACC-2024',
+    organizer: 'Nepal Paragliding & Hang Gliding Association (NPHA)',
+    venue: 'Sarangkot Launch, Pokhara',
+    country: 'Nepal',
+    location: 'Pokhara, Kaski District',
+    latitude: 28.2096,
+    longitude: 83.9856,
+    startDate,
+    endDate,
+    practiceDays: 1,
+    officialDays: 2,
+    maxRounds: 8,
+    practiceRounds: 2,
+    targetDiameterCm: 200,
+    ruleSet: RuleSetVersion.FAI_2022,
+    status: CompetitionStatus.OFFICIAL,
+    faiCategory: '2',
+    publicSlug: 'npha-acc-2024',
+    isPublished: true,
+    brandingJson: {
+      primaryColor: '#0b1f33',
+      accentColor: '#0ea5e9',
+      logoText: 'NPHA Accuracy 2024',
+    },
+  };
+
+  const competition = existing
+    ? await prisma.competition.update({
+        where: { id: existing.id },
+        data: competitionData,
+      })
+    : await prisma.competition.create({
+        data: competitionData,
+      });
 
   await prisma.competitionSettings.upsert({
     where: { competitionId: competition.id },
@@ -644,10 +693,13 @@ async function main() {
   const countryMap = await seedCountries();
   console.log(`✓ ${COUNTRIES.length} countries upserted`);
 
+  const organization = await seedOrganization();
+  console.log(`✓ Organization: ${organization.name} (${organization.slug})`);
+
   const users = await seedUsers();
   console.log('✓ Staff users created (Super Admin, Director, Chief Judge, Judge, Scorekeeper)');
 
-  const competition = await seedCompetition();
+  const competition = await seedCompetition(organization.id);
   console.log(`✓ Competition: ${competition.name}`);
 
   await seedCompetitionRoles(competition.id, users);

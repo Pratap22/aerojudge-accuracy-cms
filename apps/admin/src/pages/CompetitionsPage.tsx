@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createCompetitionSchema, type CreateCompetitionInput, type CompetitionStatus } from '@npha/shared';
+import { createCompetitionSchema, type CreateCompetitionInput, type CompetitionStatus, type Organization } from '@npha/shared';
 import { Plus } from 'lucide-react';
 import {
   Badge,
@@ -29,10 +29,12 @@ import {
 import { api } from '../lib/api';
 import { competitionPath } from '../hooks/useCompetitionId';
 
-interface Competition extends Omit<CreateCompetitionInput, 'location' | 'maximumScoreCm'> {
+interface Competition extends Omit<CreateCompetitionInput, 'location' | 'maximumScoreCm' | 'organizationId'> {
   id: string;
   status: CompetitionStatus;
   location?: string | null;
+  organizationId?: string;
+  organization?: { id: string; name: string; shortName: string; slug: string } | null;
   settings?: { maximumScoreCm?: number } | null;
 }
 
@@ -59,10 +61,18 @@ const EMPTY_VALUES: CreateCompetitionInput = {
   maximumScoreCm: 1000,
   ruleSet: 'FAI_2022',
   faiCategory: '2',
+  organizationId: undefined,
 };
 
 export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFormProps) {
   const queryClient = useQueryClient();
+
+  const { data: organizations } = useQuery({
+    queryKey: ['organizations', 'active-select'],
+    queryFn: () =>
+      api.get<Organization[]>('/organizations', { page: 1, pageSize: 100, isActive: true }),
+    enabled: open,
+  });
 
   const {
     register,
@@ -77,10 +87,17 @@ export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFo
   });
 
   useEffect(() => {
-    if (open) reset(EMPTY_VALUES);
-  }, [open, reset]);
+    if (open) {
+      const defaultOrgId = organizations?.[0]?.id;
+      reset({ ...EMPTY_VALUES, organizationId: defaultOrgId });
+      if (organizations?.[0]) {
+        setValue('organizer', organizations[0].name);
+      }
+    }
+  }, [open, reset, organizations, setValue]);
 
   const ruleSet = watch('ruleSet');
+  const organizationId = watch('organizationId');
 
   const mutation = useMutation({
     mutationFn: (data: CreateCompetitionInput) => api.post<Competition>('/competitions', data),
@@ -102,6 +119,28 @@ export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFo
           onSubmit={handleSubmit((data) => mutation.mutate(data))}
           className="grid gap-4 sm:grid-cols-2"
         >
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Organization</Label>
+            <Select
+              value={organizationId ?? ''}
+              onValueChange={(v) => {
+                setValue('organizationId', v);
+                const org = organizations?.find((o) => o.id === v);
+                if (org) setValue('organizer', org.name);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select organization" />
+              </SelectTrigger>
+              <SelectContent>
+                {organizations?.map((org) => (
+                  <SelectItem key={org.id} value={org.id}>
+                    {org.shortName} — {org.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="name">Competition Name</Label>
             <Input id="name" {...register('name')} />

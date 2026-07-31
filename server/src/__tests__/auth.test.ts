@@ -48,6 +48,12 @@ describe('rbac hasPermission', () => {
   it('allows super admin all checked permissions', () => {
     expect(hasPermission('SUPER_ADMIN', 'user:manage')).toBe(true);
     expect(hasPermission('SUPER_ADMIN', 'competition:delete')).toBe(true);
+    expect(hasPermission('SUPER_ADMIN', 'organization:manage')).toBe(true);
+  });
+
+  it('allows directors to read organizations', () => {
+    expect(hasPermission('COMPETITION_DIRECTOR', 'organization:read')).toBe(true);
+    expect(hasPermission('COMPETITION_DIRECTOR', 'organization:manage')).toBe(false);
   });
 });
 

@@ -3,6 +3,7 @@ import { slugify } from '@npha/utils';
 import type { Prisma } from '@npha/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
+import { organizationService } from '../modules/organization/index.js';
 
 export async function listCompetitions(query: {
   page: number;
@@ -25,7 +26,7 @@ export async function listCompetitions(query: {
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
       orderBy: { startDate: 'desc' },
-      include: { settings: true },
+      include: { settings: true, organization: { select: { id: true, name: true, shortName: true, slug: true } } },
     }),
     prisma.competition.count({ where }),
   ]);
@@ -36,7 +37,11 @@ export async function listCompetitions(query: {
 export async function getCompetition(id: string) {
   const competition = await prisma.competition.findUnique({
     where: { id },
-    include: { settings: true, sponsors: true },
+    include: {
+      settings: true,
+      sponsors: true,
+      organization: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true } },
+    },
   });
   if (!competition) throw AppError.notFound('Competition not found');
   return competition;
@@ -61,8 +66,11 @@ export async function createCompetition(data: {
   maximumScoreCm?: number;
   ruleSet?: RuleSetVersion;
   faiCategory?: string;
+  organizationId?: string;
 }) {
-  const { maximumScoreCm, ...competitionData } = data;
+  const { maximumScoreCm, organizationId: orgIdInput, ...competitionData } = data;
+  const organizationId = await organizationService.resolveOrganizationId(orgIdInput);
+
   const slug = slugify(`${data.code}-${data.name}`);
   const existing = await prisma.competition.findFirst({
     where: { OR: [{ code: data.code }, { publicSlug: slug }] },
@@ -72,6 +80,7 @@ export async function createCompetition(data: {
   return prisma.competition.create({
     data: {
       ...competitionData,
+      organizationId,
       publicSlug: slug,
       settings: {
         create: {
@@ -79,7 +88,7 @@ export async function createCompetition(data: {
         },
       },
     },
-    include: { settings: true },
+    include: { settings: true, organization: true },
   });
 }
 

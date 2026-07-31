@@ -50,6 +50,7 @@ model User {
 
   refreshTokens      RefreshToken[]
   competitionRoles   CompetitionUser[]
+  organizationMembers OrganizationMember[]
   scoresEntered      Score[]           @relation("ScoreEnteredBy")
   scoreApprovals     ScoreApproval[]
   auditLogs          AuditLog[]
@@ -112,6 +113,118 @@ model Country {
 }
 
 // ─────────────────────────────────────────────
+// Organizations (multi-tenant SaaS root)
+// Competitions, staff, pilots, teams, sponsors, documents,
+// certificates, reports, and branding are owned via Organization.
+// Competition-scoped entities remain under Competition; org scope
+// is resolved through organizationId → competitions.
+// ─────────────────────────────────────────────
+
+enum RuleSetVersion {
+  FAI_2022
+  FAI_FUTURE
+  NPHA_LOCAL
+  CUSTOM
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum OrganizationPlan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+model Organization {
+  id                 String             @id @default(cuid())
+  name               String
+  shortName          String
+  slug               String             @unique
+  description        String?
+  logoUrl            String?
+  website            String?
+  email              String?
+  phone              String?
+  address            String?
+  city               String?
+  state              String?
+  country            String?
+  timezone           String             @default("UTC")
+  currency           String             @default("USD")
+  primaryColor       String?
+  secondaryColor     String?
+  accentColor        String?
+  brandingJson       Json?
+  defaultRuleProfile RuleSetVersion     @default(FAI_2022)
+  status             OrganizationStatus @default(ACTIVE)
+  isActive           Boolean            @default(true)
+  plan               OrganizationPlan   @default(FREE)
+  licenseKey         String?
+  featureFlags       Json?
+  maxCompetitions    Int                @default(10)
+  maxUsers           Int                @default(25)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  settings     OrganizationSettings?
+  members      OrganizationMember[]
+  competitions Competition[]
+  ruleProfiles RuleProfile[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([isActive])
+  @@index([name])
+  @@index([plan])
+}
+
+model OrganizationSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// General / contact overrides beyond Organization columns
+  generalJson        Json?
+  /// Competition default values (maxRounds, ruleSet, target, etc.)
+  competitionDefaultsJson Json?
+  /// PDF / print defaults (format, header/footer, watermark)
+  printingDefaultsJson    Json?
+  /// Venue display / overlay defaults
+  displayDefaultsJson     Json?
+  /// Certificate template defaults
+  certificatesJson        Json?
+  /// Report template defaults
+  reportsJson             Json?
+  /// Default rule profile overrides
+  ruleProfileJson         Json?
+  /// Notification channel defaults
+  notificationDefaultsJson Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           Role         @default(PUBLIC_USER)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────
 // Competitions
 // ─────────────────────────────────────────────
 
@@ -126,15 +239,10 @@ enum CompetitionStatus {
   CANCELLED
 }
 
-enum RuleSetVersion {
-  FAI_2022
-  FAI_FUTURE
-  NPHA_LOCAL
-  CUSTOM
-}
-
 model Competition {
   id              String            @id @default(cuid())
+  organizationId  String
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   name            String
   code            String            @unique
   organizer       String
@@ -181,6 +289,7 @@ model Competition {
   teamRankings     TeamRanking[]
   ruleProfiles     RuleProfile[]
 
+  @@index([organizationId])
   @@index([code])
   @@index([status])
   @@index([publicSlug])
@@ -221,19 +330,22 @@ model CompetitionSettings {
 }
 
 model RuleProfile {
-  id            String         @id @default(cuid())
-  competitionId String?
-  competition   Competition?   @relation(fields: [competitionId], references: [id], onDelete: SetNull)
-  name          String
-  version       RuleSetVersion
-  description   String?
-  rulesJson     Json
-  isDefault     Boolean        @default(false)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id             String         @id @default(cuid())
+  competitionId  String?
+  competition    Competition?   @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  name           String
+  version        RuleSetVersion
+  description    String?
+  rulesJson      Json
+  isDefault      Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   @@index([version])
   @@index([competitionId])
+  @@index([organizationId])
 }
 
 // ─────────────────────────────────────────────

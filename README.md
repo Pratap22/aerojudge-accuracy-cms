@@ -4,7 +4,7 @@
 
 A commercial SaaS monorepo for running air sports competitions. The initial release focuses on **paragliding accuracy** in compliance with the FAI Sporting Code Section 7C. AeroJudge covers registration, round management, live scoring, dual approval workflows, PDF reporting, public results, venue displays, and broadcast overlays.
 
-Organizations (e.g. NPHA, FAI, APPI, or any federation) are configurable per competition — not baked into the product.
+Organizations (e.g. NPHA, FAI, APPI, or any federation) are first-class tenants that own competitions — not baked into the product. Manage them under Admin → Organizations.
 
 See also [docs/PRODUCT.md](docs/PRODUCT.md).
 
@@ -12,6 +12,7 @@ See also [docs/PRODUCT.md](docs/PRODUCT.md).
 
 ## Features
 
+- **Organization management** — Multi-tenant orgs own competitions, branding, and SaaS plan limits
 - **Competition lifecycle** — Draft → registration → practice → official rounds → publish → archive
 - **Pilot & team management** — CSV import, QR/barcode lookup, national team validation (3+1 reserve)
 - **Round operations** — Random/seeded flight order, launch control, pause/resume, reflight rounds

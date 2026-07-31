@@ -58,6 +58,25 @@ Interactive documentation: **http://localhost:4000/api/docs**
 
 ---
 
+## Organizations
+
+Organizations are the multi-tenant root: federations, clubs, and commercial customers own competitions. Sample seed tenant uses NPHA as an example organization — not product branding.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/organizations` | `organization:read` | List organizations (search, status, pagination) |
+| POST | `/organizations` | `organization:manage` | Create organization |
+| GET | `/organizations/:id` | `organization:read` | Get organization with settings and counts |
+| PUT | `/organizations/:id` | `organization:manage` | Update organization profile / branding |
+| PATCH | `/organizations/:id/status` | `organization:manage` | Activate, deactivate, or archive |
+| PUT | `/organizations/:id/settings` | `organization:manage` | Update settings defaults (print, display, rules, …) |
+| POST | `/organizations/:id/logo` | `organization:manage` | Upload logo (`multipart/form-data`, field `logo`) |
+| GET | `/organizations/:id/competitions` | `organization:read` | List competitions owned by the organization |
+
+Hard deletion is not exposed. Organizations with competitions should be archived rather than removed. `Competition.organizationId` is required; create competition may omit it to use the default active organization.
+
+---
+
 ## Competitions
 
 | Method | Path | Auth | Description |

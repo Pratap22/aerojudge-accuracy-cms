@@ -20,6 +20,7 @@ This guide describes how officials run a competition day using AeroJudge — fro
 
 ## Pre-competition checklist
 
+0. **Organization** — Ensure the owning federation/club exists under Admin → Organizations (branding, contact, defaults). New competitions must select an organization.
 1. **Competition status** — Set to `REGISTRATION` or `OFFICIAL` in Admin → Competitions
 2. **Settings review** — Admin → Settings: confirm FAI rule profile, team size (3+1), discard rules, approval requirements
 3. **Pilot registration** — Admin → Pilots: manual entry or CSV import; assign pilot numbers
