@@ -27,7 +27,7 @@ const DEFAULT_FAI_2022_RULES = {
   version: 'FAI_2022',
   bullseyeScoreCm: 0,
   maximumScoreCm: 1000,
-  discardWorstRounds: 0,
+  discardWorstRounds: 1,
   discardAfterRounds: 5,
   allowReflights: true,
   maxReflightsPerRound: 1,

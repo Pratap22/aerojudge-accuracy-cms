@@ -1,7 +1,7 @@
 /**
- * @deprecated Prefer `seed-nppl-rounds-1-6.ts` (includes R1–R6).
- * Seed NPPL rounds 1–3 scores from Dharan Accuracy Final Individual results.
- * Run: npx tsx prisma/seed/seed-nppl-rounds-1-3.ts  (from database/)
+ * Seed NPPL rounds 1–9 scores from official overall results CSV.
+ * Run from repo root:
+ *   npx tsx database/prisma/seed/seed-nppl-rounds-1-6.ts
  */
 import {
   FlightStatus,
@@ -16,45 +16,45 @@ import {
 const prisma = new PrismaClient();
 
 const MAX_CM = 500;
+const ROUND_COUNT = 9;
 
-/** Raw cell from results sheet: number string, DNF, DQF, etc. */
 type Cell = string;
 
-/** pilotNumber → [R1, R2, R3] */
-const SCORES_R1_R3: Record<number, [Cell, Cell, Cell]> = {
-  30: ['005', '003', '002'],
-  32: ['032', '020', '002'],
-  10: ['001', '002', '000'],
-  13: ['009', '001', '022'],
-  9: ['017', '500', '039'],
-  18: ['001', '022', '044'],
-  11: ['092', '004', '500'],
-  5: ['041', '007', '130'],
-  25: ['004', '000', '006'],
-  21: ['001', '003', '500'],
-  22: ['019', '391', '148'],
-  16: ['002', '000', '002'],
-  1: ['500', '042', '049'],
-  4: ['001', '002', '159'],
-  31: ['003', '500', '007'],
-  7: ['246', '500', '003'],
-  3: ['500', '007', '226'],
-  12: ['004', '009', '500'],
-  27: ['028', '500', '014'],
-  15: ['500', '096', '009'],
-  28: ['033', '005', '002'],
-  29: ['007', '020', '189'],
-  19: ['040', '500', '201'],
-  26: ['053', '049', '500'],
-  24: ['500', '500', '158'],
-  8: ['500', '006', '500'],
-  23: ['500', '500', '150'],
-  14: ['500', '500', '500'],
-  17: ['249', '500', '500'],
-  6: ['500', '088', '500'],
-  2: ['500', '500', '500'],
-  20: ['DNF', 'DNF', 'DNF'],
-  33: ['DNF', 'DNF', 'DNF'],
+/** pilotNumber → [R1…R9] from official overall sheet (R10–R12 empty). */
+const SCORES: Record<number, Cell[]> = {
+  30: ['005', '003', '002', '001', '001', '003', '001', '002', '001'],
+  32: ['032', '020', '002', '021', '003', '003', '001', '004', '002'],
+  10: ['001', '002', '000', '002', '246', '002', '033', '018', '002'],
+  13: ['009', '001', '022', '004', '001', '123', '005', '006', '017'],
+  9: ['017', '500', '039', '005', '005', '003', '011', '002', '006'],
+  18: ['001', '022', '044', '005', '011', '003', '500', '002', '001'],
+  11: ['092', '004', '500', '005', '005', '002', '008', '001', '083'],
+  5: ['041', '007', '130', '026', '500', '006', '007', '052', '002'],
+  25: ['004', '000', '006', '147', '011', '500', '060', '030', '225'],
+  21: ['001', '003', '500', '009', '002', '001', '014', '037', '500'],
+  22: ['019', '391', '148', '036', '104', '149', '102', '011', '058'],
+  16: ['002', '000', '002', '477', '500', '008', '108', '000', '036'],
+  1: ['500', '042', '049', '026', '095', '002', '001', '409', '046'],
+  4: ['001', '002', '159', '000', '007', '070', '028', '500', '500'],
+  31: ['003', '500', '007', '129', '086', '078', '500', '020', '007'],
+  7: ['246', '500', '003', '009', '017', '006', '500', '005', '046'],
+  3: ['500', '007', '226', '029', '011', '063', '500', '004', '031'],
+  12: ['004', '009', '500', '003', '000', '002', '002', '500', '500'],
+  27: ['028', '500', '014', '183', '078', '033', '008', '194', 'DNF'],
+  15: ['500', '096', '009', '341', '019', '060', '037', '197', '453'],
+  28: ['033', '005', '002', '022', '075', '129', 'DQF', 'DQF', 'DQF'],
+  29: ['007', '020', '189', '500', '131', '005', '500', '006', '500'],
+  19: ['040', '500', '201', '387', '074', '004', '500', '500', '004'],
+  26: ['053', '049', '500', '019', '480', '213', '500', '500', '182'],
+  24: ['500', '500', '158', '266', '473', '007', '066', '500', '119'],
+  8: ['500', '006', '500', '500', 'DNF', 'DNF', '162', '107', '069'],
+  23: ['500', '500', '150', '131', '362', '500', '196', '245', '500'],
+  14: ['500', '500', '500', '257', '500', '069', '500', '500', '016'],
+  17: ['249', '500', '500', '500', '500', '096', '500', '500', '308'],
+  6: ['500', '088', '500', '500', '313', '500', 'DNF', 'DNF', 'DNF'],
+  2: ['500', '500', '500', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF'],
+  20: ['DNF', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF'],
+  33: ['DNF', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF', 'DNF'],
 };
 
 function parseCell(cell: Cell): {
@@ -197,7 +197,7 @@ async function ensureFlights(roundId: string, pilots: { id: string; pilotNumber:
 
 async function upsertRoundScores(
   roundId: string,
-  roundIndex: 0 | 1 | 2,
+  roundIndex: number,
   flights: { id: string; pilotId: string }[],
   pilots: { id: string; pilotNumber: number }[],
   judgeId: string,
@@ -205,13 +205,14 @@ async function upsertRoundScores(
 ) {
   const pilotById = new Map(pilots.map((p) => [p.id, p]));
   let count = 0;
+  let skipped = 0;
 
   for (const flight of flights) {
     const pilot = pilotById.get(flight.pilotId);
     if (!pilot) continue;
-    const row = SCORES_R1_R3[pilot.pilotNumber];
-    if (!row) {
-      console.warn(`No R1–R3 data for pilot #${pilot.pilotNumber} — skip`);
+    const row = SCORES[pilot.pilotNumber];
+    if (!row || row[roundIndex] == null) {
+      skipped += 1;
       continue;
     }
     const parsed = parseCell(row[roundIndex]);
@@ -251,7 +252,7 @@ async function upsertRoundScores(
     });
     count += 1;
   }
-  return count;
+  return { count, skipped };
 }
 
 async function main() {
@@ -271,38 +272,86 @@ async function main() {
     select: { id: true, pilotNumber: true },
   });
 
-  const missing = pilots.filter((p) => !SCORES_R1_R3[p.pilotNumber]);
+  const missing = pilots.filter((p) => !SCORES[p.pilotNumber]);
   if (missing.length) {
     console.warn(
-      'Pilots without sheet data:',
+      'Pilots with no sheet data at all:',
       missing.map((p) => p.pilotNumber).join(', '),
     );
   }
 
-  const t1 = new Date('2024-11-16T09:00:00+05:45');
-  const t2 = new Date('2024-11-16T13:00:00+05:45');
-  const t3 = new Date('2024-11-17T09:00:00+05:45');
-  const c1 = new Date('2024-11-16T12:00:00+05:45');
-  const c2 = new Date('2024-11-16T17:00:00+05:45');
-  const c3 = new Date('2024-11-17T12:00:00+05:45');
+  const partial = Object.entries(SCORES)
+    .filter(([, row]) => row.length < ROUND_COUNT)
+    .map(([n, row]) => `#${n} (R1–R${row.length} only)`);
+  if (partial.length) {
+    console.warn('Partial later rounds (no data yet):', partial.join(', '));
+  }
 
-  // R1 + R2 closed (complete), R3 closed after seeding so rankings include all three
-  const r1 = await ensureRound(competition.id, 1, RoundStatus.CLOSED, t1, c1);
-  const r2 = await ensureRound(competition.id, 2, RoundStatus.CLOSED, t2, c2);
-  const r3 = await ensureRound(competition.id, 3, RoundStatus.CLOSED, t3, c3);
+  const schedule: { startedAt: Date; closedAt: Date }[] = [
+    {
+      startedAt: new Date('2024-11-16T09:00:00+05:45'),
+      closedAt: new Date('2024-11-16T12:00:00+05:45'),
+    },
+    {
+      startedAt: new Date('2024-11-16T13:00:00+05:45'),
+      closedAt: new Date('2024-11-16T17:00:00+05:45'),
+    },
+    {
+      startedAt: new Date('2024-11-17T09:00:00+05:45'),
+      closedAt: new Date('2024-11-17T12:00:00+05:45'),
+    },
+    {
+      startedAt: new Date('2024-11-17T13:00:00+05:45'),
+      closedAt: new Date('2024-11-17T17:00:00+05:45'),
+    },
+    {
+      startedAt: new Date('2024-11-18T09:00:00+05:45'),
+      closedAt: new Date('2024-11-18T12:00:00+05:45'),
+    },
+    {
+      startedAt: new Date('2024-11-18T13:00:00+05:45'),
+      closedAt: new Date('2024-11-18T17:00:00+05:45'),
+    },
+    {
+      startedAt: new Date('2024-11-19T09:00:00+05:45'),
+      closedAt: new Date('2024-11-19T12:00:00+05:45'),
+    },
+    {
+      startedAt: new Date('2024-11-19T13:00:00+05:45'),
+      closedAt: new Date('2024-11-19T17:00:00+05:45'),
+    },
+    {
+      startedAt: new Date('2024-11-20T09:00:00+05:45'),
+      closedAt: new Date('2024-11-20T12:00:00+05:45'),
+    },
+  ];
 
-  const f1 = await ensureFlights(r1.id, pilots);
-  const f2 = await ensureFlights(r2.id, pilots);
-  const f3 = await ensureFlights(r3.id, pilots);
+  for (let i = 0; i < ROUND_COUNT; i++) {
+    const number = i + 1;
+    const { startedAt, closedAt } = schedule[i];
+    const round = await ensureRound(
+      competition.id,
+      number,
+      RoundStatus.CLOSED,
+      startedAt,
+      closedAt,
+    );
+    const flights = await ensureFlights(round.id, pilots);
+    const { count, skipped } = await upsertRoundScores(
+      round.id,
+      i,
+      flights,
+      pilots,
+      judge.id,
+      startedAt,
+    );
+    console.log(
+      `✓ Round ${number} CLOSED — ${count} scores` +
+        (skipped ? ` (${skipped} pilots without R${number} data)` : ''),
+    );
+  }
 
-  const n1 = await upsertRoundScores(r1.id, 0, f1, pilots, judge.id, t1);
-  const n2 = await upsertRoundScores(r2.id, 1, f2, pilots, judge.id, t2);
-  const n3 = await upsertRoundScores(r3.id, 2, f3, pilots, judge.id, t3);
-
-  console.log(`✓ Round 1 CLOSED — ${n1} scores`);
-  console.log(`✓ Round 2 CLOSED — ${n2} scores`);
-  console.log(`✓ Round 3 CLOSED — ${n3} scores`);
-  console.log('Run ranking recalculation from Admin or API if needed.');
+  console.log('Done. Recalculate rankings from Admin or API next.');
 }
 
 main()

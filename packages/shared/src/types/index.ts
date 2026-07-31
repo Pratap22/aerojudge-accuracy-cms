@@ -407,7 +407,8 @@ export const DEFAULT_FAI_2022_RULES: RuleConfig = {
   version: 'FAI_2022',
   bullseyeScoreCm: 0,
   maximumScoreCm: 1000,
-  discardWorstRounds: 0,
+  /** FAI 7C: when ≥5 rounds are completed, discard the worst score */
+  discardWorstRounds: 1,
   discardAfterRounds: 5,
   allowReflights: true,
   maxReflightsPerRound: 1,

@@ -6,12 +6,13 @@ import {
   type GenerateReportInput,
   type ResultRow,
 } from '@npha/pdf-engine';
+import { applyDiscardRules, resolveCompetitionRules } from '@npha/scoring-engine';
 import type { PrintFormat, ReportType } from '@npha/shared';
 import { formatPilotName, formatScoreCm } from '@npha/utils';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
-import { getCompetition } from './competition.service.js';
+import { getCompetition, settingsToRuleOverrides } from './competition.service.js';
 import { getIndividualRankings, getTeamRankings, recalculateRankings } from './scoring.service.js';
 
 const RANKING_ROUND_STATUSES = [
@@ -420,38 +421,79 @@ async function buildReportInput(
         status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
         finalScoreCm: { not: null },
       },
-      select: { pilotId: true, roundId: true, finalScoreCm: true },
+      select: { pilotId: true, roundId: true, finalScoreCm: true, resultType: true, isBullseye: true },
     });
     const scoreMap = new Map(
-      scores.map((s) => [`${s.pilotId}:${s.roundId}`, s.finalScoreCm as number]),
+      scores.map((s) => [`${s.pilotId}:${s.roundId}`, s]),
     );
 
-    const maxCm =
-      (competition.settings as { maximumScoreCm?: number } | null)?.maximumScoreCm ?? 500;
+    const rules = resolveCompetitionRules(
+      competition.ruleSet,
+      settingsToRuleOverrides(competition.settings),
+    );
+    const maxCm = rules.maximumScoreCm;
+    const discardActive =
+      rules.discardWorstRounds > 0 && rounds.length >= rules.discardAfterRounds;
     const roundHeaders = rounds.map((r) => `R${r.number}`);
     const scoredRankings = rankings.filter((r) => r.roundsFlown > 0);
+
     return {
       reportType,
       format,
       branding,
       title: category === 'WOMEN' ? "Women's Individual Results" : 'Overall Individual Results',
+      subtitle: discardActive
+        ? 'Excluded (worst) round score is highlighted'
+        : undefined,
       columns: ['Rank', 'No', 'Name', 'Country', ...roundHeaders, 'Bullseyes', 'Total'],
-      rows: scoredRankings.map((r) => ({
-        rank: r.rank,
-        pilotNumber: r.pilot.pilotNumber,
-        name: formatPilotName(r.pilot.firstName, r.pilot.lastName),
-        country: r.pilot.country?.name ?? r.pilot.nationality ?? '',
-        scores: [
-          ...rounds.map((round) => {
-            const cm = scoreMap.get(`${r.pilotId}:${round.id}`);
-            // Missing round on overall sheet uses competition maximum (e.g. 500).
-            return formatScoreCm(cm ?? maxCm);
-          }),
-          r.bullseyes,
-        ],
-        total: formatScoreCm(r.totalScoreCm),
-        notes: `${r.roundsFlown}r / ${r.bullseyes}•`,
-      })),
+      rows: scoredRankings.map((r) => {
+        const roundEntries = rounds.map((round) => {
+          const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
+          return {
+            pilotId: r.pilotId,
+            roundId: round.id,
+            roundNumber: round.number,
+            finalScoreCm: existing?.finalScoreCm ?? maxCm,
+            resultType: (existing?.resultType ?? 'DNF') as
+              | 'MEASURED'
+              | 'BULLSEYE'
+              | 'MAXIMUM'
+              | 'DNF'
+              | 'ABS'
+              | 'DNS'
+              | 'DSQ'
+              | 'REFLIGHT'
+              | 'PENALTY',
+            isBullseye: existing?.isBullseye ?? false,
+            isDiscarded: false,
+            isProvisional: !existing,
+          };
+        });
+
+        const { discarded } = applyDiscardRules(roundEntries, rules);
+        const discardedRoundIds = new Set(discarded.map((d) => d.roundId));
+
+        return {
+          rank: r.rank,
+          pilotNumber: r.pilot.pilotNumber,
+          name: formatPilotName(r.pilot.firstName, r.pilot.lastName),
+          country: r.pilot.country?.name ?? r.pilot.nationality ?? '',
+          scores: [
+            ...rounds.map((round) => {
+              const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
+              // Missing round on overall sheet uses competition maximum (e.g. 500).
+              const value = formatScoreCm(existing?.finalScoreCm ?? maxCm);
+              return discardedRoundIds.has(round.id) ? { value, excluded: true } : value;
+            }),
+            r.bullseyes,
+          ],
+          total: formatScoreCm(r.totalScoreCm),
+          notes: `${r.roundsFlown}r / ${r.bullseyes}•`,
+        };
+      }),
+      footerNote: discardActive
+        ? 'FAI Sporting Code Section 7C · Worst round score excluded from total'
+        : undefined,
     };
   }
 
