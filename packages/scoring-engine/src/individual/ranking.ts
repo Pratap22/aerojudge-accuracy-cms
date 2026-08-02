@@ -218,7 +218,8 @@ export function calculateIndividualRankings(
     );
 
     const totalScoreCm = kept.reduce((sum, s) => sum + s.finalScoreCm, 0);
-    const actualFlown = kept.filter((s) => !s.isProvisional);
+    // Rounds flown = every real score (kept + discarded). Discard only affects the total.
+    const actualFlown = [...kept, ...discarded].filter((s) => !s.isProvisional);
     const bullseyes = actualFlown.filter((s) => s.isBullseye).length;
 
     return {
@@ -226,7 +227,6 @@ export function calculateIndividualRankings(
       category,
       rank: 0,
       totalScoreCm,
-      // Only real (judge-entered) scores count as rounds flown — provisional max fills do not.
       roundsFlown: actualFlown.length,
       bullseyes,
       discardedScoreCm: discarded.length ? discardedTotal : null,

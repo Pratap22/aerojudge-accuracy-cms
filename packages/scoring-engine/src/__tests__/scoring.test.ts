@@ -111,6 +111,28 @@ describe('applyDiscardRules', () => {
   });
 });
 
+describe('calculateIndividualRankings discard vs rounds flown', () => {
+  it('counts discarded rounds in roundsFlown but not in total', () => {
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 5 };
+    const roundScores = Array.from({ length: 9 }, (_, i) => ({
+      pilotId: 'p1',
+      roundId: `r${i + 1}`,
+      roundNumber: i + 1,
+      finalScoreCm: i === 0 ? 5 : 1,
+      resultType: 'MEASURED' as const,
+      isBullseye: false,
+      isDiscarded: false,
+    }));
+    const rankings = calculateIndividualRankings(
+      [{ pilotId: 'p1', pilotNumber: 1, roundScores }],
+      rules,
+    );
+    expect(rankings[0].roundsFlown).toBe(9);
+    expect(rankings[0].discardedScoreCm).toBe(5);
+    expect(rankings[0].totalScoreCm).toBe(8);
+  });
+});
+
 describe('calculateIndividualRankings', () => {
   it('ranks lower total score first', () => {
     const rules = resolveCompetitionRules('FAI_2022');
