@@ -10,7 +10,16 @@ GitHub Actions (linux/amd64)
   → SSH to EC2 → docker compose pull + up
 ```
 
-Cost control: **stop the EC2 instance** when idle (Actions workflow **EC2 power**). You pay for EBS only while stopped. Prefer an **Elastic IP** so the address does not change.
+This host may also run other apps (e.g. nepse-api). Do **not** stop the whole EC2 instance to save AeroJudge cost — that takes those services down too. To idle AeroJudge only:
+
+```bash
+cd /home/ubuntu/apps/aerojudge-accuracy-cms
+docker compose -f docker/docker-compose.deploy.yml --env-file docker/.env.deploy stop
+# later:
+docker compose -f docker/docker-compose.deploy.yml --env-file docker/.env.deploy start
+```
+
+Prefer an **Elastic IP** (or stable DNS) so the address does not change if the instance is ever restarted.
 
 ## One-time EC2 setup
 
@@ -90,29 +99,13 @@ Workflows do **not** run on push or pull request. Use **Actions → Build and de
 
 Create a GitHub Environment named **`production`** (Settings → Environments). Attach the secrets there if you prefer environment-scoped secrets.
 
-### EC2 start/stop (cost)
-
-Secrets for workflow **EC2 power**:
-
-| Secret | Example |
-|--------|---------|
-| `AWS_ACCESS_KEY_ID` | IAM user key |
-| `AWS_SECRET_ACCESS_KEY` | … |
-| `AWS_REGION` | `ap-south-1` |
-| `EC2_INSTANCE_ID` | `i-0a9fa5553a2773e85` |
-
-IAM needs `ec2:StartInstances`, `ec2:StopInstances`, `ec2:DescribeInstances` on that instance.
-
-Run **Actions → EC2 power → Run workflow** → `start` / `stop` / `status`.
-
 ---
 
 ## Day-to-day
 
 1. Push code to `main` when ready (no Actions run).
 2. **Actions → Build and deploy → Run workflow** (Deploy = true to update EC2).
-3. When the competition is over: **EC2 power → stop**.
-4. Before the next event: **EC2 power → start**, wait for Docker restart (`restart: unless-stopped`), then deploy if you shipped new images while stopped.
+3. To free RAM/CPU without affecting other apps on the box: `docker compose … stop` (see above).
 
 Manual deploy on the box:
 

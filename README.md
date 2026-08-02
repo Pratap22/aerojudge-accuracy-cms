@@ -127,7 +127,7 @@ npm run docker:down
 
 Access via **http://localhost** (Nginx routes all apps).
 
-For **EC2 / production** (build in GitHub Actions, pull images on the server, start/stop for cost): see [docs/guides/DEPLOYMENT.md](docs/guides/DEPLOYMENT.md).
+For **EC2 / production** (build in GitHub Actions, pull images on the server): see [docs/guides/DEPLOYMENT.md](docs/guides/DEPLOYMENT.md).
 
 ---
 
@@ -230,7 +230,7 @@ aerojudge-accuracy-cms/
 ├── server/                # Express API + Socket.IO
 ├── database/              # Prisma schema, migrations, seed
 ├── docker/                # Docker Compose, Dockerfiles, Nginx
-├── .github/workflows/     # GHCR build + EC2 deploy / power
+├── .github/workflows/     # Manual GHCR build + EC2 deploy
 ├── e2e/                   # Playwright tests
 ├── docs/                  # Guides & architecture docs
 └── uploads/               # Runtime file storage
