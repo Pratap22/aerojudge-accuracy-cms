@@ -21,7 +21,9 @@ ARG APP_NAME
 ARG BASE_PATH
 ENV VITE_BASE_PATH=${BASE_PATH}
 COPY . .
+# shared + utils must be built before apps (@npha/ui and apps import their dist/)
 RUN npm run build --workspace=@npha/shared \
+  && npm run build --workspace=@npha/utils \
   && npm run build --workspace=@npha/${APP_NAME}
 
 FROM nginx:1.27-alpine AS runner
