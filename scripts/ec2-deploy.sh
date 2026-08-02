@@ -42,6 +42,10 @@ if [[ -z "${IMAGE_REGISTRY}" ]]; then
   exit 1
 fi
 
+compose() {
+  docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" "$@"
+}
+
 echo "==> Deploying AeroJudge"
 echo "    Registry: ${IMAGE_REGISTRY}"
 echo "    Tag:      ${IMAGE_TAG}"
@@ -52,19 +56,51 @@ if [[ -n "${GHCR_TOKEN:-}" ]]; then
 fi
 
 cd "${ROOT_DIR}"
-docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" pull
-docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --remove-orphans
+compose pull
+compose up -d --remove-orphans
+
+# Gateway nginx resolves upstream hostnames at start and caches IPs. When app
+# containers are recreated they get new IPs; without recreating nginx, path
+# apps (/admin/, /judge/, …) 404 against stale upstreams while / and /api may
+# still appear fine.
+echo "==> Recreating gateway nginx (refresh upstream DNS)"
+compose up -d --force-recreate --no-deps nginx
 
 echo "==> Waiting for API health..."
+api_ok=0
 for _ in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${HTTP_PORT}/api/v1/health" >/dev/null 2>&1; then
-    echo "==> Healthy. Admin: http://127.0.0.1:${HTTP_PORT}/admin/"
-    docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps
-    exit 0
+    api_ok=1
+    break
   fi
   sleep 2
 done
 
-echo "WARNING: health check did not pass in time. Check logs:"
-echo "  docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} logs --tail=100"
-exit 1
+if [[ "${api_ok}" -ne 1 ]]; then
+  echo "ERROR: API health check did not pass in time. Check logs:"
+  echo "  docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} logs --tail=100"
+  compose ps
+  exit 1
+fi
+
+echo "==> Checking path-prefixed apps..."
+failed=0
+for path in /admin/ /judge/ /display/ /results/ /; do
+  code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HTTP_PORT}${path}" || true)"
+  if [[ "${code}" != "200" ]]; then
+    echo "    FAIL ${path} → HTTP ${code}"
+    failed=1
+  else
+    echo "    OK   ${path}"
+  fi
+done
+
+compose ps
+
+if [[ "${failed}" -ne 0 ]]; then
+  echo "ERROR: one or more frontends returned non-200. Gateway upstreams may be stale."
+  echo "  compose logs nginx --tail=50"
+  exit 1
+fi
+
+echo "==> Healthy. Admin: http://127.0.0.1:${HTTP_PORT}/admin/"
