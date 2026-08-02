@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -243,9 +244,9 @@ export function TeamsPage() {
   if (!activeCompetitionId) {
     return (
       <p className="text-muted-foreground">
-        <a href="/competitions" className="text-primary underline">
+        <Link to="/competitions" className="text-primary underline">
           Open a competition
-        </a>{' '}
+        </Link>{' '}
         from the Competitions list.
       </p>
     );

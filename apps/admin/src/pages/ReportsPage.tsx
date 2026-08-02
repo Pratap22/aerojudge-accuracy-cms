@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Download, Eye, FileText, Printer, CheckCircle } from 'lucide-react';
@@ -164,9 +165,9 @@ export function ReportsPage() {
   if (!activeCompetitionId) {
     return (
       <p className="text-muted-foreground">
-        <a href="/competitions" className="text-primary underline">
+        <Link to="/competitions" className="text-primary underline">
           Open a competition
-        </a>{' '}
+        </Link>{' '}
         from the Competitions list.
       </p>
     );

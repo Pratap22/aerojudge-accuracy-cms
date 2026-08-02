@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_FAI_2022_RULES, type RuleConfig } from '@npha/shared';
@@ -36,7 +37,7 @@ export function SettingsPage() {
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><a href="/competitions" className="text-primary underline">Open a competition</a> from the Competitions list.</p>;
+    return <p className="text-muted-foreground"><Link to="/competitions" className="text-primary underline">Open a competition</Link> from the Competitions list.</p>;
   }
 
   if (isLoading) {

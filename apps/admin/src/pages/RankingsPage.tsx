@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatScoreCm } from '@npha/utils';
@@ -190,9 +191,9 @@ export function RankingsPage() {
   if (!activeCompetitionId) {
     return (
       <p className="text-muted-foreground">
-        <a href="/competitions" className="text-primary underline">
+        <Link to="/competitions" className="text-primary underline">
           Open a competition
-        </a>{' '}
+        </Link>{' '}
         from the Competitions list.
       </p>
     );

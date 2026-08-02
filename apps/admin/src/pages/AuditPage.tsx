@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ClipboardList, Search } from 'lucide-react';
@@ -41,7 +42,7 @@ export function AuditPage() {
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><a href="/competitions" className="text-primary underline">Open a competition</a> from the Competitions list.</p>;
+    return <p className="text-muted-foreground"><Link to="/competitions" className="text-primary underline">Open a competition</Link> from the Competitions list.</p>;
   }
 
   return (
