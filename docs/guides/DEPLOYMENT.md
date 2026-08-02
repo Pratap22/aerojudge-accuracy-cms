@@ -26,8 +26,8 @@ SSH in, then:
 
 ```bash
 # Copy scripts from the repo, or clone once:
-git clone https://github.com/Pratap22/aerojudge-accuracy-cms.git /home/ubuntu/apps/aerojudge
-cd /home/ubuntu/apps/aerojudge
+git clone https://github.com/Pratap22/aerojudge-accuracy-cms.git /home/ubuntu/apps/aerojudge-accuracy-cms
+cd /home/ubuntu/apps/aerojudge-accuracy-cms
 sudo ./scripts/ec2-bootstrap.sh
 # log out/in so docker group applies
 ```
@@ -35,7 +35,7 @@ sudo ./scripts/ec2-bootstrap.sh
 ### 3. Server env (secrets stay on the host)
 
 ```bash
-cd /home/ubuntu/apps/aerojudge
+cd /home/ubuntu/apps/aerojudge-accuracy-cms
 cp docker/.env.deploy.example docker/.env.deploy
 nano docker/.env.deploy
 ```
@@ -75,7 +75,7 @@ For a private repo, either:
 | `EC2_HOST` | Elastic IP or DNS |
 | `EC2_USER` | SSH user (`ubuntu`, `ec2-user`, …) |
 | `EC2_SSH_KEY` | Private key (full PEM) |
-| `EC2_DEPLOY_PATH` | Absolute path: `/home/ubuntu/apps/aerojudge` |
+| `EC2_DEPLOY_PATH` | Absolute path: `/home/ubuntu/apps/aerojudge-accuracy-cms` |
 | `GHCR_READ_TOKEN` | Optional; PAT with `read:packages` if private |
 | `GHCR_USER` | Optional; GitHub username for that PAT |
 
@@ -116,7 +116,7 @@ Run **Actions → EC2 power → Run workflow** → `start` / `stop` / `status`.
 Manual deploy on the box:
 
 ```bash
-cd /home/ubuntu/apps/aerojudge
+cd /home/ubuntu/apps/aerojudge-accuracy-cms
 IMAGE_TAG=<git-sha> GHCR_TOKEN=... ./scripts/ec2-deploy.sh
 ```
 
