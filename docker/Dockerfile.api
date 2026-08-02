@@ -20,7 +20,8 @@ RUN npm ci --ignore-scripts
 FROM deps AS builder
 COPY . .
 RUN npm run generate --workspace=@npha/database
-RUN npm run build --workspace=@npha/shared \
+RUN npm run build --workspace=@npha/database \
+  && npm run build --workspace=@npha/shared \
   && npm run build --workspace=@npha/utils \
   && npm run build --workspace=@npha/scoring-engine \
   && npm run build --workspace=@npha/pdf-engine \
