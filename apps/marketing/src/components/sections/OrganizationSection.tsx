@@ -1,15 +1,19 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { fadeLeft, fadeRight, inView, motionSafe } from '@/lib/motion';
+import { easeOut } from '@/lib/motion';
 
 export function OrganizationSection() {
   const reduce = useReducedMotion();
-  const copy = motionSafe(reduce, fadeLeft);
-  const tree = motionSafe(reduce, fadeRight);
 
   return (
     <section id="organizations" className="section-pad bg-navy text-white" aria-labelledby="org-heading">
       <div className="content-width grid items-center gap-10 lg:grid-cols-2">
-        <motion.div className="max-w-2xl" {...copy} viewport={inView}>
+        <motion.div
+          className="max-w-2xl"
+          initial={reduce ? { opacity: 0 } : { opacity: 0, x: -28 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.55, ease: easeOut }}
+        >
           <p className="eyebrow mb-3 text-sky">Organizations</p>
           <h2
             id="org-heading"
@@ -24,8 +28,10 @@ export function OrganizationSection() {
         </motion.div>
         <motion.div
           className="rounded-xl border border-white/15 bg-white/5 p-6 font-mono text-sm leading-relaxed text-sky/90"
-          {...tree}
-          viewport={inView}
+          initial={reduce ? { opacity: 0 } : { opacity: 0, x: 28 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.55, delay: 0.12, ease: easeOut }}
         >
           {[
             { text: 'User', className: 'text-white' },
@@ -37,24 +43,18 @@ export function OrganizationSection() {
             <motion.p
               key={line.text + i}
               className={line.className}
-              initial={reduce ? false : { opacity: 0, x: 8 }}
+              initial={{ opacity: 0, x: 10 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={inView}
-              transition={{ delay: 0.15 + i * 0.08, duration: 0.35 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 + i * 0.09, duration: 0.35 }}
             >
               {line.text}
             </motion.p>
           ))}
-          <motion.p
-            className="mt-6 text-xs text-white/55"
-            initial={reduce ? false : { opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={inView}
-            transition={{ delay: 0.6, duration: 0.4 }}
-          >
+          <p className="mt-6 text-xs text-white/55">
             Manage users, competitions, officials, pilots, teams, branding, reports and results — with
             organization data kept isolated.
-          </motion.p>
+          </p>
         </motion.div>
       </div>
     </section>

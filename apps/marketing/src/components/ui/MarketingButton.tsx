@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'onDark' | 'onDarkOutline';
 type ButtonSize = 'md' | 'lg';
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -10,6 +10,10 @@ const variantClasses: Record<ButtonVariant, string> = {
   secondary:
     'bg-white text-navy border border-navy/15 hover:border-sky hover:text-sky shadow-sm',
   ghost: 'bg-transparent text-navy hover:bg-navy/5',
+  onDark:
+    'bg-sky text-navy hover:bg-sky/90 shadow-sm focus-visible:outline-white',
+  onDarkOutline:
+    'bg-transparent text-white border border-white/35 hover:border-sky hover:bg-white/10 focus-visible:outline-white',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -44,12 +48,7 @@ type ButtonAsLink = CommonProps & {
 export type MarketingButtonProps = ButtonAsButton | ButtonAsAnchor | ButtonAsLink;
 
 export function MarketingButton(props: MarketingButtonProps) {
-  const {
-    children,
-    variant = 'primary',
-    size = 'md',
-    className = '',
-  } = props;
+  const { children, variant = 'primary', size = 'md', className = '' } = props;
 
   const classes = [
     'inline-flex items-center justify-center gap-2 rounded-md font-semibold transition-colors',
@@ -57,7 +56,9 @@ export function MarketingButton(props: MarketingButtonProps) {
     variantClasses[variant],
     sizeClasses[size],
     className,
-  ].join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   if ('to' in props && props.to) {
     return (
@@ -68,23 +69,23 @@ export function MarketingButton(props: MarketingButtonProps) {
   }
 
   if ('href' in props && props.href) {
-    const { href, ...rest } = props;
+    const href = props.href;
     const external = href.startsWith('http') || href.startsWith('mailto:');
     return (
       <a
         href={href}
         className={classes}
         {...(external ? { rel: 'noopener noreferrer' } : {})}
-        {...(rest as ComponentPropsWithoutRef<'a'>)}
       >
         {children}
       </a>
     );
   }
 
-  const { type = 'button', ...rest } = props as ButtonAsButton;
+  const buttonProps = props as ButtonAsButton;
+  const { type = 'button', onClick, disabled } = buttonProps;
   return (
-    <button type={type} className={classes} {...rest}>
+    <button type={type} className={classes} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   );
