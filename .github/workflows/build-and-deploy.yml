@@ -64,13 +64,36 @@ jobs:
               VITE_CONTACT_EMAIL=hello@nepalabs.com
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Lowercase image name
         run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
+      # Buildx boots by pulling moby/buildkit from Docker Hub; Hub timeouts are common on GHA.
+      # Mirror + retry avoids "Client.Timeout exceeded while awaiting headers".
+      - name: Configure Docker Hub mirror
+        run: |
+          # Pull-through cache for Docker Hub (buildx boots via moby/buildkit from docker.io)
+          echo '{"registry-mirrors":["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          docker info 2>/dev/null | grep -A3 'Registry Mirrors' || true
+
       - name: Set up Docker Buildx
+        id: buildx
+        continue-on-error: true
         uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
+
+      - name: Retry Docker Buildx setup
+        if: steps.buildx.outcome == 'failure'
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -110,7 +133,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout (deploy assets)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Resolve image tag
         id: tag

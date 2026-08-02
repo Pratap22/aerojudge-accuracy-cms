@@ -155,6 +155,7 @@ Prefer GitHub Actions for CI consistency.
 |---------|--------|
 | Deploy SSH fails | `EC2_HOST` / key / security group / instance running |
 | `pull` unauthorized | Package visibility or `GHCR_READ_TOKEN` |
+| Buildx / Docker Hub timeout | Transient Hub outage; workflow retries Buildx and uses `mirror.gcr.io`. Re-run the workflow. |
 | OOM / killed containers | Upgrade to `t3.small` or increase swap |
 | CORS / blank API | `CORS_ORIGINS` and `*_URL` match the browser origin (scheme + host) |
 | Wrong IP after start | Attach an Elastic IP |
