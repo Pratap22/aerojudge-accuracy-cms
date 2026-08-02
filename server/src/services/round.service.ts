@@ -3,7 +3,10 @@ import type { FlightOrderType, RoundStatus } from '@npha/shared';
 import type { Prisma } from '@npha/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
-import { getCompetition } from './competition.service.js';
+import {
+  advanceCompetitionForRoundStart,
+  getCompetition,
+} from './competition.service.js';
 
 const ACTIVE_STATUSES: RoundStatus[] = ['OPEN', 'ACTIVE', 'PAUSED'];
 
@@ -168,7 +171,7 @@ export async function startRound(competitionId: string, roundId: string) {
     await generateFlightOrder(competitionId, roundId, round.orderType as FlightOrderType);
   }
 
-  return prisma.round.update({
+  const updated = await prisma.round.update({
     where: { id: roundId },
     data: {
       status: 'ACTIVE',
@@ -177,6 +180,9 @@ export async function startRound(competitionId: string, roundId: string) {
     },
     include: { flights: { orderBy: { flightOrder: 'asc' }, include: { pilot: true } } },
   });
+
+  await advanceCompetitionForRoundStart(competitionId, updated.type);
+  return updated;
 }
 
 export async function pauseRound(competitionId: string, roundId: string) {

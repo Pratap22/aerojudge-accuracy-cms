@@ -2,7 +2,7 @@ import { prisma } from '../config/prisma.js';
 import { getCompetition } from './competition.service.js';
 
 export async function getCompetitionDashboard(competitionId: string) {
-  await getCompetition(competitionId);
+  const competition = await getCompetition(competitionId);
 
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
@@ -48,6 +48,8 @@ export async function getCompetitionDashboard(competitionId: string) {
   ]);
 
   return {
+    status: competition.status,
+    isPublished: competition.isPublished,
     totalPilots,
     totalTeams,
     activeRound,

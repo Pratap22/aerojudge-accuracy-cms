@@ -3,6 +3,7 @@ import { prisma } from '../config/prisma.js';
 import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
+import { syncCompetitionStatusFromRounds } from './competition.service.js';
 import { recalculateRankings } from './scoring.service.js';
 
 const ACTIVE_STATUSES = new Set(['REGISTRATION', 'PRACTICE', 'OFFICIAL', 'PAUSED']);
@@ -30,18 +31,27 @@ const publicCompetitionSelect = {
 
 /** Resolve by competition id or publicSlug. */
 export async function getPublicCompetition(slugOrId: string) {
-  const competition = await prisma.competition.findFirst({
+  const found = await prisma.competition.findFirst({
     where: {
       isPublished: true,
       status: { notIn: ['DRAFT', 'ARCHIVED'] },
       OR: [{ id: slugOrId }, { publicSlug: slugOrId }],
     },
+    select: { id: true, settings: { select: { livePublicResults: true } } },
+  });
+  if (!found) throw AppError.notFound('Competition not found');
+  if (!found.settings?.livePublicResults) {
+    throw AppError.forbidden('Public results are not enabled for this competition');
+  }
+
+  // Heal stuck REGISTRATION when official rounds already have progress (e.g. SQL import).
+  await syncCompetitionStatusFromRounds(found.id);
+
+  const competition = await prisma.competition.findFirst({
+    where: { id: found.id },
     select: publicCompetitionSelect,
   });
   if (!competition) throw AppError.notFound('Competition not found');
-  if (!competition.settings?.livePublicResults) {
-    throw AppError.forbidden('Public results are not enabled for this competition');
-  }
   return competition;
 }
 

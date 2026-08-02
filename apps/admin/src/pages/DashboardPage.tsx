@@ -29,6 +29,8 @@ import { competitionPath, useCompetitionId } from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';
 
 interface DashboardStats {
+  status?: CompetitionStatus;
+  isPublished?: boolean;
   totalPilots: number;
   totalTeams: number;
   activeRound: { id: string; number: number; name: string; status: RoundStatus } | null;
@@ -128,17 +130,22 @@ export function DashboardPage() {
   }
 
   const activeCompetition = competitions?.find((c) => c.id === competitionId);
+  const displayStatus = stats?.status ?? activeCompetition?.status;
+  const displayPublished = stats?.isPublished ?? activeCompetition?.isPublished;
   const needsPublish =
     activeCompetition &&
-    (!activeCompetition.isPublished || activeCompetition.status === 'DRAFT');
+    (!(displayPublished ?? activeCompetition.isPublished) ||
+      (displayStatus ?? activeCompetition.status) === 'DRAFT');
   const canClose =
     canUpdateCompetition &&
     activeCompetition &&
-    !['COMPLETED', 'ARCHIVED', 'CANCELLED', 'DRAFT'].includes(activeCompetition.status);
+    displayStatus &&
+    !['COMPLETED', 'ARCHIVED', 'CANCELLED', 'DRAFT'].includes(displayStatus);
   const canArchive =
     canUpdateCompetition &&
     activeCompetition &&
-    !['ARCHIVED', 'DRAFT'].includes(activeCompetition.status);
+    displayStatus &&
+    !['ARCHIVED', 'DRAFT'].includes(displayStatus);
 
   return (
     <div className="space-y-6">
@@ -150,13 +157,13 @@ export function DashboardPage() {
               ? `${activeCompetition.name} · ${activeCompetition.venue}`
               : 'Loading competition…'}
           </p>
-          {activeCompetition && (
+          {activeCompetition && displayStatus && (
             <div className="mt-2 flex flex-wrap gap-2">
-              <Badge variant={statusVariant[activeCompetition.status]}>
-                {activeCompetition.status}
+              <Badge variant={statusVariant[displayStatus]}>
+                {displayStatus}
               </Badge>
-              <Badge variant={activeCompetition.isPublished ? 'success' : 'outline'}>
-                {activeCompetition.isPublished ? 'Published' : 'Unpublished'}
+              <Badge variant={displayPublished ? 'success' : 'outline'}>
+                {displayPublished ? 'Published' : 'Unpublished'}
               </Badge>
             </div>
           )}
@@ -216,7 +223,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {activeCompetition?.status === 'COMPLETED' && (
+      {displayStatus === 'COMPLETED' && (
         <Card className="border-emerald-500/30 bg-emerald-500/5">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base text-emerald-700 dark:text-emerald-400">

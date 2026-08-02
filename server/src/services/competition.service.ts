@@ -54,6 +54,15 @@ export async function getCompetition(id: string, organizationId?: string) {
   if (organizationId && competition.organizationId !== organizationId) {
     throw AppError.forbidden('Competition belongs to another organization');
   }
+
+  const synced = await syncCompetitionStatusFromRounds(id);
+  if (synced && synced.status !== competition.status) {
+    return {
+      ...competition,
+      status: synced.status,
+      updatedAt: synced.updatedAt,
+    };
+  }
   return competition;
 }
 
@@ -225,6 +234,94 @@ export async function publishCompetition(id: string) {
       isPublished: true,
       status: competition.status === 'DRAFT' ? 'REGISTRATION' : competition.status,
     },
+    include: { settings: true },
+  });
+}
+
+const TERMINAL_COMPETITION_STATUSES = new Set(['COMPLETED', 'ARCHIVED', 'CANCELLED', 'DRAFT']);
+const OFFICIAL_PROGRESS_STATUSES = [
+  'ACTIVE',
+  'OPEN',
+  'PAUSED',
+  'BRIEFING',
+  'CLOSED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'LOCKED',
+] as const;
+
+/**
+ * Advance REGISTRATION → PRACTICE / OFFICIAL when scoring has actually begun.
+ * Idempotent; never moves terminal statuses. Heals imports that skipped startRound.
+ */
+export async function syncCompetitionStatusFromRounds(competitionId: string) {
+  const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
+  if (!competition || TERMINAL_COMPETITION_STATUSES.has(competition.status)) {
+    return competition;
+  }
+
+  const hasOfficialProgress = await prisma.round.findFirst({
+    where: {
+      competitionId,
+      type: 'OFFICIAL',
+      status: { in: [...OFFICIAL_PROGRESS_STATUSES] },
+    },
+    select: { id: true },
+  });
+
+  if (hasOfficialProgress && ['REGISTRATION', 'PRACTICE'].includes(competition.status)) {
+    return prisma.competition.update({
+      where: { id: competitionId },
+      data: { status: 'OFFICIAL' },
+      include: { settings: true },
+    });
+  }
+
+  if (competition.status === 'REGISTRATION') {
+    const hasPracticeProgress = await prisma.round.findFirst({
+      where: {
+        competitionId,
+        type: 'PRACTICE',
+        status: { in: [...OFFICIAL_PROGRESS_STATUSES] },
+      },
+      select: { id: true },
+    });
+    if (hasPracticeProgress) {
+      return prisma.competition.update({
+        where: { id: competitionId },
+        data: { status: 'PRACTICE' },
+        include: { settings: true },
+      });
+    }
+  }
+
+  return competition;
+}
+
+/** When a round starts scoring, bump competition lifecycle if still pre-event. */
+export async function advanceCompetitionForRoundStart(
+  competitionId: string,
+  roundType: string,
+) {
+  const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
+  if (!competition || TERMINAL_COMPETITION_STATUSES.has(competition.status)) {
+    return competition;
+  }
+
+  let next = competition.status;
+  if (roundType === 'PRACTICE' && competition.status === 'REGISTRATION') {
+    next = 'PRACTICE';
+  } else if (
+    (roundType === 'OFFICIAL' || roundType === 'REFLIGHT' || roundType === 'RESTART') &&
+    (competition.status === 'REGISTRATION' || competition.status === 'PRACTICE')
+  ) {
+    next = 'OFFICIAL';
+  }
+
+  if (next === competition.status) return competition;
+  return prisma.competition.update({
+    where: { id: competitionId },
+    data: { status: next },
     include: { settings: true },
   });
 }

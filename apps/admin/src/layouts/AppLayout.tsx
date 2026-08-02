@@ -1,8 +1,9 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
+  ArrowLeft,
   BarChart3,
   ClipboardList,
   FileText,
@@ -19,7 +20,6 @@ import {
   Users,
   UsersRound,
   Building2,
-  Archive,
   Handshake,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
@@ -31,89 +31,103 @@ import { connectSocket, disconnectSocket } from '../lib/socket';
 import { competitionPath } from '../hooks/useCompetitionId';
 import { checkPermission } from '../hooks/usePermission';
 
-const globalNav = [
-  {
-    to: '/competitions',
-    label: 'Competitions',
-    icon: Trophy,
-    end: true,
-  },
-  {
-    to: '/competitions/archived',
-    label: 'Archived Events',
-    icon: Archive,
-    end: true,
-  },
+const platformNav = [
+  { to: '/competitions', label: 'Competitions', icon: Trophy, end: true },
   { to: '/organizations', label: 'Organizations', icon: Building2, end: true },
-  {
-    to: '/organizations/archived',
-    label: 'Archived Orgs',
-    icon: Archive,
-    end: true,
-  },
-  { to: '/users', label: 'Judges / Users', icon: Shield, end: false },
+  { to: '/users', label: 'Users', icon: Shield, end: false },
 ] as const;
 
-/** Competition tabs — gated by org permissions (Judge → Scoring only). */
-const competitionNav: Array<{
+type CompetitionNavItem = {
   segment: string;
   label: string;
   icon: typeof LayoutDashboard;
   end: boolean;
   anyOf: readonly Permission[];
+};
+
+/** Competition tools — grouped for clearer scanning. */
+const competitionNavGroups: Array<{
+  title: string;
+  items: CompetitionNavItem[];
 }> = [
   {
-    segment: '',
-    label: 'Overview',
-    icon: LayoutDashboard,
-    end: true,
-    anyOf: ['competition:update', 'competition:publish', 'round:manage'],
-  },
-  { segment: 'pilots', label: 'Pilots', icon: Users, end: false, anyOf: ['pilot:manage'] },
-  { segment: 'teams', label: 'Teams', icon: UsersRound, end: false, anyOf: ['team:manage'] },
-  {
-    segment: 'sponsors',
-    label: 'Partners',
-    icon: Handshake,
-    end: false,
-    anyOf: ['competition:update'],
-  },
-  {
-    segment: 'rounds',
-    label: 'Rounds',
-    icon: Target,
-    end: false,
-    anyOf: ['round:manage', 'round:start', 'round:close'],
-  },
-  { segment: 'scoring', label: 'Scoring', icon: Gauge, end: false, anyOf: ['score:enter', 'score:confirm'] },
-  {
-    segment: 'rankings',
-    label: 'Rankings',
-    icon: Medal,
-    end: false,
-    anyOf: ['results:publish', 'score:confirm', 'round:manage', 'print:generate'],
+    title: 'Event',
+    items: [
+      {
+        segment: '',
+        label: 'Overview',
+        icon: LayoutDashboard,
+        end: true,
+        anyOf: ['competition:update', 'competition:publish', 'round:manage'],
+      },
+      { segment: 'pilots', label: 'Pilots', icon: Users, end: false, anyOf: ['pilot:manage'] },
+      { segment: 'teams', label: 'Teams', icon: UsersRound, end: false, anyOf: ['team:manage'] },
+      {
+        segment: 'sponsors',
+        label: 'Partners',
+        icon: Handshake,
+        end: false,
+        anyOf: ['competition:update'],
+      },
+    ],
   },
   {
-    segment: 'reports',
-    label: 'Reports / Print',
-    icon: FileText,
-    end: false,
-    anyOf: ['print:generate'],
+    title: 'Scoring',
+    items: [
+      {
+        segment: 'rounds',
+        label: 'Rounds',
+        icon: Target,
+        end: false,
+        anyOf: ['round:manage', 'round:start', 'round:close'],
+      },
+      {
+        segment: 'scoring',
+        label: 'Enter scores',
+        icon: Gauge,
+        end: false,
+        anyOf: ['score:enter', 'score:confirm'],
+      },
+    ],
   },
   {
-    segment: 'statistics',
-    label: 'Statistics',
-    icon: BarChart3,
-    end: false,
-    anyOf: ['results:publish', 'score:confirm', 'audit:view', 'print:generate'],
+    title: 'Results',
+    items: [
+      {
+        segment: 'rankings',
+        label: 'Rankings',
+        icon: Medal,
+        end: false,
+        anyOf: ['results:publish', 'score:confirm', 'round:manage', 'print:generate'],
+      },
+      {
+        segment: 'reports',
+        label: 'Reports',
+        icon: FileText,
+        end: false,
+        anyOf: ['print:generate'],
+      },
+      {
+        segment: 'statistics',
+        label: 'Statistics',
+        icon: BarChart3,
+        end: false,
+        anyOf: ['results:publish', 'score:confirm', 'audit:view', 'print:generate'],
+      },
+    ],
   },
-  { segment: 'audit', label: 'Audit', icon: ClipboardList, end: false, anyOf: ['audit:view'] },
   {
-    segment: 'settings',
-    label: 'Settings',
-    icon: Settings,
-    end: false,
-    anyOf: ['competition:update'],
+    title: 'Admin',
+    items: [
+      { segment: 'audit', label: 'Audit log', icon: ClipboardList, end: false, anyOf: ['audit:view'] },
+      {
+        segment: 'settings',
+        label: 'Settings',
+        icon: Settings,
+        end: false,
+        anyOf: ['competition:update'],
+      },
+    ],
   },
 ];
 
@@ -124,6 +138,44 @@ function competitionIdFromPath(pathname: string): string | undefined {
   return id;
 }
 
+function NavSectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="px-3 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/45">
+      {children}
+    </p>
+  );
+}
+
+function SidebarLink({
+  to,
+  end,
+  icon: Icon,
+  children,
+}: {
+  to: string;
+  end?: boolean;
+  icon: typeof LayoutDashboard;
+  children: ReactNode;
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+          isActive
+            ? 'bg-secondary text-secondary-foreground'
+            : 'text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground',
+        )
+      }
+    >
+      <Icon className="h-4 w-4 shrink-0 opacity-90" />
+      <span className="truncate">{children}</span>
+    </NavLink>
+  );
+}
+
 export function AppLayout() {
   const { user, logout, currentOrganization, organizations, selectOrganization } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -131,21 +183,11 @@ export function AppLayout() {
   const { pathname } = useLocation();
   const competitionId = useMemo(() => competitionIdFromPath(pathname), [pathname]);
 
-  const visibleGlobalNav = useMemo(() => {
+  const visiblePlatformNav = useMemo(() => {
     if (!user) return [];
-    return globalNav.filter((item) => {
+    return platformNav.filter((item) => {
       if (item.to === '/users') {
         return hasPermission(user.role, 'user:manage');
-      }
-      if (item.to === '/competitions/archived') {
-        return (
-          hasEffectivePermission({
-            platformRole: user.role,
-            orgRole: user.orgRole,
-            permissions: user.permissions,
-            permission: 'competition:update',
-          }) || hasPermission(user.role, 'competition:update')
-        );
       }
       if (item.to === '/organizations') {
         return (
@@ -170,26 +212,30 @@ export function AppLayout() {
           hasPermission(user.role, 'platform:organizations')
         );
       }
-      if (item.to === '/organizations/archived') {
-        return hasPermission(user.role, 'platform:organizations');
-      }
       return true;
     });
   }, [user]);
 
-  const visibleCompetitionNav = useMemo(() => {
+  const visibleCompetitionGroups = useMemo(() => {
     if (!user) return [];
-    return competitionNav.filter((item) =>
-      item.anyOf.some((permission) => checkPermission(user, permission)),
-    );
+    return competitionNavGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          item.anyOf.some((permission) => checkPermission(user, permission)),
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
   }, [user]);
 
   const { data: competitions } = useQuery({
     queryKey: ['competitions'],
-    queryFn: () => api.get<Array<{ id: string; name: string; code: string }>>('/competitions'),
+    queryFn: () =>
+      api.get<Array<{ id: string; name: string; code: string; status: string }>>('/competitions'),
   });
 
   const activeCompetition = competitions?.find((c) => c.id === competitionId);
+  const inCompetition = Boolean(competitionId && visibleCompetitionGroups.length > 0);
 
   useEffect(() => {
     if (competitionId) {
@@ -210,67 +256,79 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-sidebar text-sidebar-foreground">
-        <div className="border-b border-white/10 px-6 py-5">
+        <div className="border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-              <Target className="h-5 w-5 text-secondary-foreground" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+              <Target className="h-4 w-4 text-secondary-foreground" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold tracking-wide">AeroJudge</p>
-              <p className="truncate text-xs text-sidebar-foreground/70">
-                {currentOrganization
-                  ? currentOrganization.shortName
-                  : activeCompetition
-                    ? `${activeCompetition.code} · Active`
-                    : 'Select an organization'}
+              <p className="truncate text-xs text-sidebar-foreground/65">
+                {currentOrganization?.shortName ?? 'Admin'}
               </p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 scrollbar-thin">
-          {visibleGlobalNav.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-secondary text-secondary-foreground'
-                    : 'text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground',
-                )
-              }
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {label}
-            </NavLink>
-          ))}
-
-          {competitionId && visibleCompetitionNav.length > 0 && (
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3 scrollbar-thin">
+          {inCompetition ? (
             <>
-              <p className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-                Competition
-              </p>
-              {visibleCompetitionNav.map(({ segment, label, icon: Icon, end }) => (
-                <NavLink
-                  key={segment || 'overview'}
-                  to={competitionPath(competitionId, segment)}
-                  end={end}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-secondary text-secondary-foreground'
-                        : 'text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground',
-                    )
-                  }
+              <div className="mb-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                <button
+                  type="button"
+                  onClick={() => navigate('/competitions')}
+                  className="mb-2 inline-flex items-center gap-1 text-[11px] font-medium text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {label}
-                </NavLink>
+                  <ArrowLeft className="h-3 w-3" />
+                  All competitions
+                </button>
+                <p className="truncate text-sm font-semibold leading-snug text-sidebar-foreground">
+                  {activeCompetition?.name ?? 'Competition'}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] text-sidebar-foreground/55">
+                  {activeCompetition
+                    ? `${activeCompetition.code} · ${activeCompetition.status.replace(/_/g, ' ')}`
+                    : 'Loading…'}
+                </p>
+              </div>
+
+              {visibleCompetitionGroups.map((group) => (
+                <div key={group.title}>
+                  <NavSectionLabel>{group.title}</NavSectionLabel>
+                  <div className="space-y-0.5">
+                    {group.items.map(({ segment, label, icon, end }) => (
+                      <SidebarLink
+                        key={segment || 'overview'}
+                        to={competitionPath(competitionId!, segment)}
+                        end={end}
+                        icon={icon}
+                      >
+                        {label}
+                      </SidebarLink>
+                    ))}
+                  </div>
+                </div>
               ))}
+
+              <NavSectionLabel>Workspace</NavSectionLabel>
+              <div className="space-y-0.5 opacity-80">
+                {visiblePlatformNav.map(({ to, label, icon, end }) => (
+                  <SidebarLink key={to} to={to} end={end} icon={icon}>
+                    {label}
+                  </SidebarLink>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <NavSectionLabel>Workspace</NavSectionLabel>
+              <div className="space-y-0.5">
+                {visiblePlatformNav.map(({ to, label, icon, end }) => (
+                  <SidebarLink key={to} to={to} end={end} icon={icon}>
+                    {label}
+                  </SidebarLink>
+                ))}
+              </div>
             </>
           )}
         </nav>
@@ -278,7 +336,7 @@ export function AppLayout() {
         <div className="border-t border-white/10 p-4">
           {organizations.length > 0 && (
             <div className="mb-3 space-y-1">
-              <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+              <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/45">
                 Organization
               </p>
               <select
