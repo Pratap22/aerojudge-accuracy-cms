@@ -5,6 +5,7 @@ import { AeroJudgeMark } from '../ui/AeroJudgeMark';
 
 const productLinks = [
   { href: '/#features', label: 'Features' },
+  { href: '/#testimonials', label: 'Completed events' },
   { href: '/#pricing', label: 'Pricing' },
   { href: siteConfig.docsUrl, label: 'Documentation', external: true },
   { href: `mailto:${siteConfig.contactEmail}`, label: 'Contact', external: true },

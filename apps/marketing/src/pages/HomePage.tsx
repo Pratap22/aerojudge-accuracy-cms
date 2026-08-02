@@ -11,12 +11,14 @@ import { ProblemSection } from '../components/sections/ProblemSection';
 import { RolesSection } from '../components/sections/RolesSection';
 import { SolutionSection } from '../components/sections/SolutionSection';
 import { TeamScoringSection } from '../components/sections/TeamScoringSection';
+import { TestimonialsSection } from '../components/sections/TestimonialsSection';
 
 export default function HomePage() {
   return (
     <>
       <HeroSection />
       <ProblemSection />
+      <TestimonialsSection />
       <SolutionSection />
       <LifecycleSection />
       <RolesSection />

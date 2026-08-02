@@ -57,6 +57,13 @@ export async function getPublicCompetition(slugOrId: string) {
 }
 
 export async function listPublicCompetitions() {
+  const completedRoundStatuses = [
+    'CLOSED',
+    'PENDING_APPROVAL',
+    'APPROVED',
+    'LOCKED',
+  ] as const;
+
   const competitions = await prisma.competition.findMany({
     where: {
       isPublished: true,
@@ -85,6 +92,22 @@ export async function listPublicCompetitions() {
     orderBy: [{ startDate: 'desc' }, { name: 'asc' }],
   });
 
+  const completedRoundCounts =
+    competitions.length === 0
+      ? []
+      : await prisma.round.groupBy({
+          by: ['competitionId'],
+          where: {
+            type: 'OFFICIAL',
+            status: { in: [...completedRoundStatuses] },
+            competitionId: { in: competitions.map((c) => c.id) },
+          },
+          _count: { _all: true },
+        });
+  const completedByCompetition = new Map(
+    completedRoundCounts.map((row) => [row.competitionId, row._count._all]),
+  );
+
   const mapSummary = (c: (typeof competitions)[number]) => ({
     id: c.id,
     name: c.name,
@@ -99,6 +122,7 @@ export async function listPublicCompetitions() {
     pilotCount: c._count.pilots,
     teamCount: c._count.teams,
     roundCount: c._count.rounds,
+    completedRounds: completedByCompetition.get(c.id) ?? 0,
   });
 
   const active = competitions.filter((c) => ACTIVE_STATUSES.has(c.status)).map(mapSummary);
