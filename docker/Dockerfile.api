@@ -1,5 +1,7 @@
 # AeroJudge – API server (multi-stage)
 FROM node:20-alpine AS deps
+# OpenSSL required so Prisma picks linux-musl-openssl-3.0.x (not broken 1.1.x default)
+RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json turbo.json ./
 COPY apps/admin/package.json ./apps/admin/
@@ -27,7 +29,7 @@ RUN npm run build --workspace=@npha/shared \
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache curl tini
+RUN apk add --no-cache curl tini openssl libc6-compat
 RUN addgroup -g 1001 -S npha && adduser -S npha -u 1001 -G npha
 
 COPY --from=builder /app/package.json /app/package-lock.json ./
