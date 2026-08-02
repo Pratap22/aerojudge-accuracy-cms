@@ -25,7 +25,7 @@ See also [docs/PRODUCT.md](docs/PRODUCT.md).
 - **Public results** — SEO-friendly slug-based leaderboard (`/results/?slug=…`)
 - **Role-based access** — 10 roles from Super Admin to Display Operator
 - **Audit trail** — Immutable log of score changes, approvals, and configuration updates
-- **Docker deployment** — Single-command production stack with Nginx reverse proxy
+- **Docker deployment** — Local Compose stack; GHCR + GitHub Actions deploy to EC2
 
 ---
 
@@ -127,6 +127,8 @@ npm run docker:down
 
 Access via **http://localhost** (Nginx routes all apps).
 
+For **EC2 / production** (build in GitHub Actions, pull images on the server, start/stop for cost): see [docs/guides/DEPLOYMENT.md](docs/guides/DEPLOYMENT.md).
+
 ---
 
 ## Default Credentials (local seed)
@@ -202,6 +204,7 @@ npm run docker:logs      # Follow container logs
 |-------|-------------|
 | [Product](docs/PRODUCT.md) | AeroJudge vision and roadmap |
 | [Installation](docs/guides/INSTALLATION.md) | Prerequisites, env, migrate, seed |
+| [Deployment](docs/guides/DEPLOYMENT.md) | GHCR images, GitHub Actions, EC2 |
 | [Competition Operations](docs/guides/COMPETITION_OPS.md) | Running a competition day |
 | [API Reference](docs/api/API.md) | `/api/v1` endpoint overview |
 | [Architecture Overview](docs/architecture/OVERVIEW.md) | Clean architecture & workflows |
@@ -227,6 +230,7 @@ aerojudge-accuracy-cms/
 ├── server/                # Express API + Socket.IO
 ├── database/              # Prisma schema, migrations, seed
 ├── docker/                # Docker Compose, Dockerfiles, Nginx
+├── .github/workflows/     # GHCR build + EC2 deploy / power
 ├── e2e/                   # Playwright tests
 ├── docs/                  # Guides & architecture docs
 └── uploads/               # Runtime file storage

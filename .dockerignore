@@ -1,0 +1,40 @@
+# Git / IDE
+.git
+.github
+.cursor
+.vscode
+.idea
+**/.DS_Store
+
+# Dependencies & build artifacts (rebuilt in image)
+**/node_modules
+**/.turbo
+**/dist
+**/coverage
+**/playwright-report
+**/test-results
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+docker/.env
+docker/.env.*
+!docker/.env.example
+!docker/.env.deploy.example
+
+# Docs, tests, local tooling (not needed in runtime images)
+docs
+e2e
+**/*.md
+!README.md
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/__tests__
+
+# Uploads / local data
+uploads
+*.log
+npm-debug.log*

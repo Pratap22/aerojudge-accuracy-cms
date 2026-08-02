@@ -204,6 +204,7 @@ Add your frontend origin to `CORS_ORIGINS` in `.env`.
 
 ## Next steps
 
+- [EC2 / GHCR Deployment](DEPLOYMENT.md) — Build in GitHub Actions, run on EC2
 - [Competition Operations](COMPETITION_OPS.md) — Run a competition day
 - [API Reference](../api/API.md) — REST endpoints
 - [Architecture Overview](../architecture/OVERVIEW.md) — System design

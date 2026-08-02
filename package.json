@@ -34,6 +34,10 @@
     "docker:up": "docker compose -f docker/docker-compose.yml up -d --build",
     "docker:down": "docker compose -f docker/docker-compose.yml down",
     "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
+    "docker:deploy:pull": "docker compose -f docker/docker-compose.deploy.yml --env-file docker/.env.deploy pull",
+    "docker:deploy:up": "docker compose -f docker/docker-compose.deploy.yml --env-file docker/.env.deploy up -d",
+    "docker:deploy:down": "docker compose -f docker/docker-compose.deploy.yml --env-file docker/.env.deploy down",
+    "docker:deploy:logs": "docker compose -f docker/docker-compose.deploy.yml --env-file docker/.env.deploy logs -f",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "clean": "turbo run clean && rm -rf node_modules"
   },
