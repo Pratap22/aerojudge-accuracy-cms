@@ -79,15 +79,16 @@ For a private repo, either:
 | `GHCR_READ_TOKEN` | Optional; PAT with `read:packages` if private |
 | `GHCR_USER` | Optional; GitHub username for that PAT |
 
+### Manual runs only
+
+Workflows do **not** run on push or pull request. Use **Actions → Build and deploy → Run workflow**.
+
+- **Deploy** checked → build images, push to GHCR, deploy to EC2  
+- **Deploy** unchecked → build and push images only  
+
 ### Environment
 
 Create a GitHub Environment named **`production`** (Settings → Environments). Attach the secrets there if you prefer environment-scoped secrets.
-
-### Auto-deploy on push (optional)
-
-By default, pushes to `main` **build** images but do **not** deploy.
-
-Set repository variable **`AUTO_DEPLOY`** = `true` to deploy on every `main` push.
 
 ### EC2 start/stop (cost)
 
@@ -108,8 +109,8 @@ Run **Actions → EC2 power → Run workflow** → `start` / `stop` / `status`.
 
 ## Day-to-day
 
-1. Merge to `main` → images build and push to GHCR.
-2. **Actions → Build and deploy → Run workflow** (Deploy = true), **or** rely on `AUTO_DEPLOY`.
+1. Push code to `main` when ready (no Actions run).
+2. **Actions → Build and deploy → Run workflow** (Deploy = true to update EC2).
 3. When the competition is over: **EC2 power → stop**.
 4. Before the next event: **EC2 power → start**, wait for Docker restart (`restart: unless-stopped`), then deploy if you shipped new images while stopped.
 

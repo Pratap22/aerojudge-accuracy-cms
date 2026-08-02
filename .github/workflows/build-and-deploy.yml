@@ -1,12 +1,6 @@
 name: Build and deploy
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.cursor/**'
   workflow_dispatch:
     inputs:
       image_tag:
@@ -14,7 +8,7 @@ on:
         required: false
         type: string
       deploy:
-        description: 'Deploy to EC2 after push'
+        description: 'Deploy to EC2 after build'
         required: true
         type: boolean
         default: true
@@ -105,10 +99,7 @@ jobs:
     name: Deploy to EC2
     needs: build
     runs-on: ubuntu-latest
-    # Manual deploy from Actions UI, or set repo variable AUTO_DEPLOY=true for pushes to main
-    if: >
-      (github.event_name == 'workflow_dispatch' && inputs.deploy == true) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AUTO_DEPLOY == 'true')
+    if: inputs.deploy == true
     environment: production
     steps:
       - name: Checkout (deploy assets)
