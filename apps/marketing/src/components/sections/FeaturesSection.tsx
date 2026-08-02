@@ -1,7 +1,11 @@
+import { motion, useReducedMotion } from 'framer-motion';
 import { availableFeatures, plannedFeatures } from '@/config/features';
+import { Reveal, Stagger, StaggerItem } from '../motion/Reveal';
 import { SectionHeading } from '../ui/SectionHeading';
 
 export function FeaturesSection() {
+  const reduce = useReducedMotion();
+
   return (
     <section id="features" className="section-pad" aria-labelledby="features-heading">
       <div className="content-width">
@@ -12,34 +16,38 @@ export function FeaturesSection() {
           description="Everything listed as available ships in AeroJudge today. Upcoming items are labeled clearly — we do not market unfinished work as ready."
         />
 
-        <ul className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Stagger as="ul" className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
           {availableFeatures.map((feature) => (
-            <li
-              key={feature.id}
-              className="rounded-lg border border-border bg-white p-4 shadow-sm"
-            >
-              <p className="font-semibold text-navy">{feature.name}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
-            </li>
+            <StaggerItem key={feature.id} as="li">
+              <motion.div
+                className="h-full rounded-lg border border-border bg-white p-4 shadow-sm"
+                whileHover={reduce ? undefined : { y: -3 }}
+              >
+                <p className="font-semibold text-navy">{feature.name}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
+              </motion.div>
+            </StaggerItem>
           ))}
-        </ul>
+        </Stagger>
 
         {plannedFeatures.length > 0 ? (
-          <div className="mt-12 rounded-xl border border-dashed border-border bg-secondary/30 p-6">
-            <h3 className="font-display text-lg font-bold text-navy">On the roadmap</h3>
-            <ul className="mt-4 space-y-2">
-              {plannedFeatures.map((feature) => (
-                <li key={feature.id} className="text-sm text-muted-foreground">
-                  <span className="mr-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate">
-                    Planned
-                  </span>
-                  <span className="font-medium text-navy">{feature.name}</span>
-                  {' — '}
-                  {feature.description}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Reveal className="mt-12" y={20}>
+            <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-6">
+              <h3 className="font-display text-lg font-bold text-navy">On the roadmap</h3>
+              <ul className="mt-4 space-y-2">
+                {plannedFeatures.map((feature) => (
+                  <li key={feature.id} className="text-sm text-muted-foreground">
+                    <span className="mr-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate">
+                      Planned
+                    </span>
+                    <span className="font-medium text-navy">{feature.name}</span>
+                    {' — '}
+                    {feature.description}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
         ) : null}
 
         <p className="mt-8 max-w-3xl text-sm leading-relaxed text-muted-foreground">

@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { SpreadsheetFlow } from '../diagrams/SpreadsheetFlow';
 import { SectionHeading } from '../ui/SectionHeading';
 
@@ -27,7 +28,13 @@ export function ProblemSection() {
           description="Spreadsheets work well at the start of an event. As rounds stack up, teams need updating, displays need refreshing and officials need a single source of truth — coordination becomes the hard part."
         />
         <SpreadsheetFlow />
-        <ul className="mt-12 columns-1 gap-x-10 space-y-2.5 sm:columns-2">
+        <motion.ul
+          className="mt-12 columns-1 gap-x-10 space-y-2.5 sm:columns-2"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.55 }}
+        >
           {problems.map((item) => (
             <li key={item} className="break-inside-avoid text-sm leading-relaxed text-muted-foreground">
               <span className="mr-2 text-sky" aria-hidden>
@@ -36,7 +43,7 @@ export function ProblemSection() {
               {item}
             </li>
           ))}
-        </ul>
+        </motion.ul>
       </div>
     </section>
   );

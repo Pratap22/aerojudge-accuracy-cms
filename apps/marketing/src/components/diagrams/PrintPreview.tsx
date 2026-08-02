@@ -1,3 +1,6 @@
+import { motion, useReducedMotion } from 'framer-motion';
+import { fadeRight, inView, motionSafe, staggerContainer, staggerItem } from '@/lib/motion';
+
 const printSteps = [
   'Round Completed',
   'Results Reviewed',
@@ -9,23 +12,38 @@ const printSteps = [
 ];
 
 export function PrintPreview() {
+  const reduce = useReducedMotion();
+  const stepsMotion = motionSafe(reduce, staggerContainer(0.07));
+  const sheetMotion = motionSafe(reduce, fadeRight);
+
   return (
     <div className="mt-10 grid items-start gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-      <ol className="space-y-2" aria-label="Official results print workflow">
+      <motion.ol
+        className="space-y-2"
+        aria-label="Official results print workflow"
+        {...stepsMotion}
+        viewport={inView}
+      >
         {printSteps.map((step, index) => (
-          <li key={step} className="flex items-center gap-3 text-sm">
+          <motion.li
+            key={step}
+            variants={reduce ? undefined : staggerItem}
+            className="flex items-center gap-3 text-sm"
+          >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-navy text-xs font-bold text-white">
               {index + 1}
             </span>
             <span className="font-medium text-navy">{step}</span>
-          </li>
+          </motion.li>
         ))}
-      </ol>
+      </motion.ol>
 
-      <div
+      <motion.div
         className="mx-auto w-full max-w-md overflow-hidden rounded-sm border border-border bg-white shadow-[0_20px_50px_-28px_rgba(0,36,71,0.5)]"
         style={{ aspectRatio: '210 / 297' }}
         aria-hidden="true"
+        {...sheetMotion}
+        viewport={inView}
       >
         <div className="flex h-full flex-col p-[6%]">
           <div className="flex items-start justify-between border-b border-navy/15 pb-3">
@@ -37,11 +55,18 @@ export function PrintPreview() {
           </div>
           <div className="mt-3 flex-1 space-y-1.5 text-[9px] leading-relaxed text-navy/80">
             {['1 · A. Rivera · 48 cm', '2 · M. Chen · 51 cm', '3 · S. Okada · 63 cm', '4 · J. Silva · 71 cm'].map(
-              (line) => (
-                <div key={line} className="flex justify-between border-b border-border/80 py-1">
+              (line, i) => (
+                <motion.div
+                  key={line}
+                  className="flex justify-between border-b border-border/80 py-1"
+                  initial={reduce ? false : { opacity: 0, x: 8 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={inView}
+                  transition={{ delay: 0.25 + i * 0.08, duration: 0.35 }}
+                >
                   <span>{line.split(' · ').slice(0, 2).join(' · ')}</span>
                   <span className="tabular-nums">{line.split(' · ').at(-1)}</span>
-                </div>
+                </motion.div>
               ),
             )}
             <div className="pt-3 text-[8px] text-muted-foreground">
@@ -54,7 +79,7 @@ export function PrintPreview() {
           </div>
           <p className="mt-1 text-[7px] text-muted-foreground">Signatures where configured</p>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

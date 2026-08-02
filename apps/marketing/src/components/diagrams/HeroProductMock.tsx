@@ -1,5 +1,4 @@
-import { useReducedMotion } from 'framer-motion';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 const rows = [
   { rank: 1, name: 'A. Rivera', score: '12', total: '48' },
@@ -11,14 +10,27 @@ export function HeroProductMock() {
   const reduce = useReducedMotion();
 
   return (
-    <div
-      className="relative mx-auto w-full max-w-lg lg:max-w-none"
-      aria-hidden="true"
-    >
-      <div className="absolute -inset-4 rounded-2xl bg-target-ring opacity-80" />
+    <div className="relative mx-auto w-full max-w-lg lg:max-w-none" aria-hidden="true">
+      <motion.div
+        className="absolute -inset-4 rounded-2xl bg-target-ring"
+        style={{ opacity: 0.8 }}
+        animate={
+          reduce
+            ? undefined
+            : {
+                scale: [1, 1.04, 1],
+                opacity: [0.55, 0.85, 0.55],
+              }
+        }
+        transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+      />
       <div className="relative overflow-hidden rounded-xl border border-navy/10 bg-white shadow-[0_24px_60px_-24px_rgba(0,36,71,0.45)]">
         <div className="flex items-center gap-2 border-b border-border bg-navy px-4 py-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-sky" />
+          <motion.span
+            className="inline-block h-2.5 w-2.5 rounded-full bg-sky"
+            animate={reduce ? undefined : { opacity: [1, 0.25, 1], scale: [1, 0.85, 1] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+          />
           <span className="text-xs font-medium tracking-wide text-white/80">Live competition · Round 4</span>
         </div>
 
@@ -34,8 +46,20 @@ export function HeroProductMock() {
               </div>
               <motion.div
                 className="rounded-lg bg-bullseye px-3 py-2 text-center text-white"
-                animate={reduce ? undefined : { scale: [1, 1.04, 1] }}
-                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={
+                  reduce
+                    ? { scale: 1, opacity: 1 }
+                    : { scale: [1, 1.06, 1], opacity: 1 }
+                }
+                transition={
+                  reduce
+                    ? { duration: 0.3 }
+                    : {
+                        opacity: { duration: 0.35, delay: 0.4 },
+                        scale: { duration: 2.2, repeat: Infinity, ease: 'easeInOut', delay: 0.6 },
+                      }
+                }
               >
                 <p className="text-[10px] uppercase tracking-wider opacity-90">Score</p>
                 <p className="font-display text-3xl font-bold leading-none">0</p>
@@ -43,18 +67,22 @@ export function HeroProductMock() {
               </motion.div>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-md bg-secondary px-2 py-2">
-                <p className="text-muted-foreground">Overall</p>
-                <p className="mt-0.5 font-semibold text-navy">51 cm</p>
-              </div>
-              <div className="rounded-md bg-secondary px-2 py-2">
-                <p className="text-muted-foreground">Rank</p>
-                <p className="mt-0.5 font-semibold text-navy">#2</p>
-              </div>
-              <div className="rounded-md bg-secondary px-2 py-2">
-                <p className="text-muted-foreground">Team</p>
-                <p className="mt-0.5 font-semibold text-navy">#1</p>
-              </div>
+              {[
+                { label: 'Overall', value: '51 cm' },
+                { label: 'Rank', value: '#2' },
+                { label: 'Team', value: '#1' },
+              ].map((stat, i) => (
+                <motion.div
+                  key={stat.label}
+                  className="rounded-md bg-secondary px-2 py-2"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.55 + i * 0.1, duration: 0.35 }}
+                >
+                  <p className="text-muted-foreground">{stat.label}</p>
+                  <p className="mt-0.5 font-semibold text-navy">{stat.value}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
 
@@ -69,9 +97,9 @@ export function HeroProductMock() {
                   className={`flex items-center justify-between rounded-md px-2.5 py-2 text-sm ${
                     row.highlight ? 'bg-sky/10 ring-1 ring-sky/30' : 'bg-secondary/70'
                   }`}
-                  initial={reduce ? false : { opacity: 0, x: 8 }}
+                  initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.15 * i, duration: 0.4 }}
+                  transition={{ delay: 0.75 + 0.12 * i, duration: 0.4 }}
                 >
                   <span className="font-medium text-navy">
                     <span className="mr-2 inline-block w-4 text-muted-foreground">{row.rank}</span>
@@ -84,16 +112,6 @@ export function HeroProductMock() {
                 </motion.li>
               ))}
             </ul>
-            <div className="mt-4 flex gap-1.5">
-              {['Rankings', 'Teams', 'Display'].map((label) => (
-                <span
-                  key={label}
-                  className="rounded-full border border-border px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
           </div>
         </div>
       </div>

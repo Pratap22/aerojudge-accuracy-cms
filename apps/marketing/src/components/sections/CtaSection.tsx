@@ -1,15 +1,35 @@
+import { motion, useReducedMotion } from 'framer-motion';
 import { aeroJudgeApps } from '@/config/apps';
 import { mailtoContact, siteConfig } from '@/config/site';
+import { easeOut } from '@/lib/motion';
 import { MarketingButton } from '../ui/MarketingButton';
 
 export function CtaSection() {
+  const reduce = useReducedMotion();
   const admin = aeroJudgeApps.find((a) => a.id === 'admin')!;
 
   return (
     <section id="get-started" className="section-pad" aria-labelledby="cta-heading">
       <div className="content-width">
-        <div className="relative overflow-hidden rounded-2xl bg-navy px-6 py-12 text-center sm:px-10 sm:py-16">
-          <div className="pointer-events-none absolute inset-0 bg-target-ring opacity-40" aria-hidden />
+        <motion.div
+          className="relative overflow-hidden rounded-2xl bg-navy px-6 py-12 text-center sm:px-10 sm:py-16"
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 36, scale: 0.97 }}
+          whileInView={
+            reduce
+              ? { opacity: 1 }
+              : { opacity: 1, y: 0, scale: 1, transition: { duration: 0.65, ease: easeOut } }
+          }
+          viewport={{ once: true, amount: 0.35 }}
+        >
+          <motion.div
+            className="pointer-events-none absolute inset-0 bg-target-ring"
+            style={{ opacity: 0.4 }}
+            aria-hidden
+            animate={
+              reduce ? undefined : { scale: [1, 1.08, 1], opacity: [0.28, 0.48, 0.28] }
+            }
+            transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' }}
+          />
           <div className="relative">
             <h2 id="cta-heading" className="font-display text-3xl font-bold text-white sm:text-4xl">
               Ready to run your next competition differently?
@@ -44,7 +64,7 @@ export function CtaSection() {
               </MarketingButton>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
