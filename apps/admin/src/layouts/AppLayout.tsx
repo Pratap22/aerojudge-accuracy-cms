@@ -19,10 +19,11 @@ import {
   Users,
   UsersRound,
   Building2,
+  Archive,
   Handshake,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
-import { hasEffectivePermission, hasPermission, isPlatformRole, type Permission } from '@npha/shared';
+import { hasEffectivePermission, hasPermission, type Permission } from '@npha/shared';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { api } from '../lib/api';
@@ -32,7 +33,13 @@ import { checkPermission } from '../hooks/usePermission';
 
 const globalNav = [
   { to: '/competitions', label: 'Competitions', icon: Trophy, end: true },
-  { to: '/organizations', label: 'Organizations', icon: Building2, end: false },
+  { to: '/organizations', label: 'Organizations', icon: Building2, end: true },
+  {
+    to: '/organizations/archived',
+    label: 'Archived Orgs',
+    icon: Archive,
+    end: true,
+  },
   { to: '/users', label: 'Judges / Users', icon: Shield, end: false },
 ] as const;
 
@@ -137,9 +144,11 @@ export function AppLayout() {
             permissions: user.permissions,
             permission: 'organization:read',
           }) ||
-          hasPermission(user.role, 'platform:organizations') ||
-          isPlatformRole(user.role)
+          hasPermission(user.role, 'platform:organizations')
         );
+      }
+      if (item.to === '/organizations/archived') {
+        return hasPermission(user.role, 'platform:organizations');
       }
       return true;
     });

@@ -17,6 +17,7 @@ import { StatisticsPage } from './pages/StatisticsPage';
 import { AuditPage } from './pages/AuditPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { OrganizationsPage } from './pages/organizations/OrganizationsPage';
+import { ArchivedOrganizationsPage } from './pages/organizations/ArchivedOrganizationsPage';
 import { OrganizationDetailPage } from './pages/organizations/OrganizationDetailPage';
 import { OrganizationMembersPage } from './pages/organizations/OrganizationMembersPage';
 
@@ -129,9 +130,22 @@ export default function App() {
           path="organizations"
           element={
             <RequirePermission
-              anyOf={['organization:read', 'organization:manage', 'organization:members']}
+              anyOf={[
+                'organization:read',
+                'organization:manage',
+                'organization:members',
+                'platform:organizations',
+              ]}
             >
               <OrganizationsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="organizations/archived"
+          element={
+            <RequirePermission anyOf={['platform:organizations']}>
+              <ArchivedOrganizationsPage />
             </RequirePermission>
           }
         />
@@ -139,7 +153,12 @@ export default function App() {
           path="organizations/:organizationId"
           element={
             <RequirePermission
-              anyOf={['organization:read', 'organization:manage', 'organization:members']}
+              anyOf={[
+                'organization:read',
+                'organization:manage',
+                'organization:members',
+                'platform:organizations',
+              ]}
             >
               <OrganizationDetailPage />
             </RequirePermission>
@@ -148,7 +167,9 @@ export default function App() {
         <Route
           path="organizations/:organizationId/members"
           element={
-            <RequirePermission anyOf={['organization:members', 'organization:manage']}>
+            <RequirePermission
+              anyOf={['organization:members', 'organization:manage', 'platform:organizations']}
+            >
               <OrganizationMembersPage />
             </RequirePermission>
           }

@@ -60,18 +60,21 @@ export function OrganizationsPage() {
   const canManage = user && hasPermission(user.role, 'platform:organizations');
 
   const queryKey = useMemo(
-    () => ['organizations', { search, page, pageSize }] as const,
+    () => ['organizations', 'active-list', { search, page, pageSize }] as const,
     [search, page],
   );
 
   const { data: organizations, isLoading } = useQuery({
     queryKey,
-    queryFn: () =>
-      api.get<Organization[]>('/organizations', {
+    queryFn: async () => {
+      const rows = await api.get<Organization[]>('/organizations', {
         search: search || undefined,
         page,
         pageSize,
-      }),
+      });
+      // Archived orgs have a dedicated Super Admin screen
+      return rows.filter((org) => org.status !== 'ARCHIVED');
+    },
     enabled: !!canRead,
   });
 
@@ -128,17 +131,24 @@ export function OrganizationsPage() {
             Manage federations, clubs, and commercial tenants that own competitions
           </p>
         </div>
-        {canManage && (
-          <Button
-            onClick={() => {
-              reset();
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Organization
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canManage && (
+            <Button variant="outline" asChild>
+              <Link to="/organizations/archived">Archived</Link>
+            </Button>
+          )}
+          {canManage && (
+            <Button
+              onClick={() => {
+                reset();
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Organization
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="relative max-w-md">

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   hasEffectivePermission,
+  hasPermission,
   updateOrganizationSchema,
   type Organization,
   type OrganizationSettingsInput,
@@ -57,11 +58,13 @@ function OrganizationRolesEmbedded(_props: { organizationId: string }) {
  */
 export function OrganizationDetailPage() {
   const { organizationId = '' } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('details');
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const canPlatformManage = !!user && hasPermission(user.role, 'platform:organizations');
   const canRead =
     !!user &&
     (hasEffectivePermission({
@@ -70,15 +73,19 @@ export function OrganizationDetailPage() {
       permissions: user.permissions,
       permission: 'organization:read',
     }) ||
+      canPlatformManage ||
       !!user.organizations?.length);
   const canManage =
-    !!user &&
-    hasEffectivePermission({
-      platformRole: user.role,
-      orgRole: user.orgRole,
-      permissions: user.permissions,
-      permission: 'organization:manage',
-    });
+    canPlatformManage ||
+    (!!user &&
+      hasEffectivePermission({
+        platformRole: user.role,
+        orgRole: user.orgRole,
+        permissions: user.permissions,
+        permission: 'organization:manage',
+      }));
+  /** Status transitions (archive / activate) are Super Admin only on the API. */
+  const canChangeStatus = canPlatformManage;
 
   const { data: org, isLoading } = useQuery({
     queryKey: ['organizations', organizationId],
@@ -151,9 +158,12 @@ export function OrganizationDetailPage() {
   const statusMutation = useMutation({
     mutationFn: (status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED') =>
       api.patch<Organization>(`/organizations/${organizationId}/status`, { status }),
-    onSuccess: () => {
+    onSuccess: (_org, status) => {
       queryClient.invalidateQueries({ queryKey: ['organizations', organizationId] });
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      if (status === 'ARCHIVED') {
+        navigate('/organizations/archived', { replace: true });
+      }
     },
   });
 
@@ -215,11 +225,11 @@ export function OrganizationDetailPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
           <Link
-            to="/organizations"
+            to={org.status === 'ARCHIVED' ? '/organizations/archived' : '/organizations'}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Organizations
+            {org.status === 'ARCHIVED' ? 'Archived Organizations' : 'Organizations'}
           </Link>
           <div className="flex items-center gap-3">
             {org.logoUrl ? (
@@ -243,7 +253,7 @@ export function OrganizationDetailPage() {
           </div>
         </div>
 
-        {canManage && (
+        {canChangeStatus && (
           <div className="flex flex-wrap gap-2">
             {org.status !== 'ACTIVE' && (
               <Button
@@ -252,7 +262,7 @@ export function OrganizationDetailPage() {
                 onClick={() => statusMutation.mutate('ACTIVE')}
                 disabled={statusMutation.isPending}
               >
-                Activate
+                {org.status === 'ARCHIVED' ? 'Unarchive' : 'Activate'}
               </Button>
             )}
             {org.status === 'ACTIVE' && (
