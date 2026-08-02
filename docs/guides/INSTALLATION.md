@@ -121,6 +121,7 @@ npm run dev
 
 ```bash
 npm run dev --workspace=@npha/server      # API :4000
+npm run dev --workspace=@npha/marketing   # Marketing :3004
 npm run dev --workspace=@npha/admin       # Admin :3000
 npm run dev --workspace=@npha/judge       # Judge :3001
 npm run dev --workspace=@npha/display     # Display :3002
@@ -135,6 +136,7 @@ npm run dev --workspace=@npha/public-results  # Public :3003
 |-------|-----|
 | API health | http://localhost:4000/api/v1/health |
 | Swagger docs | http://localhost:4000/api/docs |
+| Marketing site | http://localhost:3004 |
 | Admin login | http://localhost:3000/login |
 | Public results | http://localhost:3003/?slug=npha-acc-2024 |
 
@@ -153,10 +155,12 @@ npm run docker:up
 
 Services:
 
-- **http://localhost/** → redirects to admin
+- **http://localhost/** → marketing website
 - **http://localhost/admin/** → admin portal
-- **http://localhost/api/v1/** → API
+- **http://localhost/judge/** → scoring terminal
+- **http://localhost/display/** → venue display
 - **http://localhost/results/** → public results
+- **http://localhost/api/v1/** → API
 
 The API container runs migrations on startup. Set `RUN_SEED=true` in `docker/.env` to seed on first boot (default: `true`).
 

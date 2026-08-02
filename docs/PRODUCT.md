@@ -31,6 +31,8 @@ AeroJudge is not just a scoring system.
 
 It is an Event Operating System.
 
+The public marketing site (`apps/marketing`, served at `/` in production) explains the product story for organizers; authenticated apps remain path-prefixed (`/admin`, `/judge`, `/display`, `/results`).
+
 Everything should be configurable.
 
 Nothing should be organization-specific.

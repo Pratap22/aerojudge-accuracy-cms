@@ -222,14 +222,17 @@ Each app runs its own Vite dev server with API proxy.
 ```mermaid
 flowchart LR
     Client --> Nginx
+    Nginx -->|/| MarketingContainer
     Nginx -->|/api| API
     Nginx -->|/admin| AdminContainer
     Nginx -->|/judge| JudgeContainer
+    Nginx -->|/display| DisplayContainer
+    Nginx -->|/results| PublicResultsContainer
     API --> PostgreSQL
     API --> UploadVolume
 ```
 
-Each frontend container is a **multi-stage build**: Node builds static assets → Nginx Alpine serves them with SPA fallback.
+Each frontend container is a **multi-stage build**: Node builds static assets → Nginx Alpine serves them with SPA fallback. The marketing site is served at `/`; product apps remain path-prefixed.
 
 ---
 
@@ -239,7 +242,7 @@ Each frontend container is a **multi-stage build**: Node builds static assets �
 2. **Audit everything** — Score changes, approvals, and config updates log to `AuditLog`
 3. **Publish explicitly** — Public results require `publish` action; never leak draft scores
 4. **Isolate FAI logic** — Scoring engine is a pure function library
-5. **Role-appropriate UX** — Six specialised apps instead of one configurable UI
+5. **Role-appropriate UX** — Specialised apps (marketing, admin, judge, display, public results) instead of one configurable UI
 
 ---
 

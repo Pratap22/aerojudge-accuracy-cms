@@ -55,6 +55,13 @@ jobs:
             build_args: |
               APP_NAME=public-results
               BASE_PATH=/results/
+          - app: marketing
+            dockerfile: docker/Dockerfile.web
+            build_args: |
+              APP_NAME=marketing
+              BASE_PATH=/
+              VITE_SITE_URL=https://aerojudge.nepalabs.com
+              VITE_CONTACT_EMAIL=hello@nepalabs.com
     steps:
       - name: Checkout
         uses: actions/checkout@v4

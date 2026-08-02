@@ -8,6 +8,7 @@ alwaysApply: false
 
 ## App split
 
+- **Marketing (`apps/marketing`):** public product site at `/` in production (dev `:3004`); storytelling landing, no auth/API coupling.
 - **Admin / Judge:** full `@npha/ui` + Query + forms; judge has offline queue (`apps/judge/src/lib/offline-queue.ts`).
 - **Display / Public:** leaner UIs; often Socket.IO-driven; null-safe country/pilot fields.
 

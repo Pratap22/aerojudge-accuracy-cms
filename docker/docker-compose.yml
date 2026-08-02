@@ -144,6 +144,23 @@ services:
     networks:
       - npha
 
+  marketing:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        APP_NAME: marketing
+        BASE_PATH: /
+        VITE_SITE_URL: ${VITE_SITE_URL:-http://localhost}
+        VITE_CONTACT_EMAIL: ${VITE_CONTACT_EMAIL:-hello@nepalabs.com}
+    container_name: npha-marketing
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - npha
+
   nginx:
     image: nginx:1.27-alpine
     container_name: npha-nginx
@@ -160,8 +177,9 @@ services:
       - judge
       - display
       - public-results
+      - marketing
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/admin/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -105,6 +105,16 @@ services:
     networks:
       - aerojudge
 
+  marketing:
+    image: ${IMAGE_REGISTRY}/marketing:${IMAGE_TAG:-latest}
+    container_name: aerojudge-marketing
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - aerojudge
+
   nginx:
     image: nginx:1.27-alpine
     container_name: aerojudge-nginx
@@ -121,8 +131,9 @@ services:
       - judge
       - display
       - public-results
+      - marketing
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/admin/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
       interval: 30s
       timeout: 5s
       retries: 3

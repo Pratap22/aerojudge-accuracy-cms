@@ -60,7 +60,7 @@ export GHCR_TOKEN=ghp_...   # classic PAT with read:packages if packages are pri
 ./scripts/ec2-deploy.sh
 ```
 
-Open `http://<elastic-ip>/admin/`.
+Open `http://<elastic-ip>/` for the marketing site, or `http://<elastic-ip>/admin/` for Admin.
 
 ---
 
@@ -137,6 +137,12 @@ done
 docker buildx build --platform linux/amd64 -f docker/Dockerfile.web \
   --build-arg APP_NAME=public-results --build-arg BASE_PATH=/results/ \
   -t $REGISTRY/public-results:$TAG --push .
+
+docker buildx build --platform linux/amd64 -f docker/Dockerfile.web \
+  --build-arg APP_NAME=marketing --build-arg BASE_PATH=/ \
+  --build-arg VITE_SITE_URL=https://aerojudge.nepalabs.com \
+  --build-arg VITE_CONTACT_EMAIL=hello@nepalabs.com \
+  -t $REGISTRY/marketing:$TAG --push .
 ```
 
 Prefer GitHub Actions for CI consistency.

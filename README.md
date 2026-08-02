@@ -34,6 +34,7 @@ See also [docs/PRODUCT.md](docs/PRODUCT.md).
 ```mermaid
 flowchart TB
     subgraph Clients
+        Marketing["Marketing :3004"]
         Admin["Admin Portal :3000"]
         Judge["Judge Terminal :3001"]
         Display["Display Board :3002"]
@@ -57,9 +58,9 @@ flowchart TB
         Uploads[("Upload Volume")]
     end
 
-    Admin & Judge & Display & Public --> Nginx
+    Marketing & Admin & Judge & Display & Public --> Nginx
     Nginx -->|"/api /socket.io"| API
-    Nginx -->|"/admin /judge …"| Clients
+    Nginx -->|"/ /admin /judge …"| Clients
     API --> Socket
     API --> Scoring & PDF
     API --> PG
@@ -107,7 +108,7 @@ npm run db:seed
 npm run dev
 ```
 
-Open **http://localhost:3000** (admin) and **http://localhost:4000/api/docs** (Swagger).
+Open **http://localhost:3004** (marketing), **http://localhost:3000** (admin) and **http://localhost:4000/api/docs** (Swagger).
 
 ### Docker (production-like)
 
@@ -125,7 +126,7 @@ npm run docker:logs
 npm run docker:down
 ```
 
-Access via **http://localhost** (Nginx routes all apps).
+Access via **http://localhost** (Nginx serves the marketing site at `/`, plus `/admin`, `/judge`, `/display`, `/results`).
 
 For **EC2 / production** (build in GitHub Actions, pull images on the server): see [docs/guides/DEPLOYMENT.md](docs/guides/DEPLOYMENT.md).
 
@@ -151,6 +152,7 @@ Sample seed data uses **NPHA as an example organization** (early customer / demo
 
 | App | Dev URL | Purpose |
 |-----|---------|---------|
+| Marketing | http://localhost:3004 | Public product website |
 | Admin | http://localhost:3000 | Competition management (org RBAC) |
 | Judge | http://localhost:3001 | Touch scoring (login + org context) |
 | Display | http://localhost:3002 | Venue leaderboards (`/competition/:id`) |

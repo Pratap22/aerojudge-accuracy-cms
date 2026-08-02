@@ -18,7 +18,7 @@ Root scripts: `dev`, `build`, `test`, `test:e2e`, `lint`, `typecheck`, `db:*`, `
 
 ## Ports
 
-Admin `3000` · Judge `3001` · Display `3002` · Public `3003` · API `4000` · Swagger `/api/docs`.
+Admin `3000` · Judge `3001` · Display `3002` · Public `3003` · Marketing `3004` · API `4000` · Swagger `/api/docs`.
 
 ## Local seed (dev only — not product branding)
 

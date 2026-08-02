@@ -44,6 +44,7 @@ Registration → rounds → live scoring → dual approval → rankings → offi
 
 | App | Port | Role |
 |-----|------|------|
+| `apps/marketing` | 3004 | Public product / marketing website |
 | `apps/admin` | 3000 | Competition operations |
 | `apps/judge` | 3001 | Touch scoring (+ offline queue) |
 | `apps/display` | 3002 | Venue leaderboards |
