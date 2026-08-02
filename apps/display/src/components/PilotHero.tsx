@@ -51,7 +51,7 @@ export function PilotHero({
         <div className="mb-6 flex h-48 w-48 items-center justify-center rounded-full border-4 border-sky-500/30 bg-broadcast-navy">
           <span className="font-display text-8xl text-sky-400">{pilot.pilot.pilotNumber}</span>
         </div>
-        <CountryFlag code={pilot.pilot.country?.code ?? pilot.pilot.nationality ?? 'XX'} size="lg" />
+        <CountryFlag code={pilot.pilot.country?.code2 ?? pilot.pilot.country?.code ?? 'XX'} size="lg" />
       </motion.div>
 
       <div className="col-span-7 flex flex-col justify-center">

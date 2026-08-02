@@ -5,6 +5,7 @@ import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { syncCompetitionStatusFromRounds } from './competition.service.js';
 import { recalculateRankings } from './scoring.service.js';
+import { resolveCountryId, toPublicCountry } from '../utils/country-resolve.js';
 
 const ACTIVE_STATUSES = new Set(['REGISTRATION', 'PRACTICE', 'OFFICIAL', 'PAUSED']);
 const PAST_STATUSES = new Set(['COMPLETED', 'CANCELLED']);
@@ -256,13 +257,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       pilot: r.pilot
         ? {
             ...r.pilot,
-            country: r.pilot.country
-              ? {
-                  name: r.pilot.country.name,
-                  code: r.pilot.country.code2 || r.pilot.country.code,
-                  code2: r.pilot.country.code2,
-                }
-              : null,
+            country: toPublicCountry(r.pilot.country),
           }
         : null,
     })),
@@ -334,7 +329,7 @@ export async function getLatestPublicScore(slugOrId: string) {
           firstName: true,
           lastName: true,
           nationality: true,
-          country: { select: { name: true, code: true } },
+          country: { select: { name: true, code: true, code2: true } },
         },
       },
     },
@@ -342,13 +337,18 @@ export async function getLatestPublicScore(slugOrId: string) {
 
   if (!score) return null;
 
+  const flagCode =
+    score.pilot.country?.code2 ||
+    (score.pilot.country?.code.length === 2 ? score.pilot.country.code : null) ||
+    'XX';
+
   return {
     competitionId: competition.id,
     pilotId: score.pilotId,
     pilotNumber: score.pilot.pilotNumber,
     firstName: score.pilot.firstName,
     lastName: score.pilot.lastName,
-    countryCode: score.pilot.country?.code ?? score.pilot.nationality ?? 'XX',
+    countryCode: flagCode,
     countryName: score.pilot.country?.name ?? score.pilot.nationality ?? null,
     scoreCm: score.finalScoreCm,
     isBullseye: score.isBullseye,
@@ -416,7 +416,10 @@ export async function listPublicPilots(slugOrId: string) {
     competitionId: competition.id,
     competitionName: competition.name,
     registrationOpen: PUBLIC_REGISTRATION_STATUSES.has(competition.status),
-    pilots,
+    pilots: pilots.map((p) => ({
+      ...p,
+      country: toPublicCountry(p.country),
+    })),
   };
 }
 
@@ -469,12 +472,14 @@ export async function registerPublicPilot(
   let countryId: string | undefined;
   let nationality = input.nationality;
   if (input.countryCode) {
-    const country = await prisma.country.findUnique({ where: { code: input.countryCode } });
-    if (!country) {
+    countryId = (await resolveCountryId(input.countryCode)) ?? undefined;
+    if (!countryId) {
       throw AppError.badRequest(`Unknown country code: ${input.countryCode}`, 'INVALID_COUNTRY');
     }
-    countryId = country.id;
-    nationality = nationality ?? country.name;
+    const country = await prisma.country.findUnique({ where: { id: countryId } });
+    nationality = nationality ?? country?.name;
+  } else if (nationality) {
+    countryId = (await resolveCountryId(nationality)) ?? undefined;
   }
 
   const maxNumber = await prisma.pilot.aggregate({

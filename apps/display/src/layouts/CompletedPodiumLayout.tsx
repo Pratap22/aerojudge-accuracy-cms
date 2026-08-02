@@ -66,8 +66,12 @@ function podiumCard(
     : '—';
 
   const countryCode = entry?.countryCode2?.trim().toUpperCase();
-  const showCountry = Boolean(countryCode && countryCode !== 'XX');
-  const countryLabel = entry?.countryName?.trim() || countryCode;
+  const flagCode =
+    countryCode && countryCode.length === 2 && countryCode !== 'XX' && /^[A-Z]{2}$/.test(countryCode)
+      ? countryCode
+      : null;
+  const countryLabel = entry?.countryName?.trim() || (flagCode ?? undefined);
+  const showCountry = Boolean(countryLabel);
 
   return (
     <motion.div
@@ -95,7 +99,7 @@ function podiumCard(
         </p>
         {showCountry && (
           <div className="flex max-w-full items-center justify-center gap-2">
-            <CountryFlag code={countryCode!} size="sm" className="shrink-0" />
+            {flagCode && <CountryFlag code={flagCode} size="sm" className="shrink-0" />}
             <p className="truncate text-xs uppercase tracking-[0.2em] text-sky-400/80 sm:text-sm">
               {countryLabel}
             </p>

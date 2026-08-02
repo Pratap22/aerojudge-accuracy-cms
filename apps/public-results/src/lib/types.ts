@@ -31,13 +31,13 @@ export interface PublicPilot {
   firstName: string;
   lastName: string;
   nationality?: string | null;
-  country?: { name: string; code: string } | null;
+  country?: { name: string; code: string; code2?: string } | null;
 }
 
 export interface PublicTeam {
   id: string;
   name: string;
-  country?: { name: string; code: string } | null;
+  country?: { name: string; code: string; code2?: string } | null;
 }
 
 export interface PublicRankingRow {
@@ -51,7 +51,7 @@ export interface PublicRankingRow {
   bullseyes: number;
   pilot?: PublicPilot | null;
   team?: PublicTeam | null;
-  country?: { name: string; code: string } | null;
+  country?: { name: string; code: string; code2?: string } | null;
 }
 
 export interface PublicResults {

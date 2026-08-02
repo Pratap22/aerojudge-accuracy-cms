@@ -3,6 +3,7 @@ import type { Prisma } from '@npha/database';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
+import { resolveCountryId } from '../utils/country-resolve.js';
 import { getCompetition } from './competition.service.js';
 
 export async function listPilots(
@@ -50,11 +51,19 @@ export async function createPilot(
   const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
   const qrCode = generateQrPayload(env.PUBLIC_RESULTS_URL, competition!.publicSlug, `/pilot/${data.pilotNumber}`);
 
+  const countryId =
+    (typeof data.countryId === 'string' && data.countryId) ||
+    (await resolveCountryId(
+      typeof data.nationality === 'string' ? data.nationality : undefined,
+    )) ||
+    undefined;
+
   return prisma.pilot.create({
     data: {
       ...data,
       competitionId,
       qrCode,
+      countryId,
       isWomen: data.gender === 'FEMALE' || data.isWomen === true,
     },
     include: { country: true },
@@ -67,11 +76,19 @@ export async function updatePilot(
   data: Omit<Prisma.PilotUncheckedUpdateInput, 'id' | 'competitionId'>,
 ) {
   await getPilot(competitionId, pilotId);
-  const { gender, ...rest } = data;
+  const { gender, nationality, countryId, ...rest } = data;
+
+  let nextCountryId = countryId;
+  if (nextCountryId === undefined && typeof nationality === 'string') {
+    nextCountryId = (await resolveCountryId(nationality)) ?? undefined;
+  }
+
   return prisma.pilot.update({
     where: { id: pilotId },
     data: {
       ...rest,
+      ...(nationality !== undefined ? { nationality } : {}),
+      ...(nextCountryId !== undefined ? { countryId: nextCountryId } : {}),
       ...(gender !== undefined
         ? { gender, isWomen: gender === 'FEMALE' }
         : {}),

@@ -2,6 +2,7 @@ import { ScoringEngine } from '@npha/scoring-engine';
 import type { RankingCategory, TeamRoundScoreResult } from '@npha/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
+import { linkPilotsToCountries } from '../utils/country-resolve.js';
 import { getCompetition } from './competition.service.js';
 import { assignMissingScoresAsDnf, buildRoundScoreEntries } from './score.service.js';
 
@@ -16,6 +17,9 @@ export interface RecalculateResult {
 
 export async function recalculateRankings(competitionId: string): Promise<RecalculateResult> {
   const competition = await getCompetition(competitionId);
+
+  // Ensure nationality text (e.g. "Nepal") is linked to Country for rankings + flags.
+  await linkPilotsToCountries(competitionId);
 
   // Persist DNF/max for unscored flights on approved rounds only (locked is immutable)
   const rankingRounds = await prisma.round.findMany({

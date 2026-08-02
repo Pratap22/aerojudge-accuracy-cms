@@ -97,7 +97,7 @@ export function PilotProfilePage() {
                 {pilotFullName(profile.firstName, profile.lastName)}
               </h1>
               <p className="mt-2 text-lg text-sky-300">
-                {countryCodeToEmoji(profile.country?.code ?? '')}{' '}
+                {countryCodeToEmoji(profile.country?.code2 ?? profile.country?.code ?? '')}{' '}
                 {profile.country?.name ?? profile.nationality ?? '—'}
               </p>
               {listPilot?.club && (
