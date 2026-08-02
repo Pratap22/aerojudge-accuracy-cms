@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SWAP_SIZE_GB="${SWAP_SIZE_GB:-2}"
-DEPLOY_DIR="${DEPLOY_DIR:-/home/ubuntu/apps}"
+DEPLOY_DIR="${DEPLOY_DIR:-/home/ubuntu/apps/aerojudge}"
 DEPLOY_USER="${DEPLOY_USER:-${SUDO_USER:-$USER}}"
 
 echo "==> AeroJudge EC2 bootstrap"
