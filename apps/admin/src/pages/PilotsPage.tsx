@@ -115,9 +115,21 @@ export function PilotsPage() {
         } | null;
         throw new Error(body?.error?.message ?? 'Import failed');
       }
-      return response.json();
+      return response.json() as Promise<{
+        success: boolean;
+        data?: { imported: number; skipped?: number };
+      }>;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pilots'] }),
+    onSuccess: (json) => {
+      queryClient.invalidateQueries({ queryKey: ['pilots'] });
+      const imported = json.data?.imported ?? 0;
+      const skipped = json.data?.skipped ?? 0;
+      window.alert(
+        skipped > 0
+          ? `Imported ${imported} pilot(s). Skipped ${skipped} existing number(s).`
+          : `Imported ${imported} pilot(s).`,
+      );
+    },
   });
 
   const [exportError, setExportError] = useState<string | null>(null);
@@ -193,9 +205,13 @@ export function PilotsPage() {
               if (file) importMutation.mutate(file);
             }}
           />
-          <Button variant="outline" onClick={() => fileRef.current?.click()}>
+          <Button
+            variant="outline"
+            disabled={importMutation.isPending}
+            onClick={() => fileRef.current?.click()}
+          >
             <Upload className="mr-2 h-4 w-4" />
-            Import CSV
+            {importMutation.isPending ? 'Importing…' : 'Import CSV'}
           </Button>
           <Button variant="outline" onClick={() => void handleExport()}>
             <Download className="mr-2 h-4 w-4" />
@@ -209,6 +225,11 @@ export function PilotsPage() {
       </div>
 
       {exportError && <p className="text-sm text-destructive">{exportError}</p>}
+      {importMutation.isError && (
+        <p className="text-sm text-destructive">
+          {(importMutation.error as Error)?.message ?? 'Import failed'}
+        </p>
+      )}
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

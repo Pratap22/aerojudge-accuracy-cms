@@ -11,6 +11,21 @@ import { validateBody, validateParams, validateQuery } from '../middleware/valid
 
 const idParams = z.object({ id: z.string().min(1) });
 
+const listCompetitionsQuerySchema = paginationSchema.extend({
+  status: z
+    .enum([
+      'DRAFT',
+      'REGISTRATION',
+      'PRACTICE',
+      'OFFICIAL',
+      'PAUSED',
+      'COMPLETED',
+      'ARCHIVED',
+      'CANCELLED',
+    ])
+    .optional(),
+});
+
 const settingsSchema = z.object({
   bullseyeScoreCm: z.number().optional(),
   maximumScoreCm: z.number().optional(),
@@ -32,7 +47,7 @@ const settingsSchema = z.object({
 });
 
 export const list = [
-  validateQuery(paginationSchema),
+  validateQuery(listCompetitionsQuerySchema),
   asyncHandler(async (req: Request, res: Response) => {
     if (!req.organizationId) {
       sendSuccess(res, [], 200, { page: 1, pageSize: 50, total: 0 });
@@ -165,6 +180,52 @@ export const complete = [
       entityId: competition.id,
       before: { status: before.status },
       after: { status: competition.status },
+    });
+    sendSuccess(res, competition);
+  }),
+];
+
+export const archive = [
+  validateParams(idParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const before = await competitionService.getCompetition(req.params.id);
+    const competition = await competitionService.archiveCompetition(req.params.id);
+
+    const { emitCompetitionStatus, emitSyncRequired } = await import('../../../socket/index.js');
+    emitCompetitionStatus(competition.id, competition.status);
+    emitSyncRequired(competition.id);
+
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: competition.id,
+      action: 'ARCHIVE',
+      entityType: 'Competition',
+      entityId: competition.id,
+      before: { status: before.status, isPublished: before.isPublished },
+      after: { status: competition.status, isPublished: competition.isPublished },
+    });
+    sendSuccess(res, competition);
+  }),
+];
+
+export const unarchive = [
+  validateParams(idParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const before = await competitionService.getCompetition(req.params.id);
+    const competition = await competitionService.unarchiveCompetition(req.params.id);
+
+    const { emitCompetitionStatus, emitSyncRequired } = await import('../../../socket/index.js');
+    emitCompetitionStatus(competition.id, competition.status);
+    emitSyncRequired(competition.id);
+
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: competition.id,
+      action: 'UNARCHIVE',
+      entityType: 'Competition',
+      entityId: competition.id,
+      before: { status: before.status, isPublished: before.isPublished },
+      after: { status: competition.status, isPublished: competition.isPublished },
     });
     sendSuccess(res, competition);
   }),

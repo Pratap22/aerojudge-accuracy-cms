@@ -165,7 +165,16 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     return undefined;
   };
 
+  const existing = await prisma.pilot.findMany({
+    where: { competitionId },
+    select: { pilotNumber: true },
+  });
+  const existingNumbers = new Set(existing.map((p) => p.pilotNumber));
+
   const created = [];
+  const skipped: number[] = [];
+  const seenInFile = new Set<number>();
+
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvLine(lines[i]);
     if (cols.every((c) => !c)) continue;
@@ -191,23 +200,47 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
       throw AppError.badRequest(`Invalid row ${i + 1}: pilotNumber, firstName, lastName required`);
     }
 
-    const pilot = await createPilot(competitionId, {
-      pilotNumber,
-      firstName,
-      lastName,
-      gender,
-      nationality,
-      faiLicense,
-      civlId,
-      club,
-      glider,
-      notes,
-      isWomen: gender === 'FEMALE',
-    });
-    created.push(pilot);
+    if (existingNumbers.has(pilotNumber) || seenInFile.has(pilotNumber)) {
+      skipped.push(pilotNumber);
+      continue;
+    }
+    seenInFile.add(pilotNumber);
+
+    try {
+      const pilot = await createPilot(competitionId, {
+        pilotNumber,
+        firstName,
+        lastName,
+        gender,
+        nationality,
+        faiLicense,
+        civlId,
+        club,
+        glider,
+        notes,
+        isWomen: gender === 'FEMALE',
+      });
+      created.push(pilot);
+      existingNumbers.add(pilotNumber);
+    } catch (err) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        (err as { code?: string }).code === 'P2002'
+      ) {
+        const target = (err as { meta?: { target?: string[] } }).meta?.target ?? [];
+        throw AppError.conflict(
+          `Duplicate pilot data at row ${i + 1} (pilot #${pilotNumber}${
+            target.length ? `; unique: ${target.join(', ')}` : ''
+          }).`,
+        );
+      }
+      throw err;
+    }
   }
 
-  return { imported: created.length, pilots: created };
+  return { imported: created.length, skipped: skipped.length, skippedNumbers: skipped, pilots: created };
 }
 
 export function formatPilotDisplay(pilot: {

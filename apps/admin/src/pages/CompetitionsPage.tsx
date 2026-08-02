@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createCompetitionSchema, type CreateCompetitionInput, type CompetitionStatus, type Organization } from '@npha/shared';
-import { Plus } from 'lucide-react';
+import { Archive, Plus } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -251,6 +251,7 @@ export function CompetitionsPage() {
   const { user } = useAuth();
   const canCreate = usePermission('competition:create');
   const canPublish = usePermission('competition:publish');
+  const canUpdate = usePermission('competition:update');
   const { data: competitions, isLoading } = useQuery({
     queryKey: ['competitions'],
     queryFn: () => api.get<Competition[]>('/competitions'),
@@ -258,6 +259,8 @@ export function CompetitionsPage() {
 
   /** Active competition inferred from any open competition URL (shareable path). */
   const activeFromPath = location.pathname.match(/^\/competitions\/([^/]+)/)?.[1];
+  const activeCompetitionId =
+    activeFromPath && activeFromPath !== 'archived' ? activeFromPath : undefined;
 
   const publishMutation = useMutation({
     mutationFn: (id: string) => api.post<Competition>(`/competitions/${id}/publish`),
@@ -272,19 +275,29 @@ export function CompetitionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Competitions</h1>
           <p className="text-muted-foreground">
             Open a competition to work on it. Publish to make it visible on Display / Public Results.
           </p>
         </div>
-        {canCreate && (
-          <Button onClick={() => setFormOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Competition
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canUpdate && (
+            <Button variant="outline" asChild>
+              <Link to="/competitions/archived">
+                <Archive className="mr-2 h-4 w-4" />
+                Archived
+              </Link>
+            </Button>
+          )}
+          {canCreate && (
+            <Button onClick={() => setFormOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Competition
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -292,7 +305,7 @@ export function CompetitionsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {competitions?.map((comp) => {
-            const isOpen = comp.id === activeFromPath;
+            const isOpen = comp.id === activeCompetitionId;
             const needsPublish = !comp.isPublished || comp.status === 'DRAFT';
             return (
               <Card key={comp.id} className={isOpen ? 'ring-2 ring-primary' : undefined}>

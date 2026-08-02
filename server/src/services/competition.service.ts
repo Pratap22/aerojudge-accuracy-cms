@@ -20,7 +20,12 @@ export async function listCompetitions(query: {
       { code: { contains: query.search, mode: 'insensitive' } },
     ];
   }
-  if (query.status) where.status = query.status as Prisma.EnumCompetitionStatusFilter['equals'];
+  if (query.status) {
+    where.status = query.status as Prisma.EnumCompetitionStatusFilter['equals'];
+  } else {
+    // Default admin list hides soft-archived competitions
+    where.status = { not: 'ARCHIVED' };
+  }
 
   const [items, total] = await Promise.all([
     prisma.competition.findMany({
@@ -254,6 +259,43 @@ export async function completeCompetition(id: string) {
   return prisma.competition.update({
     where: { id },
     data: { status: 'COMPLETED' },
+    include: { settings: true },
+  });
+}
+
+/**
+ * Soft-archive a competition — hidden from public sites and default admin lists.
+ * Also unpublishes so deep links / caches cannot keep serving it.
+ */
+export async function archiveCompetition(id: string) {
+  const competition = await getCompetition(id);
+  if (competition.status === 'ARCHIVED') {
+    return competition;
+  }
+  if (competition.status === 'DRAFT') {
+    throw AppError.badRequest('Delete the draft instead of archiving it');
+  }
+
+  return prisma.competition.update({
+    where: { id },
+    data: { status: 'ARCHIVED', isPublished: false },
+    include: { settings: true },
+  });
+}
+
+/**
+ * Restore an archived competition to COMPLETED (unpublished).
+ * Re-publish explicitly if it should appear on public sites again.
+ */
+export async function unarchiveCompetition(id: string) {
+  const competition = await getCompetition(id);
+  if (competition.status !== 'ARCHIVED') {
+    throw AppError.badRequest('Competition is not archived');
+  }
+
+  return prisma.competition.update({
+    where: { id },
+    data: { status: 'COMPLETED', isPublished: false },
     include: { settings: true },
   });
 }

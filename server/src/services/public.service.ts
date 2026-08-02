@@ -6,7 +6,7 @@ import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { recalculateRankings } from './scoring.service.js';
 
 const ACTIVE_STATUSES = new Set(['REGISTRATION', 'PRACTICE', 'OFFICIAL', 'PAUSED']);
-const PAST_STATUSES = new Set(['COMPLETED', 'ARCHIVED', 'CANCELLED']);
+const PAST_STATUSES = new Set(['COMPLETED', 'CANCELLED']);
 
 const publicCompetitionSelect = {
   id: true,
@@ -33,6 +33,7 @@ export async function getPublicCompetition(slugOrId: string) {
   const competition = await prisma.competition.findFirst({
     where: {
       isPublished: true,
+      status: { notIn: ['DRAFT', 'ARCHIVED'] },
       OR: [{ id: slugOrId }, { publicSlug: slugOrId }],
     },
     select: publicCompetitionSelect,
@@ -49,7 +50,7 @@ export async function listPublicCompetitions() {
     where: {
       isPublished: true,
       settings: { livePublicResults: true },
-      status: { not: 'DRAFT' },
+      status: { notIn: ['DRAFT', 'ARCHIVED'] },
     },
     select: {
       id: true,

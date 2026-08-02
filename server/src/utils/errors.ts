@@ -99,5 +99,25 @@ export function errorHandler(
   }
 
   console.error('Unhandled error:', err);
+
+  // Prisma unique constraint — surface as 409 instead of opaque 500
+  if (
+    err &&
+    typeof err === 'object' &&
+    'code' in err &&
+    (err as { code?: string }).code === 'P2002'
+  ) {
+    const target = (err as { meta?: { target?: string[] } }).meta?.target;
+    sendError(
+      res,
+      409,
+      'CONFLICT',
+      target?.length
+        ? `A record with this ${target.join(', ')} already exists`
+        : 'A conflicting record already exists',
+    );
+    return;
+  }
+
   sendError(res, 500, 'INTERNAL_ERROR', 'An unexpected error occurred');
 }

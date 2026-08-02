@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
+  Archive,
   ArrowRight,
   CheckCircle2,
   Clock,
@@ -65,6 +66,7 @@ const statusVariant: Record<
 
 export function DashboardPage() {
   const competitionId = useCompetitionId();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const liveStatus = 'Connected';
   const canUpdateCompetition = usePermission('competition:update');
@@ -93,6 +95,14 @@ export function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard', competitionId] });
       queryClient.invalidateQueries({ queryKey: ['rankings'] });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: () => api.post<CompetitionSummary>(`/competitions/${competitionId}/archive`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competitions'] });
+      navigate('/competitions/archived', { replace: true });
     },
   });
 
@@ -125,6 +135,10 @@ export function DashboardPage() {
     canUpdateCompetition &&
     activeCompetition &&
     !['COMPLETED', 'ARCHIVED', 'CANCELLED', 'DRAFT'].includes(activeCompetition.status);
+  const canArchive =
+    canUpdateCompetition &&
+    activeCompetition &&
+    !['ARCHIVED', 'DRAFT'].includes(activeCompetition.status);
 
   return (
     <div className="space-y-6">
@@ -170,6 +184,21 @@ export function DashboardPage() {
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               {completeMutation.isPending ? 'Closing…' : 'Close competition'}
+            </Button>
+          )}
+          {canArchive && (
+            <Button
+              variant="outline"
+              disabled={archiveMutation.isPending}
+              onClick={() => {
+                const ok = window.confirm(
+                  'Archive this competition? It will be unpublished and hidden from Display and Public Results.',
+                );
+                if (ok) archiveMutation.mutate();
+              }}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              {archiveMutation.isPending ? 'Archiving…' : 'Archive'}
             </Button>
           )}
           <Button variant="outline" asChild>

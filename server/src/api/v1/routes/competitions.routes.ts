@@ -67,5 +67,19 @@ router.post(
   requirePermission('competition:update'),
   ...ctrl.complete,
 );
+router.post(
+  '/:id/archive',
+  requireOrgContext,
+  requireCompetitionInOrg,
+  requirePermission('competition:update'),
+  ...ctrl.archive,
+);
+router.post(
+  '/:id/unarchive',
+  requireOrgContext,
+  requireCompetitionInOrg,
+  requirePermission('competition:update'),
+  ...ctrl.unarchive,
+);
 
 export default router;

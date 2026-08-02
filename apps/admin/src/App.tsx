@@ -5,6 +5,7 @@ import { RequirePermission } from './components/RequirePermission';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CompetitionsPage } from './pages/CompetitionsPage';
+import { ArchivedCompetitionsPage } from './pages/ArchivedCompetitionsPage';
 import { PilotsPage } from './pages/PilotsPage';
 import { TeamsPage } from './pages/TeamsPage';
 import { SponsorsPage } from './pages/SponsorsPage';
@@ -34,6 +35,14 @@ export default function App() {
       >
         <Route index element={<Navigate to="/competitions" replace />} />
         <Route path="competitions" element={<CompetitionsPage />} />
+        <Route
+          path="competitions/archived"
+          element={
+            <RequirePermission anyOf={['competition:update']}>
+              <ArchivedCompetitionsPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="competitions/:competitionId"
           element={

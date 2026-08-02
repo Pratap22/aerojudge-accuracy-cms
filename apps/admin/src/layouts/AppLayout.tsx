@@ -32,7 +32,18 @@ import { competitionPath } from '../hooks/useCompetitionId';
 import { checkPermission } from '../hooks/usePermission';
 
 const globalNav = [
-  { to: '/competitions', label: 'Competitions', icon: Trophy, end: true },
+  {
+    to: '/competitions',
+    label: 'Competitions',
+    icon: Trophy,
+    end: true,
+  },
+  {
+    to: '/competitions/archived',
+    label: 'Archived Events',
+    icon: Archive,
+    end: true,
+  },
   { to: '/organizations', label: 'Organizations', icon: Building2, end: true },
   {
     to: '/organizations/archived',
@@ -108,7 +119,9 @@ const competitionNav: Array<{
 
 function competitionIdFromPath(pathname: string): string | undefined {
   const match = pathname.match(/^\/competitions\/([^/]+)/);
-  return match?.[1];
+  const id = match?.[1];
+  if (!id || id === 'archived') return undefined;
+  return id;
 }
 
 export function AppLayout() {
@@ -123,6 +136,16 @@ export function AppLayout() {
     return globalNav.filter((item) => {
       if (item.to === '/users') {
         return hasPermission(user.role, 'user:manage');
+      }
+      if (item.to === '/competitions/archived') {
+        return (
+          hasEffectivePermission({
+            platformRole: user.role,
+            orgRole: user.orgRole,
+            permissions: user.permissions,
+            permission: 'competition:update',
+          }) || hasPermission(user.role, 'competition:update')
+        );
       }
       if (item.to === '/organizations') {
         return (

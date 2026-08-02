@@ -1,6 +1,6 @@
 /** Competition lifecycle helpers for public UI. */
 
-const COMPLETED_LIKE = new Set(['COMPLETED', 'ARCHIVED', 'CANCELLED']);
+const COMPLETED_LIKE = new Set(['COMPLETED', 'CANCELLED']);
 
 /** Scoring / live results have started (practice day or official). */
 const SCORING_STARTED = new Set(['PRACTICE', 'OFFICIAL', 'PAUSED']);
