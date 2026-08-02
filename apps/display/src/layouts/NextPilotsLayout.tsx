@@ -32,7 +32,7 @@ function PilotCard({
       className={`flex flex-1 flex-col items-center justify-center rounded-2xl border-2 ${borderColor} bg-broadcast-navy-light/60 p-8`}
     >
       <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-sky-400">{label}</p>
-      {pilot ? (
+      {pilot?.pilot ? (
         <>
           <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-sky-500 font-display text-5xl text-broadcast-navy">
             {pilot.pilot.pilotNumber}
@@ -70,14 +70,17 @@ export function NextPilotsLayout({ current, queue }: NextPilotsLayoutProps) {
         </div>
         {upcoming.length > 1 && (
           <div className="mt-6 flex flex-wrap gap-3">
-            {upcoming.slice(1, 6).map((p) => (
-              <span
-                key={p.id}
-                className="rounded-full border border-sky-500/30 bg-broadcast-navy-mid px-4 py-2 text-sm text-sky-300"
-              >
-                #{p.pilot.pilotNumber} {p.pilot.firstName} {p.pilot.lastName.charAt(0)}.
-              </span>
-            ))}
+            {upcoming.slice(1, 6).map((p) => {
+              if (!p.pilot) return null;
+              return (
+                <span
+                  key={p.id}
+                  className="rounded-full border border-sky-500/30 bg-broadcast-navy-mid px-4 py-2 text-sm text-sky-300"
+                >
+                  #{p.pilot.pilotNumber} {p.pilot.firstName} {p.pilot.lastName.charAt(0)}.
+                </span>
+              );
+            })}
           </div>
         )}
       </div>

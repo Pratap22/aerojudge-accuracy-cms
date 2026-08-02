@@ -37,7 +37,7 @@ export function useSponsors() {
         type: s.type,
         logoUrl: s.logoUrl,
         websiteUrl: s.websiteUrl,
-        tagline: s.type,
+        tagline: undefined,
       }));
     },
     staleTime: 30_000,
