@@ -19,7 +19,22 @@ import { isRegistrationOpen } from '../lib/competitionStatus';
 
 type AuthMode = 'login' | 'signup';
 
-const competitionFieldsEmpty = {
+type CompetitionRegistrationForm = {
+  club: string;
+  glider: string;
+  harness: string;
+  emergencyContact: string;
+  emergencyPhone: string;
+  dateOfBirth: string;
+  countryCode: string;
+  faiLicense: string;
+  civlId: string;
+  firstName: string;
+  lastName: string;
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
+};
+
+const competitionFieldsEmpty: CompetitionRegistrationForm = {
   club: '',
   glider: '',
   harness: '',
@@ -31,7 +46,7 @@ const competitionFieldsEmpty = {
   civlId: '',
   firstName: '',
   lastName: '',
-  gender: 'MALE' as const,
+  gender: 'MALE',
 };
 
 export function RegisterPage() {
@@ -62,7 +77,7 @@ export function RegisterPage() {
   const [claimMsg, setClaimMsg] = useState<string | null>(null);
   const [claimBusy, setClaimBusy] = useState(false);
 
-  const [form, setForm] = useState(competitionFieldsEmpty);
+  const [form, setForm] = useState<CompetitionRegistrationForm>(competitionFieldsEmpty);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
   const person = user?.person;
