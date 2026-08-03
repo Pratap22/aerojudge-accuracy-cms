@@ -9,6 +9,7 @@ import { ArchivedCompetitionsPage } from './pages/ArchivedCompetitionsPage';
 import { PilotsPage } from './pages/PilotsPage';
 import { TeamsPage } from './pages/TeamsPage';
 import { SponsorsPage } from './pages/SponsorsPage';
+import { OfficialsPage } from './pages/OfficialsPage';
 import { RoundsPage } from './pages/RoundsPage';
 import { ScoringPage } from './pages/ScoringPage';
 import { RankingsPage } from './pages/RankingsPage';
@@ -72,6 +73,14 @@ export default function App() {
           element={
             <RequirePermission anyOf={['competition:update']}>
               <SponsorsPage />
+            </RequirePermission>
+          }
+        />
+        <Route
+          path="competitions/:competitionId/officials"
+          element={
+            <RequirePermission anyOf={['competition:update']}>
+              <OfficialsPage />
             </RequirePermission>
           }
         />

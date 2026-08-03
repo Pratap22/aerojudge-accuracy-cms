@@ -405,6 +405,19 @@ export interface CompetitionSponsor {
   isActive: boolean;
 }
 
+/** Public-facing competition officials / judges (manage in Admin → Officials). */
+export interface CompetitionOfficial {
+  id: string;
+  competitionId: string;
+  name: string;
+  role: string;
+  imageUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  displayOrder: number;
+  isPublic: boolean;
+}
+
 export const ROLES: Role[] = [
   'SUPER_ADMIN',
   'PLATFORM_SUPPORT',

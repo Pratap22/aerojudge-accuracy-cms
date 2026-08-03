@@ -1,13 +1,25 @@
 import { Link, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Layout } from '../components/Layout';
 import { Hero } from '../components/Hero';
+import { OrganizingTeamSection } from '../components/OrganizingTeam';
 import { useCompetition, useResults } from '../hooks/useCompetition';
+import { fetchOfficials } from '../lib/api';
 import { pilotFullName, formatScore } from '../lib/utils';
 
 export function HomePage() {
   const { competitionId } = useParams<{ competitionId: string }>();
   const { data: competition, isLoading, error } = useCompetition();
   const { data: results } = useResults('OVERALL');
+  const {
+    data: officials = [],
+    isLoading: officialsLoading,
+    error: officialsError,
+  } = useQuery({
+    queryKey: ['public-officials', competitionId],
+    queryFn: () => fetchOfficials(competitionId!),
+    enabled: Boolean(competitionId),
+  });
 
   if (!competitionId) {
     return (
@@ -60,6 +72,13 @@ export function HomePage() {
   return (
     <Layout>
       <Hero competition={competition} competitionId={competitionId} topPilots={topPilots} />
+      <OrganizingTeamSection
+        competitionId={competitionId}
+        officials={officials}
+        limit={4}
+        isLoading={officialsLoading}
+        error={officialsError instanceof Error ? officialsError : null}
+      />
     </Layout>
   );
 }

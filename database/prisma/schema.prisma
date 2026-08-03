@@ -337,6 +337,7 @@ model Competition {
   teams            Team[]
   rounds           Round[]
   sponsors         Sponsor[]
+  officials        CompetitionOfficial[]
   weatherReadings  Weather[]
   windReadings     Wind[]
   displayLayouts   DisplayLayout[]
@@ -862,6 +863,26 @@ model Sponsor {
   updatedAt     DateTime @updatedAt
 
   @@index([competitionId])
+}
+
+/// Public-facing officials / judges for a competition (not the same as login User accounts).
+model CompetitionOfficial {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  name          String
+  /// Display role label, e.g. Chief Judge, Meet Director, Judge
+  role          String
+  imageUrl      String?
+  phone         String?
+  email         String?
+  displayOrder  Int      @default(0)
+  isPublic      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId])
+  @@index([competitionId, isPublic])
 }
 
 model DisplayLayout {

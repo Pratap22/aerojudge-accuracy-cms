@@ -7,6 +7,7 @@ import { PilotProfilePage } from './pages/PilotProfilePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { WomenPage, TeamsPage, CountriesPage } from './pages/CategoryPages';
 import { StatisticsPage } from './pages/StatisticsPage';
+import { OfficialsPage } from './pages/OfficialsPage';
 import { competitionPath } from './lib/api';
 
 const DEFAULT_ID = (import.meta.env.VITE_DEFAULT_SLUG || '').trim();
@@ -45,6 +46,7 @@ function App() {
       <Route path="/competition/:competitionId/teams" element={<TeamsPage />} />
       <Route path="/competition/:competitionId/countries" element={<CountriesPage />} />
       <Route path="/competition/:competitionId/statistics" element={<StatisticsPage />} />
+      <Route path="/competition/:competitionId/officials" element={<OfficialsPage />} />
 
       <Route path="/:slug" element={<LegacySlugRedirect />} />
       <Route path="/:slug/results" element={<LegacySlugRedirect suffix="results" />} />
@@ -55,6 +57,7 @@ function App() {
       <Route path="/:slug/teams" element={<LegacySlugRedirect suffix="teams" />} />
       <Route path="/:slug/countries" element={<LegacySlugRedirect suffix="countries" />} />
       <Route path="/:slug/statistics" element={<LegacySlugRedirect suffix="statistics" />} />
+      <Route path="/:slug/officials" element={<LegacySlugRedirect suffix="officials" />} />
     </Routes>
   );
 }

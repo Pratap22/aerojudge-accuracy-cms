@@ -24,6 +24,11 @@ const envSchema = z.object({
   API_URL: z.string().url().optional(),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(15_000),
+  /** Cloudinary — required for competition official photo uploads */
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+  CLOUDINARY_FOLDER: z.string().default('aerojudge'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -48,6 +53,9 @@ export const env = {
     raw.API_URL ??
     `http://localhost:${raw.PORT}`
   ).replace(/\/+$/, ''),
+  cloudinaryEnabled: Boolean(
+    raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET,
+  ),
 } as const;
 
 export type Env = typeof env;

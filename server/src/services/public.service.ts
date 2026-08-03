@@ -1,4 +1,5 @@
 import { generateQrPayload } from '@npha/utils';
+import { compareOfficials } from '@npha/shared';
 import { prisma } from '../config/prisma.js';
 import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
@@ -402,6 +403,26 @@ export async function getPublicSponsors(slugOrId: string) {
     displayOrder: row.displayOrder,
     isActive: row.isActive,
   }));
+}
+
+export async function getPublicOfficials(slugOrId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+  const rows = await prisma.competitionOfficial.findMany({
+    where: { competitionId: competition.id, isPublic: true },
+  });
+  return rows
+    .map((row) => ({
+      id: row.id,
+      competitionId: row.competitionId,
+      name: row.name,
+      role: row.role,
+      imageUrl: row.imageUrl,
+      phone: row.phone,
+      email: row.email,
+      displayOrder: row.displayOrder,
+      isPublic: row.isPublic,
+    }))
+    .sort(compareOfficials);
 }
 
 const PUBLIC_REGISTRATION_STATUSES = new Set(['REGISTRATION', 'PRACTICE']);

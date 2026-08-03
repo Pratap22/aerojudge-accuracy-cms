@@ -326,6 +326,52 @@ export const createSponsorSchema = z.object({
 
 export const updateSponsorSchema = createSponsorSchema.partial();
 
+/** Suggested role labels for public officials (free-form string also allowed). */
+export const OFFICIAL_ROLE_OPTIONS = [
+  'Chief Judge',
+  'Meet Director',
+  'Event Director',
+  'Judge',
+  'Scorekeeper',
+  'Launch Marshal',
+  'Goal Marshal',
+  'Announcer',
+  'Safety Officer',
+  'Registration Officer',
+] as const;
+
+/** Lower number = higher precedence on public/admin lists. Unknown roles sort last. */
+export function officialRoleRank(role: string): number {
+  const normalized = role.trim().toLowerCase();
+  const idx = OFFICIAL_ROLE_OPTIONS.findIndex((r) => r.toLowerCase() === normalized);
+  return idx === -1 ? OFFICIAL_ROLE_OPTIONS.length : idx;
+}
+
+/** Stable list order: role hierarchy, then manual displayOrder, then name. */
+export function compareOfficials<
+  T extends { role: string; displayOrder: number; name: string },
+>(a: T, b: T): number {
+  const byRole = officialRoleRank(a.role) - officialRoleRank(b.role);
+  if (byRole !== 0) return byRole;
+  if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
+  return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+}
+
+export const createOfficialSchema = z.object({
+  name: z.string().min(1).max(200),
+  role: z.string().min(1).max(120),
+  imageUrl: optionalString,
+  phone: optionalString,
+  email: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    z.string().email().optional(),
+  ),
+  displayOrder: z.number().int().min(0).optional(),
+  isPublic: z.boolean().optional(),
+});
+
+export const updateOfficialSchema = createOfficialSchema.partial();
+
 export const partnersDisplaySettingsSchema = z.object({
   partnersLabel: z.string().min(1).max(40).optional(),
   partnerTiersEnabled: z.boolean().optional(),
@@ -340,3 +386,5 @@ export type CreateSponsorInput = z.infer<typeof createSponsorSchema>;
 export type UpdateSponsorInput = z.infer<typeof updateSponsorSchema>;
 export type SponsorType = z.infer<typeof sponsorTypeSchema>;
 export type PartnersDisplaySettings = z.infer<typeof partnersDisplaySettingsSchema>;
+export type CreateOfficialInput = z.infer<typeof createOfficialSchema>;
+export type UpdateOfficialInput = z.infer<typeof updateOfficialSchema>;

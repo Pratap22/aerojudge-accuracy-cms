@@ -21,6 +21,7 @@ import {
   UsersRound,
   Building2,
   Handshake,
+  Gavel,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
 import { hasEffectivePermission, hasPermission, type Permission } from '@npha/shared';
@@ -66,6 +67,13 @@ const competitionNavGroups: Array<{
         segment: 'sponsors',
         label: 'Partners',
         icon: Handshake,
+        end: false,
+        anyOf: ['competition:update'],
+      },
+      {
+        segment: 'officials',
+        label: 'Officials',
+        icon: Gavel,
         end: false,
         anyOf: ['competition:update'],
       },

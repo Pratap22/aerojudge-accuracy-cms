@@ -14,12 +14,13 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
-    "generate": "prisma generate --schema=./prisma/schema.prisma",
-    "migrate": "prisma migrate dev --schema=./prisma/schema.prisma",
-    "migrate:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
+    "prisma": "node --env-file=../.env ../node_modules/prisma/build/index.js",
+    "generate": "npm run prisma -- generate --schema=./prisma/schema.prisma",
+    "migrate": "npm run prisma -- migrate dev --schema=./prisma/schema.prisma",
+    "migrate:deploy": "npm run prisma -- migrate deploy --schema=./prisma/schema.prisma",
     "seed": "node --env-file=../.env --import tsx prisma/seed/index.ts",
-    "reset": "prisma migrate reset --schema=./prisma/schema.prisma --force",
-    "studio": "prisma studio --schema=./prisma/schema.prisma",
+    "reset": "npm run prisma -- migrate reset --schema=./prisma/schema.prisma --force",
+    "studio": "npm run prisma -- studio --schema=./prisma/schema.prisma",
     "clean": "rm -rf dist"
   },
   "dependencies": {

@@ -23,12 +23,14 @@ export function Navigation() {
     ? [
         { path: '', label: 'Home' },
         { path: 'pilots', label: 'Pilots' },
+        { path: 'officials', label: 'Team' },
         ...(registrationOpen ? [{ path: 'register', label: 'Register' }] : []),
       ]
     : [
         { path: '', label: 'Home' },
         { path: 'results', label: completed ? 'Final Results' : 'Live Results' },
         { path: 'pilots', label: 'Pilots' },
+        { path: 'officials', label: 'Team' },
         { path: 'women', label: 'Women' },
         { path: 'teams', label: 'Teams' },
         { path: 'countries', label: 'Countries' },

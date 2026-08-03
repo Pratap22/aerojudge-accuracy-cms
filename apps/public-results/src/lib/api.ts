@@ -85,6 +85,22 @@ export function fetchPilots(idOrSlug: string): Promise<PublicPilotList> {
   return publicFetch<PublicPilotList>(`/${idOrSlug}/pilots`);
 }
 
+export interface PublicOfficial {
+  id: string;
+  competitionId: string;
+  name: string;
+  role: string;
+  imageUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  displayOrder: number;
+  isPublic: boolean;
+}
+
+export function fetchOfficials(idOrSlug: string): Promise<PublicOfficial[]> {
+  return publicFetch<PublicOfficial[]>(`/${idOrSlug}/officials`);
+}
+
 export interface RegisteredPilot {
   id: string;
   pilotNumber: number;

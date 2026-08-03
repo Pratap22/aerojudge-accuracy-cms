@@ -119,6 +119,14 @@ export const getSponsors = [
   }),
 ];
 
+export const getOfficials = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const officials = await publicService.getPublicOfficials(req.params.slug);
+    sendSuccess(res, officials);
+  }),
+];
+
 export const listCountries = [
   asyncHandler(async (_req: Request, res: Response) => {
     const countries = await publicService.listPublicCountries();
