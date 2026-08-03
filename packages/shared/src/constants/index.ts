@@ -1,4 +1,29 @@
-import type { OrgRole, Role } from '../types';
+import type { OrgRole, PilotStatus, Role } from '../types';
+
+/** All competition pilot registration lifecycle states. */
+export const PILOT_STATUSES: readonly PilotStatus[] = [
+  'REGISTERED',
+  'CONFIRMED',
+  'CHECKED_IN',
+  'ACTIVE',
+  'REJECTED',
+  'WITHDRAWN',
+  'DISQUALIFIED',
+  'DNS',
+] as const;
+
+/**
+ * Pilots eligible for flight order / scoring.
+ * Pending (REGISTERED) and REJECTED entries are excluded until the organizer accepts.
+ */
+export const COMPETING_PILOT_STATUSES: readonly PilotStatus[] = [
+  'CONFIRMED',
+  'CHECKED_IN',
+  'ACTIVE',
+] as const;
+
+/** Awaiting organizer accept / reject. */
+export const PENDING_PILOT_STATUSES: readonly PilotStatus[] = ['REGISTERED'] as const;
 
 /**
  * Legacy global role → permission matrix (backward compatible).

@@ -1,5 +1,6 @@
 import { generateQrPayload, parseCsvLine, formatPilotName, toCsv } from '@npha/utils';
-import type { Prisma } from '@npha/database';
+import { COMPETING_PILOT_STATUSES, type PilotStatus } from '@npha/shared';
+import type { CompetitionParticipationStatus, Prisma } from '@npha/database';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
@@ -18,12 +19,50 @@ import {
   type CreatePersonInput,
 } from './person.service.js';
 
+/** Statuses that may appear on flight orders and scoring lists. */
+export const ELIGIBLE_PILOT_STATUSES: PilotStatus[] = [...COMPETING_PILOT_STATUSES];
+
+function mapParticipantStatus(status: PilotStatus): CompetitionParticipationStatus {
+  switch (status) {
+    case 'REGISTERED':
+      return 'REGISTERED';
+    case 'CONFIRMED':
+      return 'CONFIRMED';
+    case 'CHECKED_IN':
+    case 'ACTIVE':
+      return 'ACTIVE';
+    case 'REJECTED':
+      return 'DECLINED';
+    case 'WITHDRAWN':
+    case 'DISQUALIFIED':
+    case 'DNS':
+      return 'WITHDRAWN';
+    default:
+      return 'REGISTERED';
+  }
+}
+
+async function syncParticipantStatus(
+  competitionId: string,
+  personId: string | null | undefined,
+  pilotStatus: PilotStatus,
+): Promise<void> {
+  if (!personId) return;
+  await prisma.competitionParticipant.updateMany({
+    where: { competitionId, personId },
+    data: { status: mapParticipantStatus(pilotStatus) },
+  });
+}
+
 export async function listPilots(
   competitionId: string,
-  query: { page: number; pageSize: number; search?: string },
+  query: { page: number; pageSize: number; search?: string; status?: PilotStatus },
 ) {
   await getCompetition(competitionId);
   const where: Prisma.PilotWhereInput = { competitionId };
+  if (query.status) {
+    where.status = query.status;
+  }
   if (query.search) {
     where.OR = [
       { firstName: { contains: query.search, mode: 'insensitive' } },
@@ -148,7 +187,11 @@ export async function createPilot(competitionId: string, data: CreatePilotInput)
     );
   }
 
-  return prisma.pilot.create({
+  // Organizer-added pilots default to CONFIRMED (ready to compete).
+  // Public self-registration must pass status: 'REGISTERED' explicitly.
+  const status = (pilotFields.status as PilotStatus | undefined) ?? 'CONFIRMED';
+
+  const pilot = await prisma.pilot.create({
     data: {
       ...pilotFields,
       firstName: snapshotFirstName,
@@ -167,13 +210,18 @@ export async function createPilot(competitionId: string, data: CreatePilotInput)
       competitionParticipantId: linkedParticipant.id,
       qrCode,
       countryId: countryId ?? person.nationalityCountryId ?? undefined,
-      isWomen: pilotFields.gender === 'FEMALE' || pilotFields.isWomen === true || person.gender === 'FEMALE',
+      isWomen:
+        pilotFields.gender === 'FEMALE' || pilotFields.isWomen === true || person.gender === 'FEMALE',
+      status,
     },
     include: {
       country: true,
       person: { select: { id: true, aeroJudgeId: true, civlId: true } },
     },
   });
+
+  await syncParticipantStatus(competitionId, personId, status);
+  return pilot;
 }
 
 export async function updatePilot(
@@ -182,11 +230,15 @@ export async function updatePilot(
   data: Omit<Prisma.PilotUncheckedUpdateInput, 'id' | 'competitionId'>,
 ) {
   await getPilot(competitionId, pilotId);
-  const { gender, nationality, countryId, ...rest } = data;
+  const { gender, nationality, countryId, status, ...rest } = data;
 
   let nextCountryId = countryId;
   if (nextCountryId === undefined && typeof nationality === 'string') {
     nextCountryId = (await resolveCountryId(nationality)) ?? undefined;
+  }
+
+  if (status !== undefined && status !== null) {
+    await setPilotStatus(competitionId, pilotId, status as PilotStatus);
   }
 
   return prisma.pilot.update({
@@ -195,12 +247,47 @@ export async function updatePilot(
       ...rest,
       ...(nationality !== undefined ? { nationality } : {}),
       ...(nextCountryId !== undefined ? { countryId: nextCountryId } : {}),
-      ...(gender !== undefined
-        ? { gender, isWomen: gender === 'FEMALE' }
-        : {}),
+      ...(gender !== undefined ? { gender, isWomen: gender === 'FEMALE' } : {}),
     },
-    include: { country: true },
+    include: {
+      country: true,
+      person: { select: { id: true, aeroJudgeId: true, civlId: true } },
+    },
   });
+}
+
+/**
+ * Accept, reject, check-in, withdraw, etc.
+ */
+export async function setPilotStatus(
+  competitionId: string,
+  pilotId: string,
+  status: PilotStatus,
+) {
+  const pilot = await getPilot(competitionId, pilotId);
+  if (pilot.status === status) {
+    return pilot;
+  }
+
+  const updated = await prisma.pilot.update({
+    where: { id: pilotId },
+    data: { status },
+    include: {
+      country: true,
+      person: { select: { id: true, aeroJudgeId: true, civlId: true } },
+    },
+  });
+
+  await syncParticipantStatus(competitionId, updated.personId, status);
+  return updated;
+}
+
+export async function acceptPilot(competitionId: string, pilotId: string) {
+  return setPilotStatus(competitionId, pilotId, 'CONFIRMED');
+}
+
+export async function rejectPilot(competitionId: string, pilotId: string) {
+  return setPilotStatus(competitionId, pilotId, 'REJECTED');
 }
 
 export async function deletePilot(competitionId: string, pilotId: string): Promise<void> {
@@ -209,7 +296,6 @@ export async function deletePilot(competitionId: string, pilotId: string): Promi
 
   await prisma.pilot.delete({ where: { id: pilotId } });
 
-  // Drop PILOT role but never delete the global Person or other competition roles.
   if (personId) {
     const { removeCompetitionRole } = await import('./competition-participant.service.js');
     try {
@@ -225,6 +311,7 @@ export async function searchPilots(competitionId: string, q: string, limit = 20)
   return prisma.pilot.findMany({
     where: {
       competitionId,
+      status: { in: [...ELIGIBLE_PILOT_STATUSES] },
       OR: [
         { firstName: { contains: q, mode: 'insensitive' } },
         { lastName: { contains: q, mode: 'insensitive' } },
@@ -322,9 +409,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     const cols = parseCsvLine(lines[i]);
     if (cols.every((c) => !c)) continue;
 
-    const pilotNumber = Number(
-      col(cols, 'pilotnumber', 'number', 'pilotno') ?? cols[0],
-    );
+    const pilotNumber = Number(col(cols, 'pilotnumber', 'number', 'pilotno') ?? cols[0]);
     const firstName = col(cols, 'firstname') ?? cols[1];
     const lastName = col(cols, 'lastname') ?? cols[2];
     const genderRaw = (col(cols, 'gender') ?? 'MALE').toUpperCase();
@@ -339,6 +424,21 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     const club = col(cols, 'club', 'team');
     const glider = col(cols, 'glider');
     const notes = col(cols, 'notes', 'serialno', 'serial');
+    const statusRaw = (col(cols, 'status') ?? 'CONFIRMED').toUpperCase();
+    const status = (
+      [
+        'REGISTERED',
+        'CONFIRMED',
+        'CHECKED_IN',
+        'ACTIVE',
+        'REJECTED',
+        'WITHDRAWN',
+        'DISQUALIFIED',
+        'DNS',
+      ].includes(statusRaw)
+        ? statusRaw
+        : 'CONFIRMED'
+    ) as PilotStatus;
 
     if (!pilotNumber || !firstName || !lastName) {
       throw AppError.badRequest(`Invalid row ${i + 1}: pilotNumber, firstName, lastName required`);
@@ -360,7 +460,6 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     const exact = matches.filter((m) => m.confidence === 'EXACT');
     const possible = matches.filter((m) => m.confidence === 'POSSIBLE');
 
-    // Ambiguous: multiple exacts or only possibles with no strong id — require human review.
     if (exact.length > 1 || (exact.length === 0 && possible.length > 1 && !civlId && !aeroJudgeId)) {
       ambiguous.push({ row: i + 1, pilotNumber, matches });
       continue;
@@ -382,6 +481,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
         notes,
         isWomen: gender === 'FEMALE',
         personId,
+        status,
       });
       if (personId) reusedPersons += 1;
       else createdPersons += 1;
@@ -416,7 +516,6 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
       ambiguousCount: ambiguous.length,
       ambiguous,
     },
-    // keep type happy if unused
     newPersons,
   };
 }

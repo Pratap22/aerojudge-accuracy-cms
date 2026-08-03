@@ -101,6 +101,17 @@ export const createCompetitionSchema = z.object({
   organizationId: z.string().min(1).optional(),
 });
 
+export const pilotStatusSchema = z.enum([
+  'REGISTERED',
+  'CONFIRMED',
+  'CHECKED_IN',
+  'ACTIVE',
+  'REJECTED',
+  'WITHDRAWN',
+  'DISQUALIFIED',
+  'DNS',
+]);
+
 export const createPilotBaseSchema = z.object({
   pilotNumber: z.number().int().positive(),
   /** Link to existing Person (returning participant). When set, identity can be omitted. */
@@ -133,6 +144,11 @@ export const createPilotBaseSchema = z.object({
   emergencyContact: optionalString,
   emergencyPhone: optionalString,
   medicalNotes: optionalString,
+  /**
+   * Organizer create defaults to CONFIRMED on the server when omitted.
+   * Public self-registration always uses REGISTERED.
+   */
+  status: pilotStatusSchema.optional(),
 });
 
 export const createPilotSchema = createPilotBaseSchema.superRefine((val, ctx) => {
@@ -146,6 +162,11 @@ export const createPilotSchema = createPilotBaseSchema.superRefine((val, ctx) =>
 });
 
 export const updatePilotSchema = createPilotBaseSchema.partial();
+
+/** Dedicated accept/reject (and other status transitions). */
+export const updatePilotStatusSchema = z.object({
+  status: pilotStatusSchema,
+});
 
 /** Public self-registration — pilot number is assigned by the server. */
 export const publicPilotRegistrationSchema = z.object({
@@ -335,6 +356,7 @@ export type AuthenticatedPilotRegistrationInput = z.infer<
 export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
 export type CreatePilotInput = z.infer<typeof createPilotSchema>;
 export type UpdatePilotInput = z.infer<typeof updatePilotSchema>;
+export type UpdatePilotStatusInput = z.infer<typeof updatePilotStatusSchema>;
 export type PublicPilotRegistrationInput = z.infer<typeof publicPilotRegistrationSchema>;
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
 export type CreateRoundInput = z.infer<typeof createRoundSchema>;

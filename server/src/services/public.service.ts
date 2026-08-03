@@ -437,7 +437,8 @@ export async function listPublicPilots(slugOrId: string) {
   const pilots = await prisma.pilot.findMany({
     where: {
       competitionId: competition.id,
-      status: { notIn: ['WITHDRAWN', 'DISQUALIFIED'] },
+      // Hide pending applications and rejections from public pilot lists
+      status: { notIn: ['REGISTERED', 'REJECTED', 'WITHDRAWN', 'DISQUALIFIED', 'DNS'] },
     },
     orderBy: [{ pilotNumber: 'asc' }],
     select: {

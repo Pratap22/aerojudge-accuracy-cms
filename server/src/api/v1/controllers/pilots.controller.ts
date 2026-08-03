@@ -1,5 +1,11 @@
 import type { Request, Response } from 'express';
-import { createPilotSchema, paginationSchema, updatePilotSchema } from '@npha/shared';
+import {
+  createPilotSchema,
+  paginationSchema,
+  pilotStatusSchema,
+  updatePilotSchema,
+  updatePilotStatusSchema,
+} from '@npha/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
@@ -11,10 +17,13 @@ const competitionParams = z.object({ competitionId: z.string().min(1) });
 const pilotParams = z.object({ competitionId: z.string().min(1), pilotId: z.string().min(1) });
 const searchQuery = z.object({ q: z.string().min(1), limit: z.coerce.number().int().min(1).max(50).optional() });
 const qrParams = z.object({ competitionId: z.string().min(1), code: z.string().min(1) });
+const listQuery = paginationSchema.extend({
+  status: pilotStatusSchema.optional(),
+});
 
 export const list = [
   validateParams(competitionParams),
-  validateQuery(paginationSchema),
+  validateQuery(listQuery),
   asyncHandler(async (req: Request, res: Response) => {
     const result = await pilotService.listPilots(req.params.competitionId, req.query as never);
     sendSuccess(res, result.items, 200, {
@@ -72,6 +81,59 @@ export const update = [
       entityType: 'Pilot',
       entityId: pilot.id,
       after: pilot,
+    });
+    sendSuccess(res, pilot);
+  }),
+];
+
+export const updateStatus = [
+  validateParams(pilotParams),
+  validateBody(updatePilotStatusSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const pilot = await pilotService.setPilotStatus(
+      req.params.competitionId,
+      req.params.pilotId,
+      req.body.status,
+    );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: 'UPDATE',
+      entityType: 'Pilot',
+      entityId: pilot.id,
+      after: { status: pilot.status },
+    });
+    sendSuccess(res, pilot);
+  }),
+];
+
+export const accept = [
+  validateParams(pilotParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const pilot = await pilotService.acceptPilot(req.params.competitionId, req.params.pilotId);
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: 'UPDATE',
+      entityType: 'Pilot',
+      entityId: pilot.id,
+      after: { status: pilot.status, decision: 'ACCEPTED' },
+    });
+    sendSuccess(res, pilot);
+  }),
+];
+
+export const reject = [
+  validateParams(pilotParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const pilot = await pilotService.rejectPilot(req.params.competitionId, req.params.pilotId);
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: 'UPDATE',
+      entityType: 'Pilot',
+      entityId: pilot.id,
+      after: { status: pilot.status, decision: 'REJECTED' },
     });
     sendSuccess(res, pilot);
   }),

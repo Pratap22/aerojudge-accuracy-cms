@@ -103,6 +103,7 @@ export type PilotStatus =
   | 'CONFIRMED'
   | 'CHECKED_IN'
   | 'ACTIVE'
+  | 'REJECTED'
   | 'WITHDRAWN'
   | 'DISQUALIFIED'
   | 'DNS';

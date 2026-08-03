@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PilotStatus" ADD VALUE IF NOT EXISTS 'REJECTED';

@@ -10,7 +10,7 @@ import {
   type PersonDirectoryEntry,
   type PilotStatus,
 } from '@npha/shared';
-import { Download, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
+import { Check, Download, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -32,6 +32,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  cn,
 } from '@npha/ui';
 import { api, apiFetch } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
@@ -52,6 +53,44 @@ interface Pilot {
   person?: { id: string; aeroJudgeId: string; civlId?: string | null } | null;
 }
 
+type StatusFilter = 'ALL' | 'REGISTERED' | 'CONFIRMED' | 'REJECTED' | 'ACTIVE' | 'OTHER';
+
+const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
+  { id: 'ALL', label: 'All' },
+  { id: 'REGISTERED', label: 'Pending' },
+  { id: 'CONFIRMED', label: 'Accepted' },
+  { id: 'REJECTED', label: 'Rejected' },
+  { id: 'ACTIVE', label: 'Active' },
+  { id: 'OTHER', label: 'Other' },
+];
+
+function statusBadgeVariant(
+  status: PilotStatus,
+): 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline' {
+  switch (status) {
+    case 'REGISTERED':
+      return 'warning';
+    case 'CONFIRMED':
+    case 'CHECKED_IN':
+    case 'ACTIVE':
+      return 'success';
+    case 'REJECTED':
+      return 'destructive';
+    case 'WITHDRAWN':
+    case 'DISQUALIFIED':
+    case 'DNS':
+      return 'secondary';
+    default:
+      return 'outline';
+  }
+}
+
+function statusLabel(status: PilotStatus): string {
+  if (status === 'REGISTERED') return 'PENDING';
+  if (status === 'CONFIRMED') return 'ACCEPTED';
+  return status.replace(/_/g, ' ');
+}
+
 function toFormValues(pilot: Pilot): CreatePilotInput {
   return {
     pilotNumber: pilot.pilotNumber,
@@ -69,6 +108,7 @@ function toFormValues(pilot: Pilot): CreatePilotInput {
 export function PilotsPage() {
   const activeCompetitionId = useCompetitionId();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Pilot | null>(null);
   const [directoryQ, setDirectoryQ] = useState('');
@@ -76,12 +116,26 @@ export function PilotsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
+  const listStatusParam =
+    statusFilter === 'ALL' || statusFilter === 'OTHER' ? undefined : statusFilter;
+
   const { data: pilots, isLoading } = useQuery({
-    queryKey: ['pilots', activeCompetitionId, search],
+    queryKey: ['pilots', activeCompetitionId, search, listStatusParam],
     queryFn: () =>
-      api.get<Pilot[]>(`/competitions/${activeCompetitionId}/pilots`, { search, pageSize: 200 }),
+      api.get<Pilot[]>(`/competitions/${activeCompetitionId}/pilots`, {
+        search: search || undefined,
+        status: listStatusParam,
+        pageSize: 200,
+      }),
     enabled: !!activeCompetitionId,
   });
+
+  const displayedPilots =
+    statusFilter === 'OTHER'
+      ? pilots?.filter((p) =>
+          ['CHECKED_IN', 'WITHDRAWN', 'DISQUALIFIED', 'DNS'].includes(p.status),
+        )
+      : pilots;
 
   const {
     register,
@@ -104,6 +158,11 @@ export function PilotsPage() {
     enabled: formOpen && !editing && directoryQ.trim().length >= 2,
   });
 
+  const invalidatePilots = () => {
+    queryClient.invalidateQueries({ queryKey: ['pilots'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  };
+
   const saveMutation = useMutation({
     mutationFn: (data: CreatePilotInput) =>
       editing
@@ -113,14 +172,19 @@ export function PilotsPage() {
             personId: selectedPerson?.id ?? data.personId,
           }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pilots'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      invalidatePilots();
       setFormOpen(false);
       setEditing(null);
       setSelectedPerson(null);
       setDirectoryQ('');
       reset();
     },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ pilotId, action }: { pilotId: string; action: 'accept' | 'reject' }) =>
+      api.post<Pilot>(`/competitions/${activeCompetitionId}/pilots/${pilotId}/${action}`),
+    onSuccess: () => invalidatePilots(),
   });
 
   const importMutation = useMutation({
@@ -143,7 +207,7 @@ export function PilotsPage() {
       }>;
     },
     onSuccess: (json) => {
-      queryClient.invalidateQueries({ queryKey: ['pilots'] });
+      invalidatePilots();
       const imported = json.data?.imported ?? 0;
       const skipped = json.data?.skipped ?? 0;
       window.alert(
@@ -236,7 +300,9 @@ export function PilotsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Pilots</h1>
-          <p className="text-muted-foreground">Registration and pilot roster management</p>
+          <p className="text-muted-foreground">
+            Review registrations — accept to seat pilots, or reject applications
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input
@@ -274,15 +340,39 @@ export function PilotsPage() {
           {(importMutation.error as Error)?.message ?? 'Import failed'}
         </p>
       )}
+      {statusMutation.isError && (
+        <p className="text-sm text-destructive">
+          {(statusMutation.error as Error)?.message ?? 'Status update failed'}
+        </p>
+      )}
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Search by name, number, country…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Search by name, number, country…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setStatusFilter(f.id)}
+              className={cn(
+                'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                statusFilter === f.id
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:bg-muted',
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="rounded-lg border">
@@ -295,7 +385,7 @@ export function PilotsPage() {
               <TableHead>Country</TableHead>
               <TableHead>Club</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-20" />
+              <TableHead className="w-[140px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -305,32 +395,84 @@ export function PilotsPage() {
                   Loading…
                 </TableCell>
               </TableRow>
-            ) : pilots?.length === 0 ? (
+            ) : !displayedPilots?.length ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  No pilots registered yet.
+                  {statusFilter === 'REGISTERED'
+                    ? 'No pending registrations.'
+                    : 'No pilots match this filter.'}
                 </TableCell>
               </TableRow>
             ) : (
-              pilots?.map((pilot) => (
-                <TableRow key={pilot.id}>
-                  <TableCell className="font-mono font-medium">{pilot.pilotNumber}</TableCell>
-                  <TableCell>
-                    {pilot.firstName} {pilot.lastName}
-                  </TableCell>
-                  <TableCell>{pilot.gender}</TableCell>
-                  <TableCell>{pilot.nationality ?? '—'}</TableCell>
-                  <TableCell>{pilot.club ?? '—'}</TableCell>
-                  <TableCell>
-                    <Badge variant={pilot.status === 'ACTIVE' ? 'success' : 'outline'}>{pilot.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(pilot)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
+              displayedPilots.map((pilot) => {
+                const canAccept =
+                  pilot.status === 'REGISTERED' || pilot.status === 'REJECTED';
+                const canReject =
+                  pilot.status === 'REGISTERED' || pilot.status === 'CONFIRMED';
+                const busy =
+                  statusMutation.isPending && statusMutation.variables?.pilotId === pilot.id;
+
+                return (
+                  <TableRow key={pilot.id}>
+                    <TableCell className="font-mono font-medium">{pilot.pilotNumber}</TableCell>
+                    <TableCell>
+                      {pilot.firstName} {pilot.lastName}
+                    </TableCell>
+                    <TableCell>{pilot.gender}</TableCell>
+                    <TableCell>{pilot.nationality ?? '—'}</TableCell>
+                    <TableCell>{pilot.club ?? '—'}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusBadgeVariant(pilot.status)}>
+                        {statusLabel(pilot.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        {canAccept && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Accept"
+                            disabled={busy}
+                            onClick={() =>
+                              statusMutation.mutate({ pilotId: pilot.id, action: 'accept' })
+                            }
+                          >
+                            <Check className="h-4 w-4 text-emerald-600" />
+                          </Button>
+                        )}
+                        {canReject && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Reject"
+                            disabled={busy}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Reject ${pilot.firstName} ${pilot.lastName}? They will not appear on the public pilot list or flight order.`,
+                                )
+                              ) {
+                                statusMutation.mutate({ pilotId: pilot.id, action: 'reject' });
+                              }
+                            }}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Edit"
+                          onClick={() => openEdit(pilot)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -405,7 +547,9 @@ export function PilotsPage() {
             <div className="flex flex-col gap-2">
               <Label>Pilot Number</Label>
               <Input type="number" {...register('pilotNumber', { valueAsNumber: true })} />
-              {errors.pilotNumber && <p className="text-sm text-destructive">{errors.pilotNumber.message}</p>}
+              {errors.pilotNumber && (
+                <p className="text-sm text-destructive">{errors.pilotNumber.message}</p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <Label>Gender</Label>
@@ -423,12 +567,16 @@ export function PilotsPage() {
             <div className="flex flex-col gap-2">
               <Label>First Name</Label>
               <Input {...register('firstName')} disabled={!!selectedPerson} />
-              {errors.firstName && <p className="text-sm text-destructive">{errors.firstName.message}</p>}
+              {errors.firstName && (
+                <p className="text-sm text-destructive">{errors.firstName.message}</p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <Label>Last Name</Label>
               <Input {...register('lastName')} disabled={!!selectedPerson} />
-              {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
+              {errors.lastName && (
+                <p className="text-sm text-destructive">{errors.lastName.message}</p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <Label>FAI License</Label>

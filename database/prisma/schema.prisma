@@ -610,6 +610,8 @@ enum PilotStatus {
   CONFIRMED
   CHECKED_IN
   ACTIVE
+  /// Organizer rejected the registration application
+  REJECTED
   WITHDRAWN
   DISQUALIFIED
   DNS

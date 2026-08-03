@@ -1,5 +1,5 @@
 import { shuffleArray } from '@npha/utils';
-import type { FlightOrderType, RoundStatus } from '@npha/shared';
+import { COMPETING_PILOT_STATUSES, type FlightOrderType, type RoundStatus } from '@npha/shared';
 import type { Prisma } from '@npha/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
@@ -296,12 +296,16 @@ export async function generateFlightOrder(
   const pilots = await prisma.pilot.findMany({
     where: {
       competitionId,
-      status: { in: ['REGISTERED', 'CONFIRMED', 'CHECKED_IN', 'ACTIVE'] },
+      status: { in: [...COMPETING_PILOT_STATUSES] },
     },
     orderBy: { pilotNumber: 'asc' },
   });
 
-  if (pilots.length === 0) throw AppError.badRequest('No eligible pilots for flight order');
+  if (pilots.length === 0) {
+    throw AppError.badRequest(
+      'No eligible pilots for flight order. Accept (confirm) registrations first.',
+    );
+  }
 
   let orderedPilotIds: string[];
 
@@ -368,7 +372,7 @@ export async function listFlights(competitionId: string, roundId: string) {
   const eligiblePilots = await prisma.pilot.findMany({
     where: {
       competitionId,
-      status: { in: ['REGISTERED', 'CONFIRMED', 'CHECKED_IN', 'ACTIVE'] },
+      status: { in: [...COMPETING_PILOT_STATUSES] },
     },
     orderBy: { pilotNumber: 'asc' },
   });
