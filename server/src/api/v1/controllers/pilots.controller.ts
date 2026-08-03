@@ -46,10 +46,14 @@ export const create = [
   validateParams(competitionParams),
   validateBody(createPilotSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const pilot = await pilotService.createPilot(req.params.competitionId, {
-      ...req.body,
-      dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : undefined,
-    });
+    const pilot = await pilotService.createPilot(
+      req.params.competitionId,
+      {
+        ...req.body,
+        dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : undefined,
+      },
+      { actorUserId: req.user?.id },
+    );
     await writeAuditLog({
       ...auditFromRequest(req),
       competitionId: req.params.competitionId,
@@ -142,7 +146,25 @@ export const reject = [
 export const remove = [
   validateParams(pilotParams),
   asyncHandler(async (req: Request, res: Response) => {
-    await pilotService.deletePilot(req.params.competitionId, req.params.pilotId);
+    const before = await pilotService.getPilot(req.params.competitionId, req.params.pilotId);
+    await pilotService.deletePilot(req.params.competitionId, req.params.pilotId, {
+      actorUserId: req.user?.id,
+    });
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: 'DELETE',
+      entityType: 'Pilot',
+      entityId: req.params.pilotId,
+      before: {
+        id: before.id,
+        pilotNumber: before.pilotNumber,
+        firstName: before.firstName,
+        lastName: before.lastName,
+        status: before.status,
+        personId: before.personId,
+      },
+    });
     sendSuccess(res, { deleted: true });
   }),
 ];

@@ -88,4 +88,27 @@ describe('organization-based authorization', () => {
   it('keeps legacy hasPermission for transition', () => {
     expect(hasPermission('JUDGE', 'score:enter')).toBe(true);
   });
+
+  it('disables legacy global role matrix when allowLegacyGlobalRole is false', () => {
+    expect(
+      hasEffectivePermission({
+        platformRole: 'JUDGE',
+        orgRole: null,
+        permission: 'score:enter',
+        allowLegacyGlobalRole: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not let owner bundle leak when only viewer permissions are resolved', () => {
+    expect(
+      hasEffectivePermission({
+        platformRole: 'PUBLIC_USER',
+        orgRole: 'VIEWER',
+        permissions: ['organization:read'],
+        permission: 'organization:manage',
+        allowLegacyGlobalRole: false,
+      }),
+    ).toBe(false);
+  });
 });

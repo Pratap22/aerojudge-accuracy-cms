@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as approvalService from '../../../services/approval.service.js';
+import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
 
 const roundParams = z.object({ competitionId: z.string().min(1), roundId: z.string().min(1) });
@@ -29,6 +30,14 @@ export const request = [
       req.params.competitionId,
       req.params.roundId,
     );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: 'APPROVAL_REQUESTED',
+      entityType: 'Round',
+      entityId: req.params.roundId,
+      after: result,
+    });
     sendSuccess(res, result, 201);
   }),
 ];
@@ -45,6 +54,14 @@ export const chiefJudgeDecide = [
       req.body.decision,
       req.body.comments,
     );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: req.body.decision === 'APPROVED' ? 'APPROVAL_CHIEF_APPROVED' : 'APPROVAL_CHIEF_REJECTED',
+      entityType: 'Round',
+      entityId: req.params.roundId,
+      after: { decision: req.body.decision, comments: req.body.comments, result },
+    });
     sendSuccess(res, result);
   }),
 ];
@@ -61,6 +78,15 @@ export const directorDecide = [
       req.body.decision,
       req.body.comments,
     );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action:
+        req.body.decision === 'APPROVED' ? 'APPROVAL_DIRECTOR_APPROVED' : 'APPROVAL_DIRECTOR_REJECTED',
+      entityType: 'Round',
+      entityId: req.params.roundId,
+      after: { decision: req.body.decision, comments: req.body.comments, result },
+    });
     sendSuccess(res, result);
   }),
 ];

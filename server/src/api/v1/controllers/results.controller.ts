@@ -4,6 +4,7 @@ import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as scoringService from '../../../services/scoring.service.js';
 import { emitRankingUpdated, emitResultsPublished } from '../../../socket/index.js';
+import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateParams, validateQuery } from '../middleware/validate.js';
 
 const competitionParams = z.object({ competitionId: z.string().min(1) });
@@ -63,11 +64,17 @@ export const publish = [
   validateParams(competitionParams),
   validateQuery(categoryQuery),
   asyncHandler(async (req: Request, res: Response) => {
-    const result = await scoringService.publishResults(
-      req.params.competitionId,
-      req.query.category as string,
-    );
-    emitResultsPublished(req.params.competitionId, '', req.query.category as string);
+    const category = req.query.category as string;
+    const result = await scoringService.publishResults(req.params.competitionId, category);
+    emitResultsPublished(req.params.competitionId, '', category);
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: 'RESULT_PUBLISHED',
+      entityType: 'Result',
+      entityId: req.params.competitionId,
+      after: { category, result },
+    });
     sendSuccess(res, result);
   }),
 ];

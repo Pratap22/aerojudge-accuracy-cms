@@ -108,7 +108,11 @@ export type CreatePilotInput = Omit<Prisma.PilotUncheckedCreateInput, 'competiti
   personId?: string;
 };
 
-export async function createPilot(competitionId: string, data: CreatePilotInput) {
+export async function createPilot(
+  competitionId: string,
+  data: CreatePilotInput,
+  opts?: { actorUserId?: string },
+) {
   await getCompetition(competitionId);
   const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
   const qrCode = generateQrPayload(
@@ -152,7 +156,7 @@ export async function createPilot(competitionId: string, data: CreatePilotInput)
         photoUrl: typeof pilotFields.photoUrl === 'string' ? pilotFields.photoUrl : null,
         forceCreate: true,
       };
-      const person = await createPerson(personInput);
+      const person = await createPerson(personInput, { actorUserId: opts?.actorUserId });
       personId = person.id;
     }
   }
@@ -174,7 +178,9 @@ export async function createPilot(competitionId: string, data: CreatePilotInput)
     participant.roles.map((r) => r.role),
     'PILOT',
   );
-  await assignCompetitionRole(competitionId, personId, 'PILOT');
+  await assignCompetitionRole(competitionId, personId, 'PILOT', {
+    actorUserId: opts?.actorUserId,
+  });
   const linkedParticipant = await getOrCreateParticipant(competitionId, personId);
 
   // Already enrolled as pilot?
@@ -290,7 +296,11 @@ export async function rejectPilot(competitionId: string, pilotId: string) {
   return setPilotStatus(competitionId, pilotId, 'REJECTED');
 }
 
-export async function deletePilot(competitionId: string, pilotId: string): Promise<void> {
+export async function deletePilot(
+  competitionId: string,
+  pilotId: string,
+  opts?: { actorUserId?: string },
+): Promise<void> {
   const pilot = await getPilot(competitionId, pilotId);
   const personId = pilot.personId;
 
@@ -299,7 +309,9 @@ export async function deletePilot(competitionId: string, pilotId: string): Promi
   if (personId) {
     const { removeCompetitionRole } = await import('./competition-participant.service.js');
     try {
-      await removeCompetitionRole(competitionId, personId, 'PILOT');
+      await removeCompetitionRole(competitionId, personId, 'PILOT', {
+        actorUserId: opts?.actorUserId,
+      });
     } catch {
       // Role may already be absent
     }

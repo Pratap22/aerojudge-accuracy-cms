@@ -198,11 +198,15 @@ export function requirePermission(permission: Permission) {
       next(AppError.unauthorized());
       return;
     }
+    // When an org is resolved, membership permissions are SSoT — never fall back
+    // to legacy global User.role (prevents cross-tenant permission leakage).
+    const orgResolved = Boolean(req.organizationId || req.orgRole || req.permissions);
     const allowed = hasEffectivePermission({
       platformRole: req.user.role,
       orgRole: req.orgRole ?? req.user.orgRole,
       permissions: req.permissions ?? req.user.permissions,
       permission,
+      allowLegacyGlobalRole: !orgResolved,
     });
     if (!allowed) {
       // Structured denial for operators (safe fields only — never tokens/passwords).
@@ -275,7 +279,8 @@ export async function requireCompetitionInOrg(
       return;
     }
     if (competition.organizationId !== req.organizationId) {
-      next(AppError.forbidden('Competition belongs to another organization'));
+      // Prefer not-found across tenants to avoid leaking resource existence.
+      next(AppError.notFound('Competition not found'));
       return;
     }
     next();

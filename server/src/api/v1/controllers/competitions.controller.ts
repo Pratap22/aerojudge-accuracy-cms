@@ -134,12 +134,22 @@ export const updateSettingsHandler = [
   validateParams(idParams),
   validateBody(settingsSchema.passthrough()),
   asyncHandler(async (req: Request, res: Response) => {
+    const before = await competitionService.getCompetition(req.params.id);
     await competitionService.updateSettings(req.params.id, req.body);
     const competition = await competitionService.getCompetition(req.params.id);
     const rules = ScoringEngine.resolveRules(
       competition.ruleSet,
       competitionService.settingsToRuleOverrides(competition.settings ?? undefined),
     );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: competition.id,
+      action: 'SETTINGS_UPDATE',
+      entityType: 'CompetitionSettings',
+      entityId: competition.id,
+      before: before.settings ?? null,
+      after: competition.settings ?? null,
+    });
     sendSuccess(res, rules);
   }),
 ];

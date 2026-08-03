@@ -79,7 +79,11 @@ export async function getOfficial(competitionId: string, officialId: string) {
   return mapOfficial(row);
 }
 
-export async function createOfficial(competitionId: string, input: CreateOfficialInput) {
+export async function createOfficial(
+  competitionId: string,
+  input: CreateOfficialInput,
+  opts?: { actorUserId?: string },
+) {
   await getCompetition(competitionId);
   const roleLabel = input.role.trim();
   const competitionRole = input.competitionRole ?? mapOfficialLabelToRole(roleLabel);
@@ -99,7 +103,7 @@ export async function createOfficial(competitionId: string, input: CreateOfficia
       phone: input.phone,
       photoUrl: input.imageUrl,
       forceCreate: true,
-    });
+    }, { actorUserId: opts?.actorUserId });
     personId = person.id;
   }
 
@@ -108,7 +112,9 @@ export async function createOfficial(competitionId: string, input: CreateOfficia
 
   // Pilot ↔ judge/official same competition policy
   const participant = await getOrCreateParticipant(competitionId, personId);
-  await assignCompetitionRole(competitionId, personId, competitionRole);
+  await assignCompetitionRole(competitionId, personId, competitionRole, {
+    actorUserId: opts?.actorUserId,
+  });
   const linked = await getOrCreateParticipant(competitionId, personId);
 
   const row = await prisma.competitionOfficial.create({
@@ -158,7 +164,11 @@ export async function updateOfficial(
   return mapOfficial(row);
 }
 
-export async function deleteOfficial(competitionId: string, officialId: string) {
+export async function deleteOfficial(
+  competitionId: string,
+  officialId: string,
+  opts?: { actorUserId?: string },
+) {
   const official = await prisma.competitionOfficial.findFirst({
     where: { id: officialId, competitionId },
   });
@@ -168,7 +178,9 @@ export async function deleteOfficial(competitionId: string, officialId: string) 
 
   if (official.personId && official.competitionRole) {
     try {
-      await removeCompetitionRole(competitionId, official.personId, official.competitionRole);
+      await removeCompetitionRole(competitionId, official.personId, official.competitionRole, {
+        actorUserId: opts?.actorUserId,
+      });
     } catch {
       // keep Person and other roles
     }

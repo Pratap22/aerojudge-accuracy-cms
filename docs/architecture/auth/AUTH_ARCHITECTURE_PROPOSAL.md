@@ -188,10 +188,10 @@ Authorization denials: server-side `AUTHZ_DENIED` with resource type + required 
 | **P1 Discovery** | Inventory docs (this folder) | None |
 | **P2 RCA** | Audit break documented | None |
 | **P3 Spec** | This proposal + matrix | None |
-| **P4 Auth simplify** | (a) Admin/judge call server logout (b) Scores require org + competition ownership always (c) Log AUTHZ_DENIED (d) Feature-flag remove legacy permission fallback (e) Stop seeding CompetitionUser for auth, document obsolete | Medium |
-| **P5 Audit** | List API + UI + tests; expand writers; optional `organizationId` column | Low–medium |
-| **P6 Hardening** | Shorter access TTL defaults; refresh rotation; optional requestId middleware | Medium |
-| **P7 Tests** | Auth unit + cross-tenant integration + audit | — |
+| **P4 Auth simplify** | (a) ~~Admin/judge call server logout~~ (b) ~~Scores require org + competition ownership always~~ (c) ~~Log AUTHZ_DENIED~~ (d) ~~Disable legacy role fallback when org context resolved~~ (`allowLegacyGlobalRole`) (e) Stop seeding CompetitionUser for auth, document obsolete | Medium |
+| **P5 Audit** | ~~List API + UI + tests~~; ~~expand writers (settings, scores confirm, approvals, results, pilots, officials)~~; optional `organizationId` column | Low–medium |
+| **P6 Hardening** | Shorter access TTL defaults; refresh rotation; optional requestId middleware; cross-tenant NOT_FOUND on competition mismatch | Medium |
+| **P7 Tests** | ~~Auth unit + cross-tenant matrix~~ + audit; remaining: HTTP integration / DB e2e | — |
 | **P8 Docs** | Update AUTHENTICATION.md, API.md, remove obsolete claims | — |
 
 **Do not** big-bang rewrite JWT custom crypto or introduce a third-party IdP mid-season without a product decision.

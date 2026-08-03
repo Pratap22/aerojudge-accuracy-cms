@@ -68,11 +68,11 @@ This is not primarily an RLS issue (no RLS), a schema migration gap for the tabl
 
 | Layer | Status |
 |-------|--------|
-| Admin UI | `apps/admin/src/pages/AuditPage.tsx` calls list API |
-| Permission UI gate | `RequirePermission(['audit:view'])` |
-| API route | **Missing** (until repair) |
+| `GET …/audit` | Implemented (`audit.routes.ts` + `audit.service.ts`) |
+| Permission UI gate | `RequirePermission(['audit:view'])` + server `requirePermission('audit:view')` |
+| API route | **Present** under competition nested guards |
 | Export | Documented in ops guide; not implemented |
-| Tests | No list-API tests; person tests only mock create |
+| Tests | Summary + matrix + cross-tenant unit scenarios |
 
 ### UI / DB mismatch (even after raw findMany)
 
@@ -135,11 +135,17 @@ Failure mode when `writeAuditLog` throws: **mutation request fails** (AUDIT_REQU
 - Surface API errors in UI; null-safe entityId
 - Unit tests for list summary + `audit:view` matrix
 
-### Phase B — write completeness (next)
+### Phase B — write completeness (in progress)
 
-- Audit score confirm, settings updates, approvals, result publish, pilot delete, officials
-- Always pass `actorUserId` into participant helpers
-- Resolve double-write on person create
+- [x] Settings updates (`SETTINGS_UPDATE`)
+- [x] Score confirm
+- [x] Approvals request / chief / director
+- [x] Result publish (`RESULT_PUBLISHED`)
+- [x] Pilot delete
+- [x] Officials create / update / delete
+- [x] Pass `actorUserId` for participant role assign/remove from pilot + official services
+- [ ] Remaining: rounds lifecycle, teams, print, weather, display
+- [ ] Resolve double-write on person create (controller + service)
 
 ### Phase C — multi-tenant fields
 

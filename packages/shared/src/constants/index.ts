@@ -304,6 +304,11 @@ export function hasOrgPermission(orgRole: OrgRole, permission: Permission): bool
 /**
  * Effective permission check.
  * Prefer explicit `permissions` (from membership / custom role) when provided.
+ *
+ * Tenant APIs should call this only after org membership is resolved so
+ * `permissions` / `orgRole` are set. The legacy global User.role matrix
+ * (below) is a transition fallback for requests without org context — prefer
+ * membership-based checks and do not rely on it for multi-tenant isolation.
  */
 export function hasEffectivePermission(input: {
   platformRole: Role;
@@ -311,8 +316,20 @@ export function hasEffectivePermission(input: {
   /** Resolved permission set for the active membership (system or custom role). */
   permissions?: readonly Permission[] | readonly string[] | null;
   permission: Permission;
+  /**
+   * When false, never grant permissions from the legacy global User.role matrix.
+   * Default true for backward compatibility; tenant middleware should pass false
+   * once org context is established (membership already supplies permissions).
+   */
+  allowLegacyGlobalRole?: boolean;
 }): boolean {
-  const { platformRole, orgRole, permissions, permission } = input;
+  const {
+    platformRole,
+    orgRole,
+    permissions,
+    permission,
+    allowLegacyGlobalRole = true,
+  } = input;
 
   if (permissions && roleHasPermission(permissions, permission)) return true;
   if (!permissions && orgRole && hasOrgPermission(orgRole, permission)) return true;
@@ -321,6 +338,7 @@ export function hasEffectivePermission(input: {
   if (platformAllowed?.includes(platformRole)) return true;
 
   if (
+    allowLegacyGlobalRole &&
     !orgRole &&
     !permissions &&
     !isPlatformRole(platformRole) &&
