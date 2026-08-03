@@ -143,6 +143,14 @@ export async function listPublicCompetitions() {
     'APPROVED',
     'LOCKED',
   ] as const;
+  const scoringRoundStatuses = [
+    'ACTIVE',
+    'PAUSED',
+    'CLOSED',
+    'PENDING_APPROVAL',
+    'APPROVED',
+    'LOCKED',
+  ] as const;
 
   const competitions = await prisma.competition.findMany({
     where: {
@@ -165,7 +173,12 @@ export async function listPublicCompetitions() {
         select: {
           pilots: true,
           teams: true,
-          rounds: { where: { type: 'OFFICIAL' } },
+          rounds: {
+            where: {
+              type: 'OFFICIAL',
+              status: { notIn: ['CANCELLED'] },
+            },
+          },
         },
       },
     },
@@ -188,22 +201,51 @@ export async function listPublicCompetitions() {
     completedRoundCounts.map((row) => [row.competitionId, row._count._all]),
   );
 
-  const mapSummary = (c: (typeof competitions)[number]) => ({
-    id: c.id,
-    name: c.name,
-    code: c.code,
-    organizer: c.organizer,
-    venue: c.venue,
-    country: c.country,
-    startDate: c.startDate,
-    endDate: c.endDate,
-    status: c.status,
-    publicSlug: c.publicSlug,
-    pilotCount: c._count.pilots,
-    teamCount: c._count.teams,
-    roundCount: c._count.rounds,
-    completedRounds: completedByCompetition.get(c.id) ?? 0,
-  });
+  const scoringRoundCounts =
+    competitions.length === 0
+      ? []
+      : await prisma.round.groupBy({
+          by: ['competitionId'],
+          where: {
+            type: 'OFFICIAL',
+            status: { in: [...scoringRoundStatuses] },
+            competitionId: { in: competitions.map((c) => c.id) },
+          },
+          _count: { _all: true },
+        });
+  const scoringByCompetition = new Map(
+    scoringRoundCounts.map((row) => [row.competitionId, row._count._all]),
+  );
+
+  const mapSummary = (c: (typeof competitions)[number]) => {
+    const completedRounds = completedByCompetition.get(c.id) ?? 0;
+    const scoringRounds = scoringByCompetition.get(c.id) ?? 0;
+    // Public "X rounds" must match results: use completed/scoring counts, not draft SCHEDULED rows.
+    const roundCount =
+      completedRounds > 0
+        ? completedRounds
+        : scoringRounds > 0
+          ? scoringRounds
+          : c._count.rounds;
+
+    return {
+      id: c.id,
+      name: c.name,
+      code: c.code,
+      organizer: c.organizer,
+      venue: c.venue,
+      country: c.country,
+      startDate: c.startDate,
+      endDate: c.endDate,
+      status: c.status,
+      publicSlug: c.publicSlug,
+      pilotCount: c._count.pilots,
+      teamCount: c._count.teams,
+      roundCount,
+      completedRounds,
+      scoringRounds,
+    };
+  };
 
   const active = competitions.filter((c) => ACTIVE_STATUSES.has(c.status)).map(mapSummary);
   const past = competitions.filter((c) => PAST_STATUSES.has(c.status)).map(mapSummary);
@@ -213,6 +255,32 @@ export async function listPublicCompetitions() {
 
 export async function getPublicResults(slug: string, category = 'OVERALL') {
   const competition = await getPublicCompetition(slug);
+
+  // When official/scoring rounds exceed stored "roundsFlown", rankings were calculated
+  // under the old provisional-fill rule (or discarded team rounds). Recalculate once.
+  const scoringRounds = await prisma.round.count({
+    where: {
+      competitionId: competition.id,
+      type: 'OFFICIAL',
+      status: {
+        in: ['ACTIVE', 'PAUSED', 'CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'],
+      },
+    },
+  });
+  if (scoringRounds > 0) {
+    const maxFlown = await prisma.individualRanking.aggregate({
+      where: { competitionId: competition.id, category: 'OVERALL' },
+      _max: { roundsFlown: true },
+    });
+    const maxTeam = await prisma.teamRanking.aggregate({
+      where: { competitionId: competition.id },
+      _max: { roundsScored: true },
+    });
+    const maxStored = Math.max(maxFlown._max.roundsFlown ?? 0, maxTeam._max.roundsScored ?? 0);
+    if (maxStored > 0 && maxStored < scoringRounds) {
+      await recalculateRankings(competition.id);
+    }
+  }
 
   const result = await prisma.result.findFirst({
     where: {
@@ -284,6 +352,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       official: !!result?.isOfficial,
       publishedAt: result?.publishedAt,
       rankings,
+      scoringRounds,
       payload: result?.payloadJson ?? null,
     };
   }
@@ -331,6 +400,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       official: !!result?.isOfficial,
       publishedAt: result?.publishedAt,
       rankings,
+      scoringRounds,
       payload: result?.payloadJson ?? null,
     };
   }
@@ -365,6 +435,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           }
         : null,
     })),
+    scoringRounds,
     payload: result?.payloadJson ?? null,
   };
 }

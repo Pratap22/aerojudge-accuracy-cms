@@ -25,6 +25,7 @@ function CompetitionCard({
     competition.teamCount != null && competition.teamCount > 0
       ? `${competition.teamCount} teams`
       : null,
+    // Prefer completed rounds for past events; fall back to scoring-aligned roundCount
     competition.roundCount != null && competition.roundCount > 0
       ? `${competition.roundCount} rounds`
       : null,

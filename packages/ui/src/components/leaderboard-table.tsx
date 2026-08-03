@@ -28,6 +28,8 @@ export interface LeaderboardEntry {
   /** Total score in cm (lower is better) */
   totalScoreCm: number;
   roundsFlown?: number;
+  /** Competition scoring rounds total for "8/9" style display */
+  roundsTotal?: number;
   bullseyes?: number;
   /** Optional round scores for expandable detail */
   roundScores?: Array<{ round: number; scoreCm: number | null; isBullseye?: boolean }>;
@@ -91,6 +93,12 @@ export function LeaderboardTable({
               entry.displayName ??
               `${entry.firstName}${entry.lastName ? ` ${entry.lastName}` : ''}`.trim();
             const flagEmoji = toFlagEmoji(entry.countryCode2);
+            const roundsLabel =
+              entry.roundsFlown == null
+                ? '—'
+                : entry.roundsTotal != null && entry.roundsTotal > 0
+                  ? `${entry.roundsFlown}/${entry.roundsTotal}`
+                  : String(entry.roundsFlown);
             return (
               <TableRow
                 key={`${entry.rank}-${entry.pilotNumber}-${label}`}
@@ -126,7 +134,7 @@ export function LeaderboardTable({
                 </TableCell>
                 {showRounds && (
                   <TableCell className="hidden text-right tabular-nums sm:table-cell">
-                    {entry.roundsFlown ?? '—'}
+                    {roundsLabel}
                   </TableCell>
                 )}
                 {showBullseyes && (

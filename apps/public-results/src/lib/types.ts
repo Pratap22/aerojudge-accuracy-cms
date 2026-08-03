@@ -68,6 +68,8 @@ export interface PublicResults {
   official: boolean;
   publishedAt: string | null;
   rankings: PublicRankingRow[];
+  /** Official rounds that contribute to live/final standings. */
+  scoringRounds?: number;
   payload: unknown;
 }
 

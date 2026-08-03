@@ -21,12 +21,13 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
   // Ensure nationality text (e.g. "Nepal") is linked to Country for rankings + flags.
   await linkPilotsToCountries(competitionId);
 
-  // Persist DNF/max for unscored flights on approved rounds only (locked is immutable)
+  // Persist DNF/max for unscored flights on finalized rounds (closed through approved).
+  // LOCKED rounds remain immutable — ranking fill covers missing rows in memory for those.
   const rankingRounds = await prisma.round.findMany({
     where: {
       competitionId,
       type: 'OFFICIAL',
-      status: 'APPROVED',
+      status: { in: ['CLOSED', 'PENDING_APPROVAL', 'APPROVED'] },
     },
     select: { id: true },
   });

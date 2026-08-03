@@ -70,6 +70,7 @@ export function useResults(category: RankingCategory = 'OVERALL') {
 export function toLeaderboardEntries(results: PublicResults | undefined) {
   if (!results?.rankings) return [];
   const category = results.category;
+  const roundsTotal = results.scoringRounds;
 
   return results.rankings
     .filter((row) => {
@@ -90,6 +91,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
           countryCode2: row.team.country?.code || undefined,
           totalScoreCm: row.totalScoreCm,
           roundsFlown: row.roundsFlown,
+          roundsTotal,
           bullseyes: row.bullseyes,
         };
       }
@@ -105,6 +107,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
           countryCode2: row.country.code || undefined,
           totalScoreCm: row.totalScoreCm,
           roundsFlown: row.roundsFlown,
+          roundsTotal,
           bullseyes: row.bullseyes,
         };
       }
@@ -118,6 +121,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
         countryName: row.pilot?.country?.name || row.pilot?.nationality || undefined,
         totalScoreCm: row.totalScoreCm,
         roundsFlown: row.roundsFlown,
+        roundsTotal,
         bullseyes: row.bullseyes,
       };
     });
@@ -153,7 +157,8 @@ export function computeStats(results: PublicResults | undefined) {
     totalBullseyes: rankings.reduce((sum, r) => sum + (r.bullseyes ?? 0), 0),
     averageScoreCm: rankings.reduce((sum, r) => sum + r.totalScoreCm, 0) / rankings.length,
     bestScoreCm: Math.min(...rankings.map((r) => r.totalScoreCm)),
-    roundsCompleted: Math.max(...rankings.map((r) => r.roundsFlown), 0),
+    // Prefer official scoring-round count over max flown (which may lag until recalculate)
+    roundsCompleted: results.scoringRounds ?? Math.max(...rankings.map((r) => r.roundsFlown), 0),
     countriesRepresented: countries.size,
   };
 }

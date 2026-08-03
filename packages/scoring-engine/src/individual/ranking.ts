@@ -74,11 +74,14 @@ export function applyDiscardRules(
 /**
  * For each listed round, pilots without a score receive DNF at maximumScoreCm
  * (competition setting — e.g. 500). Existing scores are preserved and merged.
- * Filled scores are marked isProvisional so roundsFlown stays accurate for UI filters.
+ *
+ * Set `isFinal: true` for CLOSED / PENDING / APPROVED / LOCKED rounds so the fill
+ * counts as a real DNF toward both totals and roundsFlown. Live ACTIVE/PAUSED
+ * rounds should omit `isFinal` (or set false) so fills stay provisional.
  */
 export function fillMissingRoundScoresAsDnf(
   pilots: PilotRankingInput[],
-  rounds: Array<{ id: string; number: number }>,
+  rounds: Array<{ id: string; number: number; isFinal?: boolean }>,
   rules: RuleConfig,
 ): PilotRankingInput[] {
   if (!rounds.length) return pilots;
@@ -89,6 +92,7 @@ export function fillMissingRoundScoresAsDnf(
 
     for (const round of rounds) {
       if (byRound.has(round.id)) continue;
+      const isFinal = round.isFinal === true;
       filled.push({
         pilotId: pilot.pilotId,
         roundId: round.id,
@@ -97,7 +101,7 @@ export function fillMissingRoundScoresAsDnf(
         resultType: 'DNF',
         isBullseye: false,
         isDiscarded: false,
-        isProvisional: true,
+        isProvisional: !isFinal,
       });
     }
 
@@ -218,7 +222,8 @@ export function calculateIndividualRankings(
     );
 
     const totalScoreCm = kept.reduce((sum, s) => sum + s.finalScoreCm, 0);
-    // Rounds flown = every real score (kept + discarded). Discard only affects the total.
+    // Rounds flown = every real (non-provisional) score including discarded worst rounds.
+    // Finished-round DNF fills are non-provisional so they match completed competition rounds.
     const actualFlown = [...kept, ...discarded].filter((s) => !s.isProvisional);
     const bullseyes = actualFlown.filter((s) => s.isBullseye).length;
 

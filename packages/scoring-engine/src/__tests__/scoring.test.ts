@@ -8,6 +8,7 @@ import {
 } from '../individual/ranking';
 import {
   calculateTeamRoundScore,
+  calculateTeamRankings,
   validateTeamComposition,
 } from '../team/team-scoring';
 import { resolveCompetitionRules } from '../rules/profiles';
@@ -130,6 +131,67 @@ describe('calculateIndividualRankings discard vs rounds flown', () => {
     expect(rankings[0].roundsFlown).toBe(9);
     expect(rankings[0].discardedScoreCm).toBe(5);
     expect(rankings[0].totalScoreCm).toBe(8);
+  });
+
+  it('counts finished-round DNF fills toward roundsFlown, not live provisional fills', () => {
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 0, discardAfterRounds: 5 };
+    const pilots = fillMissingRoundScoresAsDnf(
+      [
+        {
+          pilotId: 'p1',
+          pilotNumber: 1,
+          roundScores: [
+            {
+              pilotId: 'p1',
+              roundId: 'r1',
+              roundNumber: 1,
+              finalScoreCm: 3,
+              resultType: 'MEASURED',
+              isBullseye: false,
+              isDiscarded: false,
+            },
+          ],
+        },
+      ],
+      [
+        { id: 'r1', number: 1, isFinal: true },
+        { id: 'r2', number: 2, isFinal: true },
+        { id: 'r3', number: 3, isFinal: false },
+      ],
+      rules,
+    );
+    const rankings = calculateIndividualRankings(pilots, rules);
+    // Real r1 + final DNF r2 count; live provisional r3 does not count as flown
+    expect(rankings[0].roundsFlown).toBe(2);
+    // Totals still include provisional live fills so standings stay conservative
+    expect(rankings[0].totalScoreCm).toBe(3 + rules.maximumScoreCm * 2);
+  });
+
+  it('team rankings count all contested rounds even when worst is discarded', () => {
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 5 };
+    const roundScores = Array.from({ length: 9 }, (_, i) => ({
+      teamId: 't1',
+      roundId: `r${i + 1}`,
+      totalScoreCm: i === 0 ? 90 : 10,
+      countedPilots: [],
+      discardedPilots: [],
+      audit: [],
+    }));
+    const rankings = calculateTeamRankings(
+      [
+        {
+          teamId: 't1',
+          type: 'NATIONAL',
+          members: [{ pilotId: 'p1', role: 'PILOT', order: 1 }],
+          scoringPilots: 1,
+        },
+      ],
+      roundScores,
+      rules,
+      'TEAM',
+    );
+    expect(rankings[0].roundsScored).toBe(9);
+    expect(rankings[0].totalScoreCm).toBe(80); // discard 90, keep 8×10
   });
 });
 

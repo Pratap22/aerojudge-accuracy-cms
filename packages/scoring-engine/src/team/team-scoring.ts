@@ -216,9 +216,11 @@ export function calculateTeamRankings(
 
   const results: TeamRankingResult[] = filteredTeams.map((team) => {
     const scores = byTeam.get(team.teamId) ?? [];
+    /** Rounds actually contested (before discard) — matches individual `roundsFlown`. */
+    const roundsFlown = scores.length;
     let working = [...scores];
 
-    // Optional discard of worst team round
+    // Optional discard of worst team round (affects total only, not rounds flown)
     if (
       rules.discardWorstRounds > 0 &&
       working.length >= rules.discardAfterRounds &&
@@ -230,9 +232,11 @@ export function calculateTeamRankings(
 
     const totalScoreCm = working.reduce((s, r) => s + r.totalScoreCm, 0);
     const audits: ScoringAuditEntry[] = [
-      audit('team-total', `Summed ${working.length} round(s)`, {
+      audit('team-total', `Summed ${working.length} of ${roundsFlown} round(s) after discard`, {
         teamId: team.teamId,
         totalScoreCm,
+        roundsFlown,
+        countedRounds: working.length,
         rounds: working.map((r) => ({ roundId: r.roundId, score: r.totalScoreCm })),
       }),
     ];
@@ -242,7 +246,7 @@ export function calculateTeamRankings(
       category,
       rank: 0,
       totalScoreCm,
-      roundsScored: working.length,
+      roundsScored: roundsFlown,
       tieBreakNotes: '',
       audit: audits,
     };
