@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as publicService from '../../../services/public.service.js';
+import * as seoService from '../../../services/seo.service.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
 
 const slugParams = z.object({ slug: z.string().min(1) });
@@ -16,6 +17,51 @@ export const listCompetitions = [
   asyncHandler(async (_req: Request, res: Response) => {
     const competitions = await publicService.listPublicCompetitions();
     sendSuccess(res, competitions);
+  }),
+];
+
+/** Crawler / social-preview HTML. Path from X-Original-URI or ?path= */
+export const renderSeoHtml = [
+  asyncHandler(async (req: Request, res: Response) => {
+    const fromHeader = String(req.headers['x-original-uri'] ?? '');
+    const fromQuery = typeof req.query.path === 'string' ? req.query.path : '';
+    const rawPath = fromHeader || fromQuery || '/results/';
+    const meta = await seoService.resolveSeoMeta(rawPath);
+    const html = seoService.renderSeoHtml(meta);
+    res
+      .status(meta.robots?.includes('noindex') ? 404 : 200)
+      .setHeader('Content-Type', 'text/html; charset=utf-8')
+      .setHeader('Cache-Control', 'public, max-age=120, s-maxage=300')
+      .send(html);
+  }),
+];
+
+export const seoMetaJson = [
+  asyncHandler(async (req: Request, res: Response) => {
+    const path = typeof req.query.path === 'string' ? req.query.path : '/results/';
+    const meta = await seoService.resolveSeoMeta(path);
+    sendSuccess(res, meta);
+  }),
+];
+
+export const sitemapXml = [
+  asyncHandler(async (_req: Request, res: Response) => {
+    const xml = await seoService.buildSitemapXml();
+    res
+      .status(200)
+      .setHeader('Content-Type', 'application/xml; charset=utf-8')
+      .setHeader('Cache-Control', 'public, max-age=600')
+      .send(xml);
+  }),
+];
+
+export const robotsTxt = [
+  asyncHandler(async (_req: Request, res: Response) => {
+    res
+      .status(200)
+      .setHeader('Content-Type', 'text/plain; charset=utf-8')
+      .setHeader('Cache-Control', 'public, max-age=3600')
+      .send(seoService.robotsTxt());
   }),
 ];
 

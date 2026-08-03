@@ -5,6 +5,7 @@ import { ArrowRight, Loader2, Medal, Radio, Users, BarChart3 } from 'lucide-reac
 import { competitionPath, fetchCompetitions } from '../lib/api';
 import type { PublicCompetitionSummary } from '../lib/types';
 import { formatDate } from '../lib/utils';
+import { ListSeo } from '../components/Seo';
 
 function statusTone(status: string) {
   if (status === 'COMPLETED') return 'border-amber-400/40 text-amber-200';
@@ -163,6 +164,7 @@ export function CompetitionListPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050d1a] text-slate-100">
+      <ListSeo />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0a1628] via-[#050d1a] to-[#050d1a]" />
       <div
         className="pointer-events-none absolute inset-0 opacity-50"
