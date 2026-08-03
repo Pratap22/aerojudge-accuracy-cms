@@ -139,6 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [setCompetitionId]);
 
   const logout = useCallback(() => {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      void api.post('/auth/logout', { refreshToken }).catch(() => undefined);
+    }
     clearTokens();
     setOrganizationId(null);
     setUser(null);

@@ -2,6 +2,8 @@
 
 AeroJudge uses **organization-based, permission-driven access control**.
 
+Architecture discovery (inventory, permission matrix, audit findings, target design): [docs/architecture/auth/](../architecture/auth/README.md).
+
 ## Concepts
 
 | Layer | Where | Purpose |

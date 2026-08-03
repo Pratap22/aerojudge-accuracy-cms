@@ -140,6 +140,20 @@ Platform-only: `POST /organizations`, `PATCH /organizations/:id/status` require 
 | PATCH | `/competitions/:id/settings` | `competition:update` | Update scoring/settings |
 | POST | `/competitions/:id/publish` | `competition:publish` | Publish competition |
 
+### Audit log
+
+Base: `/competitions/:competitionId/audit`
+
+Requires organization membership (`X-Organization-Id`), competition ownership, and `audit:view`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | `audit:view` | List competition audit entries (pagination + search) |
+
+Response items: `id`, `timestamp`, `userId`, `userName`, `action`, `entityType`, `entityId`, `details`, optional `ipAddress` / before-after JSON for detail views.
+
+Architecture notes: [Audit findings](../architecture/auth/AUDIT_LOG_FINDINGS.md) · [Auth inventory](../architecture/auth/AUTHENTICATION_INVENTORY.md)
+
 ---
 
 ## Pilots

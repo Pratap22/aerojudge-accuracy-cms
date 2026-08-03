@@ -12,44 +12,69 @@ import {
   TableHeader,
   TableRow,
 } from '@npha/ui';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
 interface AuditEntry {
   id: string;
   timestamp: string;
-  userId: string;
+  userId: string | null;
   userName: string;
   action: string;
   entityType: string;
-  entityId: string;
+  entityId: string | null;
   details: string;
-  ipAddress?: string;
+  ipAddress?: string | null;
+}
+
+function entityIdLabel(entityId: string | null): string {
+  if (!entityId) return '—';
+  return entityId.length > 10 ? `${entityId.slice(0, 8)}…` : entityId;
 }
 
 export function AuditPage() {
   const activeCompetitionId = useCompetitionId();
   const [search, setSearch] = useState('');
 
-  const { data: entries, isLoading } = useQuery({
+  const {
+    data: entries,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['audit', activeCompetitionId, search],
     queryFn: () =>
       api.get<AuditEntry[]>(`/competitions/${activeCompetitionId}/audit`, {
-        search,
+        search: search || undefined,
         pageSize: 100,
+        sortOrder: 'desc',
       }),
     enabled: !!activeCompetitionId,
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><Link to="/competitions" className="text-primary underline">Open a competition</Link> from the Competitions list.</p>;
+    return (
+      <p className="text-muted-foreground">
+        <Link to="/competitions" className="text-primary underline">
+          Open a competition
+        </Link>{' '}
+        from the Competitions list.
+      </p>
+    );
   }
+
+  const errorMessage =
+    error instanceof ApiError
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : 'Failed to load audit log';
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Audit Log</h1>
-        <p className="text-muted-foreground">Immutable record of all competition actions</p>
+        <p className="text-muted-foreground">Immutable record of competition actions</p>
       </div>
 
       <div className="relative max-w-md">
@@ -80,11 +105,17 @@ export function AuditPage() {
                   Loading…
                 </TableCell>
               </TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-destructive">
+                  {errorMessage}
+                </TableCell>
+              </TableRow>
             ) : entries?.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground">
                   <ClipboardList className="mx-auto mb-2 h-8 w-8 opacity-50" />
-                  No audit entries found.
+                  No audit entries found for this competition.
                 </TableCell>
               </TableRow>
             ) : (
@@ -99,9 +130,13 @@ export function AuditPage() {
                   </TableCell>
                   <TableCell className="text-xs">
                     {entry.entityType}
-                    <span className="block text-muted-foreground">{entry.entityId.slice(0, 8)}…</span>
+                    <span className="block text-muted-foreground">
+                      {entityIdLabel(entry.entityId)}
+                    </span>
                   </TableCell>
-                  <TableCell className="max-w-xs truncate text-sm">{entry.details}</TableCell>
+                  <TableCell className="max-w-xs truncate text-sm" title={entry.details}>
+                    {entry.details}
+                  </TableCell>
                 </TableRow>
               ))
             )}

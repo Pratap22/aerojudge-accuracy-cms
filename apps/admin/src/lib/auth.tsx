@@ -135,6 +135,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    const refreshToken = getRefreshToken();
+    // Revoke server-side session best-effort; always clear local client state.
+    if (refreshToken) {
+      void api.post('/auth/logout', { refreshToken }).catch(() => undefined);
+    }
     clearTokens();
     setOrganizationId(null);
     setActiveOrganizationId(null);

@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { env } from '../config/env.js';
 import {
   hasEffectivePermission,
   isPlatformRole,
@@ -204,6 +205,20 @@ export function requirePermission(permission: Permission) {
       permission,
     });
     if (!allowed) {
+      // Structured denial for operators (safe fields only — never tokens/passwords).
+      if (!env.isProduction) {
+        console.warn(
+          JSON.stringify({
+            event: 'AUTHZ_DENIED',
+            userId: req.user.id,
+            organizationId: req.organizationId ?? null,
+            requiredPermission: permission,
+            platformRole: req.user.role,
+            orgRole: req.orgRole ?? null,
+            path: req.originalUrl,
+          }),
+        );
+      }
       next(AppError.forbidden(`Missing permission: ${permission}`));
       return;
     }

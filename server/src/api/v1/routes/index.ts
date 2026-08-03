@@ -19,9 +19,14 @@ import statisticsRoutes from './statistics.routes.js';
 import syncRoutes from './sync.routes.js';
 import peopleRoutes from './people.routes.js';
 import publicRoutes from './public.routes.js';
+import auditRoutes from './audit.routes.js';
 import { organizationRoutes } from '../../../modules/organization/index.js';
 import { competitionScopedGuards } from '../middleware/org-scope.js';
-import { requireAuth, resolveOrganizationContext } from '../../../auth/rbac.js';
+import {
+  requireAuth,
+  resolveOrganizationContext,
+  requireOrgContext,
+} from '../../../auth/rbac.js';
 import { prisma } from '../../../config/prisma.js';
 import { AppError, asyncHandler } from '../../../utils/errors.js';
 
@@ -51,26 +56,31 @@ nested.use('/display-layouts', displayRoutes);
 nested.use('/sponsors', sponsorsRoutes);
 nested.use('/officials', officialsRoutes);
 nested.use('/statistics', statisticsRoutes);
+nested.use('/audit', auditRoutes);
 
 router.use('/competitions/:competitionId', nested);
 
-/** Scores are competition-scoped via flight → round → competition. */
+/**
+ * Scores are competition-scoped via flight → round → competition.
+ * Require active org membership; never allow tenant mutations without org context
+ * (legacy User.role fallback must not bypass isolation).
+ */
 router.use(
   '/scores',
   requireAuth,
   resolveOrganizationContext,
+  requireOrgContext,
   asyncHandler(async (req, _res, next) => {
-    // Org context optional until we can resolve competition from body/params
-    if (req.body?.flightId && req.organizationId) {
+    if (req.body?.flightId) {
       const flight = await prisma.flight.findUnique({
         where: { id: req.body.flightId },
-        select: { round: { select: { competitionId: true, competition: { select: { organizationId: true } } } } },
+        select: {
+          round: { select: { competition: { select: { organizationId: true } } } },
+        },
       });
-      if (
-        flight &&
-        flight.round.competition.organizationId !== req.organizationId
-      ) {
-        next(AppError.forbidden('Flight belongs to another organization'));
+      if (!flight || flight.round.competition.organizationId !== req.organizationId) {
+        // Default deny without leaking whether the flight exists in another org.
+        next(AppError.notFound('Flight not found'));
         return;
       }
     }

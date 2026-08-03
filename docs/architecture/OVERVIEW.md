@@ -137,6 +137,8 @@ Rejected approvals return the round to `CLOSED` for corrections before re-reques
 - Competitions are filtered and guarded by the current organization context
 - Legacy `PERMISSIONS` / `User.role` remain for transition; prefer `hasEffectivePermission` + membership permissions
 
+See also [Authentication](../guides/AUTHENTICATION.md) and deep-dive docs under [architecture/auth](./auth/README.md).
+
 ### Login flow
 
 1. `POST /auth/login` → user + memberships + tokens

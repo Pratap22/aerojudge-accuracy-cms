@@ -1,13 +1,33 @@
 import type { Request, Response } from 'express';
 import { enterScoreSchema } from '@npha/shared';
 import { z } from 'zod';
-import { asyncHandler } from '../../../utils/errors.js';
+import { AppError, asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
+import { prisma } from '../../../config/prisma.js';
 import * as scoreService from '../../../services/score.service.js';
 import * as scoringService from '../../../services/scoring.service.js';
 import { emitRankingUpdated, emitScoreUpdated, emitCurrentPilot } from '../../../socket/index.js';
 import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
+
+/** Ensures a score belongs to the request org without revealing cross-tenant existence. */
+async function assertScoreInOrganization(scoreId: string, organizationId: string): Promise<void> {
+  const score = await prisma.score.findUnique({
+    where: { id: scoreId },
+    select: {
+      flight: {
+        select: {
+          round: {
+            select: { competition: { select: { organizationId: true } } },
+          },
+        },
+      },
+    },
+  });
+  if (!score || score.flight.round.competition.organizationId !== organizationId) {
+    throw AppError.notFound('Score not found');
+  }
+}
 
 const competitionRoundParams = z.object({
   competitionId: z.string().min(1),
@@ -60,7 +80,16 @@ export const enter = [
 export const confirm = [
   validateParams(scoreParams),
   asyncHandler(async (req: Request, res: Response) => {
+    await assertScoreInOrganization(req.params.scoreId, req.organizationId!);
     const score = await scoreService.confirmScore(req.params.scoreId, req.user!.id);
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: score.round.competitionId,
+      action: 'SCORE_CONFIRM',
+      entityType: 'Score',
+      entityId: score.id,
+      after: score,
+    });
     sendSuccess(res, score);
   }),
 ];
@@ -79,6 +108,7 @@ export const listByRound = [
 export const get = [
   validateParams(scoreParams),
   asyncHandler(async (req: Request, res: Response) => {
+    await assertScoreInOrganization(req.params.scoreId, req.organizationId!);
     const score = await scoreService.getScore(req.params.scoreId);
     sendSuccess(res, score);
   }),
