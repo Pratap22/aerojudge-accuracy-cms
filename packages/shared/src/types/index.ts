@@ -282,6 +282,26 @@ export interface AuthUser {
   /** Effective permissions for the active org membership (this tab). */
   permissions?: string[];
   organizations?: AuthOrganizationMembership[];
+  /** Linked AeroJudge Person (optional until profile created/claimed). */
+  personId?: string | null;
+  person?: AuthPersonSummary | null;
+}
+
+/** Directory-safe person identity attached to an authenticated user. */
+export interface AuthPersonSummary {
+  id: string;
+  aeroJudgeId: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string | null;
+  preferredName?: string | null;
+  displayName?: string | null;
+  gender: Gender;
+  civlId?: string | null;
+  faiLicenseNumber?: string | null;
+  photoUrl?: string | null;
+  nationalityCountryId?: string | null;
+  nationalityCountry?: { id: string; code: string; name: string; code2: string } | null;
 }
 
 /** Membership summary returned at login /me for organization selector. */
@@ -416,6 +436,28 @@ export interface CompetitionOfficial {
   email: string | null;
   displayOrder: number;
   isPublic: boolean;
+  personId?: string | null;
+  competitionRole?: string | null;
+  person?: { id: string; aeroJudgeId: string; name: string } | null;
+}
+
+/** Directory identity for reusable people search. */
+export interface PersonDirectoryEntry {
+  id: string;
+  aeroJudgeId: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string | null;
+  preferredName?: string | null;
+  displayName?: string | null;
+  gender: Gender;
+  nationalityCountryId?: string | null;
+  nationalityCountry?: { id: string; code: string; name: string; code2: string } | null;
+  photoUrl?: string | null;
+  civlId?: string | null;
+  faiLicenseNumber?: string | null;
+  visibility?: string;
+  status?: string;
 }
 
 export const ROLES: Role[] = [

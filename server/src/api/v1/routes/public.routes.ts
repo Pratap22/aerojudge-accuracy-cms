@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '../../../auth/rbac.js';
 import * as ctrl from '../controllers/public.controller.js';
 
 const router = Router();
@@ -11,6 +12,7 @@ router.get('/robots.txt', ...ctrl.robotsTxt);
 
 router.get('/competitions', ...ctrl.listCompetitions);
 router.get('/countries', ...ctrl.listCountries);
+router.get('/profiles/:aeroJudgeId', ...ctrl.publicProfile);
 router.get('/:slug', ...ctrl.getCompetition);
 router.get('/:slug/results', ...ctrl.getResults);
 router.get('/:slug/rounds', ...ctrl.getRoundResults);
@@ -19,6 +21,7 @@ router.get('/:slug/latest-score', ...ctrl.getLatestScore);
 router.get('/:slug/sponsors', ...ctrl.getSponsors);
 router.get('/:slug/officials', ...ctrl.getOfficials);
 router.get('/:slug/pilots', ...ctrl.listPilots);
-router.post('/:slug/register', ...ctrl.registerPilot);
+/** Self-reg: login → claim/profile → competition enrollment */
+router.post('/:slug/register', requireAuth, ...ctrl.registerPilot);
 
 export default router;

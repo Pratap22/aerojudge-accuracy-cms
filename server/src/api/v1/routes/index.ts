@@ -17,6 +17,7 @@ import sponsorsRoutes from './sponsors.routes.js';
 import officialsRoutes from './officials.routes.js';
 import statisticsRoutes from './statistics.routes.js';
 import syncRoutes from './sync.routes.js';
+import peopleRoutes from './people.routes.js';
 import publicRoutes from './public.routes.js';
 import { organizationRoutes } from '../../../modules/organization/index.js';
 import { competitionScopedGuards } from '../middleware/org-scope.js';
@@ -29,6 +30,7 @@ const router = Router();
 router.use('/auth', authRoutes);
 router.use('/users', usersRoutes);
 router.use('/organizations', organizationRoutes);
+router.use('/people', peopleRoutes);
 router.use('/sync', syncRoutes);
 router.use('/public', publicRoutes);
 

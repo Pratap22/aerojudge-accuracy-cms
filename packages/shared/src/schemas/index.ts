@@ -1,8 +1,80 @@
 import { z } from 'zod';
 
+/** Optional string fields: API often returns null; treat null/empty as unset. */
+const optionalString = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((v) => (v == null || v === '' ? undefined : v));
+
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+});
+
+/** Self-serve AeroJudge account for pilots / officials (not org invitation). */
+export const registerParticipantSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8).max(128),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+});
+
+/** Claim an existing Person when login email matches the Person contact email. */
+export const claimPersonByIdentitySchema = z
+  .object({
+    aeroJudgeId: optionalString,
+    civlId: optionalString,
+    personId: optionalString,
+  })
+  .superRefine((val, ctx) => {
+    if (!val.aeroJudgeId && !val.civlId && !val.personId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Provide personId, aeroJudgeId, or civlId',
+        path: ['personId'],
+      });
+    }
+  });
+
+/**
+ * Authenticated competition registration.
+ * Identity comes from the claimer's Person; competition-specific fields only when profile exists.
+ * When user has no Person yet, identity fields create a new Person on submit.
+ */
+export const authenticatedPilotRegistrationSchema = z.object({
+  club: optionalString,
+  glider: optionalString,
+  harness: optionalString,
+  emergencyContact: optionalString,
+  emergencyPhone: optionalString,
+  // First-time profile / fallback only
+  firstName: optionalString,
+  lastName: optionalString,
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  countryCode: z
+    .union([
+      z
+        .string()
+        .trim()
+        .toUpperCase()
+        .regex(/^[A-Z]{3}$/, 'Use a 3-letter country code'),
+      z.literal(''),
+      z.undefined(),
+    ])
+    .transform((v) => (v == null || v === '' ? undefined : v))
+    .optional(),
+  nationality: optionalString,
+  faiLicense: optionalString,
+  civlId: optionalString,
+  dateOfBirth: z.preprocess(
+    (v) => (v == null || v === '' ? undefined : v),
+    z
+      .union([
+        z.string().datetime(),
+        z.coerce.date(),
+        z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      ])
+      .optional(),
+  ),
 });
 
 export const createCompetitionSchema = z.object({
@@ -29,17 +101,24 @@ export const createCompetitionSchema = z.object({
   organizationId: z.string().min(1).optional(),
 });
 
-/** Optional string fields: API often returns null; treat null/empty as unset. */
-const optionalString = z
-  .union([z.string(), z.null(), z.undefined()])
-  .transform((v) => (v == null || v === '' ? undefined : v));
-
-export const createPilotSchema = z.object({
+export const createPilotBaseSchema = z.object({
   pilotNumber: z.number().int().positive(),
+  /** Link to existing Person (returning participant). When set, identity can be omitted. */
+  personId: optionalString,
   faiLicense: optionalString,
   civlId: optionalString,
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
+  firstName: z
+    .string()
+    .min(1)
+    .optional()
+    .or(z.literal(''))
+    .transform((v) => v || undefined),
+  lastName: z
+    .string()
+    .min(1)
+    .optional()
+    .or(z.literal(''))
+    .transform((v) => v || undefined),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).default('MALE'),
   nationality: optionalString,
   countryId: optionalString,
@@ -56,7 +135,17 @@ export const createPilotSchema = z.object({
   medicalNotes: optionalString,
 });
 
-export const updatePilotSchema = createPilotSchema.partial();
+export const createPilotSchema = createPilotBaseSchema.superRefine((val, ctx) => {
+  if (!val.personId && (!val.firstName || !val.lastName)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'firstName and lastName are required when personId is not provided',
+      path: ['firstName'],
+    });
+  }
+});
+
+export const updatePilotSchema = createPilotBaseSchema.partial();
 
 /** Public self-registration — pilot number is assigned by the server. */
 export const publicPilotRegistrationSchema = z.object({
@@ -238,6 +327,11 @@ export const listOrganizationsQuerySchema = paginationSchema.extend({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+export type RegisterParticipantInput = z.infer<typeof registerParticipantSchema>;
+export type ClaimPersonByIdentityInput = z.infer<typeof claimPersonByIdentitySchema>;
+export type AuthenticatedPilotRegistrationInput = z.infer<
+  typeof authenticatedPilotRegistrationSchema
+>;
 export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
 export type CreatePilotInput = z.infer<typeof createPilotSchema>;
 export type UpdatePilotInput = z.infer<typeof updatePilotSchema>;
@@ -357,9 +451,36 @@ export function compareOfficials<
   return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
 }
 
-export const createOfficialSchema = z.object({
-  name: z.string().min(1).max(200),
+export const createOfficialBaseSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .or(z.literal(''))
+    .transform((v) => v || undefined),
   role: z.string().min(1).max(120),
+  /** Reuse existing Person from the directory. */
+  personId: optionalString,
+  competitionRole: z
+    .enum([
+      'PILOT',
+      'CHIEF_JUDGE',
+      'TARGET_JUDGE',
+      'JUDGE',
+      'MEET_DIRECTOR',
+      'SCORER',
+      'ANNOUNCER',
+      'DISPLAY_OPERATOR',
+      'LAUNCH_MARSHAL',
+      'GOAL_MARSHAL',
+      'REGISTRATION_OFFICER',
+      'SAFETY_DIRECTOR',
+      'TECHNICAL_DELEGATE',
+      'VIEWER',
+      'OTHER',
+    ])
+    .optional(),
   imageUrl: optionalString,
   phone: optionalString,
   email: z.preprocess(
@@ -370,7 +491,17 @@ export const createOfficialSchema = z.object({
   isPublic: z.boolean().optional(),
 });
 
-export const updateOfficialSchema = createOfficialSchema.partial();
+export const createOfficialSchema = createOfficialBaseSchema.superRefine((val, ctx) => {
+  if (!val.personId && !val.name) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'name is required when personId is not provided',
+      path: ['name'],
+    });
+  }
+});
+
+export const updateOfficialSchema = createOfficialBaseSchema.partial();
 
 export const partnersDisplaySettingsSchema = z.object({
   partnersLabel: z.string().min(1).max(40).optional(),
@@ -388,3 +519,78 @@ export type SponsorType = z.infer<typeof sponsorTypeSchema>;
 export type PartnersDisplaySettings = z.infer<typeof partnersDisplaySettingsSchema>;
 export type CreateOfficialInput = z.infer<typeof createOfficialSchema>;
 export type UpdateOfficialInput = z.infer<typeof updateOfficialSchema>;
+
+// ─── Person directory ───
+
+export const competitionRoleSchema = z.enum([
+  'PILOT',
+  'CHIEF_JUDGE',
+  'TARGET_JUDGE',
+  'JUDGE',
+  'MEET_DIRECTOR',
+  'SCORER',
+  'ANNOUNCER',
+  'DISPLAY_OPERATOR',
+  'LAUNCH_MARSHAL',
+  'GOAL_MARSHAL',
+  'REGISTRATION_OFFICER',
+  'SAFETY_DIRECTOR',
+  'TECHNICAL_DELEGATE',
+  'VIEWER',
+  'OTHER',
+]);
+
+export const createPersonSchema = z.object({
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  middleName: optionalString,
+  preferredName: optionalString,
+  displayName: optionalString,
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).default('MALE'),
+  dateOfBirth: z.preprocess(
+    (v) => (v == null || v === '' ? undefined : v),
+    z.union([z.string().datetime(), z.coerce.date()]).optional(),
+  ),
+  nationalityCountryId: optionalString,
+  nationality: optionalString,
+  photoUrl: optionalString,
+  civlId: optionalString,
+  faiLicenseNumber: optionalString,
+  faiLicenseExpiry: z.preprocess(
+    (v) => (v == null || v === '' ? undefined : v),
+    z.union([z.string().datetime(), z.coerce.date()]).optional(),
+  ),
+  email: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    z.string().email().optional(),
+  ),
+  phone: optionalString,
+  visibility: z.enum(['PRIVATE', 'ORGANIZATIONS_ONLY', 'PUBLIC']).optional(),
+  forceCreate: z.boolean().optional(),
+});
+
+export const updatePersonSchema = createPersonSchema.partial().omit({ forceCreate: true });
+
+export const matchPersonSchema = z.object({
+  aeroJudgeId: optionalString,
+  civlId: optionalString,
+  faiLicenseNumber: optionalString,
+  email: optionalString,
+  firstName: optionalString,
+  lastName: optionalString,
+  nationalityCountryId: optionalString,
+  query: optionalString,
+});
+
+export const mergePersonSchema = z.object({
+  duplicatePersonId: z.string().min(1),
+});
+
+export const requestProfileClaimSchema = z.object({
+  verificationMethod: z.string().min(1).max(120),
+});
+
+export type CreatePersonInput = z.infer<typeof createPersonSchema>;
+export type UpdatePersonInput = z.infer<typeof updatePersonSchema>;
+export type MatchPersonInput = z.infer<typeof matchPersonSchema>;
+export type CompetitionRoleType = z.infer<typeof competitionRoleSchema>;

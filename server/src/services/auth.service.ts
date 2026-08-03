@@ -28,6 +28,7 @@ function toAuthUser(
     lastName: string;
     role: AuthUser['role'];
     avatarUrl?: string | null;
+    personId?: string | null;
   },
   ctx?: {
     organizationId?: string | null;
@@ -35,6 +36,7 @@ function toAuthUser(
     permissions?: Permission[] | null;
   },
   organizations?: AuthOrganizationMembership[],
+  person?: AuthUser['person'],
 ): AuthUser {
   return {
     id: user.id,
@@ -47,6 +49,36 @@ function toAuthUser(
     orgRole: ctx?.orgRole ?? null,
     permissions: ctx?.permissions ?? undefined,
     organizations,
+    personId: user.personId ?? person?.id ?? null,
+    person: person ?? null,
+  };
+}
+
+async function loadPersonSummary(personId: string | null | undefined): Promise<AuthUser['person']> {
+  if (!personId) return null;
+  const person = await prisma.person.findFirst({
+    where: { id: personId, status: { not: 'MERGED' } },
+    include: {
+      nationalityCountry: {
+        select: { id: true, code: true, code2: true, name: true },
+      },
+    },
+  });
+  if (!person) return null;
+  return {
+    id: person.id,
+    aeroJudgeId: person.aeroJudgeId,
+    firstName: person.firstName,
+    lastName: person.lastName,
+    middleName: person.middleName,
+    preferredName: person.preferredName,
+    displayName: person.displayName,
+    gender: person.gender,
+    civlId: person.civlId,
+    faiLicenseNumber: person.faiLicenseNumber,
+    photoUrl: person.photoUrl,
+    nationalityCountryId: person.nationalityCountryId,
+    nationalityCountry: person.nationalityCountry,
   };
 }
 
@@ -183,7 +215,13 @@ export async function login(
   }
 
   // Identity-only access token — org context is per-tab via X-Organization-Id
-  const authUser = toAuthUser(user, { organizationId, orgRole, permissions }, organizations);
+  const person = await loadPersonSummary(user.personId);
+  const authUser = toAuthUser(
+    user,
+    { organizationId, orgRole, permissions },
+    organizations,
+    person,
+  );
   const tokens = await issueTokens(toTokenUser(authUser), meta, { createRefresh: true });
 
   return {
@@ -191,6 +229,106 @@ export async function login(
     tokens,
     organizations,
     requiresOrganizationSelection,
+  };
+}
+
+/**
+ * Creates a participant AeroJudge account (no organization membership required).
+ * Links or creates a Person so the user has a reusable competition identity.
+ */
+export async function registerParticipant(
+  input: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  },
+  meta?: { userAgent?: string; ipAddress?: string },
+): Promise<LoginResult> {
+  const email = input.email.toLowerCase().trim();
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    throw AppError.conflict('An account with this email already exists. Sign in instead.');
+  }
+
+  const passwordHash = await hashPassword(input.password);
+  const user = await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      role: 'PUBLIC_USER',
+      status: 'ACTIVE',
+    },
+  });
+
+  // Prefer claim by email match to existing Person directory entry.
+  let personId: string | null = null;
+  const existingPerson = await prisma.person.findFirst({
+    where: { email, status: 'ACTIVE' },
+  });
+  if (existingPerson) {
+    const alreadyLinked = await prisma.user.findFirst({
+      where: { personId: existingPerson.id, NOT: { id: user.id } },
+    });
+    if (!alreadyLinked) {
+      personId = existingPerson.id;
+      await prisma.person.update({
+        where: { id: existingPerson.id },
+        data: {
+          emailVerifiedAt: new Date(),
+          firstName: existingPerson.firstName || input.firstName.trim(),
+          lastName: existingPerson.lastName || input.lastName.trim(),
+        },
+      });
+    }
+  }
+
+  if (!personId) {
+    const { createPerson } = await import('./person.service.js');
+    const person = await createPerson(
+      {
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        email,
+        forceCreate: true,
+      },
+      { actorUserId: user.id },
+    );
+    personId = person.id;
+    await prisma.person.update({
+      where: { id: personId },
+      data: { emailVerifiedAt: new Date() },
+    });
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { personId, lastLoginAt: new Date() },
+  });
+
+  const linked = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+  const organizations = await listUserOrganizations(user.id);
+  const person = await loadPersonSummary(personId);
+  const authUser = toAuthUser(linked, {}, organizations, person);
+  const tokens = await issueTokens(toTokenUser(authUser), meta, { createRefresh: true });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: user.id,
+      action: 'PARTICIPANT_ACCOUNT_CREATED',
+      entityType: 'User',
+      entityId: user.id,
+      afterJson: { personId, email },
+    },
+  });
+
+  return {
+    user: authUser,
+    tokens,
+    organizations,
+    requiresOrganizationSelection: false,
   };
 }
 
@@ -306,10 +444,12 @@ export async function refresh(
     permissions = only.permissions as Permission[];
   }
 
+  const person = await loadPersonSummary(stored.user.personId);
   const authUser = toAuthUser(
     stored.user,
     { organizationId: orgId ?? null, orgRole, permissions },
     organizations,
+    person,
   );
 
   return {
@@ -358,7 +498,13 @@ export async function getMe(
     }
   }
 
-  return toAuthUser(user, { organizationId: orgId, orgRole, permissions }, organizations);
+  const person = await loadPersonSummary(user.personId);
+  return toAuthUser(
+    user,
+    { organizationId: orgId, orgRole, permissions },
+    organizations,
+    person,
+  );
 }
 
 export { hashPassword };

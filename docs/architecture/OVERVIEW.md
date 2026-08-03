@@ -170,6 +170,19 @@ flowchart LR
 
 ---
 
+## Person identity
+
+Global **Person** identity enables “create once, participate everywhere”:
+
+- Person without login is valid (most pilots/officials).
+- Optional **User** account for authentication.
+- **CompetitionParticipant** + roles describe event involvement; Pilot rows keep competition-time snapshots and scoring FKs.
+- Person **cannot** be both pilot and judge/official in the same competition.
+
+See [Person Identity Architecture](PERSON_IDENTITY.md).
+
+---
+
 ## Real-time architecture
 
 Socket.IO rooms are scoped by `competitionId`:

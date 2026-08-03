@@ -1,13 +1,18 @@
 import type { Request, Response } from 'express';
-import { publicPilotRegistrationSchema } from '@npha/shared';
+import {
+  authenticatedPilotRegistrationSchema,
+  publicPilotRegistrationSchema,
+} from '@npha/shared';
 import { z } from 'zod';
-import { asyncHandler } from '../../../utils/errors.js';
+import { asyncHandler, AppError } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as publicService from '../../../services/public.service.js';
 import * as seoService from '../../../services/seo.service.js';
+import * as personService from '../../../services/person.service.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
 
 const slugParams = z.object({ slug: z.string().min(1) });
+const aeroJudgeParams = z.object({ aeroJudgeId: z.string().min(1) });
 const roundQuery = z.object({ round: z.coerce.number().int().positive() });
 const categoryQuery = z.object({
   category: z.enum(['OVERALL', 'WOMEN', 'JUNIOR', 'TEAM', 'COUNTRY']).default('OVERALL'),
@@ -134,6 +139,14 @@ export const listCountries = [
   }),
 ];
 
+export const publicProfile = [
+  validateParams(aeroJudgeParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const profile = await personService.getPublicProfile(req.params.aeroJudgeId);
+    sendSuccess(res, profile);
+  }),
+];
+
 export const listPilots = [
   validateParams(slugParams),
   asyncHandler(async (req: Request, res: Response) => {
@@ -144,9 +157,29 @@ export const listPilots = [
 
 export const registerPilot = [
   validateParams(slugParams),
-  validateBody(publicPilotRegistrationSchema),
+  validateBody(authenticatedPilotRegistrationSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const pilot = await publicService.registerPublicPilot(req.params.slug, req.body);
+    if (!req.user?.id) {
+      throw AppError.unauthorized(
+        'Sign in with your AeroJudge account to register for this competition',
+      );
+    }
+    const pilot = await publicService.registerAuthenticatedPilot(
+      req.params.slug,
+      req.user.id,
+      req.body,
+    );
     sendSuccess(res, pilot, 201);
+  }),
+];
+
+/** @deprecated Unauthenticated open registration — disabled; use authenticated path. */
+export const registerPilotLegacy = [
+  validateParams(slugParams),
+  validateBody(publicPilotRegistrationSchema),
+  asyncHandler(async (_req: Request, _res: Response) => {
+    throw AppError.unauthorized(
+      'Pilot registration requires an AeroJudge account. Sign in or create an account first.',
+    );
   }),
 ];

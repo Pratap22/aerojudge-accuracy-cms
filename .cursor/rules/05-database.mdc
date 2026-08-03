@@ -20,7 +20,15 @@ alwaysApply: false
 
 ## Core models
 
-`Organization` + `OrganizationSettings` + `OrganizationMember` · `Competition` + `CompetitionSettings` + `RuleProfile` · `Pilot` · `Team` / `TeamMember` · `Round` · `Flight` · `Score` / `ScoreApproval` / `Penalty` · `IndividualRanking` / `TeamRanking` · `PrintHistory` · `AuditLog` · `User` / `RefreshToken` / `CompetitionUser`
+`Person` + `CompetitionParticipant` + `CompetitionParticipantRole` · `Organization` + `OrganizationSettings` + `OrganizationMember` · `Competition` + `CompetitionSettings` + `RuleProfile` · `Pilot` (competition snapshot + scoring FK) · `Team` / `TeamMember` · `Round` · `Flight` · `Score` / `ScoreApproval` / `Penalty` · `IndividualRanking` / `TeamRanking` · `PrintHistory` · `AuditLog` · `User` / `RefreshToken` / `CompetitionUser` · `CompetitionOfficial`
+
+## Person identity
+
+- Person is global reusable identity (`aeroJudgeId`).
+- User.personId is optional 1:1.
+- Pilot/Official hold **competition-time snapshots**; do not rewrite historical results from profile updates.
+- Sensitive data (emergency/medical) stays on competition Pilot, not global Person.
+- See `docs/architecture/PERSON_IDENTITY.md`.
 
 ## Rules
 

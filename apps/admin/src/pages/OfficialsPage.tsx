@@ -7,8 +7,9 @@ import {
   createOfficialSchema,
   type CompetitionOfficial,
   type CreateOfficialInput,
+  type PersonDirectoryEntry,
 } from '@npha/shared';
-import { Gavel, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Gavel, Pencil, Plus, Trash2, Upload, UserCheck, X } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -41,6 +42,8 @@ export function OfficialsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CompetitionOfficial | null>(null);
   const [roleMode, setRoleMode] = useState<string>('Judge');
+  const [directoryQ, setDirectoryQ] = useState('');
+  const [selectedPerson, setSelectedPerson] = useState<PersonDirectoryEntry | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
 
@@ -48,6 +51,13 @@ export function OfficialsPage() {
     queryKey: ['officials', competitionId],
     queryFn: () => api.get<CompetitionOfficial[]>(`/competitions/${competitionId}/officials`),
     enabled: !!competitionId,
+  });
+
+  const { data: directoryHits = [] } = useQuery({
+    queryKey: ['people-directory-officials', directoryQ],
+    queryFn: () =>
+      api.get<PersonDirectoryEntry[]>('/people', { q: directoryQ, pageSize: 8 }),
+    enabled: formOpen && !editing && directoryQ.trim().length >= 2,
   });
 
   const {
@@ -76,10 +86,20 @@ export function OfficialsPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: CreateOfficialInput) =>
-      api.post<CompetitionOfficial>(`/competitions/${competitionId}/officials`, data),
+      api.post<CompetitionOfficial>(`/competitions/${competitionId}/officials`, {
+        ...data,
+        personId: selectedPerson?.id ?? data.personId,
+        name:
+          data.name ||
+          (selectedPerson
+            ? `${selectedPerson.firstName} ${selectedPerson.lastName}`.trim()
+            : undefined),
+      }),
     onSuccess: () => {
       invalidate();
       setFormOpen(false);
+      setSelectedPerson(null);
+      setDirectoryQ('');
       reset({ name: '', role: 'Judge', isPublic: true });
       setRoleMode('Judge');
     },
@@ -123,6 +143,8 @@ export function OfficialsPage() {
 
   const openCreate = () => {
     setEditing(null);
+    setSelectedPerson(null);
+    setDirectoryQ('');
     reset({ name: '', role: 'Judge', phone: undefined, email: undefined, isPublic: true });
     setRoleMode('Judge');
     setFormOpen(true);
@@ -130,6 +152,8 @@ export function OfficialsPage() {
 
   const openEdit = (official: CompetitionOfficial) => {
     setEditing(official);
+    setSelectedPerson(null);
+    setDirectoryQ('');
     const preset = OFFICIAL_ROLE_OPTIONS.includes(
       official.role as (typeof OFFICIAL_ROLE_OPTIONS)[number],
     )
@@ -144,6 +168,18 @@ export function OfficialsPage() {
       isPublic: official.isPublic,
     });
     setFormOpen(true);
+  };
+
+  const selectPerson = (person: PersonDirectoryEntry) => {
+    setSelectedPerson(person);
+    setDirectoryQ('');
+    setValue('personId', person.id);
+    setValue('name', `${person.firstName} ${person.lastName}`.trim());
+  };
+
+  const clearSelectedPerson = () => {
+    setSelectedPerson(null);
+    setValue('personId', undefined);
   };
 
   const onSubmit = handleSubmit((data) => {
@@ -271,17 +307,63 @@ export function OfficialsPage() {
       />
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent>
+        <DialogContent className="overflow-visible">
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit official' : 'Add official'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
+          <form onSubmit={onSubmit} className="space-y-5">
+            {!editing && (
+              <div className="relative z-20 space-y-2">
+                <Label>Find returning person</Label>
+                {selectedPerson ? (
+                  <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                    <span className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 shrink-0 text-primary" />
+                      {selectedPerson.firstName} {selectedPerson.lastName} ·{' '}
+                      {selectedPerson.aeroJudgeId}
+                    </span>
+                    <Button type="button" variant="ghost" size="icon" onClick={clearSelectedPerson}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      placeholder="Name, CIVL ID, or AeroJudge ID"
+                      value={directoryQ}
+                      onChange={(e) => setDirectoryQ(e.target.value)}
+                      autoComplete="off"
+                    />
+                    {directoryHits.length > 0 && (
+                      <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md">
+                        {directoryHits.map((p) => (
+                          <li key={p.id} className="border-b border-border/40 last:border-0">
+                            <button
+                              type="button"
+                              className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted"
+                              onClick={() => selectPerson(p)}
+                            >
+                              {p.firstName} {p.lastName} · {p.aeroJudgeId}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
               <Label htmlFor="official-name">Name</Label>
-              <Input id="official-name" {...register('name')} placeholder="Full name" />
+              <Input
+                id="official-name"
+                {...register('name')}
+                placeholder="Full name"
+                disabled={!!selectedPerson}
+              />
               {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Role</Label>
               <Select
                 value={roleMode}
@@ -313,11 +395,11 @@ export function OfficialsPage() {
               )}
               {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="official-phone">Phone (optional)</Label>
               <Input id="official-phone" {...register('phone')} placeholder="+1 …" />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="official-email">Email (optional)</Label>
               <Input
                 id="official-email"

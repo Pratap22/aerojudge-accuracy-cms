@@ -1,5 +1,10 @@
-import type { ApiResponse, PublicPilotRegistrationInput, RankingCategory } from '@npha/shared';
+import type {
+  ApiResponse,
+  AuthenticatedPilotRegistrationInput,
+  RankingCategory,
+} from '@npha/shared';
 import { API_VERSION } from '@npha/shared';
+import { getAccessToken } from './auth-api';
 import type { PublicCompetition, PublicCompetitionList, PublicResults, RoundResults } from './types';
 
 async function publicFetch<T>(
@@ -14,7 +19,13 @@ async function publicFetch<T>(
     }
   }
 
-  const response = await fetch(url, init);
+  const headers = new Headers(init?.headers);
+  const token = getAccessToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(url, { ...init, headers });
   const json = (await response.json()) as ApiResponse<T>;
 
   if (!response.ok || !json.success || json.data === undefined) {
@@ -118,7 +129,7 @@ export interface RegisteredPilot {
 
 export function registerPilot(
   idOrSlug: string,
-  body: PublicPilotRegistrationInput,
+  body: AuthenticatedPilotRegistrationInput,
 ): Promise<RegisteredPilot> {
   return publicFetch<RegisteredPilot>(`/${idOrSlug}/register`, undefined, {
     method: 'POST',

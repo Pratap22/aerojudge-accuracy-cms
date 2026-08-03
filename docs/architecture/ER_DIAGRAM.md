@@ -6,6 +6,13 @@ This diagram covers the core competition domain entities. See `database/prisma/s
 
 ```mermaid
 erDiagram
+    User ||--o| Person : "optional account"
+    Person ||--o{ CompetitionParticipant : enrolls
+    Competition ||--o{ CompetitionParticipant : has
+    CompetitionParticipant ||--o{ CompetitionParticipantRole : "roles"
+    CompetitionParticipant ||--o| Pilot : "pilot snapshot"
+    Person ||--o{ Pilot : "identity link"
+
     Organization ||--o{ Competition : owns
     Organization ||--|| OrganizationSettings : configured_by
     Organization ||--o{ OrganizationMember : includes
@@ -30,6 +37,7 @@ erDiagram
 
     Country ||--o{ Pilot : "nationality"
     Country ||--o{ Team : "represents"
+    Country ||--o{ Person : "nationality"
 
     Pilot ||--o{ Flight : "flies"
     Pilot ||--o{ Score : "receives"

@@ -3,8 +3,14 @@ import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createPilotSchema, type CreatePilotInput, type Gender, type PilotStatus } from '@npha/shared';
-import { Download, Pencil, Plus, Search, Upload } from 'lucide-react';
+import {
+  createPilotSchema,
+  type CreatePilotInput,
+  type Gender,
+  type PersonDirectoryEntry,
+  type PilotStatus,
+} from '@npha/shared';
+import { Download, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -42,6 +48,8 @@ interface Pilot {
   club?: string | null;
   civlId?: string | null;
   countryId?: string | null;
+  personId?: string | null;
+  person?: { id: string; aeroJudgeId: string; civlId?: string | null } | null;
 }
 
 function toFormValues(pilot: Pilot): CreatePilotInput {
@@ -63,6 +71,8 @@ export function PilotsPage() {
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Pilot | null>(null);
+  const [directoryQ, setDirectoryQ] = useState('');
+  const [selectedPerson, setSelectedPerson] = useState<PersonDirectoryEntry | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -87,16 +97,28 @@ export function PilotsPage() {
 
   const gender = watch('gender');
 
+  const { data: directoryHits = [] } = useQuery({
+    queryKey: ['people-directory', directoryQ],
+    queryFn: () =>
+      api.get<PersonDirectoryEntry[]>('/people', { q: directoryQ, pageSize: 8 }),
+    enabled: formOpen && !editing && directoryQ.trim().length >= 2,
+  });
+
   const saveMutation = useMutation({
     mutationFn: (data: CreatePilotInput) =>
       editing
         ? api.put<Pilot>(`/competitions/${activeCompetitionId}/pilots/${editing.id}`, data)
-        : api.post<Pilot>(`/competitions/${activeCompetitionId}/pilots`, data),
+        : api.post<Pilot>(`/competitions/${activeCompetitionId}/pilots`, {
+            ...data,
+            personId: selectedPerson?.id ?? data.personId,
+          }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pilots'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setFormOpen(false);
       setEditing(null);
+      setSelectedPerson(null);
+      setDirectoryQ('');
       reset();
     },
   });
@@ -164,6 +186,8 @@ export function PilotsPage() {
 
   const openCreate = () => {
     setEditing(null);
+    setSelectedPerson(null);
+    setDirectoryQ('');
     saveMutation.reset();
     reset({ gender: 'MALE', pilotNumber: (pilots?.length ?? 0) + 1, firstName: '', lastName: '' });
     setFormOpen(true);
@@ -171,9 +195,29 @@ export function PilotsPage() {
 
   const openEdit = (pilot: Pilot) => {
     setEditing(pilot);
+    setSelectedPerson(null);
+    setDirectoryQ('');
     saveMutation.reset();
     reset(toFormValues(pilot));
     setFormOpen(true);
+  };
+
+  const selectPerson = (person: PersonDirectoryEntry) => {
+    setSelectedPerson(person);
+    setDirectoryQ('');
+    setValue('personId', person.id);
+    setValue('firstName', person.firstName);
+    setValue('lastName', person.lastName);
+    setValue('gender', person.gender);
+    setValue('civlId', person.civlId ?? undefined);
+    setValue('faiLicense', person.faiLicenseNumber ?? undefined);
+    setValue('nationality', person.nationalityCountry?.code ?? undefined);
+    setValue('countryId', person.nationalityCountryId ?? undefined);
+  };
+
+  const clearSelectedPerson = () => {
+    setSelectedPerson(null);
+    setValue('personId', undefined);
   };
 
   if (!activeCompetitionId) {
@@ -293,17 +337,77 @@ export function PilotsPage() {
       </div>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg overflow-visible">
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit Pilot' : 'Register Pilot'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+          <form
+            onSubmit={handleSubmit((d) => saveMutation.mutate(d))}
+            className="grid gap-5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-5"
+          >
+            {!editing && (
+              <div className="relative z-20 space-y-2 sm:col-span-2">
+                <Label>Find returning person</Label>
+                <p className="text-xs text-muted-foreground">
+                  Search AeroJudge ID, CIVL ID, or name — then enter only competition details.
+                </p>
+                {selectedPerson ? (
+                  <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <UserCheck className="h-4 w-4 shrink-0 text-primary" />
+                      <span>
+                        {selectedPerson.firstName} {selectedPerson.lastName}
+                        {selectedPerson.nationalityCountry
+                          ? ` · ${selectedPerson.nationalityCountry.name}`
+                          : ''}
+                        {selectedPerson.civlId ? ` · CIVL ${selectedPerson.civlId}` : ''}
+                        {` · ${selectedPerson.aeroJudgeId}`}
+                      </span>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" onClick={clearSelectedPerson}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      placeholder="e.g. 97253 or AJ-… or Pratap"
+                      value={directoryQ}
+                      onChange={(e) => setDirectoryQ(e.target.value)}
+                      autoComplete="off"
+                    />
+                    {directoryHits.length > 0 && (
+                      <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md">
+                        {directoryHits.map((p) => (
+                          <li key={p.id} className="border-b border-border/40 last:border-0">
+                            <button
+                              type="button"
+                              className="flex w-full flex-col items-start px-3 py-2.5 text-left text-sm hover:bg-muted"
+                              onClick={() => selectPerson(p)}
+                            >
+                              <span className="font-medium">
+                                {p.firstName} {p.lastName}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {p.aeroJudgeId}
+                                {p.civlId ? ` · CIVL ${p.civlId}` : ''}
+                                {p.nationalityCountry ? ` · ${p.nationalityCountry.name}` : ''}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
               <Label>Pilot Number</Label>
               <Input type="number" {...register('pilotNumber', { valueAsNumber: true })} />
               {errors.pilotNumber && <p className="text-sm text-destructive">{errors.pilotNumber.message}</p>}
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Gender</Label>
               <Select value={gender} onValueChange={(v) => setValue('gender', v as Gender)}>
                 <SelectTrigger>
@@ -316,25 +420,33 @@ export function PilotsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>First Name</Label>
-              <Input {...register('firstName')} />
+              <Input {...register('firstName')} disabled={!!selectedPerson} />
               {errors.firstName && <p className="text-sm text-destructive">{errors.firstName.message}</p>}
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>Last Name</Label>
-              <Input {...register('lastName')} />
+              <Input {...register('lastName')} disabled={!!selectedPerson} />
               {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               <Label>FAI License</Label>
-              <Input {...register('faiLicense')} />
+              <Input {...register('faiLicense')} disabled={!!selectedPerson} />
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
+              <Label>CIVL ID</Label>
+              <Input {...register('civlId')} disabled={!!selectedPerson} />
+            </div>
+            <div className="flex flex-col gap-2">
               <Label>Nationality</Label>
-              <Input {...register('nationality')} />
+              <Input {...register('nationality')} disabled={!!selectedPerson} />
             </div>
-            <div className="space-y-2 sm:col-span-2">
+            <div className="flex flex-col gap-2">
+              <Label>Glider</Label>
+              <Input {...register('glider')} />
+            </div>
+            <div className="flex flex-col gap-2 sm:col-span-2">
               <Label>Club</Label>
               <Input {...register('club')} />
             </div>
@@ -343,7 +455,7 @@ export function PilotsPage() {
                 {(saveMutation.error as Error)?.message ?? 'Failed to save pilot'}
               </p>
             )}
-            <DialogFooter className="sm:col-span-2">
+            <DialogFooter className="mt-1 sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 Cancel
               </Button>

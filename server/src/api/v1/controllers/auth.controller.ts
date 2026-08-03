@@ -1,14 +1,24 @@
 import type { Request, Response } from 'express';
-import { loginSchema, selectOrganizationSchema } from '@npha/shared';
+import {
+  claimPersonByIdentitySchema,
+  loginSchema,
+  registerParticipantSchema,
+} from '@npha/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as authService from '../../../services/auth.service.js';
-import { validateBody } from '../middleware/validate.js';
+import * as personService from '../../../services/person.service.js';
+import { validateBody, validateQuery } from '../middleware/validate.js';
 
 const refreshSchema = z.object({
   refreshToken: z.string().min(1),
   organizationId: z.string().min(1).optional(),
+});
+
+const claimLookupQuery = z.object({
+  aeroJudgeId: z.string().optional(),
+  civlId: z.string().optional(),
 });
 
 export const login = [
@@ -22,8 +32,19 @@ export const login = [
   }),
 ];
 
+export const registerParticipant = [
+  validateBody(registerParticipantSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const result = await authService.registerParticipant(req.body, {
+      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip,
+    });
+    sendSuccess(res, result, 201);
+  }),
+];
+
 export const selectOrganization = [
-  validateBody(selectOrganizationSchema),
+  validateBody(z.object({ organizationId: z.string().min(1) })),
   asyncHandler(async (req: Request, res: Response) => {
     const refreshHeader = req.headers['x-refresh-token'];
     const refreshToken = Array.isArray(refreshHeader) ? refreshHeader[0] : refreshHeader;
@@ -40,7 +61,6 @@ export const refresh = [
   validateBody(refreshSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const result = await authService.refresh(req.body.refreshToken, req.body.organizationId);
-    // Backward-compatible envelope: { tokens } plus user when present
     sendSuccess(res, {
       tokens: {
         accessToken: result.accessToken,
@@ -67,3 +87,20 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
   const user = await authService.getMe(req.user!.id, req.organizationId ?? req.user?.organizationId);
   sendSuccess(res, user);
 });
+
+export const claimLookup = [
+  validateQuery(claimLookupQuery),
+  asyncHandler(async (req: Request, res: Response) => {
+    const q = req.query as { aeroJudgeId?: string; civlId?: string };
+    const result = await personService.lookupPersonForClaim(req.user!.id, q);
+    sendSuccess(res, result);
+  }),
+];
+
+export const claimPerson = [
+  validateBody(claimPersonByIdentitySchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const result = await personService.claimPersonByVerifiedEmail(req.user!.id, req.body);
+    sendSuccess(res, result);
+  }),
+];

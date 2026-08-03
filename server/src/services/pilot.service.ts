@@ -4,7 +4,19 @@ import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { resolveCountryId } from '../utils/country-resolve.js';
+import {
+  assertPilotJudgePolicy,
+  assignCompetitionRole,
+  getOrCreateParticipant,
+} from './competition-participant.service.js';
 import { getCompetition } from './competition.service.js';
+import {
+  createPerson,
+  getPerson,
+  matchPersons,
+  personDisplayName,
+  type CreatePersonInput,
+} from './person.service.js';
 
 export async function listPilots(
   competitionId: string,
@@ -17,6 +29,8 @@ export async function listPilots(
       { firstName: { contains: query.search, mode: 'insensitive' } },
       { lastName: { contains: query.search, mode: 'insensitive' } },
       { faiLicense: { contains: query.search, mode: 'insensitive' } },
+      { civlId: { contains: query.search, mode: 'insensitive' } },
+      { person: { aeroJudgeId: { contains: query.search, mode: 'insensitive' } } },
     ];
   }
 
@@ -26,7 +40,10 @@ export async function listPilots(
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
       orderBy: { pilotNumber: 'asc' },
-      include: { country: true },
+      include: {
+        country: true,
+        person: { select: { id: true, aeroJudgeId: true, civlId: true } },
+      },
     }),
     prisma.pilot.count({ where }),
   ]);
@@ -37,19 +54,29 @@ export async function listPilots(
 export async function getPilot(competitionId: string, pilotId: string) {
   const pilot = await prisma.pilot.findFirst({
     where: { id: pilotId, competitionId },
-    include: { country: true, teamMembers: { include: { team: true } } },
+    include: {
+      country: true,
+      teamMembers: { include: { team: true } },
+      person: { select: { id: true, aeroJudgeId: true, civlId: true, photoUrl: true } },
+    },
   });
   if (!pilot) throw AppError.notFound('Pilot not found');
   return pilot;
 }
 
-export async function createPilot(
-  competitionId: string,
-  data: Omit<Prisma.PilotUncheckedCreateInput, 'competitionId'>,
-) {
+export type CreatePilotInput = Omit<Prisma.PilotUncheckedCreateInput, 'competitionId'> & {
+  /** Reuse an existing Person (returning participant). */
+  personId?: string;
+};
+
+export async function createPilot(competitionId: string, data: CreatePilotInput) {
   await getCompetition(competitionId);
   const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
-  const qrCode = generateQrPayload(env.PUBLIC_RESULTS_URL, competition!.publicSlug, `/pilot/${data.pilotNumber}`);
+  const qrCode = generateQrPayload(
+    env.PUBLIC_RESULTS_URL,
+    competition!.publicSlug,
+    `/pilot/${data.pilotNumber}`,
+  );
 
   const countryId =
     (typeof data.countryId === 'string' && data.countryId) ||
@@ -58,15 +85,94 @@ export async function createPilot(
     )) ||
     undefined;
 
+  const { personId: requestedPersonId, ...pilotFields } = data;
+
+  let personId = requestedPersonId;
+  if (personId) {
+    await getPerson(personId);
+  } else {
+    // Prefer exact CIVL match over creating a duplicate Person.
+    const civlId =
+      typeof pilotFields.civlId === 'string' ? pilotFields.civlId.trim() : undefined;
+    if (civlId) {
+      const matches = await matchPersons({ civlId });
+      const exact = matches.find((m) => m.confidence === 'EXACT' && m.reason === 'civlId');
+      if (exact) personId = exact.person.id;
+    }
+    if (!personId) {
+      const personInput: CreatePersonInput = {
+        firstName: String(pilotFields.firstName),
+        lastName: String(pilotFields.lastName),
+        gender: (pilotFields.gender as CreatePersonInput['gender']) ?? 'MALE',
+        civlId: typeof pilotFields.civlId === 'string' ? pilotFields.civlId : null,
+        faiLicenseNumber:
+          typeof pilotFields.faiLicense === 'string' ? pilotFields.faiLicense : null,
+        dateOfBirth: pilotFields.dateOfBirth as Date | string | null | undefined,
+        nationalityCountryId: countryId ?? null,
+        nationality: typeof pilotFields.nationality === 'string' ? pilotFields.nationality : null,
+        photoUrl: typeof pilotFields.photoUrl === 'string' ? pilotFields.photoUrl : null,
+        forceCreate: true,
+      };
+      const person = await createPerson(personInput);
+      personId = person.id;
+    }
+  }
+
+  // Snapshot identity from Person when reusing directory identity.
+  const person = await getPerson(personId);
+  const snapshotFirstName =
+    typeof pilotFields.firstName === 'string' && pilotFields.firstName.trim()
+      ? pilotFields.firstName
+      : person.firstName;
+  const snapshotLastName =
+    typeof pilotFields.lastName === 'string' && pilotFields.lastName.trim()
+      ? pilotFields.lastName
+      : person.lastName;
+
+  // Policy + enrollment
+  const participant = await getOrCreateParticipant(competitionId, personId);
+  assertPilotJudgePolicy(
+    participant.roles.map((r) => r.role),
+    'PILOT',
+  );
+  await assignCompetitionRole(competitionId, personId, 'PILOT');
+  const linkedParticipant = await getOrCreateParticipant(competitionId, personId);
+
+  // Already enrolled as pilot?
+  const existingPilot = await prisma.pilot.findFirst({
+    where: { competitionId, personId },
+  });
+  if (existingPilot) {
+    throw AppError.conflict(
+      `${personDisplayName(person)} is already registered as pilot #${existingPilot.pilotNumber}`,
+    );
+  }
+
   return prisma.pilot.create({
     data: {
-      ...data,
+      ...pilotFields,
+      firstName: snapshotFirstName,
+      lastName: snapshotLastName,
+      gender: pilotFields.gender ?? person.gender,
+      civlId:
+        (typeof pilotFields.civlId === 'string' ? pilotFields.civlId : null) ?? person.civlId,
+      faiLicense:
+        (typeof pilotFields.faiLicense === 'string' ? pilotFields.faiLicense : null) ??
+        person.faiLicenseNumber,
+      dateOfBirth: pilotFields.dateOfBirth ?? person.dateOfBirth ?? undefined,
+      photoUrl:
+        (typeof pilotFields.photoUrl === 'string' ? pilotFields.photoUrl : null) ?? person.photoUrl,
       competitionId,
+      personId,
+      competitionParticipantId: linkedParticipant.id,
       qrCode,
-      countryId,
-      isWomen: data.gender === 'FEMALE' || data.isWomen === true,
+      countryId: countryId ?? person.nationalityCountryId ?? undefined,
+      isWomen: pilotFields.gender === 'FEMALE' || pilotFields.isWomen === true || person.gender === 'FEMALE',
     },
-    include: { country: true },
+    include: {
+      country: true,
+      person: { select: { id: true, aeroJudgeId: true, civlId: true } },
+    },
   });
 }
 
@@ -98,8 +204,20 @@ export async function updatePilot(
 }
 
 export async function deletePilot(competitionId: string, pilotId: string): Promise<void> {
-  await getPilot(competitionId, pilotId);
+  const pilot = await getPilot(competitionId, pilotId);
+  const personId = pilot.personId;
+
   await prisma.pilot.delete({ where: { id: pilotId } });
+
+  // Drop PILOT role but never delete the global Person or other competition roles.
+  if (personId) {
+    const { removeCompetitionRole } = await import('./competition-participant.service.js');
+    try {
+      await removeCompetitionRole(competitionId, personId, 'PILOT');
+    } catch {
+      // Role may already be absent
+    }
+  }
 }
 
 export async function searchPilots(competitionId: string, q: string, limit = 20) {
@@ -190,6 +308,14 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
 
   const created = [];
   const skipped: number[] = [];
+  const ambiguous: Array<{
+    row: number;
+    pilotNumber: number;
+    matches: Awaited<ReturnType<typeof matchPersons>>;
+  }> = [];
+  const newPersons = 0;
+  let reusedPersons = 0;
+  let createdPersons = 0;
   const seenInFile = new Set<number>();
 
   for (let i = 1; i < lines.length; i++) {
@@ -209,6 +335,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     const nationality = col(cols, 'nationality', 'country');
     const faiLicense = col(cols, 'failicense', 'fai');
     const civlId = col(cols, 'civlid', 'civilid');
+    const aeroJudgeId = col(cols, 'aerojudgeid', 'ajid');
     const club = col(cols, 'club', 'team');
     const glider = col(cols, 'glider');
     const notes = col(cols, 'notes', 'serialno', 'serial');
@@ -223,6 +350,24 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     }
     seenInFile.add(pilotNumber);
 
+    const matches = await matchPersons({
+      aeroJudgeId,
+      civlId,
+      faiLicenseNumber: faiLicense,
+      firstName,
+      lastName,
+    });
+    const exact = matches.filter((m) => m.confidence === 'EXACT');
+    const possible = matches.filter((m) => m.confidence === 'POSSIBLE');
+
+    // Ambiguous: multiple exacts or only possibles with no strong id — require human review.
+    if (exact.length > 1 || (exact.length === 0 && possible.length > 1 && !civlId && !aeroJudgeId)) {
+      ambiguous.push({ row: i + 1, pilotNumber, matches });
+      continue;
+    }
+
+    const personId = exact[0]?.person.id;
+
     try {
       const pilot = await createPilot(competitionId, {
         pilotNumber,
@@ -236,7 +381,10 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
         glider,
         notes,
         isWomen: gender === 'FEMALE',
+        personId,
       });
+      if (personId) reusedPersons += 1;
+      else createdPersons += 1;
       created.push(pilot);
       existingNumbers.add(pilotNumber);
     } catch (err) {
@@ -257,7 +405,20 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     }
   }
 
-  return { imported: created.length, skipped: skipped.length, skippedNumbers: skipped, pilots: created };
+  return {
+    imported: created.length,
+    skipped: skipped.length,
+    skippedNumbers: skipped,
+    pilots: created,
+    personMatching: {
+      reusedPersons,
+      createdPersons,
+      ambiguousCount: ambiguous.length,
+      ambiguous,
+    },
+    // keep type happy if unused
+    newPersons,
+  };
 }
 
 export function formatPilotDisplay(pilot: {

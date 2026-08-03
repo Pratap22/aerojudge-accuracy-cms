@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -185,11 +185,20 @@ function SidebarLink({
 }
 
 export function AppLayout() {
-  const { user, logout, currentOrganization, organizations, selectOrganization } = useAuth();
+  const {
+    user,
+    logout,
+    currentOrganization,
+    organizations,
+    selectOrganization,
+    activeOrganizationId,
+  } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const queryClient = useQueryClient();
   const competitionId = useMemo(() => competitionIdFromPath(pathname), [pathname]);
+  const orgScope = activeOrganizationId ?? 'none';
 
   const visiblePlatformNav = useMemo(() => {
     if (!user) return [];
@@ -237,23 +246,61 @@ export function AppLayout() {
   }, [user]);
 
   const { data: competitions } = useQuery({
-    queryKey: ['competitions'],
+    queryKey: ['competitions', orgScope],
     queryFn: () =>
-      api.get<Array<{ id: string; name: string; code: string; status: string }>>('/competitions'),
+      api.get<
+        Array<{ id: string; name: string; code: string; status: string; organizationId?: string }>
+      >('/competitions'),
+    enabled: !!activeOrganizationId || !!user,
   });
 
   const activeCompetition = competitions?.find((c) => c.id === competitionId);
-  const inCompetition = Boolean(competitionId && visibleCompetitionGroups.length > 0);
+  const competitionBelongsToOrg =
+    !competitionId ||
+    !competitions ||
+    competitions.some((c) => c.id === competitionId);
+  const inCompetition = Boolean(
+    competitionId && activeCompetition && visibleCompetitionGroups.length > 0,
+  );
+
+  // Leave competition routes that are not part of the active organization
+  useEffect(() => {
+    if (!competitionId || !competitions) return;
+    if (!competitions.some((c) => c.id === competitionId)) {
+      disconnectSocket();
+      navigate('/competitions', { replace: true });
+    }
+  }, [competitionId, competitions, navigate]);
 
   useEffect(() => {
-    if (competitionId) {
+    if (competitionId && competitionBelongsToOrg && activeCompetition) {
       connectSocket(competitionId);
       return () => {
         disconnectSocket();
       };
     }
     return undefined;
-  }, [competitionId]);
+  }, [competitionId, competitionBelongsToOrg, activeCompetition]);
+
+  const handleOrganizationChange = async (organizationId: string) => {
+    if (!organizationId || organizationId === activeOrganizationId) return;
+    await selectOrganization(organizationId);
+    // Drop tenant-scoped cache so lists/sidebars refetch under the new org header
+    await queryClient.cancelQueries();
+    queryClient.removeQueries({
+      predicate: (q) => {
+        const key = q.queryKey[0];
+        // Keep auth-independent keys if any; wipe org + competition data
+        return key !== undefined;
+      },
+    });
+    if (competitionIdFromPath(pathname)) {
+      navigate('/competitions', { replace: true });
+    } else {
+      // Refresh workspace pages under the new org
+      void queryClient.invalidateQueries();
+    }
+  };
 
   const roleLabel =
     currentOrganization?.customRoleName ??
@@ -350,10 +397,10 @@ export function AppLayout() {
               <select
                 className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1.5 text-xs text-sidebar-foreground"
                 aria-label="Current organization"
-                value={currentOrganization?.organizationId ?? ''}
+                value={currentOrganization?.organizationId ?? activeOrganizationId ?? ''}
                 onChange={(e) => {
                   const id = e.target.value;
-                  if (id) void selectOrganization(id);
+                  if (id) void handleOrganizationChange(id);
                 }}
               >
                 {organizations

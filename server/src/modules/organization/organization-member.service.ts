@@ -112,6 +112,14 @@ export class OrganizationMemberService {
       });
     }
 
+    // Ensure login accounts have a Person identity (does not give competition roles).
+    try {
+      const { ensureUserPerson } = await import('../../services/person.service.js');
+      await ensureUserPerson(user.id);
+    } catch {
+      // Non-fatal if Person layer unavailable during transition
+    }
+
     const existing = await prisma.organizationMember.findUnique({
       where: { organizationId_userId: { organizationId, userId: user.id } },
     });

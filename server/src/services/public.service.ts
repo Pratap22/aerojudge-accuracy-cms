@@ -1,7 +1,5 @@
-import { generateQrPayload } from '@npha/utils';
 import { compareOfficials } from '@npha/shared';
 import { prisma } from '../config/prisma.js';
-import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { syncCompetitionStatusFromRounds } from './competition.service.js';
@@ -486,6 +484,154 @@ export async function registerPublicPilot(
     emergencyPhone?: string;
   },
 ) {
+  // Legacy unauthenticated path kept for API compatibility — prefer registerAuthenticatedPilot.
+  return enrollPilotInCompetition(slugOrId, {
+    firstName: input.firstName,
+    lastName: input.lastName,
+    gender: input.gender,
+    countryCode: input.countryCode,
+    nationality: input.nationality,
+    faiLicense: input.faiLicense,
+    civlId: input.civlId,
+    club: input.club,
+    dateOfBirth: input.dateOfBirth,
+    glider: input.glider,
+    harness: input.harness,
+    emergencyContact: input.emergencyContact,
+    emergencyPhone: input.emergencyPhone,
+  });
+}
+
+/**
+ * Login → Person profile → competition registration.
+ * Uses the authenticated user's linked Person as identity; competition fields only.
+ */
+export async function registerAuthenticatedPilot(
+  slugOrId: string,
+  userId: string,
+  input: {
+    club?: string;
+    glider?: string;
+    harness?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
+    firstName?: string;
+    lastName?: string;
+    gender?: 'MALE' | 'FEMALE' | 'OTHER';
+    countryCode?: string;
+    nationality?: string;
+    faiLicense?: string;
+    civlId?: string;
+    dateOfBirth?: string | Date;
+  },
+) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.status !== 'ACTIVE') {
+    throw AppError.unauthorized();
+  }
+
+  let personId = user.personId;
+
+  // Auto-link by verified login email if still unlinked
+  if (!personId) {
+    const byEmail = await prisma.person.findFirst({
+      where: { email: user.email.toLowerCase(), status: 'ACTIVE' },
+    });
+    if (byEmail) {
+      const clash = await prisma.user.findFirst({
+        where: { personId: byEmail.id, NOT: { id: userId } },
+      });
+      if (!clash) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { personId: byEmail.id },
+        });
+        personId = byEmail.id;
+      }
+    }
+  }
+
+  if (!personId) {
+    const firstName = (input.firstName ?? user.firstName).trim();
+    const lastName = (input.lastName ?? user.lastName).trim();
+    if (!firstName || !lastName) {
+      throw AppError.badRequest(
+        'Complete your AeroJudge profile (first and last name) before registering',
+      );
+    }
+    const { createPerson } = await import('./person.service.js');
+    let countryId: string | undefined;
+    if (input.countryCode) {
+      countryId = (await resolveCountryId(input.countryCode)) ?? undefined;
+    }
+    const person = await createPerson(
+      {
+        firstName,
+        lastName,
+        gender: input.gender ?? 'MALE',
+        email: user.email,
+        civlId: input.civlId,
+        faiLicenseNumber: input.faiLicense,
+        nationalityCountryId: countryId ?? null,
+        nationality: input.nationality,
+        dateOfBirth: input.dateOfBirth ?? null,
+        forceCreate: true,
+      },
+      { actorUserId: userId },
+    );
+    await prisma.person.update({
+      where: { id: person.id },
+      data: { emailVerifiedAt: new Date() },
+    });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { personId: person.id },
+    });
+    personId = person.id;
+  }
+
+  const { getPerson } = await import('./person.service.js');
+  const person = await getPerson(personId);
+
+  return enrollPilotInCompetition(slugOrId, {
+    personId,
+    firstName: person.firstName,
+    lastName: person.lastName,
+    gender: person.gender,
+    countryCode: input.countryCode,
+    nationality: input.nationality ?? person.nationalityCountry?.name ?? undefined,
+    countryId: person.nationalityCountryId ?? undefined,
+    faiLicense: input.faiLicense ?? person.faiLicenseNumber ?? undefined,
+    civlId: input.civlId ?? person.civlId ?? undefined,
+    club: input.club,
+    dateOfBirth: input.dateOfBirth ?? person.dateOfBirth ?? undefined,
+    glider: input.glider,
+    harness: input.harness,
+    emergencyContact: input.emergencyContact,
+    emergencyPhone: input.emergencyPhone,
+  });
+}
+
+async function enrollPilotInCompetition(
+  slugOrId: string,
+  input: {
+    personId?: string;
+    firstName: string;
+    lastName: string;
+    gender: 'MALE' | 'FEMALE' | 'OTHER';
+    countryCode?: string;
+    nationality?: string;
+    countryId?: string | null;
+    faiLicense?: string;
+    civlId?: string;
+    club?: string;
+    dateOfBirth?: string | Date | null;
+    glider?: string;
+    harness?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
+  },
+) {
   const competition = await getPublicCompetition(slugOrId);
 
   if (!PUBLIC_REGISTRATION_STATUSES.has(competition.status)) {
@@ -514,7 +660,7 @@ export async function registerPublicPilot(
     );
   }
 
-  let countryId: string | undefined;
+  let countryId: string | undefined | null = input.countryId;
   let nationality = input.nationality;
   if (input.countryCode) {
     countryId = (await resolveCountryId(input.countryCode)) ?? undefined;
@@ -523,7 +669,7 @@ export async function registerPublicPilot(
     }
     const country = await prisma.country.findUnique({ where: { id: countryId } });
     nationality = nationality ?? country?.name;
-  } else if (nationality) {
+  } else if (nationality && !countryId) {
     countryId = (await resolveCountryId(nationality)) ?? undefined;
   }
 
@@ -552,37 +698,26 @@ export async function registerPublicPilot(
     isJunior = ageYears < juniorMaxAge;
   }
 
-  const qrCode = generateQrPayload(
-    env.PUBLIC_RESULTS_URL,
-    full?.publicSlug ?? competition.publicSlug,
-    `/pilot/${pilotNumber}`,
-  );
-
-  const pilot = await prisma.pilot.create({
-    data: {
-      competitionId: competition.id,
-      pilotNumber,
-      firstName: input.firstName.trim(),
-      lastName: input.lastName.trim(),
-      gender: input.gender,
-      nationality: nationality ?? null,
-      countryId: countryId ?? null,
-      faiLicense: input.faiLicense ?? null,
-      civlId: input.civlId ?? null,
-      club: input.club ?? null,
-      dateOfBirth: dateOfBirth ?? null,
-      glider: input.glider ?? null,
-      harness: input.harness ?? null,
-      emergencyContact: input.emergencyContact ?? null,
-      emergencyPhone: input.emergencyPhone ?? null,
-      status: 'REGISTERED',
-      isWomen: input.gender === 'FEMALE',
-      isJunior,
-      qrCode,
-    },
-    include: {
-      country: { select: { name: true, code: true, code2: true } },
-    },
+  const { createPilot } = await import('./pilot.service.js');
+  const pilot = await createPilot(competition.id, {
+    personId: input.personId,
+    pilotNumber,
+    firstName: input.firstName.trim(),
+    lastName: input.lastName.trim(),
+    gender: input.gender,
+    nationality: nationality ?? null,
+    countryId: countryId ?? null,
+    faiLicense: input.faiLicense ?? null,
+    civlId: input.civlId ?? null,
+    club: input.club ?? null,
+    dateOfBirth: dateOfBirth ?? null,
+    glider: input.glider ?? null,
+    harness: input.harness ?? null,
+    emergencyContact: input.emergencyContact ?? null,
+    emergencyPhone: input.emergencyPhone ?? null,
+    status: 'REGISTERED',
+    isWomen: input.gender === 'FEMALE',
+    isJunior,
   });
 
   return {
@@ -598,5 +733,7 @@ export async function registerPublicPilot(
     country: pilot.country,
     competitionId: competition.id,
     competitionName: competition.name,
+    personId: pilot.personId,
+    aeroJudgeId: pilot.person?.aeroJudgeId,
   };
 }

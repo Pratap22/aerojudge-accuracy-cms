@@ -22,11 +22,14 @@ This guide describes how officials run a competition day using AeroJudge — fro
 0. **Organization** — Ensure the owning federation/club exists under Admin → Organizations (branding, contact, defaults). New competitions must select an organization.
 1. **Competition status** — Set to `REGISTRATION` or `OFFICIAL` in Admin → Competitions
 2. **Settings review** — Admin → Settings: confirm FAI rule profile, team size (3+1), discard rules, approval requirements
-3. **Pilot registration** — Admin → Pilots: manual entry or CSV import; assign pilot numbers
+3. **Pilot registration** — Admin → Pilots: search Person Directory (CIVL / AeroJudge ID) for returning participants, or create new; CSV import matches existing people by CIVL/AJ ID; assign pilot numbers only for new entries
 4. **Team validation** — Admin → Teams: assign members, run **Validate** (ensures 3 scoring pilots + reserve)
-5. **Staff accounts** — Admin → Users: assign competition roles (Judge, Chief Judge, etc.)
-6. **Display layouts** — Configure venue screens (Top 10, Current Pilot, Sponsors)
-7. **Weather** — Record wind direction/speed before each round (Admin or API)
+5. **Officials** — Admin → Officials: search Person Directory and assign competition roles (display roster). Login access still requires org membership/invite separately
+6. **Staff accounts** — Admin → Organization members: permissions for scoring apps; optional User link to Person
+7. **Display layouts** — Configure venue screens (Top 10, Current Pilot, Sponsors)
+8. **Weather** — Record wind direction/speed before each round (Admin or API)
+
+Person identity model: a real-world person is registered once and reused across competitions/roles (except pilot+judge in the same event). See [Person Identity](../architecture/PERSON_IDENTITY.md).
 
 ---
 

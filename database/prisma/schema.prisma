@@ -73,6 +73,10 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  /// Optional link to canonical Person identity (one User ↔ one Person).
+  personId     String?    @unique
+  person       Person?    @relation(fields: [personId], references: [id], onDelete: SetNull)
+
   refreshTokens      RefreshToken[]
   competitionRoles   CompetitionUser[]
   organizationMembers OrganizationMember[]
@@ -85,6 +89,8 @@ model User {
   printApprovals     PrintHistory[] @relation("PrintApprovedBy")
   notifications      Notification[]
   offlineSyncQueues  OfflineSyncQueue[]
+  profileClaims      ProfileClaimRequest[]
+  personMergesPerformed PersonMergeLog[] @relation("PersonMergePerformedBy")
 
   @@index([email])
   @@index([role])
@@ -132,11 +138,190 @@ model Country {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  pilots Pilot[]
-  teams  Team[]
+  pilots  Pilot[]
+  teams   Team[]
+  persons Person[]
 
   @@index([code])
   @@index([name])
+}
+
+// ─────────────────────────────────────────────
+// Person identity (global, reusable)
+// A Person is NOT a role. Roles are competition / org context.
+// User account is optional. Scoring still uses Pilot as competition snapshot.
+// ─────────────────────────────────────────────
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ProfileVisibility {
+  PRIVATE
+  ORGANIZATIONS_ONLY
+  PUBLIC
+}
+
+enum PersonStatus {
+  ACTIVE
+  MERGED
+  ARCHIVED
+}
+
+enum CompetitionParticipationStatus {
+  INVITED
+  REGISTERED
+  CONFIRMED
+  ACTIVE
+  WITHDRAWN
+  DECLINED
+}
+
+/// What a person is doing at a competition (not RBAC permissions).
+enum CompetitionRole {
+  PILOT
+  CHIEF_JUDGE
+  TARGET_JUDGE
+  JUDGE
+  MEET_DIRECTOR
+  SCORER
+  ANNOUNCER
+  DISPLAY_OPERATOR
+  LAUNCH_MARSHAL
+  GOAL_MARSHAL
+  REGISTRATION_OFFICER
+  SAFETY_DIRECTOR
+  TECHNICAL_DELEGATE
+  VIEWER
+  OTHER
+}
+
+enum ProfileClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model Person {
+  id                   String            @id @default(cuid())
+  /// Human-readable public id, e.g. AJ-7KX9M2 (not a DB UUID).
+  aeroJudgeId          String            @unique
+  firstName            String
+  middleName           String?
+  lastName             String
+  preferredName        String?
+  displayName          String?
+  gender               Gender            @default(MALE)
+  dateOfBirth          DateTime?
+  nationalityCountryId String?
+  nationalityCountry   Country?          @relation(fields: [nationalityCountryId], references: [id], onDelete: SetNull)
+  photoUrl             String?
+  civlId               String?
+  faiLicenseNumber     String?
+  faiLicenseExpiry     DateTime?
+  /// Private contact — never expose on public profile APIs.
+  email                String?
+  emailVerifiedAt      DateTime?
+  phone                String?
+  visibility           ProfileVisibility @default(PRIVATE)
+  status               PersonStatus      @default(ACTIVE)
+  /// When MERGED, points at canonical Person.
+  mergedIntoId         String?
+  mergedInto           Person?           @relation("PersonMerges", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom           Person[]          @relation("PersonMerges")
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  user                 User?
+  participations       CompetitionParticipant[]
+  pilots               Pilot[]
+  officials            CompetitionOfficial[]
+  claimRequests        ProfileClaimRequest[]
+  mergesAsCanonical    PersonMergeLog[]  @relation("PersonMergeCanonical")
+  mergesAsDuplicate    PersonMergeLog[]  @relation("PersonMergeDuplicate")
+
+  @@index([civlId])
+  @@index([faiLicenseNumber])
+  @@index([lastName, firstName])
+  @@index([nationalityCountryId])
+  @@index([email])
+  @@index([status])
+  @@index([visibility])
+}
+
+/// One enrollment of a Person in a Competition (multi-role via CompetitionParticipantRole).
+model CompetitionParticipant {
+  id               String                         @id @default(cuid())
+  competitionId    String
+  competition      Competition                    @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  personId         String
+  person           Person                         @relation(fields: [personId], references: [id], onDelete: Restrict)
+  status           CompetitionParticipationStatus @default(REGISTERED)
+  registrationDate DateTime                       @default(now())
+  notes            String?
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+
+  roles     CompetitionParticipantRole[]
+  pilot     Pilot?
+  officials CompetitionOfficial[]
+
+  @@unique([competitionId, personId])
+  @@index([competitionId])
+  @@index([personId])
+  @@index([status])
+}
+
+model CompetitionParticipantRole {
+  id                       String                 @id @default(cuid())
+  competitionParticipantId String
+  participant              CompetitionParticipant @relation(fields: [competitionParticipantId], references: [id], onDelete: Cascade)
+  role                     CompetitionRole
+  notes                    String?
+  createdAt                DateTime               @default(now())
+
+  @@unique([competitionParticipantId, role])
+  @@index([role])
+}
+
+/// Secure profile claim — never auto-approve from name/CIVL alone.
+model ProfileClaimRequest {
+  id                   String             @id @default(cuid())
+  personId             String
+  person               Person             @relation(fields: [personId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status               ProfileClaimStatus @default(PENDING)
+  verificationMethod   String?
+  verificationNotes    String?
+  reviewedByUserId     String?
+  reviewedAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([personId])
+  @@index([userId])
+  @@index([status])
+}
+
+model PersonMergeLog {
+  id                 String   @id @default(cuid())
+  canonicalPersonId  String
+  canonicalPerson    Person   @relation("PersonMergeCanonical", fields: [canonicalPersonId], references: [id], onDelete: Restrict)
+  duplicatePersonId  String
+  duplicatePerson    Person   @relation("PersonMergeDuplicate", fields: [duplicatePersonId], references: [id], onDelete: Restrict)
+  performedByUserId  String?
+  performedBy        User?    @relation("PersonMergePerformedBy", fields: [performedByUserId], references: [id], onDelete: SetNull)
+  beforeJson         Json?
+  afterJson          Json?
+  createdAt          DateTime @default(now())
+
+  @@index([canonicalPersonId])
+  @@index([duplicatePersonId])
+  @@index([createdAt])
 }
 
 // ─────────────────────────────────────────────
@@ -351,6 +536,7 @@ model Competition {
   individualRankings IndividualRanking[]
   teamRankings     TeamRanking[]
   ruleProfiles     RuleProfile[]
+  participants     CompetitionParticipant[]
 
   @@index([organizationId])
   @@index([code])
@@ -419,12 +605,6 @@ model RuleProfile {
 // Pilots
 // ─────────────────────────────────────────────
 
-enum Gender {
-  MALE
-  FEMALE
-  OTHER
-}
-
 enum PilotStatus {
   REGISTERED
   CONFIRMED
@@ -439,9 +619,15 @@ model Pilot {
   id               String      @id @default(cuid())
   competitionId    String
   competition      Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  /// Link to global Person (identity). Snapshot name/country/CIVL fields below stay competition-accurate.
+  personId         String?
+  person           Person?     @relation(fields: [personId], references: [id], onDelete: SetNull)
+  competitionParticipantId String? @unique
+  competitionParticipant   CompetitionParticipant? @relation(fields: [competitionParticipantId], references: [id], onDelete: SetNull)
   pilotNumber      Int
   faiLicense       String?
   civlId           String?
+  /// Competition-time identity snapshot (do not rewrite from profile updates).
   firstName        String
   lastName         String
   gender           Gender      @default(MALE)
@@ -455,6 +641,7 @@ model Pilot {
   gliderSize       String?
   harness          String?
   reserveStatus    String?
+  /// Sensitive — competition-scoped only; not stored on global Person.
   emergencyContact String?
   emergencyPhone   String?
   medicalNotes     String?
@@ -475,10 +662,12 @@ model Pilot {
 
   @@unique([competitionId, pilotNumber])
   @@index([competitionId])
+  @@index([personId])
   @@index([lastName, firstName])
   @@index([countryId])
   @@index([status])
   @@index([faiLicense])
+  @@index([civlId])
 }
 
 // ─────────────────────────────────────────────
@@ -866,13 +1055,21 @@ model Sponsor {
 }
 
 /// Public-facing officials / judges for a competition (not the same as login User accounts).
+/// Display snapshot; identity links via personId when known.
 model CompetitionOfficial {
   id            String   @id @default(cuid())
   competitionId String
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  personId      String?
+  person        Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  competitionParticipantId String?
+  competitionParticipant   CompetitionParticipant? @relation(fields: [competitionParticipantId], references: [id], onDelete: SetNull)
+  /// Competition-time display name snapshot.
   name          String
   /// Display role label, e.g. Chief Judge, Meet Director, Judge
   role          String
+  /// Structured competition role when linked to participation.
+  competitionRole CompetitionRole?
   imageUrl      String?
   phone         String?
   email         String?
@@ -883,6 +1080,8 @@ model CompetitionOfficial {
 
   @@index([competitionId])
   @@index([competitionId, isPublic])
+  @@index([personId])
+  @@index([competitionParticipantId])
 }
 
 model DisplayLayout {

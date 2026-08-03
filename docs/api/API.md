@@ -43,7 +43,10 @@ Interactive documentation: **http://localhost:4000/api/docs**
 | POST | `/auth/select-organization` | Yes | Select org for this client/tab (identity token unchanged) |
 | POST | `/auth/refresh` | No | Refresh access token (optional `organizationId`) |
 | POST | `/auth/logout` | No | Revoke refresh token |
-| GET | `/auth/me` | Yes | Current user + memberships + active org context |
+| GET | `/auth/me` | Yes | Current user + memberships + **Person profile** |
+| POST | `/auth/register` | No | Participant account signup (creates/links Person) |
+| GET | `/auth/me/person/lookup` | Yes | Lookup Person by AJ ID / CIVL for claim |
+| POST | `/auth/me/person/claim` | Yes | Secure claim (auto only when emails match) |
 
 Send organization context on every tenant API call:
 
@@ -71,6 +74,28 @@ X-Organization-Id: <organizationId>
 | GET | `/users/:id` | Admin | Get user |
 | PATCH | `/users/:id` | Admin | Update user |
 | DELETE | `/users/:id` | Admin | Deactivate/remove user |
+
+---
+
+## People (Person Directory)
+
+Reusable identity across competitions. See [Person Identity](../architecture/PERSON_IDENTITY.md).
+
+Requires `X-Organization-Id` and appropriate permissions (`pilot:manage` unless noted).
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/people?q=` | Yes | Search directory (AeroJudge ID, CIVL, name, FAI) — public identity fields only |
+| POST | `/people/match` | Yes | Duplicate detection (`EXACT` / `POSSIBLE`) |
+| POST | `/people` | Yes | Create Person (`forceCreate` to skip exact-match guard) |
+| GET | `/people/:personId` | Yes | Get Person (includes private contact for authorized operators) |
+| PATCH | `/people/:personId` | Yes | Update global profile fields (does **not** rewrite competition snapshots) |
+| GET | `/people/:personId/history` | Yes | Verified competition participation history |
+| POST | `/people/:personId/merge` | `organization:manage` | Controlled merge of duplicate into canonical |
+| POST | `/people/:personId/claim` | Yes | Request secure profile claim (`PENDING` only) |
+| GET | `/public/profiles/:aeroJudgeId` | No | Public profile when `visibility=PUBLIC` (no contact/sensitive fields) |
+
+Pilot create accepts optional `personId` for returning participants. Official create accepts optional `personId`.
 
 ---
 

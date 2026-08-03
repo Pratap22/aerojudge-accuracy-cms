@@ -2,11 +2,13 @@ import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  publicPilotRegistrationSchema,
-  type PublicPilotRegistrationInput,
+  authenticatedPilotRegistrationSchema,
+  type AuthenticatedPilotRegistrationInput,
 } from '@npha/shared';
 import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@npha/ui';
 import { Layout } from '../components/Layout';
+import { claimPerson, lookupPersonForClaim } from '../lib/auth-api';
+import { useAuth } from '../lib/auth';
 import {
   competitionPath,
   fetchCountries,
@@ -15,32 +17,21 @@ import {
 import { useCompetition, useSlug } from '../hooks/useCompetition';
 import { isRegistrationOpen } from '../lib/competitionStatus';
 
-const emptyForm: {
-  firstName: string;
-  lastName: string;
-  gender: 'MALE' | 'FEMALE' | 'OTHER';
-  countryCode: string;
-  club: string;
-  faiLicense: string;
-  civlId: string;
-  dateOfBirth: string;
-  glider: string;
-  harness: string;
-  emergencyContact: string;
-  emergencyPhone: string;
-} = {
-  firstName: '',
-  lastName: '',
-  gender: 'MALE',
-  countryCode: '',
+type AuthMode = 'login' | 'signup';
+
+const competitionFieldsEmpty = {
   club: '',
-  faiLicense: '',
-  civlId: '',
-  dateOfBirth: '',
   glider: '',
   harness: '',
   emergencyContact: '',
   emergencyPhone: '',
+  dateOfBirth: '',
+  countryCode: '',
+  faiLicense: '',
+  civlId: '',
+  firstName: '',
+  lastName: '',
+  gender: 'MALE' as const,
 };
 
 export function RegisterPage() {
@@ -49,62 +40,140 @@ export function RegisterPage() {
   const queryClient = useQueryClient();
   const { data: competition, isLoading: compLoading } = useCompetition();
   const registrationOpen = isRegistrationOpen(competition?.status);
+  const { user, isLoading: authLoading, isAuthenticated, login, register, logout, refreshMe } =
+    useAuth();
 
   const { data: countries = [] } = useQuery({
     queryKey: ['public-countries'],
     queryFn: fetchCountries,
   });
 
-  const [form, setForm] = useState<{
-    firstName: string;
-    lastName: string;
-    gender: 'MALE' | 'FEMALE' | 'OTHER';
-    countryCode: string;
-    club: string;
-    faiLicense: string;
-    civlId: string;
-    dateOfBirth: string;
-    glider: string;
-    harness: string;
-    emergencyContact: string;
-    emergencyPhone: string;
-  }>(emptyForm);
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [authForm, setAuthForm] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+  });
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
+
+  const [claimId, setClaimId] = useState('');
+  const [claimMsg, setClaimMsg] = useState<string | null>(null);
+  const [claimBusy, setClaimBusy] = useState(false);
+
+  const [form, setForm] = useState(competitionFieldsEmpty);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
+  const person = user?.person;
+  const hasPerson = !!person;
+
   const mutation = useMutation({
-    mutationFn: (body: PublicPilotRegistrationInput) => registerPilot(competitionId, body),
+    mutationFn: (body: AuthenticatedPilotRegistrationInput) =>
+      registerPilot(competitionId, body),
     onSuccess: (pilot) => {
       queryClient.invalidateQueries({ queryKey: ['public-pilots', competitionId] });
+      void refreshMe();
       navigate(competitionPath(competitionId, 'pilots', String(pilot.pilotNumber)), {
         state: { justRegistered: true },
       });
     },
   });
 
+  const onAuthSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthBusy(true);
+    try {
+      if (authMode === 'login') {
+        await login(authForm.email, authForm.password);
+      } else {
+        await register({
+          email: authForm.email,
+          password: authForm.password,
+          firstName: authForm.firstName,
+          lastName: authForm.lastName,
+        });
+      }
+      setForm((f) => ({
+        ...f,
+        firstName: authForm.firstName || f.firstName,
+        lastName: authForm.lastName || f.lastName,
+      }));
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Authentication failed');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const onClaim = async (e: FormEvent) => {
+    e.preventDefault();
+    setClaimMsg(null);
+    setClaimBusy(true);
+    try {
+      const q = claimId.trim();
+      const params = q.toUpperCase().startsWith('AJ-')
+        ? { aeroJudgeId: q }
+        : { civlId: q };
+      const lookup = await lookupPersonForClaim(params);
+      if (!lookup.matches.length) {
+        setClaimMsg('No profile found for that AeroJudge ID or CIVL ID.');
+        return;
+      }
+      const match = lookup.matches[0]!;
+      const result = await claimPerson({ personId: match.person.id });
+      if (result.status === 'CLAIMED' || result.status === 'ALREADY_LINKED') {
+        await refreshMe();
+        setClaimMsg(`Linked to ${result.person.firstName} ${result.person.lastName} (${result.person.aeroJudgeId}).`);
+      } else {
+        setClaimMsg(
+          result.message ??
+            'Claim submitted for organiser approval. You can still create a new profile to register now.',
+        );
+      }
+    } catch (err) {
+      setClaimMsg(err instanceof Error ? err.message : 'Claim failed');
+    } finally {
+      setClaimBusy(false);
+    }
+  };
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     setFieldError(null);
-    const parsed = publicPilotRegistrationSchema.safeParse({
-      ...form,
-      countryCode: form.countryCode || undefined,
+
+    const payload: AuthenticatedPilotRegistrationInput = {
       club: form.club || undefined,
-      faiLicense: form.faiLicense || undefined,
-      civlId: form.civlId || undefined,
-      dateOfBirth: form.dateOfBirth || undefined,
       glider: form.glider || undefined,
       harness: form.harness || undefined,
       emergencyContact: form.emergencyContact || undefined,
       emergencyPhone: form.emergencyPhone || undefined,
-    });
+      dateOfBirth: form.dateOfBirth || undefined,
+      countryCode: form.countryCode || undefined,
+      faiLicense: form.faiLicense || undefined,
+      civlId: form.civlId || undefined,
+    };
+
+    if (!hasPerson) {
+      payload.firstName = form.firstName || user?.firstName;
+      payload.lastName = form.lastName || user?.lastName;
+      payload.gender = form.gender;
+    }
+
+    const parsed = authenticatedPilotRegistrationSchema.safeParse(payload);
     if (!parsed.success) {
-      const first = parsed.error.issues[0];
-      setFieldError(first?.message ?? 'Please check the form');
+      setFieldError(parsed.error.issues[0]?.message ?? 'Please check the form');
+      return;
+    }
+    if (!hasPerson && (!parsed.data.firstName || !parsed.data.lastName)) {
+      setFieldError('First and last name are required to create your AeroJudge profile');
       return;
     }
     mutation.mutate(parsed.data);
   };
 
-  if (compLoading) {
+  if (compLoading || authLoading) {
     return (
       <Layout>
         <div className="flex min-h-[60vh] items-center justify-center">
@@ -141,206 +210,364 @@ export function RegisterPage() {
         </p>
         <h1 className="mt-2 font-display text-4xl font-bold text-white">Pilot registration</h1>
         <p className="mt-3 text-sky-300/70">
-          Register for this competition. Your entry will appear on the public pilots list and in
-          the organiser&apos;s competition roster.
+          Sign in to your AeroJudge account, use your Person profile, then enter only this
+          competition&apos;s details.
         </p>
 
-        <form onSubmit={onSubmit} className="mt-10 space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="firstName" className="text-sky-200">
-                First name *
-              </Label>
-              <Input
-                id="firstName"
-                required
-                value={form.firstName}
-                onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName" className="text-sky-200">
-                Last name *
-              </Label>
-              <Input
-                id="lastName"
-                required
-                value={form.lastName}
-                onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label className="text-sky-200">Gender *</Label>
-              <Select
-                value={form.gender}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, gender: v as 'MALE' | 'FEMALE' | 'OTHER' }))
+        {/* Step 1: Auth */}
+        {!isAuthenticated ? (
+          <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.03] p-6">
+            <div className="mb-6 flex gap-2">
+              <Button
+                type="button"
+                variant={authMode === 'login' ? 'default' : 'outline'}
+                className={
+                  authMode === 'login'
+                    ? 'bg-sky-500 text-[#050d1a] hover:bg-sky-400'
+                    : 'border-white/25 bg-transparent text-sky-100'
                 }
+                onClick={() => setAuthMode('login')}
               >
-                <SelectTrigger className="border-white/10 bg-white/5 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="border-sky-500/30 bg-[#0a1628] text-sky-50 shadow-xl">
-                  <SelectItem value="MALE">Male</SelectItem>
-                  <SelectItem value="FEMALE">Female</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sky-200">Country</Label>
-              <Select
-                value={form.countryCode || '__none__'}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, countryCode: v === '__none__' ? '' : v }))
+                Sign in
+              </Button>
+              <Button
+                type="button"
+                variant={authMode === 'signup' ? 'default' : 'outline'}
+                className={
+                  authMode === 'signup'
+                    ? 'bg-sky-500 text-[#050d1a] hover:bg-sky-400'
+                    : 'border-white/25 bg-transparent text-sky-100'
                 }
+                onClick={() => setAuthMode('signup')}
               >
-                <SelectTrigger className="border-white/10 bg-white/5 text-white">
-                  <SelectValue placeholder="Select country" />
-                </SelectTrigger>
-                <SelectContent className="border-sky-500/30 bg-[#0a1628] text-sky-50 shadow-xl">
-                  <SelectItem value="__none__">Not specified</SelectItem>
-                  {countries.map((c) => (
-                    <SelectItem key={c.id} value={c.code}>
-                      {c.name} ({c.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                Create account
+              </Button>
             </div>
+            <form onSubmit={onAuthSubmit} className="space-y-4">
+              {authMode === 'signup' && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-sky-200">First name *</Label>
+                    <Input
+                      required
+                      value={authForm.firstName}
+                      onChange={(e) => setAuthForm((f) => ({ ...f, firstName: e.target.value }))}
+                      className="border-white/10 bg-white/5 text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sky-200">Last name *</Label>
+                    <Input
+                      required
+                      value={authForm.lastName}
+                      onChange={(e) => setAuthForm((f) => ({ ...f, lastName: e.target.value }))}
+                      className="border-white/10 bg-white/5 text-white"
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label className="text-sky-200">Email *</Label>
+                <Input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={authForm.email}
+                  onChange={(e) => setAuthForm((f) => ({ ...f, email: e.target.value }))}
+                  className="border-white/10 bg-white/5 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sky-200">Password *</Label>
+                <Input
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                  value={authForm.password}
+                  onChange={(e) => setAuthForm((f) => ({ ...f, password: e.target.value }))}
+                  className="border-white/10 bg-white/5 text-white"
+                />
+              </div>
+              {authError && (
+                <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                  {authError}
+                </p>
+              )}
+              <Button
+                type="submit"
+                disabled={authBusy}
+                className="bg-sky-500 text-[#050d1a] hover:bg-sky-400"
+              >
+                {authBusy
+                  ? 'Please wait…'
+                  : authMode === 'login'
+                    ? 'Sign in to continue'
+                    : 'Create account & continue'}
+              </Button>
+            </form>
           </div>
+        ) : (
+          <>
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
+              <div className="text-sm text-sky-100">
+                Signed in as <span className="font-medium text-white">{user?.email}</span>
+                {person && (
+                  <span className="mt-1 block text-sky-300/80">
+                    Profile: {person.firstName} {person.lastName} · {person.aeroJudgeId}
+                    {person.civlId ? ` · CIVL ${person.civlId}` : ''}
+                  </span>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={logout}
+                className="border-white/25 bg-transparent text-sky-100"
+              >
+                Sign out
+              </Button>
+            </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="club" className="text-sky-200">
-                Club / team
-              </Label>
-              <Input
-                id="club"
-                value={form.club}
-                onChange={(e) => setForm((f) => ({ ...f, club: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dob" className="text-sky-200">
-                Date of birth
-              </Label>
-              <Input
-                id="dob"
-                type="date"
-                value={form.dateOfBirth}
-                onChange={(e) => setForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-          </div>
+            {/* Step 2: Claim existing profile if not linked */}
+            {!hasPerson && (
+              <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-6">
+                <h2 className="text-lg font-semibold text-white">Claim an existing profile?</h2>
+                <p className="mt-1 text-sm text-sky-300/70">
+                  If organisers already added you (CIVL or AeroJudge ID), claim that Person. Secure
+                  claims require the profile email to match your login email.
+                </p>
+                <form onSubmit={onClaim} className="mt-4 flex flex-wrap gap-3">
+                  <Input
+                    placeholder="AJ-XXXXXX or CIVL ID"
+                    value={claimId}
+                    onChange={(e) => setClaimId(e.target.value)}
+                    className="max-w-xs border-white/10 bg-white/5 text-white"
+                  />
+                  <Button
+                    type="submit"
+                    disabled={claimBusy || !claimId.trim()}
+                    variant="outline"
+                    className="border-sky-500/40 bg-transparent text-sky-100"
+                  >
+                    {claimBusy ? 'Looking up…' : 'Find & claim'}
+                  </Button>
+                </form>
+                {claimMsg && (
+                  <p className="mt-3 text-sm text-sky-200/90">{claimMsg}</p>
+                )}
+                <p className="mt-4 text-xs text-sky-400/60">
+                  Or skip and create a new profile when you submit registration below.
+                </p>
+              </div>
+            )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="fai" className="text-sky-200">
-                FAI license
-              </Label>
-              <Input
-                id="fai"
-                value={form.faiLicense}
-                onChange={(e) => setForm((f) => ({ ...f, faiLicense: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="civl" className="text-sky-200">
-                CIVL ID
-              </Label>
-              <Input
-                id="civl"
-                value={form.civlId}
-                onChange={(e) => setForm((f) => ({ ...f, civlId: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-          </div>
+            {/* Step 3: Competition registration */}
+            <form onSubmit={onSubmit} className="mt-10 space-y-6">
+              <h2 className="text-lg font-semibold text-white">
+                {hasPerson ? 'Competition details' : 'Create profile & competition details'}
+              </h2>
+              <p className="text-sm text-sky-300/70">
+                {hasPerson
+                  ? 'Identity is taken from your AeroJudge profile. Enter only event-specific information.'
+                  : 'We’ll create your AeroJudge Person profile, then register you in this competition.'}
+              </p>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="glider" className="text-sky-200">
-                Glider
-              </Label>
-              <Input
-                id="glider"
-                value={form.glider}
-                onChange={(e) => setForm((f) => ({ ...f, glider: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="harness" className="text-sky-200">
-                Harness
-              </Label>
-              <Input
-                id="harness"
-                value={form.harness}
-                onChange={(e) => setForm((f) => ({ ...f, harness: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-          </div>
+              {!hasPerson && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-sky-200">First name *</Label>
+                      <Input
+                        required
+                        value={form.firstName || user?.firstName || ''}
+                        onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                        className="border-white/10 bg-white/5 text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sky-200">Last name *</Label>
+                      <Input
+                        required
+                        value={form.lastName || user?.lastName || ''}
+                        onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+                        className="border-white/10 bg-white/5 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-sky-200">Gender *</Label>
+                      <Select
+                        value={form.gender}
+                        onValueChange={(v) =>
+                          setForm((f) => ({
+                            ...f,
+                            gender: v as 'MALE' | 'FEMALE' | 'OTHER',
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="border-white/10 bg-white/5 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="border-sky-500/30 bg-[#0a1628] text-sky-50 shadow-xl">
+                          <SelectItem value="MALE">Male</SelectItem>
+                          <SelectItem value="FEMALE">Female</SelectItem>
+                          <SelectItem value="OTHER">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sky-200">Country</Label>
+                      <Select
+                        value={form.countryCode || '__none__'}
+                        onValueChange={(v) =>
+                          setForm((f) => ({
+                            ...f,
+                            countryCode: v === '__none__' ? '' : v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="border-white/10 bg-white/5 text-white">
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                        <SelectContent className="border-sky-500/30 bg-[#0a1628] text-sky-50 shadow-xl">
+                          <SelectItem value="__none__">Not specified</SelectItem>
+                          {countries.map((c) => (
+                            <SelectItem key={c.id} value={c.code}>
+                              {c.name} ({c.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-sky-200">CIVL ID</Label>
+                      <Input
+                        value={form.civlId}
+                        onChange={(e) => setForm((f) => ({ ...f, civlId: e.target.value }))}
+                        className="border-white/10 bg-white/5 text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sky-200">FAI license</Label>
+                      <Input
+                        value={form.faiLicense}
+                        onChange={(e) => setForm((f) => ({ ...f, faiLicense: e.target.value }))}
+                        className="border-white/10 bg-white/5 text-white"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="emName" className="text-sky-200">
-                Emergency contact
-              </Label>
-              <Input
-                id="emName"
-                value={form.emergencyContact}
-                onChange={(e) => setForm((f) => ({ ...f, emergencyContact: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emPhone" className="text-sky-200">
-                Emergency phone
-              </Label>
-              <Input
-                id="emPhone"
-                value={form.emergencyPhone}
-                onChange={(e) => setForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
-                className="border-white/10 bg-white/5 text-white"
-              />
-            </div>
-          </div>
+              {hasPerson && (
+                <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-sky-100">
+                  <p className="font-medium text-white">
+                    {person!.firstName} {person!.lastName}
+                  </p>
+                  <p className="text-sky-300/80">
+                    {person!.aeroJudgeId}
+                    {person!.civlId ? ` · CIVL ${person!.civlId}` : ''}
+                    {person!.nationalityCountry
+                      ? ` · ${person!.nationalityCountry.name}`
+                      : ''}
+                  </p>
+                </div>
+              )}
 
-          {(fieldError || mutation.isError) && (
-            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              {fieldError ??
-                (mutation.error instanceof Error ? mutation.error.message : 'Registration failed')}
-            </p>
-          )}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sky-200">Club / team</Label>
+                  <Input
+                    value={form.club}
+                    onChange={(e) => setForm((f) => ({ ...f, club: e.target.value }))}
+                    className="border-white/10 bg-white/5 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sky-200">Date of birth</Label>
+                  <Input
+                    type="date"
+                    value={form.dateOfBirth}
+                    onChange={(e) => setForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                    className="border-white/10 bg-white/5 text-white"
+                  />
+                </div>
+              </div>
 
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Button
-              type="submit"
-              disabled={mutation.isPending}
-              className="bg-sky-500 text-[#050d1a] hover:bg-sky-400"
-            >
-              {mutation.isPending ? 'Submitting…' : 'Submit registration'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              asChild
-              className="border-white/25 bg-transparent text-sky-100 hover:bg-white/10 hover:text-white"
-            >
-              <Link to={competitionPath(competitionId, 'pilots')}>Cancel</Link>
-            </Button>
-          </div>
-        </form>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sky-200">Glider</Label>
+                  <Input
+                    value={form.glider}
+                    onChange={(e) => setForm((f) => ({ ...f, glider: e.target.value }))}
+                    className="border-white/10 bg-white/5 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sky-200">Harness</Label>
+                  <Input
+                    value={form.harness}
+                    onChange={(e) => setForm((f) => ({ ...f, harness: e.target.value }))}
+                    className="border-white/10 bg-white/5 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sky-200">Emergency contact</Label>
+                  <Input
+                    value={form.emergencyContact}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, emergencyContact: e.target.value }))
+                    }
+                    className="border-white/10 bg-white/5 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sky-200">Emergency phone</Label>
+                  <Input
+                    value={form.emergencyPhone}
+                    onChange={(e) => setForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
+                    className="border-white/10 bg-white/5 text-white"
+                  />
+                </div>
+              </div>
+
+              {(fieldError || mutation.isError) && (
+                <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                  {fieldError ??
+                    (mutation.error instanceof Error
+                      ? mutation.error.message
+                      : 'Registration failed')}
+                </p>
+              )}
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button
+                  type="submit"
+                  disabled={mutation.isPending}
+                  className="bg-sky-500 text-[#050d1a] hover:bg-sky-400"
+                >
+                  {mutation.isPending ? 'Submitting…' : 'Submit registration'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  asChild
+                  className="border-white/25 bg-transparent text-sky-100 hover:bg-white/10 hover:text-white"
+                >
+                  <Link to={competitionPath(competitionId, 'pilots')}>Cancel</Link>
+                </Button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
     </Layout>
   );

@@ -12,6 +12,10 @@ AeroJudge uses **organization-based, permission-driven access control**.
 | Organization context | `X-Organization-Id` (per tab) | Active tenant for the request |
 | Competition assignment | `CompetitionUser` | Optional event-level staff (legacy/seed) |
 
+## Person identity (related)
+
+Canonical people are **`Person`** records (`AJ-XXXXXX`). Login is an optional **`User`** link. Competition participation and roles are separate from org RBAC. See [Person Identity](../architecture/PERSON_IDENTITY.md).
+
 ## Platform roles
 
 - `SUPER_ADMIN` — Platform Administrator (create/suspend orgs, licenses, platform users)
@@ -46,6 +50,15 @@ APIs:
 - `GET/POST /organizations/:id/roles`
 - `PATCH/DELETE /organizations/:id/roles/:roleId`
 - Member update accepts `customRoleId`
+
+## Organization context & multi-tenant model
+
+See also [Person Identity](../architecture/PERSON_IDENTITY.md):
+
+- **Person** = global reusable identity (`AJ-XXXXXX`), optional User link.
+- **OrganizationMember** = org permissions (RBAC).
+- **CompetitionParticipant + Role** = what someone does at an event (not login permission).
+- Competition staff login access remains permission-based at the organization layer.
 
 ## Multi-tab organization context
 
