@@ -19,7 +19,8 @@ RUN npm ci --ignore-scripts
 
 FROM deps AS builder
 COPY . .
-RUN npm run generate --workspace=@npha/database
+# Client generate needs no DB / .env (do not use scripts that load --env-file)
+RUN node node_modules/prisma/build/index.js generate --schema=database/prisma/schema.prisma
 RUN npm run build --workspace=@npha/database \
   && npm run build --workspace=@npha/shared \
   && npm run build --workspace=@npha/utils \

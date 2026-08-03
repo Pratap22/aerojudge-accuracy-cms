@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
     "prisma": "node ./scripts/with-root-env.mjs ../node_modules/prisma/build/index.js",
-    "generate": "npm run prisma -- generate --schema=./prisma/schema.prisma",
+    "generate": "node ../node_modules/prisma/build/index.js generate --schema=./prisma/schema.prisma",
     "migrate": "npm run prisma -- migrate dev --schema=./prisma/schema.prisma",
     "migrate:deploy": "npm run prisma -- migrate deploy --schema=./prisma/schema.prisma",
     "seed": "node ./scripts/with-root-env.mjs --import tsx prisma/seed/index.ts",
