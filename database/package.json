@@ -14,11 +14,11 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
-    "prisma": "node --env-file=../.env ../node_modules/prisma/build/index.js",
+    "prisma": "node ./scripts/with-root-env.mjs ../node_modules/prisma/build/index.js",
     "generate": "npm run prisma -- generate --schema=./prisma/schema.prisma",
     "migrate": "npm run prisma -- migrate dev --schema=./prisma/schema.prisma",
     "migrate:deploy": "npm run prisma -- migrate deploy --schema=./prisma/schema.prisma",
-    "seed": "node --env-file=../.env --import tsx prisma/seed/index.ts",
+    "seed": "node ./scripts/with-root-env.mjs --import tsx prisma/seed/index.ts",
     "reset": "npm run prisma -- migrate reset --schema=./prisma/schema.prisma --force",
     "studio": "npm run prisma -- studio --schema=./prisma/schema.prisma",
     "clean": "rm -rf dist"
@@ -27,7 +27,7 @@
     "@prisma/client": "^5.12.1"
   },
   "prisma": {
-    "seed": "node --env-file=../.env --import tsx prisma/seed/index.ts"
+    "seed": "node ./scripts/with-root-env.mjs --import tsx prisma/seed/index.ts"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
