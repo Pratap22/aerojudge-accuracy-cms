@@ -198,7 +198,7 @@ export function AppLayout() {
   const { pathname } = useLocation();
   const queryClient = useQueryClient();
   const competitionId = useMemo(() => competitionIdFromPath(pathname), [pathname]);
-  const orgScope = activeOrganizationId ?? 'none';
+  const orgScope = activeOrganizationId ?? user?.organizationId ?? 'none';
 
   const visiblePlatformNav = useMemo(() => {
     if (!user) return [];
@@ -285,20 +285,12 @@ export function AppLayout() {
   const handleOrganizationChange = async (organizationId: string) => {
     if (!organizationId || organizationId === activeOrganizationId) return;
     await selectOrganization(organizationId);
-    // Drop tenant-scoped cache so lists/sidebars refetch under the new org header
+    // Drop all cached org/competition data so UI refetches with X-Organization-Id
     await queryClient.cancelQueries();
-    queryClient.removeQueries({
-      predicate: (q) => {
-        const key = q.queryKey[0];
-        // Keep auth-independent keys if any; wipe org + competition data
-        return key !== undefined;
-      },
-    });
+    queryClient.clear();
+    // Leave any competition from the previous organization
     if (competitionIdFromPath(pathname)) {
       navigate('/competitions', { replace: true });
-    } else {
-      // Refresh workspace pages under the new org
-      void queryClient.invalidateQueries();
     }
   };
 

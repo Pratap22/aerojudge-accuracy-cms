@@ -248,12 +248,13 @@ export function CompetitionsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, activeOrganizationId } = useAuth();
   const canCreate = usePermission('competition:create');
   const canPublish = usePermission('competition:publish');
   const canUpdate = usePermission('competition:update');
+  const orgScope = activeOrganizationId ?? user?.organizationId ?? 'none';
   const { data: competitions, isLoading } = useQuery({
-    queryKey: ['competitions'],
+    queryKey: ['competitions', orgScope],
     queryFn: () => api.get<Competition[]>('/competitions'),
   });
 

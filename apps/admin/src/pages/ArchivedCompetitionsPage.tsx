@@ -34,11 +34,12 @@ interface Competition {
 export function ArchivedCompetitionsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, activeOrganizationId } = useAuth();
   const canUpdate = usePermission('competition:update');
+  const orgScope = activeOrganizationId ?? user?.organizationId ?? 'none';
 
   const { data: competitions, isLoading } = useQuery({
-    queryKey: ['competitions', 'archived'],
+    queryKey: ['competitions', orgScope, 'archived'],
     queryFn: () => api.get<Competition[]>('/competitions', { status: 'ARCHIVED' }),
   });
 

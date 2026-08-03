@@ -27,6 +27,8 @@ interface AuthContextValue {
   user: AuthUser | null;
   organizations: AuthOrganizationMembership[];
   currentOrganization: AuthOrganizationMembership | null;
+  /** Session/org header used for API calls — updates immediately on switch. */
+  activeOrganizationId: string | null;
   requiresOrganizationSelection: boolean;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -40,6 +42,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [organizations, setOrganizations] = useState<AuthOrganizationMembership[]>([]);
+  const [activeOrganizationId, setActiveOrganizationId] = useState<string | null>(
+    () => getOrganizationId(),
+  );
   const [requiresOrganizationSelection, setRequiresOrganizationSelection] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -61,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (storedOrg && activeMemberships.some((o) => o.organizationId === storedOrg)) {
           // Keep this tab's org; refresh user context for that membership
           const membership = activeMemberships.find((o) => o.organizationId === storedOrg)!;
+          setActiveOrganizationId(storedOrg);
           setUser({
             ...me,
             organizationId: membership.organizationId,
@@ -70,11 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setRequiresOrganizationSelection(false);
         } else if (me.organizationId) {
           setOrganizationId(me.organizationId);
+          setActiveOrganizationId(me.organizationId);
           setRequiresOrganizationSelection(false);
         } else if (activeMemberships.length > 1) {
+          setActiveOrganizationId(null);
           setRequiresOrganizationSelection(true);
         } else if (activeMemberships.length === 1) {
-          setOrganizationId(activeMemberships[0].organizationId);
+          const only = activeMemberships[0].organizationId;
+          setOrganizationId(only);
+          setActiveOrganizationId(only);
           setRequiresOrganizationSelection(false);
         }
       })
@@ -82,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearTokens();
         setUser(null);
         setOrganizations([]);
+        setActiveOrganizationId(null);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -94,8 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRequiresOrganizationSelection(result.requiresOrganizationSelection);
     if (result.user.organizationId) {
       setOrganizationId(result.user.organizationId);
+      setActiveOrganizationId(result.user.organizationId);
     } else {
       setOrganizationId(null);
+      setActiveOrganizationId(null);
     }
     return result;
   }, []);
@@ -112,7 +125,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         expiresIn: result.tokens.expiresIn,
       });
     }
+    // Drop competition real-time sessions tied to the previous org context
+    disconnectSocket();
     setOrganizationId(organizationId);
+    setActiveOrganizationId(organizationId);
     setUser(result.user);
     setOrganizations(result.organizations);
     setRequiresOrganizationSelection(false);
@@ -121,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     clearTokens();
     setOrganizationId(null);
+    setActiveOrganizationId(null);
     setUser(null);
     setOrganizations([]);
     setRequiresOrganizationSelection(false);
@@ -128,16 +145,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const currentOrganization = useMemo(() => {
-    const orgId = getOrganizationId() || user?.organizationId;
+    const orgId = activeOrganizationId || user?.organizationId;
     if (!orgId) return null;
     return organizations.find((o) => o.organizationId === orgId) ?? null;
-  }, [user, organizations]);
+  }, [activeOrganizationId, user, organizations]);
 
   const value = useMemo(
     () => ({
       user,
       organizations,
       currentOrganization,
+      activeOrganizationId,
       requiresOrganizationSelection,
       isLoading,
       isAuthenticated: !!user,
@@ -149,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       organizations,
       currentOrganization,
+      activeOrganizationId,
       requiresOrganizationSelection,
       isLoading,
       login,

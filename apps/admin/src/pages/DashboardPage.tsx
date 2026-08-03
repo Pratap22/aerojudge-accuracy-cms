@@ -24,6 +24,7 @@ import {
 } from '@npha/ui';
 import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { onSocketEvent } from '../lib/socket';
 import { competitionPath, useCompetitionId } from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';
@@ -70,11 +71,13 @@ export function DashboardPage() {
   const competitionId = useCompetitionId();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user, activeOrganizationId } = useAuth();
   const liveStatus = 'Connected';
   const canUpdateCompetition = usePermission('competition:update');
+  const orgScope = activeOrganizationId ?? user?.organizationId ?? 'none';
 
   const { data: competitions } = useQuery({
-    queryKey: ['competitions'],
+    queryKey: ['competitions', orgScope],
     queryFn: () => api.get<CompetitionSummary[]>('/competitions'),
   });
 
