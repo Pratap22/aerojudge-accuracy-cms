@@ -6,7 +6,8 @@ function sectionTitle(pathname: string): string {
   if (pathname.includes('/results')) return 'Results';
   if (pathname.includes('/register')) return 'Registration';
   if (pathname.includes('/women')) return 'Women';
-  if (pathname.includes('/teams')) return 'Teams';
+  if (pathname.includes('/teams')) return 'Team ranking';
+  if (pathname.includes('/officials')) return 'Officials';
   if (pathname.includes('/countries')) return 'Countries';
   if (pathname.includes('/statistics')) return 'Statistics';
   if (pathname.includes('/pilots/')) return 'Pilot';

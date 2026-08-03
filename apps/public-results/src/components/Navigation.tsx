@@ -23,16 +23,16 @@ export function Navigation() {
     ? [
         { path: '', label: 'Home' },
         { path: 'pilots', label: 'Pilots' },
-        { path: 'officials', label: 'Team' },
+        { path: 'officials', label: 'Officials' },
         ...(registrationOpen ? [{ path: 'register', label: 'Register' }] : []),
       ]
     : [
         { path: '', label: 'Home' },
         { path: 'results', label: completed ? 'Final Results' : 'Live Results' },
         { path: 'pilots', label: 'Pilots' },
-        { path: 'officials', label: 'Team' },
+        { path: 'officials', label: 'Officials' },
         { path: 'women', label: 'Women' },
-        { path: 'teams', label: 'Teams' },
+        { path: 'teams', label: 'Team ranking' },
         { path: 'countries', label: 'Countries' },
         { path: 'statistics', label: 'Statistics' },
         ...(registrationOpen ? [{ path: 'register', label: 'Register' }] : []),
