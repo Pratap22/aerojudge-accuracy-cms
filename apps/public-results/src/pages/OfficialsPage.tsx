@@ -1,17 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 import { Layout } from '../components/Layout';
-import { OfficialCard, OrganizingTeamSection } from '../components/OrganizingTeam';
+import { OfficialCard, OrganizerCard, OrganizingTeamSection } from '../components/OrganizingTeam';
 import { fetchOfficials } from '../lib/api';
-import { useSlug } from '../hooks/useCompetition';
+import { useCompetition, useSlug } from '../hooks/useCompetition';
 
 export function OfficialsPage() {
   const competitionId = useSlug();
+  const { data: competition } = useCompetition();
 
   const { data: officials = [], isLoading, error } = useQuery({
     queryKey: ['public-officials', competitionId],
     queryFn: () => fetchOfficials(competitionId),
     enabled: Boolean(competitionId),
   });
+
+  const organiser = competition?.organiser;
+  const hasOrganiser = Boolean(organiser?.name);
 
   return (
     <Layout>
@@ -31,21 +35,24 @@ export function OfficialsPage() {
             {error instanceof Error ? error.message : 'Could not load team'}
           </p>
         )}
-        {!isLoading && !error && officials.length === 0 && (
+        {!isLoading && !error && officials.length === 0 && !hasOrganiser && (
           <OrganizingTeamSection
             competitionId={competitionId}
             officials={[]}
             showHeader={false}
           />
         )}
-        {!isLoading && !error && officials.length > 0 && (
+        {!isLoading && !error && (officials.length > 0 || hasOrganiser) && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {hasOrganiser && organiser ? (
+              <OrganizerCard organiser={organiser} index={0} />
+            ) : null}
             {officials.map((official, index) => (
               <OfficialCard
                 key={official.id}
                 official={official}
                 showContact
-                index={index}
+                index={index + (hasOrganiser ? 1 : 0)}
               />
             ))}
           </div>

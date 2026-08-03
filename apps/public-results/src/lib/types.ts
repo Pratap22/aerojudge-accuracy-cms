@@ -1,3 +1,9 @@
+export interface PublicOrganiser {
+  name: string;
+  logoUrl: string | null;
+  role: 'Organiser';
+}
+
 export interface PublicCompetition {
   id: string;
   name: string;
@@ -9,6 +15,8 @@ export interface PublicCompetition {
   endDate: string;
   status: string;
   publicSlug: string;
+  /** Display card for the organising association (logo + name). */
+  organiser?: PublicOrganiser | null;
   settings?: {
     livePublicResults: boolean;
     partnersLabel?: string;

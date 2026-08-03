@@ -14,12 +14,21 @@ const publicCompetitionSelect = {
   name: true,
   code: true,
   organizer: true,
+  organizerLogoUrl: true,
+  logoUrl: true,
   venue: true,
   country: true,
   startDate: true,
   endDate: true,
   status: true,
   publicSlug: true,
+  organization: {
+    select: {
+      name: true,
+      shortName: true,
+      logoUrl: true,
+    },
+  },
   settings: {
     select: {
       livePublicResults: true,
@@ -28,6 +37,78 @@ const publicCompetitionSelect = {
     },
   },
 } as const;
+
+/** Public-facing organiser card (owning org + optional competition branding). */
+export function toPublicOrganiser(competition: {
+  organizer: string;
+  organizerLogoUrl?: string | null;
+  logoUrl?: string | null;
+  organization?: {
+    name: string;
+    shortName: string;
+    logoUrl: string | null;
+  } | null;
+}) {
+  const name =
+    competition.organizer?.trim() ||
+    competition.organization?.name?.trim() ||
+    competition.organization?.shortName?.trim() ||
+    '';
+  if (!name) return null;
+
+  const logoUrl = toAbsoluteAssetUrl(
+    competition.organizerLogoUrl ||
+      competition.organization?.logoUrl ||
+      competition.logoUrl ||
+      null,
+  );
+
+  return {
+    name,
+    logoUrl,
+    role: 'Organiser' as const,
+  };
+}
+
+function mapPublicCompetition(competition: {
+  id: string;
+  name: string;
+  code: string;
+  organizer: string;
+  organizerLogoUrl?: string | null;
+  logoUrl?: string | null;
+  venue: string;
+  country: string;
+  startDate: Date;
+  endDate: Date;
+  status: string;
+  publicSlug: string;
+  organization?: {
+    name: string;
+    shortName: string;
+    logoUrl: string | null;
+  } | null;
+  settings: {
+    livePublicResults: boolean;
+    partnersLabel: string | null;
+    partnerTiersEnabled: boolean;
+  } | null;
+}) {
+  return {
+    id: competition.id,
+    name: competition.name,
+    code: competition.code,
+    organizer: competition.organizer,
+    venue: competition.venue,
+    country: competition.country,
+    startDate: competition.startDate,
+    endDate: competition.endDate,
+    status: competition.status,
+    publicSlug: competition.publicSlug,
+    settings: competition.settings,
+    organiser: toPublicOrganiser(competition),
+  };
+}
 
 /** Resolve by competition id or publicSlug. */
 export async function getPublicCompetition(slugOrId: string) {
@@ -52,7 +133,7 @@ export async function getPublicCompetition(slugOrId: string) {
     select: publicCompetitionSelect,
   });
   if (!competition) throw AppError.notFound('Competition not found');
-  return competition;
+  return mapPublicCompetition(competition);
 }
 
 export async function listPublicCompetitions() {

@@ -75,6 +75,7 @@ export function HomePage() {
       <OrganizingTeamSection
         competitionId={competitionId}
         officials={officials}
+        organiser={competition.organiser}
         limit={4}
         isLoading={officialsLoading}
         error={officialsError instanceof Error ? officialsError : null}

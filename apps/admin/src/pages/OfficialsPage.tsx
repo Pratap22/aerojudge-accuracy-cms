@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,12 +9,23 @@ import {
   type CreateOfficialInput,
   type PersonDirectoryEntry,
 } from '@npha/shared';
-import { Gavel, Pencil, Plus, Trash2, Upload, UserCheck, X } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Gavel,
+  ImagePlus,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  Trash2,
+  UserCheck,
+  X,
+} from 'lucide-react';
 import {
   Badge,
   Button,
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -30,11 +41,73 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  cn,
 } from '@npha/ui';
 import { api, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
 const ROLE_CUSTOM = '__custom__';
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
+}
+
+async function uploadOfficialPhoto(
+  competitionId: string,
+  officialId: string,
+  file: File,
+): Promise<CompetitionOfficial> {
+  if (file.size > PHOTO_MAX_BYTES) {
+    throw new Error('Photo is too large. Maximum size is 5 MB.');
+  }
+  const formData = new FormData();
+  formData.append('photo', file);
+  return apiRequest<CompetitionOfficial>(
+    `/competitions/${competitionId}/officials/${officialId}/photo`,
+    { method: 'POST', formData },
+  );
+}
+
+function Avatar({
+  name,
+  imageUrl,
+  size = 'md',
+}: {
+  name: string;
+  imageUrl?: string | null;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const dim = size === 'lg' ? 'h-20 w-20 text-lg' : size === 'sm' ? 'h-9 w-9 text-xs' : 'h-11 w-11 text-sm';
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        className={cn('shrink-0 rounded-full object-cover object-top ring-1 ring-border', dim)}
+      />
+    );
+  }
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground ring-1 ring-border',
+        dim,
+      )}
+    >
+      {initials(name)}
+    </span>
+  );
+}
 
 export function OfficialsPage() {
   const competitionId = useCompetitionId();
@@ -44,8 +117,10 @@ export function OfficialsPage() {
   const [roleMode, setRoleMode] = useState<string>('Judge');
   const [directoryQ, setDirectoryQ] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<PersonDirectoryEntry | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const { data: officials = [], isLoading } = useQuery({
     queryKey: ['officials', competitionId],
@@ -79,41 +154,71 @@ export function OfficialsPage() {
   });
 
   const isPublic = watch('isPublic');
+  const nameValue = watch('name');
+
+  useEffect(() => {
+    if (!photoFile) return undefined;
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['officials', competitionId] });
   };
 
-  const createMutation = useMutation({
-    mutationFn: (data: CreateOfficialInput) =>
-      api.post<CompetitionOfficial>(`/competitions/${competitionId}/officials`, {
-        ...data,
-        personId: selectedPerson?.id ?? data.personId,
-        name:
-          data.name ||
-          (selectedPerson
-            ? `${selectedPerson.firstName} ${selectedPerson.lastName}`.trim()
-            : undefined),
-      }),
-    onSuccess: () => {
-      invalidate();
-      setFormOpen(false);
-      setSelectedPerson(null);
-      setDirectoryQ('');
-      reset({ name: '', role: 'Judge', isPublic: true });
-      setRoleMode('Judge');
-    },
-  });
+  const resetPhoto = () => {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setPhotoError(null);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: CreateOfficialInput }) =>
-      api.patch<CompetitionOfficial>(`/competitions/${competitionId}/officials/${id}`, data),
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditing(null);
+    setSelectedPerson(null);
+    setDirectoryQ('');
+    resetPhoto();
+    reset({ name: '', role: 'Judge', isPublic: true });
+    setRoleMode('Judge');
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: CreateOfficialInput) => {
+      if (photoFile && photoFile.size > PHOTO_MAX_BYTES) {
+        throw new Error('Photo is too large. Maximum size is 5 MB.');
+      }
+
+      let official: CompetitionOfficial;
+      if (editing) {
+        official = await api.patch<CompetitionOfficial>(
+          `/competitions/${competitionId}/officials/${editing.id}`,
+          data,
+        );
+      } else {
+        official = await api.post<CompetitionOfficial>(
+          `/competitions/${competitionId}/officials`,
+          {
+            ...data,
+            personId: selectedPerson?.id ?? data.personId,
+            name:
+              data.name ||
+              (selectedPerson
+                ? `${selectedPerson.firstName} ${selectedPerson.lastName}`.trim()
+                : undefined),
+          },
+        );
+      }
+
+      if (photoFile) {
+        official = await uploadOfficialPhoto(competitionId!, official.id, photoFile);
+      }
+      return official;
+    },
     onSuccess: () => {
       invalidate();
-      setFormOpen(false);
-      setEditing(null);
-      reset({ name: '', role: 'Judge', isPublic: true });
-      setRoleMode('Judge');
+      closeForm();
     },
   });
 
@@ -122,29 +227,11 @@ export function OfficialsPage() {
     onSuccess: invalidate,
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: async ({ id, file }: { id: string; file: File }) => {
-      const maxBytes = 5 * 1024 * 1024;
-      if (file.size > maxBytes) {
-        throw new Error('Photo is too large. Maximum size is 5 MB.');
-      }
-      const formData = new FormData();
-      formData.append('photo', file);
-      return apiRequest<CompetitionOfficial>(
-        `/competitions/${competitionId}/officials/${id}/photo`,
-        { method: 'POST', formData },
-      );
-    },
-    onSuccess: () => {
-      invalidate();
-      setUploadTargetId(null);
-    },
-  });
-
   const openCreate = () => {
     setEditing(null);
     setSelectedPerson(null);
     setDirectoryQ('');
+    resetPhoto();
     reset({ name: '', role: 'Judge', phone: undefined, email: undefined, isPublic: true });
     setRoleMode('Judge');
     setFormOpen(true);
@@ -154,6 +241,8 @@ export function OfficialsPage() {
     setEditing(official);
     setSelectedPerson(null);
     setDirectoryQ('');
+    resetPhoto();
+    setPhotoPreview(official.imageUrl ?? null);
     const preset = OFFICIAL_ROLE_OPTIONS.includes(
       official.role as (typeof OFFICIAL_ROLE_OPTIONS)[number],
     )
@@ -175,6 +264,9 @@ export function OfficialsPage() {
     setDirectoryQ('');
     setValue('personId', person.id);
     setValue('name', `${person.firstName} ${person.lastName}`.trim());
+    if (!photoFile && person.photoUrl) {
+      setPhotoPreview(person.photoUrl);
+    }
   };
 
   const clearSelectedPerson = () => {
@@ -182,19 +274,36 @@ export function OfficialsPage() {
     setValue('personId', undefined);
   };
 
+  const onPhotoSelected = (file: File | undefined) => {
+    setPhotoError(null);
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Choose an image file (PNG, JPEG, WebP, or GIF).');
+      return;
+    }
+    if (file.size > PHOTO_MAX_BYTES) {
+      setPhotoError('Photo is too large. Maximum size is 5 MB.');
+      return;
+    }
+    setPhotoFile(file);
+  };
+
   const onSubmit = handleSubmit((data) => {
-    if (editing) updateMutation.mutate({ id: editing.id, data });
-    else createMutation.mutate(data);
+    setPhotoError(null);
+    saveMutation.mutate(data);
   });
+
+  const formPreviewUrl = photoPreview;
+  const formPreviewName = nameValue?.trim() || editing?.name || 'Official';
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="max-w-2xl">
           <h1 className="text-2xl font-bold tracking-tight">Officials &amp; judges</h1>
-          <p className="text-muted-foreground">
-            Public-facing staff for this event. Entries marked public appear on the results site
-            with name, role, photo, phone, and email.
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage event staff shown on the public results site. Add or change photos in the form when
+            creating or editing.
           </p>
         </div>
         <Button onClick={openCreate}>
@@ -203,115 +312,206 @@ export function OfficialsPage() {
         </Button>
       </div>
 
-      {uploadMutation.isError && (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {uploadMutation.error instanceof Error
-            ? uploadMutation.error.message
-            : 'Photo upload failed'}
-        </p>
-      )}
-
       {isLoading ? (
-        <p className="text-muted-foreground">Loading officials…</p>
+        <div className="rounded-lg border">
+          <div className="space-y-0 divide-y">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3">
+                <div className="h-11 w-11 animate-pulse rounded-full bg-muted" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : officials.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Gavel className="h-5 w-5" />
-              No officials yet
-            </CardTitle>
-            <CardDescription>
+        <Card className="border-dashed">
+          <CardHeader className="items-center py-12 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Gavel className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <CardTitle className="text-base">No officials yet</CardTitle>
+            <CardDescription className="max-w-sm">
               Add the chief judge, meet director, and other event officials for the public pages.
             </CardDescription>
+            <div className="pt-4">
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add official
+              </Button>
+            </div>
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {officials.map((official) => (
-            <Card key={official.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <CardTitle className="truncate text-base">{official.name}</CardTitle>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      <Badge variant="secondary">{official.role}</Badge>
-                      {!official.isPublic && <Badge variant="outline">Hidden</Badge>}
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[44%]">Official</TableHead>
+                <TableHead className="hidden sm:table-cell">Contact</TableHead>
+                <TableHead className="w-[100px]">Visibility</TableHead>
+                <TableHead className="w-[120px] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {officials.map((official) => (
+                <TableRow key={official.id} className="group">
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() => openEdit(official)}
+                      className="flex w-full min-w-0 items-center gap-3 text-left"
+                    >
+                      <Avatar name={official.name} imageUrl={official.imageUrl} />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium leading-tight">{official.name}</p>
+                        <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                          {official.role}
+                        </p>
+                      </div>
+                    </button>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    <div className="space-y-0.5 text-sm text-muted-foreground">
+                      {official.email ? (
+                        <p className="flex items-center gap-1.5">
+                          <Mail className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                          <span className="truncate">{official.email}</span>
+                        </p>
+                      ) : null}
+                      {official.phone ? (
+                        <p className="flex items-center gap-1.5">
+                          <Phone className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                          <span className="truncate">{official.phone}</span>
+                        </p>
+                      ) : null}
+                      {!official.email && !official.phone ? (
+                        <span className="text-xs">—</span>
+                      ) : null}
                     </div>
-                  </div>
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => {
-                        setUploadTargetId(official.id);
-                        fileRef.current?.click();
-                      }}
-                      title="Upload photo (Cloudinary)"
-                    >
-                      <Upload className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(official)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => {
-                        if (window.confirm(`Delete ${official.name}?`)) {
-                          deleteMutation.mutate(official.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex h-36 items-center justify-center overflow-hidden rounded-md border bg-muted/40">
-                  {official.imageUrl ? (
-                    <img
-                      src={official.imageUrl}
-                      alt={official.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground">No photo</span>
-                  )}
-                </div>
-                <div className="space-y-1 text-sm text-muted-foreground">
-                  {official.email && <p className="truncate">{official.email}</p>}
-                  {official.phone && <p>{official.phone}</p>}
-                  {!official.email && !official.phone && (
-                    <p className="text-xs">No contact details</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </TableCell>
+                  <TableCell>
+                    {official.isPublic ? (
+                      <Badge variant="success" className="gap-1 font-normal">
+                        <Eye className="h-3 w-3" />
+                        Public
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="gap-1 font-normal">
+                        <EyeOff className="h-3 w-3" />
+                        Hidden
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="inline-flex items-center justify-end gap-0.5">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        title="Edit"
+                        onClick={() => openEdit(official)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        title="Delete"
+                        onClick={() => {
+                          if (window.confirm(`Delete ${official.name}?`)) {
+                            deleteMutation.mutate(official.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file && uploadTargetId) {
-            uploadMutation.mutate({ id: uploadTargetId, file });
-          }
-          e.target.value = '';
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          if (!open) closeForm();
+          else setFormOpen(true);
         }}
-      />
-
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="overflow-visible">
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-visible sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit official' : 'Add official'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={onSubmit} className="space-y-5">
+            {/* Photo only lives in this form — not on the list cards */}
+            <div className="space-y-2">
+              <Label>Photo</Label>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  onPhotoSelected(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                className={cn(
+                  'flex w-full items-center gap-4 rounded-lg border border-dashed p-4 text-left transition-colors',
+                  'hover:border-primary/50 hover:bg-muted/40',
+                  photoFile && 'border-primary/40 bg-primary/5',
+                )}
+              >
+                <Avatar name={formPreviewName} imageUrl={formPreviewUrl} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-2 text-sm font-medium">
+                    <ImagePlus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    {formPreviewUrl ? 'Change photo' : 'Upload photo'}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    PNG, JPEG, WebP, or GIF · max 5 MB · applied when you save
+                  </p>
+                  {photoFile ? (
+                    <p className="mt-1 truncate text-xs text-primary">{photoFile.name}</p>
+                  ) : null}
+                </div>
+              </button>
+              {photoFile ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2"
+                  onClick={() => {
+                    setPhotoFile(null);
+                    setPhotoError(null);
+                    if (photoInputRef.current) photoInputRef.current.value = '';
+                    setPhotoPreview(editing?.imageUrl ?? null);
+                  }}
+                >
+                  Clear new selection
+                </Button>
+              ) : null}
+              {(photoError || saveMutation.isError) && (
+                <p className="text-sm text-destructive">
+                  {photoError ??
+                    (saveMutation.error instanceof Error
+                      ? saveMutation.error.message
+                      : 'Failed to save official')}
+                </p>
+              )}
+            </div>
+
             {!editing && (
               <div className="relative z-20 space-y-2">
                 <Label>Find returning person</Label>
@@ -387,27 +587,25 @@ export function OfficialsPage() {
                 </SelectContent>
               </Select>
               {roleMode === ROLE_CUSTOM && (
-                <Input
-                  {...register('role')}
-                  placeholder="Custom role title"
-                  className="mt-2"
-                />
+                <Input {...register('role')} placeholder="Custom role title" className="mt-2" />
               )}
               {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="official-phone">Phone (optional)</Label>
-              <Input id="official-phone" {...register('phone')} placeholder="+1 …" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="official-email">Email (optional)</Label>
-              <Input
-                id="official-email"
-                type="email"
-                {...register('email')}
-                placeholder="name@example.com"
-              />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="official-phone">Phone (optional)</Label>
+                <Input id="official-phone" {...register('phone')} placeholder="+1 …" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="official-email">Email (optional)</Label>
+                <Input
+                  id="official-email"
+                  type="email"
+                  {...register('email')}
+                  placeholder="name@example.com"
+                />
+                {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+              </div>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -419,14 +617,17 @@ export function OfficialsPage() {
               Show on public results site
             </label>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
+              <Button type="button" variant="outline" onClick={closeForm}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-              >
-                {editing ? 'Save' : 'Create'}
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending
+                  ? photoFile
+                    ? 'Saving & uploading…'
+                    : 'Saving…'
+                  : editing
+                    ? 'Save'
+                    : 'Create'}
               </Button>
             </DialogFooter>
           </form>
