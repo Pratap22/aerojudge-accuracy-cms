@@ -10,10 +10,12 @@ import {
   type Organization,
   type OrganizationStatus,
 } from '@npha/shared';
-import { Building2, Plus, Search } from 'lucide-react';
+import { Building2, ChevronRight, Plus, Search } from 'lucide-react';
 import {
   Badge,
   Button,
+  Card,
+  CardContent,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -35,6 +37,7 @@ import {
 } from '@npha/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import { PageHeader } from '../../components/PageHeader';
 
 const STATUS_VARIANT: Record<
   OrganizationStatus,
@@ -56,7 +59,11 @@ export function OrganizationsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const pageSize = 20;
 
-  const canRead = user && (user.organizations?.length || hasPermission(user.role, 'organization:read') || hasPermission(user.role, 'platform:organizations'));
+  const canRead =
+    user &&
+    (user.organizations?.length ||
+      hasPermission(user.role, 'organization:read') ||
+      hasPermission(user.role, 'platform:organizations'));
   const canManage = user && hasPermission(user.role, 'platform:organizations');
 
   const queryKey = useMemo(
@@ -72,7 +79,6 @@ export function OrganizationsPage() {
         page,
         pageSize,
       });
-      // Archived orgs have a dedicated Super Admin screen
       return rows.filter((org) => org.status !== 'ARCHIVED');
     },
     enabled: !!canRead,
@@ -114,47 +120,46 @@ export function OrganizationsPage() {
 
   if (!canRead) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
         <Building2 className="mb-4 h-12 w-12 text-muted-foreground" />
-        <h2 className="text-lg font-semibold">Access Restricted</h2>
+        <h2 className="text-lg font-semibold">Access restricted</h2>
         <p className="text-muted-foreground">You do not have permission to view organizations.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Organizations</h1>
-          <p className="text-muted-foreground">
-            Manage federations, clubs, and commercial tenants that own competitions
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canManage && (
-            <Button variant="outline" asChild>
-              <Link to="/organizations/archived">Archived</Link>
-            </Button>
-          )}
-          {canManage && (
-            <Button
-              onClick={() => {
-                reset();
-                setFormOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Organization
-            </Button>
-          )}
-        </div>
-      </div>
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Organizations"
+        description="Federations, clubs, and commercial tenants that own competitions."
+        actions={
+          <>
+            {canManage && (
+              <Button variant="outline" asChild className="w-full sm:w-auto">
+                <Link to="/organizations/archived">Archived</Link>
+              </Button>
+            )}
+            {canManage && (
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  reset();
+                  setFormOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create organization
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          className="pl-9"
+          className="h-11 pl-9 sm:h-10"
           placeholder="Search by name, slug, or country…"
           value={search}
           onChange={(e) => {
@@ -165,15 +170,53 @@ export function OrganizationsPage() {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      {/* Mobile: card list */}
+      <div className="space-y-3 md:hidden">
+        {isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+        ) : organizations?.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No organizations found</p>
+        ) : (
+          organizations?.map((org) => (
+            <Link key={org.id} to={`/organizations/${org.id}`} className="block">
+              <Card className="transition-colors hover:bg-muted/30">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-primary">{org.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {org.shortName}
+                      {org.country ? ` · ${org.country}` : ''}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <Badge variant="secondary" className="text-[10px]">
+                        {org.plan}
+                      </Badge>
+                      <Badge variant={STATUS_VARIANT[org.status]} className="text-[10px]">
+                        {org.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {org._count?.competitions ?? 0} competitions
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            </Link>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Organization</TableHead>
-              <TableHead>Slug</TableHead>
+              <TableHead className="hidden lg:table-cell">Slug</TableHead>
               <TableHead>Country</TableHead>
               <TableHead>Plan</TableHead>
-              <TableHead>Competitions</TableHead>
+              <TableHead className="text-right">Competitions</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -202,12 +245,12 @@ export function OrganizationsPage() {
                     </Link>
                     <p className="text-xs text-muted-foreground">{org.shortName}</p>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{org.slug}</TableCell>
+                  <TableCell className="hidden font-mono text-sm lg:table-cell">{org.slug}</TableCell>
                   <TableCell>{org.country ?? '—'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{org.plan}</Badge>
                   </TableCell>
-                  <TableCell>{org._count?.competitions ?? 0}</TableCell>
+                  <TableCell className="text-right">{org._count?.competitions ?? 0}</TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[org.status]}>{org.status}</Badge>
                   </TableCell>
@@ -218,30 +261,34 @@ export function OrganizationsPage() {
         </Table>
       </div>
 
-      <div className="flex items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={page <= 1}
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-        >
-          Previous
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
         <span className="text-sm text-muted-foreground">Page {page}</span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!organizations || organizations.length < pageSize}
-          onClick={() => setPage((p) => p + 1)}
-        >
-          Next
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-w-[5.5rem]"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-w-[5.5rem]"
+            disabled={!organizations || organizations.length < pageSize}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </Button>
+        </div>
       </div>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Organization</DialogTitle>
+            <DialogTitle>Create organization</DialogTitle>
           </DialogHeader>
           <form
             className="grid gap-4"
@@ -312,11 +359,11 @@ export function OrganizationsPage() {
                 </Select>
               </div>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setFormOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting || createMutation.isPending}>
+              <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting || createMutation.isPending}>
                 Create
               </Button>
             </DialogFooter>

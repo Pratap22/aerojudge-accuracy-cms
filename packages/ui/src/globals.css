@@ -34,6 +34,11 @@
 
     --radius: 0.5rem;
 
+    /* Admin shell */
+    --sidebar: 207 100% 16%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-accent: 207 45% 22%;
+
     /* Sports-event tokens */
     --navy: 207 100% 16%;
     --sky: 199 89% 48%;
@@ -73,6 +78,10 @@
     --border: 207 30% 20%;
     --input: 207 30% 20%;
     --ring: 199 89% 48%;
+
+    --sidebar: 207 55% 7%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-accent: 207 40% 16%;
 
     --navy: 207 100% 16%;
     --sky: 199 89% 48%;

@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   Archive,
   ArrowRight,
@@ -21,6 +20,11 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@npha/ui';
 import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api } from '../lib/api';
@@ -28,6 +32,7 @@ import { useAuth } from '../lib/auth';
 import { onSocketEvent } from '../lib/socket';
 import { competitionPath, useCompetitionId } from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';
+import { PageHeader } from '../components/PageHeader';
 
 interface DashboardStats {
   status?: CompetitionStatus;
@@ -151,89 +156,119 @@ export function DashboardPage() {
     !['ARCHIVED', 'DRAFT'].includes(displayStatus);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Competition Overview</h1>
-          <p className="text-muted-foreground">
-            {activeCompetition
-              ? `${activeCompetition.name} · ${activeCompetition.venue}`
-              : 'Loading competition…'}
-          </p>
-          {activeCompetition && displayStatus && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Badge variant={statusVariant[displayStatus]}>
-                {displayStatus}
-              </Badge>
-              <Badge variant={displayPublished ? 'success' : 'outline'}>
-                {displayPublished ? 'Published' : 'Unpublished'}
-              </Badge>
-            </div>
-          )}
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Overview"
+        description={
+          activeCompetition ? (
+            <span className="flex flex-col gap-0.5 sm:block">
+              <span className="font-medium text-foreground">{activeCompetition.name}</span>
+              <span className="sm:before:content-['·_']">{activeCompetition.venue}</span>
+            </span>
+          ) : (
+            'Loading competition…'
+          )
+        }
+        actions={
+          <>
+            {needsPublish && (
+              <Button
+                variant="secondary"
+                className="w-full sm:w-auto"
+                disabled={publishMutation.isPending}
+                onClick={() => publishMutation.mutate()}
+              >
+                Publish
+              </Button>
+            )}
+            {canClose && (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                disabled={completeMutation.isPending}
+                onClick={() => {
+                  const ok = window.confirm(
+                    'Close this competition? Open rounds will be closed and the venue display will show the final podium (1st–3rd). This is typically used when flying stops early (e.g. weather).',
+                  );
+                  if (ok) completeMutation.mutate();
+                }}
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
+                {completeMutation.isPending ? 'Closing…' : 'Close'}
+              </Button>
+            )}
+            {canArchive && (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                disabled={archiveMutation.isPending}
+                onClick={() => {
+                  const ok = window.confirm(
+                    'Archive this competition? It will be unpublished and hidden from Display and Public Results.',
+                  );
+                  if (ok) archiveMutation.mutate();
+                }}
+              >
+                <Archive className="mr-2 h-4 w-4 shrink-0" />
+                {archiveMutation.isPending ? 'Archiving…' : 'Archive'}
+              </Button>
+            )}
+            <Button variant="outline" asChild className="w-full sm:w-auto">
+              <Link to={competitionPath(competitionId, 'rounds')}>
+                <Play className="mr-2 h-4 w-4 shrink-0" />
+                Rounds
+              </Link>
+            </Button>
+            <Button asChild className="w-full sm:w-auto">
+              <Link to={competitionPath(competitionId, 'scoring')}>
+                Enter scores
+                <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+              </Link>
+            </Button>
+          </>
+        }
+      >
+        {activeCompetition && displayStatus && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Badge variant={statusVariant[displayStatus]}>{displayStatus}</Badge>
+            <Badge variant={displayPublished ? 'success' : 'outline'}>
+              {displayPublished ? 'Published' : 'Unpublished'}
+            </Badge>
+          </div>
+        )}
+      </PageHeader>
+
+      {competitions && competitions.length > 1 && (
+        <div className="max-w-md space-y-1.5">
+          <label htmlFor="competition-switch" className="text-xs font-medium text-muted-foreground">
+            Switch competition
+          </label>
+          <Select
+            value={competitionId}
+            onValueChange={(id) => navigate(competitionPath(id))}
+          >
+            <SelectTrigger id="competition-switch" className="w-full">
+              <SelectValue placeholder="Select competition" />
+            </SelectTrigger>
+            <SelectContent>
+              {competitions.map((comp) => (
+                <SelectItem key={comp.id} value={comp.id}>
+                  {comp.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {needsPublish && (
-            <Button
-              variant="secondary"
-              disabled={publishMutation.isPending}
-              onClick={() => publishMutation.mutate()}
-            >
-              Publish competition
-            </Button>
-          )}
-          {canClose && (
-            <Button
-              variant="outline"
-              disabled={completeMutation.isPending}
-              onClick={() => {
-                const ok = window.confirm(
-                  'Close this competition? Open rounds will be closed and the venue display will show the final podium (1st–3rd). This is typically used when flying stops early (e.g. weather).',
-                );
-                if (ok) completeMutation.mutate();
-              }}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              {completeMutation.isPending ? 'Closing…' : 'Close competition'}
-            </Button>
-          )}
-          {canArchive && (
-            <Button
-              variant="outline"
-              disabled={archiveMutation.isPending}
-              onClick={() => {
-                const ok = window.confirm(
-                  'Archive this competition? It will be unpublished and hidden from Display and Public Results.',
-                );
-                if (ok) archiveMutation.mutate();
-              }}
-            >
-              <Archive className="mr-2 h-4 w-4" />
-              {archiveMutation.isPending ? 'Archiving…' : 'Archive'}
-            </Button>
-          )}
-          <Button variant="outline" asChild>
-            <Link to={competitionPath(competitionId, 'rounds')}>
-              <Play className="mr-2 h-4 w-4" />
-              Manage Rounds
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link to={competitionPath(competitionId, 'scoring')}>
-              Enter Scores
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
-      </div>
+      )}
 
       {displayStatus === 'COMPLETED' && (
         <Card className="border-emerald-500/30 bg-emerald-500/5">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base text-emerald-700 dark:text-emerald-400">
-              <Trophy className="h-5 w-5" />
+              <Trophy className="h-5 w-5 shrink-0" />
               Competition completed
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm leading-relaxed">
               Final standings are locked for display. Venue boards show the overall podium
               (1st–3rd). You can still generate reports and publish results.
             </CardDescription>
@@ -241,83 +276,51 @@ export function DashboardPage() {
         </Card>
       )}
 
-      {competitions && competitions.length > 1 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {competitions.map((comp, i) => (
-            <motion.div
-              key={comp.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <Link to={competitionPath(comp.id)}>
-                <Card
-                  className={`transition-shadow hover:shadow-md ${comp.id === competitionId ? 'ring-2 ring-primary' : ''}`}
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <Trophy className="h-5 w-5 text-primary" />
-                      <Badge variant={statusVariant[comp.status]}>{comp.status}</Badge>
-                    </div>
-                    <CardTitle className="text-base">{comp.name}</CardTitle>
-                    <CardDescription>{comp.code}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">{comp.venue}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {new Date(comp.startDate).toLocaleDateString()} –{' '}
-                      {new Date(comp.endDate).toLocaleDateString()}
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Registered Pilots</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium sm:text-sm">Pilots</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats?.totalPilots ?? '—'}</div>
+            <div className="text-2xl font-bold sm:text-3xl">{stats?.totalPilots ?? '—'}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Teams</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium sm:text-sm">Teams</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats?.totalTeams ?? '—'}</div>
+            <div className="text-2xl font-bold sm:text-3xl">{stats?.totalTeams ?? '—'}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Round Progress</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium sm:text-sm">Rounds</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">
+            <div className="text-2xl font-bold sm:text-3xl">
               {stats ? `${stats.roundsCompleted}/${stats.roundsTotal}` : '—'}
             </div>
             {stats?.activeRound && (
-              <p className="text-xs text-muted-foreground">
-                Round {stats.activeRound.number}: {stats.activeRound.status}
+              <p className="mt-1 text-xs text-muted-foreground">
+                R{stats.activeRound.number}: {stats.activeRound.status}
               </p>
             )}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Bullseyes Today</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium sm:text-sm">Bullseyes</CardTitle>
             <Target className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">{stats?.bullseyesToday ?? '—'}</div>
+            <div className="text-2xl font-bold text-primary sm:text-3xl">
+              {stats?.bullseyesToday ?? '—'}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Today</p>
           </CardContent>
         </Card>
       </div>
@@ -325,29 +328,29 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Live Status
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-5 w-5 shrink-0" />
+              Live status
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
-              <span className="text-sm">Socket connection</span>
+          <CardContent className="space-y-2 sm:space-y-3">
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5 sm:px-4 sm:py-3">
+              <span className="text-sm">Connection</span>
               <Badge variant="success">{liveStatus}</Badge>
             </div>
             {stats?.activeRound && (
-              <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5 sm:px-4 sm:py-3">
                 <span className="text-sm">Active round</span>
-                <span className="font-medium">
+                <span className="text-right text-sm font-medium">
                   R{stats.activeRound.number} – {stats.activeRound.name || 'Unnamed'}
                 </span>
               </div>
             )}
-            <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5 sm:px-4 sm:py-3">
               <span className="flex items-center gap-2 text-sm">
-                <Wind className="h-4 w-4" /> Wind
+                <Wind className="h-4 w-4 shrink-0" /> Wind
               </span>
-              <span className="font-medium">
+              <span className="text-sm font-medium">
                 {stats ? `${stats.windSpeedMs} m/s @ ${stats.windDirectionDeg}°` : '—'}
               </span>
             </div>
@@ -356,20 +359,20 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common competition operations</CardDescription>
+            <CardTitle className="text-base">Quick actions</CardTitle>
+            <CardDescription>Common operations for this event</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2 sm:grid-cols-2">
-            <Button variant="outline" asChild className="justify-start">
+          <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
               <Link to={competitionPath(competitionId, 'pilots')}>Register pilots</Link>
             </Button>
-            <Button variant="outline" asChild className="justify-start">
+            <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
               <Link to={competitionPath(competitionId, 'teams')}>Manage teams</Link>
             </Button>
-            <Button variant="outline" asChild className="justify-start">
+            <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
               <Link to={competitionPath(competitionId, 'rankings')}>View rankings</Link>
             </Button>
-            <Button variant="outline" asChild className="justify-start">
+            <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
               <Link to={competitionPath(competitionId, 'reports')}>Generate reports</Link>
             </Button>
           </CardContent>

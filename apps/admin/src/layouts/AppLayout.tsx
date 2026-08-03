@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Medal,
+  Menu,
   Moon,
   Settings,
   Shield,
@@ -22,6 +23,7 @@ import {
   Building2,
   Handshake,
   Gavel,
+  X,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
 import { hasEffectivePermission, hasPermission, type Permission } from '@npha/shared';
@@ -148,7 +150,7 @@ function competitionIdFromPath(pathname: string): string | undefined {
 
 function NavSectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="px-3 pb-1.5 pt-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/45">
+    <p className="px-3 pb-1.5 pt-3 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50 first:pt-1">
       {children}
     </p>
   );
@@ -159,21 +161,24 @@ function SidebarLink({
   end,
   icon: Icon,
   children,
+  onNavigate,
 }: {
   to: string;
   end?: boolean;
   icon: typeof LayoutDashboard;
   children: ReactNode;
+  onNavigate?: () => void;
 }) {
   return (
     <NavLink
       to={to}
       end={end}
+      onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+          'flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors lg:min-h-0 lg:py-2',
           isActive
-            ? 'bg-secondary text-secondary-foreground'
+            ? 'bg-sidebar-accent text-sidebar-foreground'
             : 'text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground',
         )
       }
@@ -197,6 +202,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const queryClient = useQueryClient();
+  const [navOpen, setNavOpen] = useState(false);
   const competitionId = useMemo(() => competitionIdFromPath(pathname), [pathname]);
   const orgScope = activeOrganizationId ?? user?.organizationId ?? 'none';
 
@@ -256,12 +262,35 @@ export function AppLayout() {
 
   const activeCompetition = competitions?.find((c) => c.id === competitionId);
   const competitionBelongsToOrg =
-    !competitionId ||
-    !competitions ||
-    competitions.some((c) => c.id === competitionId);
+    !competitionId || !competitions || competitions.some((c) => c.id === competitionId);
   const inCompetition = Boolean(
     competitionId && activeCompetition && visibleCompetitionGroups.length > 0,
   );
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
+
+  // Body scroll lock while drawer open
+  useEffect(() => {
+    if (!navOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [navOpen]);
+
+  // Escape closes drawer
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNavOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navOpen]);
 
   // Leave competition routes that are not part of the active organization
   useEffect(() => {
@@ -285,10 +314,8 @@ export function AppLayout() {
   const handleOrganizationChange = async (organizationId: string) => {
     if (!organizationId || organizationId === activeOrganizationId) return;
     await selectOrganization(organizationId);
-    // Drop all cached org/competition data so UI refetches with X-Organization-Id
     await queryClient.cancelQueries();
     queryClient.clear();
-    // Leave any competition from the previous organization
     if (competitionIdFromPath(pathname)) {
       navigate('/competitions', { replace: true });
     }
@@ -300,154 +327,229 @@ export function AppLayout() {
     user?.orgRole ??
     user?.role;
 
-  return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-sidebar text-sidebar-foreground">
-        <div className="border-b border-white/10 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
-              <Target className="h-4 w-4 text-secondary-foreground" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold tracking-wide">AeroJudge</p>
-              <p className="truncate text-xs text-sidebar-foreground/65">
-                {currentOrganization?.shortName ?? 'Admin'}
-              </p>
-            </div>
+  const closeNav = () => setNavOpen(false);
+
+  const mobileTitle = inCompetition
+    ? (activeCompetition?.name ?? 'Competition')
+    : (currentOrganization?.shortName ?? 'AeroJudge');
+
+  const sidebarNav = (
+    <>
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5 lg:px-5 lg:py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent">
+            <Target className="h-4 w-4 text-sidebar-foreground" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold tracking-wide">AeroJudge</p>
+            <p className="truncate text-xs text-sidebar-foreground/65">
+              {currentOrganization?.shortName ?? 'Admin'}
+            </p>
           </div>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="shrink-0 text-sidebar-foreground hover:bg-white/10 lg:hidden"
+          onClick={closeNav}
+          aria-label="Close menu"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3 scrollbar-thin">
-          {inCompetition ? (
-            <>
-              <div className="mb-2 rounded-lg border border-white/10 bg-white/5 p-3">
-                <button
-                  type="button"
-                  onClick={() => navigate('/competitions')}
-                  className="mb-2 inline-flex items-center gap-1 text-[11px] font-medium text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
-                >
-                  <ArrowLeft className="h-3 w-3" />
-                  All competitions
-                </button>
-                <p className="truncate text-sm font-semibold leading-snug text-sidebar-foreground">
-                  {activeCompetition?.name ?? 'Competition'}
-                </p>
-                <p className="mt-0.5 truncate text-[11px] text-sidebar-foreground/55">
-                  {activeCompetition
-                    ? `${activeCompetition.code} · ${activeCompetition.status.replace(/_/g, ' ')}`
-                    : 'Loading…'}
-                </p>
-              </div>
-
-              {visibleCompetitionGroups.map((group) => (
-                <div key={group.title}>
-                  <NavSectionLabel>{group.title}</NavSectionLabel>
-                  <div className="space-y-0.5">
-                    {group.items.map(({ segment, label, icon, end }) => (
-                      <SidebarLink
-                        key={segment || 'overview'}
-                        to={competitionPath(competitionId!, segment)}
-                        end={end}
-                        icon={icon}
-                      >
-                        {label}
-                      </SidebarLink>
-                    ))}
-                  </div>
-                </div>
-              ))}
-
-              <NavSectionLabel>Workspace</NavSectionLabel>
-              <div className="space-y-0.5 opacity-80">
-                {visiblePlatformNav.map(({ to, label, icon, end }) => (
-                  <SidebarLink key={to} to={to} end={end} icon={icon}>
-                    {label}
-                  </SidebarLink>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <NavSectionLabel>Workspace</NavSectionLabel>
-              <div className="space-y-0.5">
-                {visiblePlatformNav.map(({ to, label, icon, end }) => (
-                  <SidebarLink key={to} to={to} end={end} icon={icon}>
-                    {label}
-                  </SidebarLink>
-                ))}
-              </div>
-            </>
-          )}
-        </nav>
-
-        <div className="border-t border-white/10 p-4">
-          {organizations.length > 0 && (
-            <div className="mb-3 space-y-1">
-              <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/45">
-                Organization
-              </p>
-              <select
-                className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1.5 text-xs text-sidebar-foreground"
-                aria-label="Current organization"
-                value={currentOrganization?.organizationId ?? activeOrganizationId ?? ''}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  if (id) void handleOrganizationChange(id);
+      <nav className="flex-1 space-y-0.5 overflow-y-auto overscroll-contain px-2.5 py-3 scrollbar-thin lg:px-3">
+        {inCompetition ? (
+          <>
+            <div className="mb-2 rounded-lg border border-white/10 bg-white/5 p-3">
+              <button
+                type="button"
+                onClick={() => {
+                  closeNav();
+                  navigate('/competitions');
                 }}
+                className="mb-2 inline-flex min-h-9 items-center gap-1 text-[11px] font-medium text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
               >
-                {organizations
-                  .filter((o) => o.status === 'ACTIVE')
-                  .map((o) => (
-                    <option key={o.organizationId} value={o.organizationId} className="text-foreground">
-                      {o.shortName} — {o.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          )}
-          <div className="mb-3 flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {user?.firstName} {user?.lastName}
+                <ArrowLeft className="h-3 w-3" />
+                All competitions
+              </button>
+              <p className="truncate text-sm font-semibold leading-snug text-sidebar-foreground">
+                {activeCompetition?.name ?? 'Competition'}
               </p>
-              <Badge variant="secondary" className="mt-1 text-[10px]">
-                {(roleLabel ?? 'USER').replace(/_/g, ' ')}
-              </Badge>
+              <p className="mt-0.5 truncate text-[11px] text-sidebar-foreground/55">
+                {activeCompetition
+                  ? `${activeCompetition.code} · ${activeCompetition.status.replace(/_/g, ' ')}`
+                  : 'Loading…'}
+              </p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="text-sidebar-foreground hover:bg-white/10"
+
+            {visibleCompetitionGroups.map((group) => (
+              <div key={group.title}>
+                <NavSectionLabel>{group.title}</NavSectionLabel>
+                <div className="space-y-0.5">
+                  {group.items.map(({ segment, label, icon, end }) => (
+                    <SidebarLink
+                      key={segment || 'overview'}
+                      to={competitionPath(competitionId!, segment)}
+                      end={end}
+                      icon={icon}
+                      onNavigate={closeNav}
+                    >
+                      {label}
+                    </SidebarLink>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <NavSectionLabel>Workspace</NavSectionLabel>
+            <div className="space-y-0.5 opacity-90">
+              {visiblePlatformNav.map(({ to, label, icon, end }) => (
+                <SidebarLink key={to} to={to} end={end} icon={icon} onNavigate={closeNav}>
+                  {label}
+                </SidebarLink>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <NavSectionLabel>Workspace</NavSectionLabel>
+            <div className="space-y-0.5">
+              {visiblePlatformNav.map(({ to, label, icon, end }) => (
+                <SidebarLink key={to} to={to} end={end} icon={icon} onNavigate={closeNav}>
+                  {label}
+                </SidebarLink>
+              ))}
+            </div>
+          </>
+        )}
+      </nav>
+
+      <div className="border-t border-white/10 p-3 lg:p-4">
+        {organizations.length > 0 && (
+          <div className="mb-3 space-y-1">
+            <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+              Organization
+            </p>
+            <select
+              className="w-full min-h-10 rounded-md border border-white/20 bg-sidebar px-2 py-2 text-xs text-sidebar-foreground"
+              aria-label="Current organization"
+              value={currentOrganization?.organizationId ?? activeOrganizationId ?? ''}
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id) void handleOrganizationChange(id);
+              }}
             >
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
+              {organizations
+                .filter((o) => o.status === 'ACTIVE')
+                .map((o) => (
+                  <option key={o.organizationId} value={o.organizationId} className="text-foreground">
+                    {o.shortName} — {o.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">
+              {user?.firstName} {user?.lastName}
+            </p>
+            <Badge variant="secondary" className="mt-1 max-w-full truncate text-[10px]">
+              {(roleLabel ?? 'USER').replace(/_/g, ' ')}
+            </Badge>
           </div>
           <Button
-            variant="outline"
-            size="sm"
-            className="w-full border-white/20 bg-transparent text-sidebar-foreground hover:bg-white/10"
-            onClick={() => {
-              logout();
-              navigate('/login');
-            }}
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="shrink-0 text-sidebar-foreground hover:bg-white/10"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign out
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-10 w-full border-white/20 bg-transparent text-sidebar-foreground hover:bg-white/10"
+          onClick={() => {
+            closeNav();
+            logout();
+            navigate('/login');
+          }}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign out
+        </Button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      {/* Mobile overlay */}
+      <div
+        className={cn(
+          'fixed inset-0 z-40 bg-black/50 transition-opacity lg:hidden',
+          navOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+        aria-hidden={!navOpen}
+        onClick={closeNav}
+      />
+
+      {/* Sidebar — off-canvas on mobile, fixed on desktop */}
+      <aside
+        id="admin-sidebar"
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex w-[min(18rem,88vw)] flex-col bg-sidebar text-sidebar-foreground shadow-xl transition-transform duration-200 ease-out lg:w-64 lg:shadow-none',
+          navOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+        )}
+        aria-label="Main navigation"
+      >
+        {sidebarNav}
       </aside>
 
-      <main className="ml-64 flex-1">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="min-h-screen p-6 lg:p-8"
-        >
-          <Outlet />
-        </motion.div>
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col lg:ml-64">
+        {/* Mobile top bar */}
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            onClick={() => setNavOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={navOpen}
+            aria-controls="admin-sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold leading-tight">{mobileTitle}</p>
+            {inCompetition && activeCompetition ? (
+              <p className="truncate text-xs text-muted-foreground">
+                {activeCompetition.status.replace(/_/g, ' ')}
+              </p>
+            ) : (
+              <p className="truncate text-xs text-muted-foreground">Admin</p>
+            )}
+          </div>
+        </header>
+
+        <main className="min-w-0 flex-1">
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18 }}
+            className="mx-auto min-h-[calc(100vh-3.5rem)] w-full max-w-7xl p-4 sm:p-6 lg:min-h-screen lg:p-8"
+          >
+            <Outlet />
+          </motion.div>
+        </main>
+      </div>
     </div>
   );
 }

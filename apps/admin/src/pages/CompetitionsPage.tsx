@@ -31,6 +31,7 @@ import { competitionPath } from '../hooks/useCompetitionId';
 import { useAuth } from '../lib/auth';
 import { defaultCompetitionSegment } from '../layouts/AppLayout';
 import { usePermission } from '../hooks/usePermission';
+import { PageHeader } from '../components/PageHeader';
 
 interface Competition extends Omit<CreateCompetitionInput, 'location' | 'maximumScoreCm' | 'organizationId'> {
   id: string;
@@ -275,45 +276,55 @@ export function CompetitionsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Competitions</h1>
-          <p className="text-muted-foreground">
-            Open a competition to work on it. Publish to make it visible on Display / Public Results.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canUpdate && (
-            <Button variant="outline" asChild>
-              <Link to="/competitions/archived">
-                <Archive className="mr-2 h-4 w-4" />
-                Archived
-              </Link>
-            </Button>
-          )}
-          {canCreate && (
-            <Button onClick={() => setFormOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Competition
-            </Button>
-          )}
-        </div>
-      </div>
+    <div className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Competitions"
+        description="Open a competition to work on it. Publish to show it on Display and Public Results."
+        actions={
+          <>
+            {canUpdate && (
+              <Button variant="outline" asChild className="w-full sm:w-auto">
+                <Link to="/competitions/archived">
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archived
+                </Link>
+              </Button>
+            )}
+            {canCreate && (
+              <Button className="w-full sm:w-auto" onClick={() => setFormOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                New competition
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {isLoading ? (
         <p className="text-muted-foreground">Loading…</p>
+      ) : competitions?.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <p className="text-muted-foreground">No competitions yet for this organization.</p>
+            {canCreate && (
+              <Button onClick={() => setFormOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create your first competition
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {competitions?.map((comp) => {
             const isOpen = comp.id === activeCompetitionId;
             const needsPublish = !comp.isPublished || comp.status === 'DRAFT';
             return (
               <Card key={comp.id} className={isOpen ? 'ring-2 ring-primary' : undefined}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle>{comp.name}</CardTitle>
-                    <div className="flex flex-wrap justify-end gap-1">
+                <CardHeader className="space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <CardTitle className="text-base leading-snug sm:text-lg">{comp.name}</CardTitle>
+                    <div className="flex flex-wrap gap-1">
                       <Badge variant={comp.status === 'DRAFT' ? 'outline' : 'success'}>
                         {comp.status}
                       </Badge>
@@ -329,12 +340,13 @@ export function CompetitionsPage() {
                     {comp.code} · {comp.venue}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => handleOpen(comp)}>
+                <CardContent className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Button className="w-full sm:w-auto" size="sm" onClick={() => handleOpen(comp)}>
                     Open
                   </Button>
                   {needsPublish && canPublish && (
                     <Button
+                      className="w-full sm:w-auto"
                       size="sm"
                       variant="outline"
                       disabled={publishMutation.isPending}
