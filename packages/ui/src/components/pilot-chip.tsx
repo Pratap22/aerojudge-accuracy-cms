@@ -10,6 +10,8 @@ export interface PilotChipProps extends React.HTMLAttributes<HTMLDivElement> {
   countryCode2?: string;
   /** Optional flag image URL */
   flagUrl?: string;
+  /** Pilot headshot URL */
+  photoUrl?: string | null;
   /** Highlight as current pilot */
   isActive?: boolean;
   size?: 'sm' | 'default' | 'lg';
@@ -35,12 +37,19 @@ const numberSizeClasses = {
   lg: 'h-8 w-8 text-sm',
 } as const;
 
+const photoSizeClasses = {
+  sm: 'h-5 w-5',
+  default: 'h-6 w-6',
+  lg: 'h-8 w-8',
+} as const;
+
 export function PilotChip({
   pilotNumber,
   firstName,
   lastName,
   countryCode2,
   flagUrl,
+  photoUrl,
   isActive = false,
   size = 'default',
   className,
@@ -53,26 +62,56 @@ export function PilotChip({
       className={cn(
         'inline-flex max-w-full items-center rounded-full border border-border bg-card text-card-foreground font-medium transition-colors',
         sizeClasses[size],
-        isActive && 'border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-background',
+        isActive &&
+          'border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-background',
         className,
       )}
       {...props}
     >
-      <span
-        className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground',
-          numberSizeClasses[size],
-        )}
-      >
-        {pilotNumber}
-      </span>
+      {photoUrl ? (
+        <img
+          src={photoUrl}
+          alt=""
+          className={cn(
+            'shrink-0 rounded-full object-cover object-top ring-1 ring-border',
+            photoSizeClasses[size],
+          )}
+        />
+      ) : (
+        <span
+          className={cn(
+            'inline-flex shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground',
+            numberSizeClasses[size],
+          )}
+        >
+          {pilotNumber}
+        </span>
+      )}
+
+      {photoUrl ? (
+        <span
+          className={cn(
+            'inline-flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-bold text-primary',
+            size === 'sm'
+              ? 'h-4 min-w-4 px-1 text-[9px]'
+              : size === 'lg'
+                ? 'h-6 min-w-6 px-1.5 text-xs'
+                : 'h-5 min-w-5 px-1 text-[10px]',
+          )}
+        >
+          {pilotNumber}
+        </span>
+      ) : null}
 
       <span className="min-w-0 truncate text-card-foreground">
         {firstName} {lastName}
       </span>
 
       {(flagUrl || flagEmoji) && (
-        <span className="ml-auto shrink-0" aria-label={countryCode2 ? `Country ${countryCode2}` : undefined}>
+        <span
+          className="ml-auto shrink-0"
+          aria-label={countryCode2 ? `Country ${countryCode2}` : undefined}
+        >
           {flagUrl ? (
             <img src={flagUrl} alt="" className="h-4 w-6 rounded-sm object-cover" />
           ) : (

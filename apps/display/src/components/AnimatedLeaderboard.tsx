@@ -54,12 +54,25 @@ export function AnimatedLeaderboard({
               >
                 <RankBadge rank={entry.rank} size="lg" className="shrink-0" />
                 {!entry.hideNumber && (
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sky-500 font-display text-xl text-broadcast-navy">
-                    {entry.pilotNumber}
-                  </div>
+                  entry.photoUrl ? (
+                    <img
+                      src={entry.photoUrl}
+                      alt=""
+                      className="h-12 w-12 shrink-0 rounded-full object-cover object-top ring-2 ring-sky-500/40"
+                    />
+                  ) : (
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sky-500 font-display text-xl text-broadcast-navy">
+                      {entry.pilotNumber}
+                    </div>
+                  )
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-2xl font-semibold text-white">{label}</p>
+                  <p className="truncate text-2xl font-semibold text-white">
+                    {!entry.hideNumber && entry.photoUrl ? (
+                      <span className="mr-2 font-mono text-lg text-sky-400">#{entry.pilotNumber}</span>
+                    ) : null}
+                    {label}
+                  </p>
                   {entry.countryCode2 && entry.countryCode2 !== 'XX' && (
                     <p className="text-sm uppercase tracking-wider text-sky-400/70">
                       {entry.countryCode2}

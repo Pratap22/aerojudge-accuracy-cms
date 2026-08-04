@@ -312,6 +312,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
                     pilotNumber: true,
                     firstName: true,
                     lastName: true,
+                    photoUrl: true,
                   },
                 },
               },
@@ -345,6 +346,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
                         pilotNumber: true,
                         firstName: true,
                         lastName: true,
+                        photoUrl: true,
                       },
                     },
                   },
@@ -477,6 +479,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
             pilotNumber: pilot.pilotNumber,
             firstName: pilot.firstName,
             lastName: pilot.lastName,
+            photoUrl: pilot.photoUrl,
             role: m.role,
             roundScores: pilotRoundScores,
           };
@@ -584,6 +587,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           firstName: true,
           lastName: true,
           nationality: true,
+          photoUrl: true,
           country: { select: { name: true, code: true, code2: true } },
         },
       },
@@ -786,6 +790,7 @@ export async function getLatestPublicScore(slugOrId: string) {
           firstName: true,
           lastName: true,
           nationality: true,
+          photoUrl: true,
           country: { select: { name: true, code: true, code2: true } },
         },
       },
@@ -805,6 +810,7 @@ export async function getLatestPublicScore(slugOrId: string) {
     pilotNumber: score.pilot.pilotNumber,
     firstName: score.pilot.firstName,
     lastName: score.pilot.lastName,
+    photoUrl: score.pilot.photoUrl,
     countryCode: flagCode,
     countryName: score.pilot.country?.name ?? score.pilot.nationality ?? null,
     scoreCm: score.finalScoreCm,
@@ -887,6 +893,7 @@ export async function listPublicPilots(slugOrId: string) {
       status: true,
       isWomen: true,
       isJunior: true,
+      photoUrl: true,
       country: { select: { name: true, code: true, code2: true } },
     },
   });
@@ -1165,10 +1172,50 @@ async function enrollPilotInCompetition(
     club: pilot.club,
     glider: pilot.glider,
     status: pilot.status,
+    photoUrl: pilot.photoUrl,
     country: pilot.country,
     competitionId: competition.id,
     competitionName: competition.name,
     personId: pilot.personId,
     aeroJudgeId: pilot.person?.aeroJudgeId,
+  };
+}
+
+/**
+ * Authenticated pilot (or org staff via admin API) uploads headshot after registration.
+ * Only the linked Person account for this pilot may use this public endpoint.
+ */
+export async function uploadOwnPilotPhoto(
+  slugOrId: string,
+  userId: string,
+  pilotId: string,
+  file: Express.Multer.File,
+) {
+  const competition = await getPublicCompetition(slugOrId);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { personId: true },
+  });
+  if (!user?.personId) {
+    throw AppError.forbidden('Link an AeroJudge Person profile before uploading a photo');
+  }
+
+  const pilot = await prisma.pilot.findFirst({
+    where: { id: pilotId, competitionId: competition.id },
+    select: { id: true, personId: true },
+  });
+  if (!pilot) throw AppError.notFound('Pilot not found');
+  if (pilot.personId !== user.personId) {
+    throw AppError.forbidden('You can only upload a photo for your own registration');
+  }
+
+  const { uploadPilotPhoto } = await import('./pilot.service.js');
+  const updated = await uploadPilotPhoto(competition.id, pilotId, file);
+  return {
+    id: updated.id,
+    pilotNumber: updated.pilotNumber,
+    firstName: updated.firstName,
+    lastName: updated.lastName,
+    photoUrl: updated.photoUrl,
   };
 }

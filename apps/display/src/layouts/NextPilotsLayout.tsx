@@ -34,9 +34,20 @@ function PilotCard({
       <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-sky-400">{label}</p>
       {pilot?.pilot ? (
         <>
-          <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-sky-500 font-display text-5xl text-broadcast-navy">
-            {pilot.pilot.pilotNumber}
+          <div className="mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-sky-500 font-display text-5xl text-broadcast-navy">
+            {pilot.pilot.photoUrl ? (
+              <img
+                src={pilot.pilot.photoUrl}
+                alt=""
+                className="h-full w-full object-cover object-top"
+              />
+            ) : (
+              pilot.pilot.pilotNumber
+            )}
           </div>
+          {pilot.pilot.photoUrl ? (
+            <p className="mb-1 font-mono text-lg text-sky-400">#{pilot.pilot.pilotNumber}</p>
+          ) : null}
           <CountryFlag code={pilot.pilot.country?.code2 ?? pilot.pilot.country?.code ?? 'XX'} size="md" className="mb-3" />
           <h3 className="text-center font-display text-3xl uppercase text-white">
             {pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName)}

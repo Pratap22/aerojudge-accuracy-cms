@@ -99,11 +99,24 @@ export function PilotsPage() {
                 to={competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))}
                 className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-500/30 hover:bg-white/10"
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 font-bold text-sky-300">
-                  {pilot.pilotNumber}
-                </span>
+                {pilot.photoUrl ? (
+                  <img
+                    src={pilot.photoUrl}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded-full object-cover object-top ring-1 ring-white/15"
+                  />
+                ) : (
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 font-bold text-sky-300">
+                    {pilot.pilotNumber}
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-white">
+                    {pilot.photoUrl ? (
+                      <span className="mr-2 font-mono text-sm text-sky-400">
+                        #{pilot.pilotNumber}
+                      </span>
+                    ) : null}
                     {pilotFullName(pilot.firstName, pilot.lastName)}
                   </p>
                   <p className="text-sm text-sky-300/60">

@@ -43,6 +43,7 @@ function CategoryPage({
           firstName: p.firstName,
           lastName: p.lastName,
           role: p.role,
+          photoUrl: p.photoUrl ?? undefined,
           roundScores: (p.roundScores ?? []).map((rs) => ({
             round: rs.round,
             scoreCm: rs.scoreCm,

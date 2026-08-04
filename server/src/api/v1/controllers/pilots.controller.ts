@@ -218,3 +218,33 @@ export const exportCsv = [
     res.status(200).send(csv);
   }),
 ];
+
+export const uploadPhoto = [
+  validateParams(pilotParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Photo file required', code: 'BAD_REQUEST' },
+      });
+      return;
+    }
+    const pilot = await pilotService.uploadPilotPhoto(
+      req.params.competitionId,
+      req.params.pilotId,
+      req.file,
+    );
+    sendSuccess(res, pilot);
+  }),
+];
+
+export const removePhoto = [
+  validateParams(pilotParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const pilot = await pilotService.removePilotPhoto(
+      req.params.competitionId,
+      req.params.pilotId,
+    );
+    sendSuccess(res, pilot);
+  }),
+];

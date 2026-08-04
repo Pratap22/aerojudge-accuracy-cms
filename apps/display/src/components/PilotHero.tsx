@@ -48,9 +48,20 @@ export function PilotHero({
         animate={{ opacity: 1, scale: 1 }}
         className="col-span-5 flex flex-col items-center justify-center rounded-2xl border border-sky-500/20 bg-gradient-to-br from-broadcast-navy-light to-broadcast-navy-mid p-8"
       >
-        <div className="mb-6 flex h-48 w-48 items-center justify-center rounded-full border-4 border-sky-500/30 bg-broadcast-navy">
-          <span className="font-display text-8xl text-sky-400">{pilot.pilot.pilotNumber}</span>
+        <div className="mb-6 flex h-48 w-48 items-center justify-center overflow-hidden rounded-full border-4 border-sky-500/30 bg-broadcast-navy">
+          {pilot.pilot.photoUrl ? (
+            <img
+              src={pilot.pilot.photoUrl}
+              alt=""
+              className="h-full w-full object-cover object-top"
+            />
+          ) : (
+            <span className="font-display text-8xl text-sky-400">{pilot.pilot.pilotNumber}</span>
+          )}
         </div>
+        {pilot.pilot.photoUrl ? (
+          <p className="mb-4 font-display text-2xl text-sky-400">#{pilot.pilot.pilotNumber}</p>
+        ) : null}
         <CountryFlag code={pilot.pilot.country?.code2 ?? pilot.pilot.country?.code ?? 'XX'} size="lg" />
       </motion.div>
 

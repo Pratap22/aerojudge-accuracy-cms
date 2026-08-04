@@ -31,6 +31,7 @@ export interface PublicPilot {
   firstName: string;
   lastName: string;
   nationality?: string | null;
+  photoUrl?: string | null;
   country?: { name: string; code: string; code2?: string } | null;
 }
 

@@ -21,6 +21,7 @@ export interface TeamLeaderboardPilot {
   firstName: string;
   lastName: string;
   role?: string;
+  photoUrl?: string | null;
   roundScores: LeaderboardRoundScore[];
 }
 
@@ -230,6 +231,7 @@ export function TeamLeaderboard({
                           pilotNumber={pilot.pilotNumber}
                           firstName={pilot.firstName}
                           lastName={pilot.lastName}
+                          photoUrl={pilot.photoUrl}
                           size={compact ? 'sm' : 'default'}
                         />
                       </TableCell>

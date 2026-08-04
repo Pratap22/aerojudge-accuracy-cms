@@ -160,6 +160,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
         totalScoreCm: row.totalScoreCm,
         roundsFlown: row.roundsFlown,
         bullseyes: row.bullseyes,
+        photoUrl: row.pilot?.photoUrl ?? undefined,
       };
     });
 }

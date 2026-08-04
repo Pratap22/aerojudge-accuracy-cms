@@ -10,7 +10,7 @@ import {
   type PersonDirectoryEntry,
   type PilotStatus,
 } from '@npha/shared';
-import { Check, Download, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
+import { Check, Download, ImagePlus, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -34,7 +34,7 @@ import {
   TableRow,
   cn,
 } from '@npha/ui';
-import { api, apiFetch } from '../lib/api';
+import { api, apiFetch, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
 interface Pilot {
@@ -50,7 +50,28 @@ interface Pilot {
   civlId?: string | null;
   countryId?: string | null;
   personId?: string | null;
+  photoUrl?: string | null;
   person?: { id: string; aeroJudgeId: string; civlId?: string | null } | null;
+}
+
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
+async function uploadPilotPhoto(competitionId: string, pilotId: string, file: File): Promise<Pilot> {
+  if (file.size > PHOTO_MAX_BYTES) {
+    throw new Error('Photo is too large. Maximum size is 2 MB.');
+  }
+  const formData = new FormData();
+  formData.append('photo', file);
+  return apiRequest<Pilot>(`/competitions/${competitionId}/pilots/${pilotId}/photo`, {
+    method: 'POST',
+    formData,
+  });
+}
+
+async function removePilotPhoto(competitionId: string, pilotId: string): Promise<Pilot> {
+  return apiRequest<Pilot>(`/competitions/${competitionId}/pilots/${pilotId}/photo`, {
+    method: 'DELETE',
+  });
 }
 
 type StatusFilter = 'ALL' | 'REGISTERED' | 'CONFIRMED' | 'REJECTED' | 'ACTIVE' | 'OTHER';
@@ -114,6 +135,11 @@ export function PilotsPage() {
   const [directoryQ, setDirectoryQ] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<PersonDirectoryEntry | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  /** When true, drop the stored photo on save (edit only). */
+  const [photoRemoved, setPhotoRemoved] = useState(false);
   const queryClient = useQueryClient();
 
   const listStatusParam =
@@ -164,19 +190,38 @@ export function PilotsPage() {
   };
 
   const saveMutation = useMutation({
-    mutationFn: (data: CreatePilotInput) =>
-      editing
-        ? api.put<Pilot>(`/competitions/${activeCompetitionId}/pilots/${editing.id}`, data)
-        : api.post<Pilot>(`/competitions/${activeCompetitionId}/pilots`, {
+    mutationFn: async (data: CreatePilotInput) => {
+      let pilot = editing
+        ? await api.put<Pilot>(`/competitions/${activeCompetitionId}/pilots/${editing.id}`, data)
+        : await api.post<Pilot>(`/competitions/${activeCompetitionId}/pilots`, {
             ...data,
             personId: selectedPerson?.id ?? data.personId,
-          }),
+          });
+
+      if (photoFile && activeCompetitionId) {
+        try {
+          pilot = await uploadPilotPhoto(activeCompetitionId, pilot.id, photoFile);
+        } catch {
+          // Keep saved pilot if photo upload fails
+        }
+      } else if (photoRemoved && editing && activeCompetitionId) {
+        try {
+          pilot = await removePilotPhoto(activeCompetitionId, pilot.id);
+        } catch {
+          // keep previous photo if remove fails
+        }
+      }
+      return pilot;
+    },
     onSuccess: () => {
       invalidatePilots();
       setFormOpen(false);
       setEditing(null);
       setSelectedPerson(null);
       setDirectoryQ('');
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      setPhotoRemoved(false);
       reset();
     },
   });
@@ -252,6 +297,9 @@ export function PilotsPage() {
     setEditing(null);
     setSelectedPerson(null);
     setDirectoryQ('');
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setPhotoRemoved(false);
     saveMutation.reset();
     reset({ gender: 'MALE', pilotNumber: (pilots?.length ?? 0) + 1, firstName: '', lastName: '' });
     setFormOpen(true);
@@ -261,9 +309,20 @@ export function PilotsPage() {
     setEditing(pilot);
     setSelectedPerson(null);
     setDirectoryQ('');
+    setPhotoFile(null);
+    setPhotoPreview(pilot.photoUrl ?? null);
+    setPhotoRemoved(false);
     saveMutation.reset();
     reset(toFormValues(pilot));
     setFormOpen(true);
+  };
+
+  const clearPhotoSelection = () => {
+    if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setPhotoRemoved(Boolean(editing?.photoUrl));
+    if (photoInputRef.current) photoInputRef.current.value = '';
   };
 
   const selectPerson = (person: PersonDirectoryEntry) => {
@@ -416,7 +475,22 @@ export function PilotsPage() {
                   <TableRow key={pilot.id}>
                     <TableCell className="font-mono font-medium">{pilot.pilotNumber}</TableCell>
                     <TableCell>
-                      {pilot.firstName} {pilot.lastName}
+                      <div className="flex items-center gap-2">
+                        {pilot.photoUrl ? (
+                          <img
+                            src={pilot.photoUrl}
+                            alt=""
+                            className="h-8 w-8 rounded-full object-cover object-top ring-1 ring-border"
+                          />
+                        ) : (
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                            {pilot.pilotNumber}
+                          </span>
+                        )}
+                        <span>
+                          {pilot.firstName} {pilot.lastName}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>{pilot.gender}</TableCell>
                     <TableCell>{pilot.nationality ?? '—'}</TableCell>
@@ -597,6 +671,68 @@ export function PilotsPage() {
             <div className="flex flex-col gap-2 sm:col-span-2">
               <Label>Club</Label>
               <Input {...register('club')} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Photo</Label>
+              <p className="text-xs text-muted-foreground">
+                Optional headshot for public rankings and venue display (max 2 MB)
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                {photoPreview ? (
+                  <img
+                    src={photoPreview}
+                    alt=""
+                    className="h-14 w-14 rounded-full object-cover object-top ring-1 ring-border"
+                  />
+                ) : (
+                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                    <ImagePlus className="h-5 w-5" />
+                  </span>
+                )}
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview);
+                    if (!file) {
+                      setPhotoFile(null);
+                      setPhotoPreview(photoRemoved ? null : editing?.photoUrl ?? null);
+                      return;
+                    }
+                    if (file.size > PHOTO_MAX_BYTES) {
+                      window.alert('Photo is too large. Maximum size is 2 MB.');
+                      return;
+                    }
+                    setPhotoRemoved(false);
+                    setPhotoFile(file);
+                    setPhotoPreview(URL.createObjectURL(file));
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => photoInputRef.current?.click()}
+                >
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                  {photoPreview ? 'Change photo' : 'Add photo'}
+                </Button>
+                {photoPreview && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={clearPhotoSelection}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Remove
+                  </Button>
+                )}
+              </div>
             </div>
             {saveMutation.isError && (
               <p className="sm:col-span-2 text-sm text-destructive">

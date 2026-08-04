@@ -60,7 +60,9 @@ export function PilotProfilePage() {
     lastName: listPilot!.lastName,
     nationality: listPilot!.nationality,
     country: listPilot!.country,
+    photoUrl: listPilot!.photoUrl,
   };
+  const photoUrl = rankingRow?.pilot?.photoUrl ?? listPilot?.photoUrl ?? null;
 
   return (
     <Layout>
@@ -89,10 +91,21 @@ export function PilotProfilePage() {
           className="mb-12"
         >
           <div className="mb-6 flex items-start gap-6">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-sky-500 font-display text-3xl text-[#050d1a]">
-              {profile.pilotNumber}
-            </span>
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt=""
+                className="h-16 w-16 rounded-full object-cover object-top ring-2 ring-sky-500/40"
+              />
+            ) : (
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-sky-500 font-display text-3xl text-[#050d1a]">
+                {profile.pilotNumber}
+              </span>
+            )}
             <div>
+              {photoUrl ? (
+                <p className="mb-1 font-mono text-sky-400">#{profile.pilotNumber}</p>
+              ) : null}
               <h1 className="font-display text-4xl font-bold text-white">
                 {pilotFullName(profile.firstName, profile.lastName)}
               </h1>

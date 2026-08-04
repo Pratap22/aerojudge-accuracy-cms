@@ -296,6 +296,63 @@ export async function rejectPilot(competitionId: string, pilotId: string) {
   return setPilotStatus(competitionId, pilotId, 'REJECTED');
 }
 
+/**
+ * Upload pilot headshot (Cloudinary). Also refreshes linked Person.photoUrl.
+ */
+export async function uploadPilotPhoto(
+  competitionId: string,
+  pilotId: string,
+  file: Express.Multer.File,
+) {
+  const pilot = await getPilot(competitionId, pilotId);
+  const { uploadImageToCloudinary } = await import('../utils/cloudinary.js');
+  const { url } = await uploadImageToCloudinary(file, {
+    folder: `pilots/${competitionId}`,
+    publicId: pilotId,
+  });
+
+  const updated = await prisma.pilot.update({
+    where: { id: pilotId },
+    data: { photoUrl: url },
+    include: {
+      country: true,
+      person: { select: { id: true, aeroJudgeId: true, civlId: true } },
+    },
+  });
+
+  if (pilot.personId) {
+    await prisma.person.update({
+      where: { id: pilot.personId },
+      data: { photoUrl: url },
+    });
+  }
+
+  return updated;
+}
+
+/** Clear pilot headshot (competition snapshot). Does not delete Cloudinary assets. */
+export async function removePilotPhoto(competitionId: string, pilotId: string) {
+  const pilot = await getPilot(competitionId, pilotId);
+  const updated = await prisma.pilot.update({
+    where: { id: pilotId },
+    data: { photoUrl: null },
+    include: {
+      country: true,
+      person: { select: { id: true, aeroJudgeId: true, civlId: true } },
+    },
+  });
+
+  // Only clear Person.photoUrl when it still matches this pilot's former headshot.
+  if (pilot.personId && pilot.photoUrl) {
+    await prisma.person.updateMany({
+      where: { id: pilot.personId, photoUrl: pilot.photoUrl },
+      data: { photoUrl: null },
+    });
+  }
+
+  return updated;
+}
+
 export async function deletePilot(
   competitionId: string,
   pilotId: string,

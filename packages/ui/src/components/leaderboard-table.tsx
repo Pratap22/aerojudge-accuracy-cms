@@ -43,6 +43,8 @@ export interface LeaderboardEntry {
   bullseyes?: number;
   /** Per-round scores for multi-column leaderboards */
   roundScores?: LeaderboardRoundScore[];
+  /** Pilot headshot for ranking tables / venue displays */
+  photoUrl?: string | null;
   /** Highlight row e.g. current pilot */
   isHighlighted?: boolean;
   /** Hide pilot-number badge (teams / countries) */
@@ -187,6 +189,7 @@ export function LeaderboardTable({
                       lastName={entry.lastName}
                       countryCode2={entry.countryCode2}
                       flagUrl={entry.flagUrl}
+                      photoUrl={entry.photoUrl}
                       size={compact ? 'sm' : 'default'}
                     />
                   )}

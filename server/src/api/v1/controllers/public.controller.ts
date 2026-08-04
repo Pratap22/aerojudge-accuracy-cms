@@ -173,6 +173,31 @@ export const registerPilot = [
   }),
 ];
 
+const pilotPhotoParams = z.object({ slug: z.string().min(1), pilotId: z.string().min(1) });
+
+export const uploadPilotPhoto = [
+  validateParams(pilotPhotoParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user?.id) {
+      throw AppError.unauthorized('Sign in to upload a pilot photo');
+    }
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Photo file required', code: 'BAD_REQUEST' },
+      });
+      return;
+    }
+    const pilot = await publicService.uploadOwnPilotPhoto(
+      req.params.slug,
+      req.user.id,
+      req.params.pilotId,
+      req.file,
+    );
+    sendSuccess(res, pilot);
+  }),
+];
+
 /** @deprecated Unauthenticated open registration — disabled; use authenticated path. */
 export const registerPilotLegacy = [
   validateParams(slugParams),

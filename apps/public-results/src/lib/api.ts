@@ -82,6 +82,7 @@ export interface PublicPilotListItem {
   status: string;
   isWomen: boolean;
   isJunior: boolean;
+  photoUrl?: string | null;
   country: { name: string; code: string; code2: string } | null;
 }
 
@@ -122,6 +123,7 @@ export interface RegisteredPilot {
   club: string | null;
   glider: string | null;
   status: string;
+  photoUrl?: string | null;
   country: { name: string; code: string; code2: string } | null;
   competitionId: string;
   competitionName: string;
@@ -135,5 +137,23 @@ export function registerPilot(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+}
+
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
+export async function uploadPilotPhoto(
+  idOrSlug: string,
+  pilotId: string,
+  file: File,
+): Promise<{ id: string; pilotNumber: number; photoUrl: string | null }> {
+  if (file.size > PHOTO_MAX_BYTES) {
+    throw new Error('Photo is too large. Maximum size is 2 MB.');
+  }
+  const formData = new FormData();
+  formData.append('photo', file);
+  return publicFetch(`/${idOrSlug}/pilots/${pilotId}/photo`, undefined, {
+    method: 'POST',
+    body: formData,
   });
 }

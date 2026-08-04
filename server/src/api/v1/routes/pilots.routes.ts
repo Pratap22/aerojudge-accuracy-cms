@@ -20,6 +20,17 @@ router.post(
 );
 router.get('/export', requirePermission('pilot:manage'), ...ctrl.exportCsv);
 router.get('/:pilotId', ...ctrl.get);
+router.post(
+  '/:pilotId/photo',
+  requirePermission('pilot:manage'),
+  singleFileUpload('photo', { maxBytes: 2 * 1024 * 1024, label: 'Pilot photo' }),
+  ...ctrl.uploadPhoto,
+);
+router.delete(
+  '/:pilotId/photo',
+  requirePermission('pilot:manage'),
+  ...ctrl.removePhoto,
+);
 router.patch('/:pilotId', requirePermission('pilot:manage'), ...ctrl.update);
 router.put('/:pilotId', requirePermission('pilot:manage'), ...ctrl.update);
 router.patch('/:pilotId/status', requirePermission('pilot:manage'), ...ctrl.updateStatus);

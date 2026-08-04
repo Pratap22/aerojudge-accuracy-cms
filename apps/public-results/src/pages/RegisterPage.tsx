@@ -13,6 +13,7 @@ import {
   competitionPath,
   fetchCountries,
   registerPilot,
+  uploadPilotPhoto,
 } from '../lib/api';
 import { useCompetition, useSlug } from '../hooks/useCompetition';
 import { isRegistrationOpen } from '../lib/competitionStatus';
@@ -49,6 +50,8 @@ const competitionFieldsEmpty: CompetitionRegistrationForm = {
   gender: 'MALE',
 };
 
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
 export function RegisterPage() {
   const competitionId = useSlug();
   const navigate = useNavigate();
@@ -79,13 +82,24 @@ export function RegisterPage() {
 
   const [form, setForm] = useState<CompetitionRegistrationForm>(competitionFieldsEmpty);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   const person = user?.person;
   const hasPerson = !!person;
 
   const mutation = useMutation({
-    mutationFn: (body: AuthenticatedPilotRegistrationInput) =>
-      registerPilot(competitionId, body),
+    mutationFn: async (body: AuthenticatedPilotRegistrationInput) => {
+      const pilot = await registerPilot(competitionId, body);
+      if (photoFile) {
+        try {
+          await uploadPilotPhoto(competitionId, pilot.id, photoFile);
+        } catch {
+          // Registration still succeeds if photo upload fails (e.g. Cloudinary not configured).
+        }
+      }
+      return pilot;
+    },
     onSuccess: (pilot) => {
       queryClient.invalidateQueries({ queryKey: ['public-pilots', competitionId] });
       void refreshMe();
@@ -95,6 +109,21 @@ export function RegisterPage() {
     },
   });
 
+  const onPhotoChange = (file: File | null) => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    if (!file) {
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      return;
+    }
+    if (file.size > PHOTO_MAX_BYTES) {
+      setFieldError('Photo is too large. Maximum size is 2 MB.');
+      return;
+    }
+    setFieldError(null);
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
   const onAuthSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -493,6 +522,32 @@ export function RegisterPage() {
                   </p>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label className="text-sky-200">Photo (optional)</Label>
+                <p className="text-xs text-sky-400/60">
+                  Headshot for leaderboards and venue display · PNG/JPEG/WebP · max 2 MB
+                </p>
+                <div className="flex items-center gap-4">
+                  {photoPreview ? (
+                    <img
+                      src={photoPreview}
+                      alt=""
+                      className="h-16 w-16 rounded-full object-cover object-top ring-1 ring-white/20"
+                    />
+                  ) : (
+                    <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-xs text-sky-400/60">
+                      None
+                    </span>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="border-white/10 bg-white/5 text-white file:mr-3 file:rounded-md file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#050d1a]"
+                    onChange={(e) => onPhotoChange(e.target.files?.[0] ?? null)}
+                  />
+                </div>
+              </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

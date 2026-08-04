@@ -123,6 +123,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
         roundsFlown: row.roundsFlown,
         roundsTotal,
         bullseyes: row.bullseyes,
+        photoUrl: row.pilot?.photoUrl ?? undefined,
         roundScores: (row.roundScores ?? []).map((rs) => ({
           round: rs.round,
           scoreCm: rs.scoreCm,
