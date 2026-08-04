@@ -68,50 +68,50 @@ export function PilotHero({
       </motion.div>
 
       {/* Right panel — oversized type for LED / LED-wall readability */}
-      <div className="col-span-7 flex min-h-0 min-w-0 flex-col justify-center gap-5 overflow-hidden pl-1 xl:gap-6 xl:pl-2">
+      <div className="col-span-7 flex min-h-0 min-w-0 flex-col justify-center gap-4 overflow-y-auto pl-1 xl:gap-5 xl:pl-2">
         {competitionName && (
-          <p className="shrink-0 truncate text-lg font-medium uppercase tracking-[0.28em] text-sky-400/80 sm:text-xl xl:text-2xl">
+          <p className="shrink-0 truncate text-base font-medium uppercase tracking-[0.28em] text-sky-400/80 sm:text-lg xl:text-xl">
             {competitionName}
           </p>
         )}
         <motion.h1
           initial={{ y: 24, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="shrink-0 font-display text-[clamp(2.75rem,6.5vw,6.5rem)] uppercase leading-[1.05] tracking-wide text-white"
+          className="shrink-0 font-display text-[clamp(2.5rem,5.5vw,5.5rem)] uppercase leading-[1.05] tracking-wide text-white"
         >
           {name}
         </motion.h1>
-        <p className="shrink-0 text-2xl font-medium text-sky-300 sm:text-3xl xl:text-4xl">
+        <p className="shrink-0 text-xl font-medium text-sky-300 sm:text-2xl xl:text-3xl">
           {pilot.pilot.country?.name ?? pilot.pilot.nationality ?? '—'}
         </p>
 
         <div className="flex shrink-0 flex-wrap items-end gap-x-10 gap-y-4 xl:gap-x-12">
           <div className="min-w-0">
-            <p className="mb-1.5 text-base font-semibold uppercase tracking-[0.2em] text-sky-400/90 sm:text-lg xl:text-xl">
+            <p className="mb-1.5 text-sm font-semibold uppercase tracking-[0.2em] text-sky-400/90 sm:text-base xl:text-lg">
               Round
             </p>
-            <p className="font-display text-5xl leading-none text-white sm:text-6xl xl:text-7xl">{roundNumber}</p>
+            <p className="font-display text-4xl leading-none text-white sm:text-5xl xl:text-6xl">{roundNumber}</p>
           </div>
           <div className="min-w-0">
-            <p className="mb-1.5 text-base font-semibold uppercase tracking-[0.2em] text-sky-400/90 sm:text-lg xl:text-xl">
+            <p className="mb-1.5 text-sm font-semibold uppercase tracking-[0.2em] text-sky-400/90 sm:text-base xl:text-lg">
               Overall Rank
             </p>
-            <p className="font-display text-5xl leading-none text-broadcast-amber sm:text-6xl xl:text-7xl">
+            <p className="font-display text-4xl leading-none text-broadcast-amber sm:text-5xl xl:text-6xl">
               #{pilot.rank}
             </p>
           </div>
           <div className="min-w-0">
-            <p className="mb-1.5 text-base font-semibold uppercase tracking-[0.2em] text-sky-400/90 sm:text-lg xl:text-xl">
+            <p className="mb-1.5 text-sm font-semibold uppercase tracking-[0.2em] text-sky-400/90 sm:text-base xl:text-lg">
               Total
             </p>
-            <p className="font-mono text-4xl font-bold leading-none text-white sm:text-5xl xl:text-6xl">
+            <p className="font-mono text-3xl font-bold leading-none tracking-tighter text-white sm:text-4xl xl:text-5xl">
               {formatScore(pilot.totalScoreCm)}{' '}
-              <span className="text-2xl font-semibold text-sky-400 sm:text-3xl xl:text-4xl">cm</span>
+              <span className="text-xl font-semibold text-sky-400 sm:text-2xl xl:text-3xl">cm</span>
             </p>
           </div>
         </div>
 
-        <div className="min-h-0 min-w-0 shrink">
+        <div className="min-w-0 shrink-0">
           <p className="mb-3 text-base font-semibold uppercase tracking-[0.22em] text-sky-400/90 sm:text-lg xl:text-xl">
             Last Score
           </p>
@@ -123,36 +123,44 @@ export function PilotHero({
               transition={{ duration: 0.25 }}
               className={
                 bullseye && !resultLabel
-                  ? 'overflow-hidden rounded-xl border-2 border-emerald-400/50 bg-emerald-500/10 px-6 py-7 xl:px-10 xl:py-9'
-                  : 'overflow-hidden rounded-xl border border-sky-500/30 bg-broadcast-navy-light/80 px-6 py-7 xl:px-10 xl:py-9'
+                  ? 'flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-emerald-400/50 bg-emerald-500/10 px-8 py-6 sm:gap-4 sm:py-7 xl:px-12 xl:py-8'
+                  : 'flex flex-col items-center justify-center rounded-xl border border-sky-500/30 bg-broadcast-navy-light/80 px-8 py-6 sm:py-7 xl:px-12 xl:py-8'
               }
             >
               {resultLabel ? (
-                <p className="text-center font-display text-[clamp(2.5rem,6vw,5.5rem)] uppercase leading-none tracking-[0.1em] text-sky-100">
+                <p className="text-center font-display text-[clamp(2.25rem,5.5vw,4.5rem)] uppercase leading-none tracking-[0.1em] text-sky-100">
                   {resultLabel}
                 </p>
               ) : (
-                <p className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 leading-none">
+                <div className="flex items-baseline justify-center gap-x-2 sm:gap-x-3">
                   <span
                     className={
                       bullseye
-                        ? 'font-mono text-[clamp(3.5rem,9vw,7rem)] font-bold tabular-nums tracking-tight text-emerald-400'
-                        : 'font-mono text-[clamp(3.5rem,9vw,7rem)] font-bold tabular-nums tracking-tight text-white'
+                        ? 'font-mono text-[clamp(3rem,7.5vw,5.5rem)] font-bold tabular-nums leading-none tracking-tighter text-emerald-400'
+                        : 'font-mono text-[clamp(3rem,7.5vw,5.5rem)] font-bold tabular-nums leading-none tracking-tighter text-white'
                     }
                   >
                     {formatScore(liveScoreCm ?? 0)}
                   </span>
-                  <span className="text-[clamp(1.25rem,2.5vw,2.25rem)] font-semibold text-sky-300">cm</span>
-                </p>
+                  <span
+                    className={
+                      bullseye
+                        ? 'text-[clamp(1.125rem,2.2vw,1.75rem)] font-semibold leading-none text-emerald-400/90'
+                        : 'text-[clamp(1.125rem,2.2vw,1.75rem)] font-semibold leading-none text-sky-300'
+                    }
+                  >
+                    cm
+                  </span>
+                </div>
               )}
               {bullseye && !resultLabel ? (
-                <p className="mt-4 text-center text-base font-semibold uppercase tracking-[0.2em] text-emerald-400 xl:text-lg">
+                <p className="text-center text-sm font-semibold uppercase tracking-[0.28em] text-emerald-400 sm:text-base">
                   Bullseye
                 </p>
               ) : null}
             </motion.div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-dashed border-sky-500/25 bg-broadcast-navy-light/40 px-6 py-10 text-center xl:px-8 xl:py-12">
+            <div className="rounded-xl border border-dashed border-sky-500/25 bg-broadcast-navy-light/40 px-6 py-8 text-center xl:px-8 xl:py-10">
               <p className="font-display text-2xl uppercase tracking-[0.12em] text-sky-300/80 sm:text-3xl xl:text-4xl">
                 Waiting for judge…
               </p>

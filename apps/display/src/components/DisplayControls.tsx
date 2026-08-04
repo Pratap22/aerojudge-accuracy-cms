@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Maximize, Minimize, Eye, EyeOff } from 'lucide-react';
 import type { DisplayLayoutType } from '../lib/types';
 
+export type OptionalDisplayLayout = 'women' | 'teams' | 'country' | 'sponsors';
+
 interface DisplayControlsProps {
   layout: DisplayLayoutType;
   onLayoutChange: (layout: DisplayLayoutType) => void;
@@ -10,6 +12,8 @@ interface DisplayControlsProps {
   onKioskToggle: () => void;
   /** Competition partners label — Sponsors / Supporters */
   partnersLabel?: string;
+  /** When false, the matching tab is hidden (empty list). */
+  tabVisibility?: Partial<Record<OptionalDisplayLayout, boolean>>;
 }
 
 export function DisplayControls({
@@ -18,20 +22,31 @@ export function DisplayControls({
   kioskMode,
   onKioskToggle,
   partnersLabel = 'Sponsors',
+  tabVisibility = {},
 }: DisplayControlsProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [visible, setVisible] = useState(!kioskMode);
 
-  const layouts = [
-    { id: 'current' as const, label: 'Current' },
-    { id: 'top10' as const, label: 'Top 10' },
-    { id: 'women' as const, label: 'Women' },
-    { id: 'teams' as const, label: 'Teams' },
-    { id: 'country' as const, label: 'Country' },
-    { id: 'next' as const, label: 'Next' },
-    { id: 'sponsors' as const, label: partnersLabel },
-    { id: 'auto' as const, label: 'Auto' },
-  ];
+  const layouts: { id: DisplayLayoutType; label: string }[] = [
+    { id: 'current', label: 'Current' },
+    { id: 'top10', label: 'Top 10' },
+    { id: 'women', label: 'Women' },
+    { id: 'teams', label: 'Teams' },
+    { id: 'country', label: 'Country' },
+    { id: 'next', label: 'Next' },
+    { id: 'sponsors', label: partnersLabel },
+    { id: 'auto', label: 'Auto' },
+  ].filter((item) => {
+    if (
+      item.id === 'women' ||
+      item.id === 'teams' ||
+      item.id === 'country' ||
+      item.id === 'sponsors'
+    ) {
+      return tabVisibility[item.id] !== false;
+    }
+    return true;
+  });
 
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {

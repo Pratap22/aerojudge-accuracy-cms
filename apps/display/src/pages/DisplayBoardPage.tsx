@@ -14,7 +14,7 @@ import { TopTeamsLayout } from '../layouts/TopTeamsLayout';
 import { CountryLayout } from '../layouts/CountryLayout';
 import { NextPilotsLayout } from '../layouts/NextPilotsLayout';
 import { SponsorsLayout } from '../layouts/SponsorsLayout';
-import { useCompetition, useLatestScore, useResults, useRoundsStatus, toLeaderboardEntries } from '../hooks/useCompetition';
+import { useCompetition, useLatestScore, useResults, useRoundsStatus, useSponsors, toLeaderboardEntries } from '../hooks/useCompetition';
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
@@ -94,6 +94,7 @@ export function DisplayBoardPage() {
   const { data: womenResults } = useResults('WOMEN');
   const { data: teamResults } = useResults('TEAM');
   const { data: countryResults } = useResults('COUNTRY');
+  const { data: sponsors = [] } = useSponsors();
   const { data: persistedLatest } = useLatestScore();
   const { data: roundsStatus, invalidate: refreshRoundsStatus } = useRoundsStatus();
 
@@ -178,14 +179,53 @@ export function DisplayBoardPage() {
   const latestScore = socketState.latestScore;
   const lastScorePilotId = latestScore?.pilotId ?? socketState.currentPilotId;
 
+  const overallEntries = useMemo(() => toLeaderboardEntries(overallResults), [overallResults]);
+  const womenEntries = useMemo(() => toLeaderboardEntries(womenResults), [womenResults]);
+  const teamEntries = useMemo(() => toLeaderboardEntries(teamResults), [teamResults]);
+  const countryEntries = useMemo(() => toLeaderboardEntries(countryResults), [countryResults]);
+
+  const tabVisibility = useMemo(
+    () => ({
+      women: womenEntries.length > 0,
+      teams: teamEntries.length > 0,
+      country: countryEntries.length > 0,
+      sponsors: sponsors.length > 0,
+    }),
+    [womenEntries.length, teamEntries.length, countryEntries.length, sponsors.length],
+  );
+
+  const isLayoutAvailable = useCallback(
+    (layoutId: DisplayLayoutType) => {
+      if (layoutId === 'women') return tabVisibility.women;
+      if (layoutId === 'teams') return tabVisibility.teams;
+      if (layoutId === 'country') return tabVisibility.country;
+      if (layoutId === 'sponsors') return tabVisibility.sponsors;
+      return true;
+    },
+    [tabVisibility],
+  );
+
+  const autoSequence = useMemo(
+    () => AUTO_LAYOUT_SEQUENCE.filter((id) => isLayoutAvailable(id)),
+    [isLayoutAvailable],
+  );
+
   const baseLayout = socketState.layoutOverride ?? layout;
   const inAuto = !scoreFocusActive && baseLayout === 'auto';
-  const controlsLayout: DisplayLayoutType = scoreFocusActive ? 'current' : baseLayout;
-  const activeLayout: DisplayLayoutType = scoreFocusActive
+  const activeLayout: DisplayLayoutType = (() => {
+    if (scoreFocusActive) return 'current';
+    if (baseLayout === 'auto') {
+      if (autoSequence.length === 0) return 'current';
+      return autoSequence[autoIndex % autoSequence.length] ?? 'current';
+    }
+    if (!isLayoutAvailable(baseLayout)) return 'top10';
+    return baseLayout;
+  })();
+  const controlsLayout: DisplayLayoutType = scoreFocusActive
     ? 'current'
     : baseLayout === 'auto'
-      ? AUTO_LAYOUT_SEQUENCE[autoIndex]
-      : baseLayout;
+      ? 'auto'
+      : activeLayout;
 
   useEffect(() => {
     document.body.classList.toggle('kiosk-mode', kioskMode);
@@ -193,18 +233,24 @@ export function DisplayBoardPage() {
   }, [kioskMode]);
 
   useEffect(() => {
-    if (!inAuto) return;
+    if (!inAuto || autoSequence.length === 0) return;
     const interval = getAutoInterval();
     const timer = setInterval(() => {
-      setAutoIndex((i) => (i + 1) % AUTO_LAYOUT_SEQUENCE.length);
+      setAutoIndex((i) => (i + 1) % autoSequence.length);
     }, interval * 1000);
     return () => clearInterval(timer);
-  }, [inAuto]);
+  }, [inAuto, autoSequence.length]);
 
-  const overallEntries = useMemo(() => toLeaderboardEntries(overallResults), [overallResults]);
-  const womenEntries = useMemo(() => toLeaderboardEntries(womenResults), [womenResults]);
-  const teamEntries = useMemo(() => toLeaderboardEntries(teamResults), [teamResults]);
-  const countryEntries = useMemo(() => toLeaderboardEntries(countryResults), [countryResults]);
+  // Leave empty optional layouts if URL/socket still points there.
+  useEffect(() => {
+    if (layout === 'auto') return;
+    if (!isLayoutAvailable(layout)) {
+      setLayout('top10');
+      const url = new URL(window.location.href);
+      url.searchParams.set('layout', 'top10');
+      window.history.replaceState({}, '', url);
+    }
+  }, [layout, isLayoutAvailable]);
 
   // Rotate individual ↔ team podium when the competition is finished.
   useEffect(() => {
@@ -445,6 +491,7 @@ export function DisplayBoardPage() {
           kioskMode={kioskMode}
           onKioskToggle={() => setKioskMode((k) => !k)}
           partnersLabel={competition.settings?.partnersLabel?.trim() || 'Sponsors'}
+          tabVisibility={tabVisibility}
         />
       )}
     </div>
