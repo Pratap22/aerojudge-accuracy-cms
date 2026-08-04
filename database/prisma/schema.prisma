@@ -83,6 +83,7 @@ model User {
   organizationInvitesSent OrganizationMember[] @relation("OrgMemberInvites")
   scoresEntered      Score[]           @relation("ScoreEnteredBy")
   scoreApprovals     ScoreApproval[]
+  roundsApproved     Round[]           @relation("RoundApprovedBy")
   auditLogs          AuditLog[]
   announcements      Announcement[]
   printJobs          PrintHistory[] @relation("PrintPrintedBy")
@@ -781,6 +782,10 @@ model Round {
   pausedAt        DateTime?
   closedAt        DateTime?
   approvedAt      DateTime?
+  /// User who approved the round (Chief Judge / Meet Director path or dual-approval final).
+  approvedById    String?
+  approvedBy      User?          @relation("RoundApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedByRole  String?
   lockedAt        DateTime?
   parentRoundId   String?
   parentRound     Round?         @relation("RoundReflights", fields: [parentRoundId], references: [id])
@@ -801,6 +806,7 @@ model Round {
   @@unique([competitionId, number, type])
   @@index([competitionId])
   @@index([status])
+  @@index([approvedById])
 }
 
 enum FlightStatus {

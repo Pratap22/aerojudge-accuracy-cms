@@ -231,12 +231,23 @@ export async function reopenRound(competitionId: string, roundId: string) {
 
   return prisma.round.update({
     where: { id: roundId },
-    data: { status: 'ACTIVE', closedAt: null, approvedAt: null, lockedAt: null },
+    data: {
+      status: 'ACTIVE',
+      closedAt: null,
+      approvedAt: null,
+      approvedById: null,
+      approvedByRole: null,
+      lockedAt: null,
+    },
   });
 }
 
 /** Official approval of a closed round — scores become APPROVED; reopen still possible until locked */
-export async function approveRound(competitionId: string, roundId: string) {
+export async function approveRound(
+  competitionId: string,
+  roundId: string,
+  approver?: { userId: string; roleLabel: string },
+) {
   const round = await getRound(competitionId, roundId);
   if (round.status === 'LOCKED') {
     throw AppError.badRequest('Round is locked — no further changes are allowed');
@@ -252,7 +263,16 @@ export async function approveRound(competitionId: string, roundId: string) {
 
   return prisma.round.update({
     where: { id: roundId },
-    data: { status: 'APPROVED', approvedAt: new Date() },
+    data: {
+      status: 'APPROVED',
+      approvedAt: new Date(),
+      ...(approver
+        ? {
+            approvedById: approver.userId,
+            approvedByRole: approver.roleLabel,
+          }
+        : {}),
+    },
   });
 }
 

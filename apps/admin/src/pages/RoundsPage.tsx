@@ -1,7 +1,18 @@
 import { Link } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pause, Play, Plus, Square, CheckCircle, Lock, RotateCcw } from 'lucide-react';
+import {
+  Pause,
+  Play,
+  Plus,
+  Square,
+  CheckCircle,
+  CheckCircle2,
+  Lock,
+  RotateCcw,
+  Download,
+  Loader2,
+} from 'lucide-react';
 import {
   Badge,
   Button,
@@ -28,9 +39,10 @@ import {
   TableHeader,
   TableRow,
 } from '@npha/ui';
-import type { RoundStatus, RoundType } from '@npha/shared';
-import { api, ApiError } from '../lib/api';
+import type { CompetitionStatus, ReportType, RoundStatus, RoundType } from '@npha/shared';
+import { api, ApiError, apiFetch } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
+import { usePermission } from '../hooks/usePermission';
 
 interface RoundApi {
   id: string;
@@ -48,6 +60,12 @@ interface CompetitionInfo {
   id: string;
   maxRounds: number;
   practiceRounds: number;
+  status: CompetitionStatus;
+  isPublished?: boolean;
+}
+
+interface TeamListItem {
+  id: string;
 }
 
 const statusColors: Record<
@@ -86,12 +104,52 @@ function normalizeRound(round: RoundApi) {
   };
 }
 
+async function downloadReportPdf(
+  competitionId: string,
+  reportType: ReportType,
+  roundId?: string,
+): Promise<void> {
+  const result = await api.post<{ print: { id: string }; filename: string }>(
+    `/competitions/${competitionId}/reports/generate`,
+    {
+      reportType,
+      format: 'A4_PORTRAIT',
+      // Round id stamps the PDF with that round’s approver when available.
+      ...(roundId ? { roundId } : {}),
+    },
+  );
+  const response = await apiFetch(
+    `/competitions/${competitionId}/reports/${result.print.id}/download`,
+  );
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: { message?: string };
+    } | null;
+    throw new Error(body?.error?.message ?? `Download failed (${response.status})`);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = result.filename || `${reportType.toLowerCase()}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function RoundsPage() {
   const competitionId = useCompetitionId();
   const queryClient = useQueryClient();
+  const canUpdateCompetition = usePermission('competition:update');
   const [createOpen, setCreateOpen] = useState(false);
   const [roundType, setRoundType] = useState<'OFFICIAL' | 'PRACTICE'>('OFFICIAL');
   const [roundName, setRoundName] = useState('');
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<{
+    roundId?: string;
+    message: string;
+  } | null>(null);
 
   const { data: competition } = useQuery({
     queryKey: ['competition', competitionId],
@@ -105,7 +163,24 @@ export function RoundsPage() {
     enabled: !!competitionId,
   });
 
+  const { data: teams } = useQuery({
+    queryKey: ['teams', competitionId],
+    queryFn: () =>
+      api.get<TeamListItem[]>(`/competitions/${competitionId}/teams`, { pageSize: 200 }),
+    enabled: !!competitionId,
+  });
+
   const rounds = useMemo(() => (roundsRaw ?? []).map(normalizeRound), [roundsRaw]);
+  const hasTeams = (teams?.length ?? 0) > 0;
+  /** Latest approved/locked official round — used for overall report approver stamp. */
+  const latestApprovedRound = useMemo(() => {
+    return (
+      [...rounds]
+        .filter((r) => r.status === 'APPROVED' || r.status === 'LOCKED')
+        .sort((a, b) => b.number - a.number)[0] ?? null
+    );
+  }, [rounds]);
+  const canDownloadStandings = latestApprovedRound != null;
   const officialRounds = useMemo(
     () => rounds.filter((r) => r.type === 'OFFICIAL'),
     [rounds],
@@ -123,6 +198,22 @@ export function RoundsPage() {
   const canOpenCreate = previousCompleted;
   const canSubmitCreate =
     previousCompleted && (roundType === 'PRACTICE' || !atMaxOfficial);
+
+  const canCloseCompetition =
+    canUpdateCompetition &&
+    !!competition?.status &&
+    !['COMPLETED', 'ARCHIVED', 'CANCELLED', 'DRAFT'].includes(competition.status);
+
+  const completeCompetitionMutation = useMutation({
+    mutationFn: () => api.post(`/competitions/${competitionId}/complete`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competition', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['competitions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['rankings', competitionId] });
+    },
+  });
 
   const actionMutation = useMutation({
     mutationFn: ({ roundId, action }: { roundId: string; action: RoundAction }) =>
@@ -215,6 +306,52 @@ export function RoundsPage() {
     }
   };
 
+  const handleRoundScoreDownload = async (round: ReturnType<typeof normalizeRound>) => {
+    if (!competitionId) return;
+    const key = `round:${round.id}`;
+    setDownloadError(null);
+    setDownloadingKey(key);
+    try {
+      await downloadReportPdf(competitionId, 'ROUND_RESULTS', round.id);
+    } catch (err) {
+      setDownloadError({
+        roundId: round.id,
+        message:
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'Download failed',
+      });
+    } finally {
+      setDownloadingKey(null);
+    }
+  };
+
+  const handleStandingsDownload = async (reportType: 'OVERALL_RESULTS' | 'TEAM_RESULTS') => {
+    if (!competitionId || !latestApprovedRound) return;
+    const key = `standings:${reportType}`;
+    setDownloadError(null);
+    setDownloadingKey(key);
+    try {
+      await downloadReportPdf(competitionId, reportType, latestApprovedRound.id);
+    } catch (err) {
+      setDownloadError({
+        message:
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'Download failed',
+      });
+    } finally {
+      setDownloadingKey(null);
+    }
+  };
+
+  const canDownloadRoundScores = (status: RoundStatus) =>
+    status === 'APPROVED' || status === 'LOCKED';
+
   if (!competitionId) {
     return (
       <p className="text-muted-foreground">
@@ -239,11 +376,64 @@ export function RoundsPage() {
             </span>
           </p>
         </div>
-        <Button disabled={!canOpenCreate} onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Round
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {canDownloadStandings && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={downloadingKey != null}
+                onClick={() => void handleStandingsDownload('OVERALL_RESULTS')}
+              >
+                {downloadingKey === 'standings:OVERALL_RESULTS' ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Overall scores
+              </Button>
+              {hasTeams && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={downloadingKey != null}
+                  onClick={() => void handleStandingsDownload('TEAM_RESULTS')}
+                >
+                  {downloadingKey === 'standings:TEAM_RESULTS' ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Team overall scores
+                </Button>
+              )}
+            </>
+          )}
+          {canCloseCompetition && (
+            <Button
+              variant="outline"
+              disabled={completeCompetitionMutation.isPending}
+              onClick={() => {
+                const ok = window.confirm(
+                  'Close this competition? Open rounds will be closed and the venue display will show the final podium (1st–3rd). This is typically used when flying stops early (e.g. weather).',
+                );
+                if (ok) completeCompetitionMutation.mutate();
+              }}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              {completeCompetitionMutation.isPending ? 'Closing…' : 'Close competition'}
+            </Button>
+          )}
+          <Button disabled={!canOpenCreate} onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Round
+          </Button>
+        </div>
       </div>
+
+      {downloadError && !downloadError.roundId && (
+        <p className="text-sm text-destructive">{downloadError.message}</p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-4">
         <Card>
@@ -393,6 +583,21 @@ export function RoundsPage() {
                           <span className="ml-1">{label}</span>
                         </Button>
                       ))}
+                      {canDownloadRoundScores(round.status) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={downloadingKey != null}
+                          onClick={() => void handleRoundScoreDownload(round)}
+                        >
+                          {downloadingKey === `round:${round.id}` ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                          <span className="ml-1">Round score</span>
+                        </Button>
+                      )}
                       {round.status === 'LOCKED' && (
                         <span className="inline-flex items-center gap-1 self-center px-1 text-xs text-muted-foreground">
                           <Lock className="h-3 w-3" />
@@ -406,6 +611,9 @@ export function RoundsPage() {
                           ? actionMutation.error.message
                           : 'Action failed'}
                       </p>
+                    )}
+                    {downloadError?.roundId === round.id && (
+                      <p className="mt-1 text-xs text-destructive">{downloadError.message}</p>
                     )}
                   </TableCell>
                 </TableRow>

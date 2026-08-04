@@ -1,5 +1,12 @@
 import type { Request, Response } from 'express';
-import { createRoundSchema, enterScoreSchema, updateRoundTypeSchema } from '@npha/shared';
+import {
+  createRoundSchema,
+  enterScoreSchema,
+  updateRoundTypeSchema,
+  SYSTEM_ORG_ROLE_DEFINITIONS,
+  mapLegacyRoleToOrgRole,
+  type OrgRole,
+} from '@npha/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
@@ -13,6 +20,15 @@ import {
   emitCurrentPilot,
 } from '../../../socket/index.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
+
+function approverRoleLabel(req: Request): string {
+  const orgRole =
+    req.user?.orgRole ?? (req.user?.role ? mapLegacyRoleToOrgRole(req.user.role) : null);
+  return (
+    (orgRole && SYSTEM_ORG_ROLE_DEFINITIONS[orgRole as OrgRole]?.name) ||
+    'Meet Director'
+  );
+}
 
 const competitionParams = z.object({ competitionId: z.string().min(1) });
 const roundParams = z.object({ competitionId: z.string().min(1), roundId: z.string().min(1) });
@@ -137,7 +153,13 @@ export const approve = [
       req.params.roundId,
       req.user?.id,
     );
-    const round = await roundService.approveRound(req.params.competitionId, req.params.roundId);
+    const round = await roundService.approveRound(
+      req.params.competitionId,
+      req.params.roundId,
+      req.user?.id
+        ? { userId: req.user.id, roleLabel: approverRoleLabel(req) }
+        : undefined,
+    );
     emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
     await scoringService.recalculateRankings(req.params.competitionId);
     sendSuccess(res, round);

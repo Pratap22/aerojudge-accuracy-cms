@@ -93,7 +93,17 @@ export async function decideApproval(
   if (pending === 0) {
     await prisma.round.update({
       where: { id: roundId },
-      data: { status: 'APPROVED', approvedAt: new Date() },
+      data: {
+        status: 'APPROVED',
+        approvedAt: new Date(),
+        approvedById: approverId,
+        approvedByRole:
+          role === 'CHIEF_JUDGE'
+            ? 'Chief Judge'
+            : role === 'COMPETITION_DIRECTOR'
+              ? 'Meet Director'
+              : String(role).replace(/_/g, ' '),
+      },
     });
     await prisma.score.updateMany({
       where: { roundId, status: 'CONFIRMED' },

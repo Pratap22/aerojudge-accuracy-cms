@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import {
   generateResultsPdf,
@@ -24,6 +24,38 @@ const RANKING_ROUND_STATUSES = [
   'LOCKED',
 ] as const;
 
+/**
+ * Delete a print PDF only if it lives under PRINT_ARCHIVE_DIR (avoids path tricks).
+ * Disk copies are ephemeral: stream to the client then purge so the archive does not grow.
+ */
+async function purgePrintArchiveFile(fileUrl: string | null | undefined): Promise<void> {
+  if (!fileUrl) return;
+  const archiveRoot = path.resolve(env.printArchiveDir);
+  const resolved = path.resolve(fileUrl);
+  if (resolved !== archiveRoot && !resolved.startsWith(archiveRoot + path.sep)) {
+    return;
+  }
+  try {
+    await unlink(resolved);
+  } catch {
+    // Missing file is fine — already cleaned or never written.
+  }
+}
+
+/** Clear DB pointer and remove on-disk PDF after the download buffer is prepared. */
+async function clearPrintFileAfterDownload(
+  printId: string,
+  fileUrl: string | null | undefined,
+): Promise<void> {
+  await purgePrintArchiveFile(fileUrl);
+  if (fileUrl) {
+    await prisma.printHistory.update({
+      where: { id: printId },
+      data: { fileUrl: null },
+    });
+  }
+}
+
 function buildApprovalLine(input: {
   firstName: string;
   lastName: string;
@@ -32,6 +64,63 @@ function buildApprovalLine(input: {
 }): string {
   const when = input.approvedAt.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
   return `Approved by ${input.firstName} ${input.lastName} · ${input.roleLabel} · ${when}`;
+}
+
+/**
+ * Score PDFs reuse the round approver (who clicked Approve on Rounds / dual-approval complete),
+ * so prints for APPROVED/LOCKED rounds carry consistent official attribution.
+ */
+async function resolveRoundApprovalLine(
+  competitionId: string,
+  roundId?: string,
+): Promise<
+  | {
+      line: string;
+      approvedById: string;
+      approvedByRole: string;
+      approvedAt: Date;
+    }
+  | undefined
+> {
+  const select = {
+    status: true,
+    approvedAt: true,
+    approvedById: true,
+    approvedByRole: true,
+    approvedBy: { select: { firstName: true, lastName: true } },
+  } as const;
+
+  const round = roundId
+    ? await prisma.round.findFirst({
+        where: { id: roundId, competitionId },
+        select,
+      })
+    : await prisma.round.findFirst({
+        where: {
+          competitionId,
+          status: { in: ['APPROVED', 'LOCKED'] },
+          type: 'OFFICIAL',
+          approvedAt: { not: null },
+        },
+        orderBy: [{ approvedAt: 'desc' }, { number: 'desc' }],
+        select,
+      });
+
+  if (!round || !['APPROVED', 'LOCKED'].includes(round.status)) return undefined;
+  if (!round.approvedAt || !round.approvedBy || !round.approvedById) return undefined;
+
+  const roleLabel = round.approvedByRole?.trim() || 'Approver';
+  return {
+    line: buildApprovalLine({
+      firstName: round.approvedBy.firstName,
+      lastName: round.approvedBy.lastName,
+      roleLabel,
+      approvedAt: round.approvedAt,
+    }),
+    approvedById: round.approvedById,
+    approvedByRole: roleLabel,
+    approvedAt: round.approvedAt,
+  };
 }
 
 function escapeHtml(value: string | number | null | undefined): string {
@@ -168,6 +257,10 @@ export async function previewReport(
   const competition = await getCompetition(competitionId);
   const format = input.format ?? 'A4_PORTRAIT';
   const reportInput = await buildReportInput(competition, input.reportType, format, input.roundId);
+  const roundApproval = await resolveRoundApprovalLine(competitionId, input.roundId);
+  if (roundApproval) {
+    reportInput.approvalLine = roundApproval.line;
+  }
   const html = reportToHtml(reportInput);
 
   const printRecord = await prisma.printHistory.create({
@@ -176,18 +269,26 @@ export async function previewReport(
       roundId: input.roundId,
       reportType: input.reportType,
       format,
-      status: 'PREVIEW',
+      status: roundApproval ? 'APPROVED' : 'PREVIEW',
       printedById: input.printedById,
-      metadataJson: { html, title: reportInput.title },
+      approvedAt: roundApproval?.approvedAt,
+      approvedById: roundApproval?.approvedById,
+      approvedByRole: roundApproval?.approvedByRole,
+      metadataJson: {
+        html,
+        title: reportInput.title,
+        ...(roundApproval ? { approvalLine: roundApproval.line } : {}),
+      },
     },
   });
 
   return {
     id: printRecord.id,
     html,
-    status: 'DRAFT' as const,
+    status: (roundApproval ? 'APPROVED' : 'DRAFT') as 'DRAFT' | 'APPROVED',
     reportType: input.reportType,
     format,
+    approvalLine: roundApproval?.line,
   };
 }
 
@@ -216,21 +317,29 @@ export async function generateReport(
 
   try {
     const reportInput = await buildReportInput(competition, input.reportType, format, input.roundId);
+    const roundApproval = await resolveRoundApprovalLine(competitionId, input.roundId);
+    if (roundApproval) {
+      reportInput.approvalLine = roundApproval.line;
+    }
     const pdf = await generateResultsPdf(reportInput);
-
-    await mkdir(env.printArchiveDir, { recursive: true });
+    // Keep PDF only in memory for the HTTP response path — do not retain on disk.
     const filename = `${competition.code}-${input.reportType}-${printRecord.id}.pdf`;
-    const filePath = path.join(env.printArchiveDir, filename);
-    await writeFile(filePath, pdf.buffer);
 
     const updated = await prisma.printHistory.update({
       where: { id: printRecord.id },
       data: {
-        status: 'ARCHIVED',
-        fileUrl: filePath,
+        status: roundApproval ? 'APPROVED' : 'ARCHIVED',
+        fileUrl: null,
         pageCount: pdf.pageCount,
         printedAt: new Date(),
-        metadataJson: { mimeType: pdf.mimeType },
+        approvedAt: roundApproval?.approvedAt,
+        approvedById: roundApproval?.approvedById,
+        approvedByRole: roundApproval?.approvedByRole,
+        metadataJson: {
+          mimeType: pdf.mimeType,
+          filename,
+          ...(roundApproval ? { approvalLine: roundApproval.line } : {}),
+        },
       },
     });
 
@@ -258,7 +367,7 @@ export async function downloadReport(competitionId: string, printId: string) {
   });
   if (!record) throw AppError.notFound('Print record not found');
 
-  const approvalLine =
+  let approvalLine =
     record.status === 'APPROVED' && record.approvedBy && record.approvedByRole && record.approvedAt
       ? buildApprovalLine({
           firstName: record.approvedBy.firstName,
@@ -268,14 +377,27 @@ export async function downloadReport(competitionId: string, printId: string) {
         })
       : undefined;
 
-  // Approved downloads always regenerate so the PDF includes the approval line
+  // Prefer the round approver when print history was not separately approved.
+  let roundApprovalMeta: Awaited<ReturnType<typeof resolveRoundApprovalLine>> | undefined;
+  if (!approvalLine) {
+    roundApprovalMeta = await resolveRoundApprovalLine(
+      competitionId,
+      record.roundId ?? undefined,
+    );
+    if (roundApprovalMeta) approvalLine = roundApprovalMeta.line;
+  }
+
+  // Prefer a cached disk file only when no approval stamp is needed (legacy archives).
+  // Always purge after load so printed PDFs do not accumulate on the server.
   if (!approvalLine && record.fileUrl) {
     try {
       const buffer = await readFile(record.fileUrl);
       const filename = path.basename(record.fileUrl);
+      await clearPrintFileAfterDownload(record.id, record.fileUrl);
       return { buffer, filename };
     } catch {
       // Fall through and regenerate
+      await purgePrintArchiveFile(record.fileUrl);
     }
   }
 
@@ -292,20 +414,31 @@ export async function downloadReport(competitionId: string, printId: string) {
   }
 
   const pdf = await generateResultsPdf(reportInput);
-  await mkdir(env.printArchiveDir, { recursive: true });
   const filename = `${competition.code}-${record.reportType}-${record.id}.pdf`;
-  const filePath = path.join(env.printArchiveDir, filename);
-  await writeFile(filePath, pdf.buffer);
 
   await prisma.printHistory.update({
     where: { id: record.id },
     data: {
-      fileUrl: filePath,
+      // Ephemeral: no long-lived fileUrl after download path
+      fileUrl: null,
       pageCount: pdf.pageCount,
       printedAt: new Date(),
-      status: record.status === 'APPROVED' ? 'APPROVED' : record.status,
+      status:
+        record.status === 'APPROVED' || roundApprovalMeta
+          ? 'APPROVED'
+          : record.status,
+      ...(roundApprovalMeta && !record.approvedById
+        ? {
+            approvedAt: roundApprovalMeta.approvedAt,
+            approvedById: roundApprovalMeta.approvedById,
+            approvedByRole: roundApprovalMeta.approvedByRole,
+          }
+        : {}),
     },
   });
+
+  // Remove any previously archived PDF for this print job
+  await purgePrintArchiveFile(record.fileUrl);
 
   return { buffer: pdf.buffer, filename };
 }
