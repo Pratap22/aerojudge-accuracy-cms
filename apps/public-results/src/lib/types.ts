@@ -48,6 +48,24 @@ export interface PublicTeam {
   country?: { name: string; code: string; code2?: string } | null;
 }
 
+export interface PublicRoundScore {
+  round: number;
+  scoreCm: number | null;
+  isBullseye?: boolean;
+  isDiscarded?: boolean;
+  isProvisional?: boolean;
+  resultType?: string;
+}
+
+export interface PublicTeamPilot {
+  pilotId: string;
+  pilotNumber: number;
+  firstName: string;
+  lastName: string;
+  role?: string;
+  roundScores: PublicRoundScore[];
+}
+
 export interface PublicRankingRow {
   id: string;
   pilotId?: string;
@@ -57,6 +75,10 @@ export interface PublicRankingRow {
   totalScoreCm: number;
   roundsFlown: number;
   bullseyes: number;
+  /** Per-round scores with discard flags (individual categories / team totals). */
+  roundScores?: PublicRoundScore[];
+  /** Team members + per-round contributions (TEAM category). */
+  pilots?: PublicTeamPilot[];
   pilot?: PublicPilot | null;
   team?: PublicTeam | null;
   country?: { name: string; code: string; code2?: string } | null;
@@ -70,6 +92,8 @@ export interface PublicResults {
   rankings: PublicRankingRow[];
   /** Official rounds that contribute to live/final standings. */
   scoringRounds?: number;
+  /** Column order for multi-round individual leaderboards. */
+  roundNumbers?: number[];
   payload: unknown;
 }
 

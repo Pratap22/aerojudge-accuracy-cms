@@ -167,7 +167,7 @@ describe('calculateIndividualRankings discard vs rounds flown', () => {
     expect(rankings[0].totalScoreCm).toBe(3 + rules.maximumScoreCm * 2);
   });
 
-  it('team rankings count all contested rounds even when worst is discarded', () => {
+  it('team rankings sum all rounds; discard rules apply only per-pilot within each round', () => {
     const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 5 };
     const roundScores = Array.from({ length: 9 }, (_, i) => ({
       teamId: 't1',
@@ -191,7 +191,8 @@ describe('calculateIndividualRankings discard vs rounds flown', () => {
       'TEAM',
     );
     expect(rankings[0].roundsScored).toBe(9);
-    expect(rankings[0].totalScoreCm).toBe(80); // discard 90, keep 8×10
+    // Worst team round is NOT dropped — 90 + 8×10
+    expect(rankings[0].totalScoreCm).toBe(170);
   });
 });
 

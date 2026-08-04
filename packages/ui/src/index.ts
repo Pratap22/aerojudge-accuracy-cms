@@ -90,6 +90,13 @@ export { PilotChip, type PilotChipProps } from './components/pilot-chip';
 export {
   LeaderboardTable,
   type LeaderboardEntry,
+  type LeaderboardRoundScore,
   type LeaderboardTableProps,
 } from './components/leaderboard-table';
+export {
+  TeamLeaderboard,
+  type TeamLeaderboardEntry,
+  type TeamLeaderboardPilot,
+  type TeamLeaderboardProps,
+} from './components/team-leaderboard';
 export { ThemeToggle, type ThemeToggleProps } from './components/theme-toggle';

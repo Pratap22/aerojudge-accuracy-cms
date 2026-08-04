@@ -198,7 +198,7 @@ export function calculateTeamRoundScore(
 export function calculateTeamRankings(
   teams: TeamInput[],
   roundScores: TeamRoundScoreResult[],
-  rules: RuleConfig,
+  _rules: RuleConfig,
   category: RankingCategory = 'OVERALL',
 ): TeamRankingResult[] {
   const filteredTeams = teams.filter((t) => {
@@ -216,28 +216,18 @@ export function calculateTeamRankings(
 
   const results: TeamRankingResult[] = filteredTeams.map((team) => {
     const scores = byTeam.get(team.teamId) ?? [];
-    /** Rounds actually contested (before discard) — matches individual `roundsFlown`. */
+    /** Every contested team round counts — no worst-round drop at team level. */
     const roundsFlown = scores.length;
-    let working = [...scores];
-
-    // Optional discard of worst team round (affects total only, not rounds flown)
-    if (
-      rules.discardWorstRounds > 0 &&
-      working.length >= rules.discardAfterRounds &&
-      working.length > rules.discardWorstRounds
-    ) {
-      working.sort((a, b) => b.totalScoreCm - a.totalScoreCm);
-      working = working.slice(rules.discardWorstRounds);
-    }
-
-    const totalScoreCm = working.reduce((s, r) => s + r.totalScoreCm, 0);
+    // Per-round, worst pilot(s) are already excluded via best-N in calculateTeamRoundScore.
+    // Individual "discard worst round" rules do not apply to team overall totals.
+    const totalScoreCm = scores.reduce((s, r) => s + r.totalScoreCm, 0);
     const audits: ScoringAuditEntry[] = [
-      audit('team-total', `Summed ${working.length} of ${roundsFlown} round(s) after discard`, {
+      audit('team-total', `Summed ${roundsFlown} team round score(s) (no round discard)`, {
         teamId: team.teamId,
         totalScoreCm,
         roundsFlown,
-        countedRounds: working.length,
-        rounds: working.map((r) => ({ roundId: r.roundId, score: r.totalScoreCm })),
+        countedRounds: roundsFlown,
+        rounds: scores.map((r) => ({ roundId: r.roundId, score: r.totalScoreCm })),
       }),
     ];
 

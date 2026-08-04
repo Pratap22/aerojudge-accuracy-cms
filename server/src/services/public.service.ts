@@ -301,6 +301,21 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
             id: true,
             name: true,
             country: { select: { name: true, code: true, code2: true } },
+            members: {
+              orderBy: { order: 'asc' },
+              select: {
+                order: true,
+                role: true,
+                pilot: {
+                  select: {
+                    id: true,
+                    pilotNumber: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -319,6 +334,21 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
                 id: true,
                 name: true,
                 country: { select: { name: true, code: true, code2: true } },
+                members: {
+                  orderBy: { order: 'asc' },
+                  select: {
+                    order: true,
+                    role: true,
+                    pilot: {
+                      select: {
+                        id: true,
+                        pilotNumber: true,
+                        firstName: true,
+                        lastName: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -326,33 +356,172 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       }
     }
 
-    const rankings = teamRankings.map((r) => ({
-      id: r.id,
-      teamId: r.teamId,
-      rank: r.rank,
-      totalScoreCm: r.totalScoreCm,
-      roundsFlown: r.roundsScored,
-      bullseyes: 0,
-      team: {
-        id: r.team.id,
-        name: r.team.name,
-        country: r.team.country
-          ? {
-              name: r.team.country.name,
-              code: r.team.country.code2 || r.team.country.code,
-            }
-          : null,
+    const scoringRoundRows = await prisma.round.findMany({
+      where: {
+        competitionId: competition.id,
+        type: 'OFFICIAL',
+        status: {
+          in: ['ACTIVE', 'PAUSED', 'CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'],
+        },
       },
-      pilot: null,
-    }));
+      orderBy: { number: 'asc' },
+      select: { id: true, number: true },
+    });
+    const roundNumbers = scoringRoundRows.map((r) => r.number);
+    const roundIds = scoringRoundRows.map((r) => r.id);
+
+    type PilotContrib = {
+      pilotId: string;
+      scoreCm: number;
+      counted: boolean;
+      reason?: string;
+      isReserve?: boolean;
+    };
+
+    const teamIds = teamRankings.map((r) => r.teamId);
+    const teamScores =
+      teamIds.length && roundIds.length
+        ? await prisma.teamScore.findMany({
+            where: { teamId: { in: teamIds }, roundId: { in: roundIds } },
+          })
+        : [];
+
+    const contribByTeamRound = new Map<string, Map<string, PilotContrib>>();
+    const teamRoundTotals = new Map<string, { roundId: string; totalScoreCm: number }[]>();
+
+    for (const ts of teamScores) {
+      const key = `${ts.teamId}:${ts.roundId}`;
+      const map = new Map<string, PilotContrib>();
+      const counted = (ts.countedPilots as PilotContrib[] | null) ?? [];
+      const discarded = (ts.discardedPilots as PilotContrib[] | null) ?? [];
+      for (const c of counted) map.set(c.pilotId, { ...c, counted: true });
+      for (const c of discarded) map.set(c.pilotId, { ...c, counted: false });
+      contribByTeamRound.set(key, map);
+
+      const list = teamRoundTotals.get(ts.teamId) ?? [];
+      list.push({ roundId: ts.roundId, totalScoreCm: ts.totalScoreCm });
+      teamRoundTotals.set(ts.teamId, list);
+    }
+
+    const pilotIds = [
+      ...new Set(
+        teamRankings.flatMap((r) => r.team.members.map((m) => m.pilot.id).filter(Boolean)),
+      ),
+    ];
+    const rawScores =
+      pilotIds.length && roundIds.length
+        ? await prisma.score.findMany({
+            where: {
+              pilotId: { in: pilotIds },
+              roundId: { in: roundIds },
+              status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+              finalScoreCm: { not: null },
+            },
+            select: {
+              pilotId: true,
+              roundId: true,
+              finalScoreCm: true,
+              isBullseye: true,
+              resultType: true,
+            },
+          })
+        : [];
+    const rawByPilotRound = new Map(
+      rawScores.map((s) => [`${s.pilotId}:${s.roundId}`, s] as const),
+    );
+
+    const rankings = teamRankings.map((r) => {
+      const totals = teamRoundTotals.get(r.teamId) ?? [];
+      const totalByRoundId = new Map(totals.map((t) => [t.roundId, t.totalScoreCm]));
+      // Sum every team round (no worst-round discards). Prefer live TeamScore sum so
+      // the public board is correct even before a full recalculate after engine changes.
+      const summedRoundTotal = totals.reduce((s, t) => s + t.totalScoreCm, 0);
+
+      const roundScores = scoringRoundRows.map((round) => {
+        const total = totalByRoundId.get(round.id);
+        return {
+          round: round.number,
+          scoreCm: total != null ? total : null,
+          // Team round scores are never struck — only pilot cells within a round can be.
+          isDiscarded: false,
+          isBullseye: false,
+          isProvisional: total == null,
+        };
+      });
+
+      const pilots = r.team.members
+        .filter((m) => m.pilot)
+        .map((m) => {
+          const pilot = m.pilot;
+          const pilotRoundScores = scoringRoundRows.map((round) => {
+            const contrib = contribByTeamRound.get(`${r.teamId}:${round.id}`)?.get(pilot.id);
+            const raw = rawByPilotRound.get(`${pilot.id}:${round.id}`);
+            const scoreCm =
+              contrib?.scoreCm ??
+              (typeof raw?.finalScoreCm === 'number' ? raw.finalScoreCm : null);
+            const counted = contrib ? contrib.counted : true;
+            const empty = scoreCm == null;
+            return {
+              round: round.number,
+              scoreCm: empty ? null : scoreCm,
+              isBullseye: Boolean(raw?.isBullseye) && counted,
+              // Strike when present but not counted toward the team round total (worst pilot).
+              isDiscarded: !empty && contrib ? !contrib.counted : false,
+              isProvisional: false,
+              resultType: raw?.resultType,
+            };
+          });
+
+          return {
+            pilotId: pilot.id,
+            pilotNumber: pilot.pilotNumber,
+            firstName: pilot.firstName,
+            lastName: pilot.lastName,
+            role: m.role,
+            roundScores: pilotRoundScores,
+          };
+        });
+
+      return {
+        id: r.id,
+        teamId: r.teamId,
+        rank: r.rank,
+        totalScoreCm: totals.length > 0 ? summedRoundTotal : r.totalScoreCm,
+        roundsFlown: r.roundsScored,
+        bullseyes: 0,
+        roundScores,
+        pilots,
+        team: {
+          id: r.team.id,
+          name: r.team.name,
+          country: r.team.country
+            ? {
+                name: r.team.country.name,
+                code: r.team.country.code2 || r.team.country.code,
+              }
+            : null,
+        },
+        pilot: null,
+      };
+    });
+
+    // Re-order ranks by corrected totals when DB still has discarded-round totals.
+    const ranked = rankings
+      .slice()
+      .sort((a, b) => {
+        if (a.totalScoreCm !== b.totalScoreCm) return a.totalScoreCm - b.totalScoreCm;
+        return a.rank - b.rank;
+      })
+      .map((row, i) => ({ ...row, rank: i + 1 }));
 
     return {
       competition,
       category,
       official: !!result?.isOfficial,
       publishedAt: result?.publishedAt,
-      rankings,
+      rankings: ranked,
       scoringRounds,
+      roundNumbers,
       payload: result?.payloadJson ?? null,
     };
   }
@@ -421,6 +590,117 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
     },
   });
 
+  // Round columns for live/final individual boards (overall, women, junior).
+  // Prefer scoring-engine payload (includes discard flags); fall back to Score rows.
+  const scoringRoundRows = await prisma.round.findMany({
+    where: {
+      competitionId: competition.id,
+      type: 'OFFICIAL',
+      status: {
+        in: ['ACTIVE', 'PAUSED', 'CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'],
+      },
+    },
+    orderBy: { number: 'asc' },
+    select: { id: true, number: true },
+  });
+  const roundNumbers = scoringRoundRows.map((r) => r.number);
+
+  type PayloadRoundScore = {
+    pilotId?: string;
+    roundId?: string;
+    roundNumber?: number;
+    finalScoreCm?: number;
+    isBullseye?: boolean;
+    isDiscarded?: boolean;
+    isProvisional?: boolean;
+    resultType?: string;
+  };
+  type PayloadRanking = {
+    pilotId?: string;
+    roundScores?: PayloadRoundScore[];
+  };
+
+  const payloadRows = Array.isArray(result?.payloadJson)
+    ? (result!.payloadJson as PayloadRanking[])
+    : [];
+  const scoresByPilotId = new Map<
+    string,
+    Array<{
+      round: number;
+      scoreCm: number | null;
+      isBullseye: boolean;
+      isDiscarded: boolean;
+      isProvisional: boolean;
+      resultType?: string;
+    }>
+  >();
+
+  for (const row of payloadRows) {
+    if (!row?.pilotId || !Array.isArray(row.roundScores)) continue;
+    scoresByPilotId.set(
+      row.pilotId,
+      row.roundScores
+        .filter((rs) => typeof rs.roundNumber === 'number')
+        .map((rs) => {
+          const provisional = Boolean(rs.isProvisional);
+          // Hide live “max fill” placeholders so unfinished rounds look empty.
+          const scoreCm =
+            provisional || typeof rs.finalScoreCm !== 'number' ? null : rs.finalScoreCm;
+          return {
+            round: rs.roundNumber as number,
+            scoreCm,
+            isBullseye: Boolean(rs.isBullseye) && !provisional,
+            isDiscarded: Boolean(rs.isDiscarded) && !provisional,
+            isProvisional: provisional,
+            resultType: rs.resultType,
+          };
+        })
+        .sort((a, b) => a.round - b.round),
+    );
+  }
+
+  // Fallback when result payload has no per-round detail (legacy recalculations).
+  if (scoresByPilotId.size === 0 && rankings.length > 0 && scoringRoundRows.length > 0) {
+    const pilotIds = rankings.map((r) => r.pilotId);
+    const scoreRows = await prisma.score.findMany({
+      where: {
+        pilotId: { in: pilotIds },
+        roundId: { in: scoringRoundRows.map((r) => r.id) },
+        status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+        finalScoreCm: { not: null },
+      },
+      select: {
+        pilotId: true,
+        roundId: true,
+        finalScoreCm: true,
+        isBullseye: true,
+        isDiscarded: true,
+        resultType: true,
+      },
+    });
+    const roundNumberById = new Map(scoringRoundRows.map((r) => [r.id, r.number]));
+    for (const s of scoreRows) {
+      const round = roundNumberById.get(s.roundId);
+      if (round == null) continue;
+      const list = scoresByPilotId.get(s.pilotId) ?? [];
+      list.push({
+        round,
+        scoreCm: s.finalScoreCm,
+        isBullseye: s.isBullseye,
+        isDiscarded: s.isDiscarded,
+        isProvisional: false,
+        resultType: s.resultType,
+      });
+      scoresByPilotId.set(s.pilotId, list);
+    }
+    for (const [pilotId, list] of scoresByPilotId) {
+      scoresByPilotId.set(
+        pilotId,
+        list.sort((a, b) => a.round - b.round),
+      );
+    }
+  }
+
   return {
     competition,
     category,
@@ -434,8 +714,10 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
             country: toPublicCountry(r.pilot.country),
           }
         : null,
+      roundScores: scoresByPilotId.get(r.pilotId) ?? [],
     })),
     scoringRounds,
+    roundNumbers,
     payload: result?.payloadJson ?? null,
   };
 }

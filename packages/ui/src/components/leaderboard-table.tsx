@@ -13,6 +13,16 @@ import {
   TableRow,
 } from './table';
 
+export interface LeaderboardRoundScore {
+  round: number;
+  scoreCm: number | null;
+  isBullseye?: boolean;
+  /** Worst-round discard — excluded from total; shown with strikethrough */
+  isDiscarded?: boolean;
+  /** Unflown live fill; muted in the grid */
+  isProvisional?: boolean;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   pilotNumber: number;
@@ -31,8 +41,8 @@ export interface LeaderboardEntry {
   /** Competition scoring rounds total for "8/9" style display */
   roundsTotal?: number;
   bullseyes?: number;
-  /** Optional round scores for expandable detail */
-  roundScores?: Array<{ round: number; scoreCm: number | null; isBullseye?: boolean }>;
+  /** Per-round scores for multi-column leaderboards */
+  roundScores?: LeaderboardRoundScore[];
   /** Highlight row e.g. current pilot */
   isHighlighted?: boolean;
   /** Hide pilot-number badge (teams / countries) */
@@ -46,6 +56,15 @@ export interface LeaderboardTableProps extends React.HTMLAttributes<HTMLDivEleme
   nameColumn?: string;
   showBullseyes?: boolean;
   showRounds?: boolean;
+  /**
+   * Show one column per round (score detail). When enabled, discarded scores
+   * are struck through like classic live leaderboards.
+   */
+  showRoundScores?: boolean;
+  /**
+   * Round numbers for column headers. Derived from entries when omitted.
+   */
+  roundNumbers?: number[];
   compact?: boolean;
   /** Highlight top N ranks with podium styling */
   highlightPodium?: boolean;
@@ -59,17 +78,46 @@ function toFlagEmoji(code2: string | undefined): string | null {
   return String.fromCodePoint(...upper.split('').map((c) => 127397 + c.charCodeAt(0)));
 }
 
+function deriveRoundNumbers(entries: LeaderboardEntry[]): number[] {
+  const set = new Set<number>();
+  for (const entry of entries) {
+    for (const rs of entry.roundScores ?? []) {
+      if (rs.round > 0) set.add(rs.round);
+    }
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+function scoreByRound(
+  entry: LeaderboardEntry,
+  round: number,
+): LeaderboardRoundScore | undefined {
+  return entry.roundScores?.find((rs) => rs.round === round);
+}
+
 export function LeaderboardTable({
   entries,
   title,
   nameColumn = 'Pilot',
   showBullseyes = true,
   showRounds = true,
+  showRoundScores = false,
+  roundNumbers: roundNumbersProp,
   compact = false,
   highlightPodium = true,
   className,
   ...props
 }: LeaderboardTableProps) {
+  const roundNumbers = React.useMemo(() => {
+    if (!showRoundScores) return [];
+    if (roundNumbersProp?.length) return [...roundNumbersProp].sort((a, b) => a - b);
+    return deriveRoundNumbers(entries);
+  }, [showRoundScores, roundNumbersProp, entries]);
+
+  const detailMode = showRoundScores && roundNumbers.length > 0;
+  // When rounds are expanded, "9/9" is redundant unless callers keep it on.
+  const showRoundsCount = showRounds && !detailMode;
+
   return (
     <div className={cn('w-full', className)} {...props}>
       {title && (
@@ -80,11 +128,22 @@ export function LeaderboardTable({
           <TableRow>
             <TableHead className={cn('w-16', compact && 'w-12')}>Rank</TableHead>
             <TableHead>{nameColumn}</TableHead>
-            {showRounds && <TableHead className="hidden text-right sm:table-cell">Rounds</TableHead>}
+            {showRoundsCount && (
+              <TableHead className="hidden text-right sm:table-cell">Rounds</TableHead>
+            )}
             {showBullseyes && (
               <TableHead className="hidden text-right md:table-cell">Bullseyes</TableHead>
             )}
-            <TableHead className="text-right">Total (cm)</TableHead>
+            <TableHead className="text-right">{detailMode ? 'Score' : 'Total (cm)'}</TableHead>
+            {detailMode &&
+              roundNumbers.map((n) => (
+                <TableHead
+                  key={n}
+                  className="min-w-[2.75rem] px-1 text-center tabular-nums"
+                >
+                  {n}.
+                </TableHead>
+              ))}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -132,7 +191,7 @@ export function LeaderboardTable({
                     />
                   )}
                 </TableCell>
-                {showRounds && (
+                {showRoundsCount && (
                   <TableCell className="hidden text-right tabular-nums sm:table-cell">
                     {roundsLabel}
                   </TableCell>
@@ -146,12 +205,52 @@ export function LeaderboardTable({
                   <span
                     className={cn(
                       'font-mono font-semibold tabular-nums',
-                      entry.totalScoreCm === 0 && 'text-[hsl(var(--score-bullseye))]',
+                      detailMode &&
+                        'inline-flex min-w-[2.75rem] items-center justify-center rounded-md bg-foreground px-2 py-0.5 text-background',
+                      entry.totalScoreCm === 0 && !detailMode && 'text-[hsl(var(--score-bullseye))]',
                     )}
                   >
                     {formatScoreCm(entry.totalScoreCm)}
                   </span>
                 </TableCell>
+                {detailMode &&
+                  roundNumbers.map((n) => {
+                    const cell = scoreByRound(entry, n);
+                    const empty = cell == null || cell.scoreCm == null;
+                    const discarded = Boolean(cell?.isDiscarded);
+                    const provisional = Boolean(cell?.isProvisional);
+                    return (
+                      <TableCell key={n} className="px-1 text-center">
+                        <span
+                          className={cn(
+                            'inline-flex min-w-[2.25rem] items-center justify-center rounded px-1 py-0.5 font-mono text-xs tabular-nums sm:text-sm',
+                            empty && 'bg-muted/40 text-muted-foreground/50',
+                            !empty &&
+                              discarded &&
+                              'text-red-500 line-through decoration-2 decoration-red-500',
+                            !empty &&
+                              provisional &&
+                              !discarded &&
+                              'text-muted-foreground/70',
+                            !empty &&
+                              cell?.isBullseye &&
+                              !discarded &&
+                              'font-semibold text-[hsl(var(--score-bullseye))]',
+                            !empty && !discarded && !provisional && !cell?.isBullseye && 'text-foreground',
+                          )}
+                          title={
+                            discarded
+                              ? 'Discarded (not counted in total)'
+                              : provisional
+                                ? 'Provisional (not yet scored)'
+                                : undefined
+                          }
+                        >
+                          {empty ? '·' : formatScoreCm(cell.scoreCm)}
+                        </span>
+                      </TableCell>
+                    );
+                  })}
               </TableRow>
             );
           })}

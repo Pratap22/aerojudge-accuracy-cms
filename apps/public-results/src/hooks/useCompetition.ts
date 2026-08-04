@@ -123,6 +123,13 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
         roundsFlown: row.roundsFlown,
         roundsTotal,
         bullseyes: row.bullseyes,
+        roundScores: (row.roundScores ?? []).map((rs) => ({
+          round: rs.round,
+          scoreCm: rs.scoreCm,
+          isBullseye: rs.isBullseye,
+          isDiscarded: rs.isDiscarded,
+          isProvisional: rs.isProvisional,
+        })),
       };
     });
 }

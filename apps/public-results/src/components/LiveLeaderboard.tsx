@@ -64,13 +64,15 @@ export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeade
         )}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm">
+      <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm">
         <LeaderboardTable
           entries={entries}
-          showBullseyes
-          showRounds
+          showRoundScores
+          roundNumbers={results?.roundNumbers}
+          showBullseyes={false}
+          showRounds={false}
           highlightPodium
-          className="[&_th]:border-white/10 [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_tr]:border-white/5 [&_td]:text-white"
+          className="min-w-max [&_th]:border-white/10 [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_tr]:border-white/5 [&_td]:text-white [&_.bg-foreground]:bg-white [&_.text-background]:text-slate-900"
         />
       </div>
 
