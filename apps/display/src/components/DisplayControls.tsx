@@ -27,7 +27,7 @@ export function DisplayControls({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [visible, setVisible] = useState(!kioskMode);
 
-  const layouts: { id: DisplayLayoutType; label: string }[] = [
+  const allLayouts: { id: DisplayLayoutType; label: string }[] = [
     { id: 'current', label: 'Current' },
     { id: 'top10', label: 'Top 10' },
     { id: 'women', label: 'Women' },
@@ -36,7 +36,9 @@ export function DisplayControls({
     { id: 'next', label: 'Next' },
     { id: 'sponsors', label: partnersLabel },
     { id: 'auto', label: 'Auto' },
-  ].filter((item) => {
+  ];
+
+  const layouts = allLayouts.filter((item) => {
     if (
       item.id === 'women' ||
       item.id === 'teams' ||
