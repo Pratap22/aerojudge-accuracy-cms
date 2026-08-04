@@ -3,8 +3,10 @@
  * Paths match docker/nginx path prefixes — do not invent apps.
  */
 
+export type AppId = 'admin' | 'judge' | 'events' | 'display';
+
 export type AeroJudgeAppLink = {
-  id: string;
+  id: AppId;
   name: string;
   shortName: string;
   description: string;
@@ -57,3 +59,12 @@ export const aeroJudgeApps: AeroJudgeAppLink[] = [
     requiresAuth: false,
   },
 ];
+
+/** Safe lookup — never returns undefined for a known AppId. */
+export function getApp(id: AppId): AeroJudgeAppLink {
+  const app = aeroJudgeApps.find((a) => a.id === id);
+  if (!app) {
+    throw new Error(`Unknown AeroJudge app: ${id}`);
+  }
+  return app;
+}

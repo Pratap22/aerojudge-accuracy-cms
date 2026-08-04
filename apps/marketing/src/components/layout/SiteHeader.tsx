@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { aeroJudgeApps } from '@/config/apps';
+import { getApp } from '@/config/apps';
 import { mailtoContact, siteConfig } from '@/config/site';
 import { easeOut } from '@/lib/motion';
 import { AeroJudgeMark } from '../ui/AeroJudgeMark';
@@ -23,7 +23,7 @@ export function SiteHeader() {
   const menuId = useId();
   const location = useLocation();
   const reduce = useReducedMotion();
-  const adminHref = aeroJudgeApps.find((a) => a.id === 'admin')!.href;
+  const adminHref = getApp('admin').href;
 
   useEffect(() => {
     setOpen(false);
@@ -43,19 +43,22 @@ export function SiteHeader() {
   }, [open]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/80 bg-background/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
       <div className="content-width flex h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-2.5 font-display text-lg font-bold text-navy">
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 text-lg font-semibold tracking-tight text-primary"
+        >
           <AeroJudgeMark className="h-8 w-8" />
           <span>{siteConfig.productName}</span>
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Primary">
           {navLinks.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-navy"
+              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
             >
               {link.label}
             </a>

@@ -53,17 +53,18 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['Outfit', 'system-ui', 'sans-serif'],
-        display: ['Syne', 'Outfit', 'system-ui', 'sans-serif'],
+        /* Match Admin / product shell (Inter via globals + shared weights) */
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
       },
       maxWidth: {
         content: '72rem',
       },
       backgroundImage: {
         'hero-sky':
-          'radial-gradient(ellipse 80% 60% at 50% -10%, hsl(199 89% 48% / 0.18), transparent 55%), linear-gradient(180deg, hsl(210 40% 98%) 0%, hsl(210 35% 96%) 45%, hsl(0 0% 100%) 100%)',
+          'radial-gradient(ellipse 80% 55% at 70% -15%, hsl(199 89% 48% / 0.22), transparent 50%), radial-gradient(ellipse 50% 40% at 10% 20%, hsl(207 100% 16% / 0.06), transparent 45%), linear-gradient(180deg, hsl(210 40% 98%) 0%, hsl(210 35% 96%) 50%, hsl(0 0% 100%) 100%)',
         'target-ring':
-          'radial-gradient(circle at center, transparent 28%, hsl(199 89% 48% / 0.06) 29%, transparent 30%, transparent 48%, hsl(207 100% 16% / 0.05) 49%, transparent 50%)',
+          'radial-gradient(circle at center, transparent 28%, hsl(199 89% 48% / 0.07) 29%, transparent 30%, transparent 48%, hsl(207 100% 16% / 0.06) 49%, transparent 50%)',
       },
     },
   },

@@ -264,14 +264,17 @@ export function OfficialsPage() {
     setDirectoryQ('');
     setValue('personId', person.id);
     setValue('name', `${person.firstName} ${person.lastName}`.trim());
-    if (!photoFile && person.photoUrl) {
-      setPhotoPreview(person.photoUrl);
+    if (!photoFile) {
+      setPhotoPreview(person.photoUrl ?? null);
     }
   };
 
   const clearSelectedPerson = () => {
     setSelectedPerson(null);
     setValue('personId', undefined);
+    if (!photoFile) {
+      setPhotoPreview(null);
+    }
   };
 
   const onPhotoSelected = (file: File | undefined) => {
@@ -479,7 +482,11 @@ export function OfficialsPage() {
                     {formPreviewUrl ? 'Change photo' : 'Upload photo'}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    PNG, JPEG, WebP, or GIF · max 5 MB · applied when you save
+                    {photoFile
+                      ? 'PNG, JPEG, WebP, or GIF · max 5 MB · applied when you save'
+                      : selectedPerson?.photoUrl && formPreviewUrl
+                        ? 'Using profile photo from returning person · upload to replace'
+                        : 'PNG, JPEG, WebP, or GIF · max 5 MB · applied when you save'}
                   </p>
                   {photoFile ? (
                     <p className="mt-1 truncate text-xs text-primary">{photoFile.name}</p>
@@ -496,7 +503,7 @@ export function OfficialsPage() {
                     setPhotoFile(null);
                     setPhotoError(null);
                     if (photoInputRef.current) photoInputRef.current.value = '';
-                    setPhotoPreview(editing?.imageUrl ?? null);
+                    setPhotoPreview(editing?.imageUrl ?? selectedPerson?.photoUrl ?? null);
                   }}
                 >
                   Clear new selection

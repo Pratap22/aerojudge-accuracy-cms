@@ -1,13 +1,13 @@
 import { ArrowRight, Mail, Rocket } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { aeroJudgeApps } from '@/config/apps';
+import { getApp } from '@/config/apps';
 import { mailtoContact, siteConfig } from '@/config/site';
 import { easeOut } from '@/lib/motion';
 import { MarketingButton } from '../ui/MarketingButton';
 
 export function CtaSection() {
   const reduce = useReducedMotion();
-  const admin = aeroJudgeApps.find((a) => a.id === 'admin')!;
+  const admin = getApp('admin');
   const contactHref = mailtoContact(
     'Contact Nepalabs — AeroJudge',
     'Hi Nepalabs,\n\nI would like to learn more about AeroJudge for our competitions.\n\n',

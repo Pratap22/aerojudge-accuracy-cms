@@ -1,19 +1,20 @@
-import { Link } from 'react-router-dom';
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'onDark' | 'onDarkOutline';
 type ButtonSize = 'md' | 'lg';
 
+/** Matches admin / product control language: primary navy, accent sky focus. */
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-navy text-white hover:bg-navy/90 shadow-sm focus-visible:outline-accent',
+    'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm focus-visible:outline-ring',
   secondary:
-    'bg-white text-navy border border-navy/15 hover:border-sky hover:text-sky shadow-sm',
-  ghost: 'bg-transparent text-navy hover:bg-navy/5',
+    'bg-card text-primary border border-border hover:border-sky/50 hover:bg-secondary shadow-sm',
+  ghost: 'bg-transparent text-primary hover:bg-secondary',
   onDark:
     'bg-sky text-navy hover:bg-sky/90 shadow-sm focus-visible:outline-white',
   onDarkOutline:
-    'bg-transparent text-white border border-white/35 hover:border-sky hover:bg-white/10 focus-visible:outline-white',
+    'bg-transparent text-white border border-white/30 hover:border-sky hover:bg-white/10 focus-visible:outline-white',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

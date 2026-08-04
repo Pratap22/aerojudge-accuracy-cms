@@ -109,6 +109,89 @@ export function personDisplayName(person: {
   return `${person.firstName} ${person.lastName}`.trim();
 }
 
+type PhotoCandidate = { personId: string; url: string; updatedAt: Date };
+
+/**
+ * Batch-resolve profile photos for people missing Person.photoUrl by reusing the
+ * newest linked pilot headshot or official image. Lazily backfills Person.photoUrl.
+ */
+export async function resolveMissingPersonPhotoUrls(
+  people: Array<{ id: string; photoUrl: string | null }>,
+): Promise<Map<string, string | null>> {
+  const resolved = new Map<string, string | null>();
+  const missingIds: string[] = [];
+
+  for (const person of people) {
+    if (person.photoUrl) {
+      resolved.set(person.id, person.photoUrl);
+    } else {
+      missingIds.push(person.id);
+      resolved.set(person.id, null);
+    }
+  }
+
+  if (missingIds.length === 0) return resolved;
+
+  const [pilots, officials] = await Promise.all([
+    prisma.pilot.findMany({
+      where: { personId: { in: missingIds }, photoUrl: { not: null } },
+      select: { personId: true, photoUrl: true, updatedAt: true },
+    }),
+    prisma.competitionOfficial.findMany({
+      where: { personId: { in: missingIds }, imageUrl: { not: null } },
+      select: { personId: true, imageUrl: true, updatedAt: true },
+    }),
+  ]);
+
+  const newestByPerson = new Map<string, PhotoCandidate>();
+  const consider = (candidate: PhotoCandidate) => {
+    const prev = newestByPerson.get(candidate.personId);
+    if (!prev || candidate.updatedAt > prev.updatedAt) {
+      newestByPerson.set(candidate.personId, candidate);
+    }
+  };
+
+  for (const row of pilots) {
+    if (row.personId && row.photoUrl) {
+      consider({ personId: row.personId, url: row.photoUrl, updatedAt: row.updatedAt });
+    }
+  }
+  for (const row of officials) {
+    if (row.personId && row.imageUrl) {
+      consider({ personId: row.personId, url: row.imageUrl, updatedAt: row.updatedAt });
+    }
+  }
+
+  const backfillIds: string[] = [];
+  for (const [personId, candidate] of newestByPerson) {
+    resolved.set(personId, candidate.url);
+    backfillIds.push(personId);
+  }
+
+  if (backfillIds.length > 0) {
+    await Promise.all(
+      backfillIds.map((personId) =>
+        prisma.person.updateMany({
+          where: { id: personId, photoUrl: null },
+          data: { photoUrl: newestByPerson.get(personId)!.url },
+        }),
+      ),
+    );
+  }
+
+  return resolved;
+}
+
+/** Prefer Person.photoUrl; otherwise reuse newest pilot/official photo (and backfill). */
+export async function resolvePersonPhotoUrl(
+  personId: string,
+  currentPhotoUrl?: string | null,
+): Promise<string | null> {
+  if (currentPhotoUrl) return currentPhotoUrl;
+  const map = await resolveMissingPersonPhotoUrls([{ id: personId, photoUrl: null }]);
+  return map.get(personId) ?? null;
+}
+
 export type CreatePersonInput = {
   firstName: string;
   lastName: string;
@@ -498,8 +581,15 @@ export async function searchPeopleDirectory(query: {
     prisma.person.count({ where }),
   ]);
 
+  const photoById = await resolveMissingPersonPhotoUrls(
+    items.map((person) => ({ id: person.id, photoUrl: person.photoUrl })),
+  );
+
   return {
-    items: items.map(toPersonDirectoryView),
+    items: items.map((person) => ({
+      ...toPersonDirectoryView(person),
+      photoUrl: photoById.get(person.id) ?? person.photoUrl,
+    })),
     total,
     page,
     pageSize,

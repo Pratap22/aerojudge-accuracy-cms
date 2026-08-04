@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { aeroJudgeApps } from '@/config/apps';
+import { aeroJudgeApps, getApp } from '@/config/apps';
 import { siteConfig } from '@/config/site';
 import { AeroJudgeMark } from '../ui/AeroJudgeMark';
 
@@ -17,15 +17,15 @@ const legalLinks = [
 ];
 
 export function SiteFooter() {
-  const admin = aeroJudgeApps.find((a) => a.id === 'admin')!;
+  const admin = getApp('admin');
 
   return (
     <footer className="border-t border-border bg-navy text-white">
       <div className="content-width section-pad !py-12 sm:!py-14">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-2.5 font-display text-lg font-bold">
-              <AeroJudgeMark className="h-8 w-8" />
+            <div className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+              <AeroJudgeMark className="h-8 w-8" variant="onDark" />
               {siteConfig.productName}
             </div>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/70">

@@ -11,8 +11,6 @@
     html {
       scroll-behavior: auto;
     }
-    /* Do not zero-out all transitions — Framer Motion owns entrance motion.
-       Only disable smooth scrolling above. */
   }
 
   body {
@@ -20,7 +18,7 @@
   }
 
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-accent;
+    @apply outline-2 outline-offset-2 outline-ring;
   }
 }
 
@@ -33,12 +31,13 @@
     @apply mx-auto w-full max-w-content;
   }
 
+  /* Product sky accent — same token as admin / results */
   .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.18em] text-sky;
+    @apply text-xs font-semibold uppercase tracking-[0.16em] text-sky;
   }
 
   .display-title {
-    @apply font-display text-3xl font-bold tracking-tight text-navy sm:text-4xl lg:text-5xl;
+    @apply font-sans text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-5xl;
   }
 }
 

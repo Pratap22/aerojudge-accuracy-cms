@@ -11,7 +11,12 @@ import {
   removeCompetitionRole,
 } from './competition-participant.service.js';
 import { getCompetition } from './competition.service.js';
-import { createPerson, getPerson, personDisplayName } from './person.service.js';
+import {
+  createPerson,
+  getPerson,
+  personDisplayName,
+  resolvePersonPhotoUrl,
+} from './person.service.js';
 
 function mapOfficial(row: {
   id: string;
@@ -109,6 +114,9 @@ export async function createOfficial(
 
   const person = await getPerson(personId);
   const displayName = (input.name?.trim() || personDisplayName(person)).trim();
+  const profilePhotoUrl =
+    input.imageUrl?.trim() ||
+    (await resolvePersonPhotoUrl(personId, person.photoUrl));
 
   // Pilot ↔ judge/official same competition policy
   const participant = await getOrCreateParticipant(competitionId, personId);
@@ -127,7 +135,7 @@ export async function createOfficial(
       role: roleLabel || competitionRoleToDisplayLabel(competitionRole),
       phone: input.phone?.trim() || person.phone || null,
       email: input.email?.trim() || person.email || null,
-      imageUrl: input.imageUrl?.trim() || person.photoUrl || null,
+      imageUrl: profilePhotoUrl,
       displayOrder: input.displayOrder ?? officialRoleRank(roleLabel) * 10,
       isPublic: input.isPublic ?? true,
     },
@@ -193,7 +201,7 @@ export async function uploadOfficialPhoto(
   officialId: string,
   file: Express.Multer.File,
 ) {
-  await getOfficial(competitionId, officialId);
+  const existing = await getOfficial(competitionId, officialId);
   const { url } = await uploadImageToCloudinary(file, {
     folder: `officials/${competitionId}`,
     publicId: officialId,
@@ -205,5 +213,14 @@ export async function uploadOfficialPhoto(
       person: { select: { id: true, aeroJudgeId: true, firstName: true, lastName: true } },
     },
   });
+
+  // Keep Person profile photo in sync (same pattern as pilot headshots).
+  if (existing.personId) {
+    await prisma.person.update({
+      where: { id: existing.personId },
+      data: { photoUrl: url },
+    });
+  }
+
   return mapOfficial(row);
 }

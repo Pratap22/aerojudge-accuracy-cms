@@ -22,11 +22,11 @@ export function AppsSection() {
             <StaggerItem key={app.id} as="li">
               <motion.a
                 href={app.href}
-                className="group flex h-full flex-col rounded-xl border border-border bg-white p-5 shadow-sm transition-colors hover:border-sky"
+                className="group flex h-full flex-col rounded-lg border border-border bg-card p-5 shadow-sm transition-colors hover:border-sky/40 hover:bg-secondary/30"
                 whileHover={reduce ? undefined : { y: -5, transition: { duration: 0.2 } }}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-display text-xl font-bold text-navy">{app.name}</h3>
+                  <h3 className="text-xl font-semibold tracking-tight text-primary">{app.name}</h3>
                   <ArrowUpRight
                     className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-sky"
                     aria-hidden

@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { aeroJudgeApps } from '@/config/apps';
+import { getApp } from '@/config/apps';
 import { mailtoContact, siteConfig } from '@/config/site';
 import { easeOut } from '@/lib/motion';
 import { Reveal, Stagger, StaggerItem } from '../motion/Reveal';
@@ -8,8 +8,8 @@ import { MarketingButton } from '../ui/MarketingButton';
 
 export function HeroSection() {
   const reduce = useReducedMotion();
-  const admin = aeroJudgeApps.find((a) => a.id === 'admin')!;
-  const results = aeroJudgeApps.find((a) => a.id === 'results')!;
+  const admin = getApp('admin');
+  const events = getApp('events');
 
   return (
     <section className="relative overflow-hidden bg-hero-sky" aria-labelledby="hero-heading">
@@ -24,7 +24,10 @@ export function HeroSection() {
       <div className="content-width relative grid items-center gap-12 section-pad lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         <Stagger onMount stagger={0.14} delay={0.08} className="min-w-0">
           <StaggerItem>
-            <p className="font-display text-4xl font-extrabold tracking-tight text-navy sm:text-5xl lg:text-6xl">
+            <p className="eyebrow">Paragliding Accuracy · FAI-aligned workflows</p>
+          </StaggerItem>
+          <StaggerItem>
+            <p className="mt-4 font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl lg:text-6xl">
               {siteConfig.productName}
             </p>
           </StaggerItem>
@@ -48,8 +51,8 @@ export function HeroSection() {
               <MarketingButton href={mailtoContact('AeroJudge demo request')} variant="secondary" size="lg">
                 Request a Demo
               </MarketingButton>
-              <MarketingButton href={results.href} variant="ghost" size="lg">
-                View Live Demo
+              <MarketingButton href={events.href} variant="ghost" size="lg">
+                Browse Events
               </MarketingButton>
             </div>
           </StaggerItem>

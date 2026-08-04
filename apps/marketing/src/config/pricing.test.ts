@@ -7,7 +7,7 @@ import { aeroJudgeApps } from './apps';
 describe('marketing config integrity', () => {
   it('exposes only real sub-apps', () => {
     const ids = aeroJudgeApps.map((a) => a.id);
-    expect(ids).toEqual(['admin', 'judge', 'results', 'display']);
+    expect(ids).toEqual(['admin', 'judge', 'events', 'display']);
   });
 
   it('does not market planned features as available', () => {
