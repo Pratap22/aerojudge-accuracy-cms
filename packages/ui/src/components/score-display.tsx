@@ -25,7 +25,7 @@ const sizeClasses = {
   default: 'text-4xl',
   lg: 'text-6xl',
   xl: 'text-8xl',
-  led: 'text-[10rem] leading-none',
+  led: 'text-[clamp(4.5rem,9vw,9rem)] leading-none',
 } as const;
 
 export function ScoreDisplay({
@@ -45,7 +45,7 @@ export function ScoreDisplay({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center rounded-xl border bg-card p-6 text-center transition-all',
+        'flex flex-col items-center justify-center overflow-hidden rounded-xl border bg-card p-6 text-center transition-all',
         bullseye && 'border-[hsl(var(--score-bullseye))] bg-[hsl(var(--score-bullseye)/0.08)] score-bullseye-glow',
         size === 'led' && 'min-h-[280px] border-2 bg-[hsl(var(--navy))] text-white dark:bg-[hsl(var(--navy))]',
         className,
@@ -86,7 +86,7 @@ export function ScoreDisplay({
           {resultLabel ?? '—'}
         </div>
       ) : (
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline justify-center gap-2 overflow-hidden leading-none">
           {bullseye && (
             <Target
               className={cn(
@@ -98,7 +98,7 @@ export function ScoreDisplay({
           )}
           <span
             className={cn(
-              'font-mono font-bold tabular-nums tracking-tight',
+              'font-mono font-bold tabular-nums tracking-tight leading-none',
               sizeClasses[size],
               bullseye && 'text-[hsl(var(--score-bullseye))]',
               size === 'led' && !bullseye && 'text-white',
@@ -109,7 +109,7 @@ export function ScoreDisplay({
           {showUnit && (
             <span
               className={cn(
-                'font-medium text-muted-foreground',
+                'font-medium text-muted-foreground leading-none',
                 size === 'led' ? 'text-4xl text-sky-300' : size === 'xl' ? 'text-3xl' : 'text-xl',
               )}
             >

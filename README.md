@@ -22,7 +22,7 @@ See also [docs/PRODUCT.md](docs/PRODUCT.md).
 - **Rankings** — Individual, team, women, junior, and country categories with tie-break rules
 - **PDF reports** — Round score sheets, start lists, final results with QR links to public results
 - **Real-time updates** — Socket.IO for displays, judge terminals, and admin dashboards
-- **Public results** — SEO-friendly slug-based leaderboard (`/results/?slug=…`)
+- **Public events** — competition directory and live standings (`/events/`)
 - **Role-based access** — 10 roles from Super Admin to Display Operator
 - **Audit trail** — Immutable log of score changes, approvals, and configuration updates
 - **Docker deployment** — Local Compose stack; GHCR + GitHub Actions deploy to EC2
@@ -126,7 +126,7 @@ npm run docker:logs
 npm run docker:down
 ```
 
-Access via **http://localhost** (Nginx serves the marketing site at `/`, plus `/admin`, `/judge`, `/display`, `/results`).
+Access via **http://localhost** (Nginx serves the marketing site at `/`, plus `/admin`, `/judge`, `/display`, `/events`).
 
 For **EC2 / production** (build in GitHub Actions, pull images on the server): see [docs/guides/DEPLOYMENT.md](docs/guides/DEPLOYMENT.md).
 

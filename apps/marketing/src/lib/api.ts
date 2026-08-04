@@ -37,7 +37,7 @@ export async function fetchPublicCompetitions(): Promise<PublicCompetitionList> 
   return json.data;
 }
 
-/** Public results URL for a competition (local port vs production path). */
+/** Public event URL for a competition (local port vs production path). */
 export function competitionResultsHref(
   competition: Pick<PublicCompetitionSummary, 'id' | 'publicSlug'>,
 ): string {
@@ -45,5 +45,5 @@ export function competitionResultsHref(
   if (import.meta.env.DEV) {
     return `http://localhost:3003/competition/${slug}`;
   }
-  return `/results/competition/${slug}`;
+  return `/events/competition/${slug}`;
 }

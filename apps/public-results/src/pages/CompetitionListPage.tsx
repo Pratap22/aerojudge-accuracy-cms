@@ -69,7 +69,7 @@ function CompetitionCard({
               {competition.status.replace(/_/g, ' ')}
             </span>
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-sky-400 opacity-0 transition group-hover:opacity-100">
-              Open results
+              Open event
               <ArrowRight className="h-4 w-4" />
             </span>
           </div>
@@ -185,11 +185,11 @@ export function CompetitionListPage() {
         >
           <p className="text-sm uppercase tracking-[0.35em] text-sky-400/80">AeroJudge</p>
           <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight text-white md:text-5xl">
-            Public results
+            Events
           </h1>
           <p className="mt-4 max-w-xl text-lg text-slate-400">
-            Live and official standings for accuracy competitions — open an event to follow the
-            leaderboard.
+            Upcoming registration, live competitions, and past accuracy events — open an event to
+            follow rankings and scores.
           </p>
           {total > 0 && (
             <p className="mt-4 text-xs uppercase tracking-[0.25em] text-slate-500">
@@ -202,7 +202,7 @@ export function CompetitionListPage() {
           <Section
             title="Active"
             competitions={active}
-            empty="No active competitions with public results enabled."
+            empty="No active competitions with public access enabled."
           />
           <Section title="Past" competitions={past} empty="No past competitions yet." />
         </div>
@@ -215,7 +215,7 @@ export function CompetitionListPage() {
         >
           <h2 className="font-display text-2xl text-white">What you can explore</h2>
           <p className="mt-2 text-slate-400">
-            Every published competition surfaces the same results experience.
+            Every published event surfaces the same competition experience.
           </p>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {HIGHLIGHTS.map(({ icon: Icon, title, body }) => (

@@ -85,7 +85,7 @@ fi
 
 echo "==> Checking path-prefixed apps..."
 failed=0
-for path in /admin/ /judge/ /display/ /results/ /; do
+for path in /admin/ /judge/ /display/ /events/ /; do
   code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${HTTP_PORT}${path}" || true)"
   if [[ "${code}" != "200" ]]; then
     echo "    FAIL ${path} → HTTP ${code}"

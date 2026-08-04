@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ClipboardList, LogOut, Play, Plus, Target } from 'lucide-react';
 import { Badge, Button, Card, CardContent } from '@npha/ui';
-import type { RoundStatus } from '@npha/shared';
+import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api, ApiError, getOrganizationId } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
@@ -21,8 +21,20 @@ interface CompetitionOption {
   id: string;
   name: string;
   code: string;
-  status?: string;
+  status?: CompetitionStatus | string;
   maxRounds?: number;
+}
+
+/** Competitions no longer available for live judge scoring. */
+const HIDDEN_COMPETITION_STATUSES = new Set<string>([
+  'COMPLETED',
+  'ARCHIVED',
+  'CANCELLED',
+]);
+
+function isJudgeVisibleCompetition(c: CompetitionOption): boolean {
+  if (!c.status) return true;
+  return !HIDDEN_COMPETITION_STATUSES.has(c.status);
 }
 
 const statusVariant: Record<
@@ -62,29 +74,47 @@ const COMPLETED_FOR_NEXT: RoundStatus[] = [
 ];
 
 export function RoundSelectPage() {
-  const { user, competitionId, setCompetitionId, logout, currentOrganization } = useAuth();
+  const {
+    user,
+    competitionId,
+    setCompetitionId,
+    logout,
+    currentOrganization,
+    organizations,
+    selectOrganization,
+  } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [switchingOrg, setSwitchingOrg] = useState(false);
 
   const orgId = currentOrganization?.organizationId ?? getOrganizationId();
+  const activeOrganizations = useMemo(
+    () => organizations.filter((o) => o.status === 'ACTIVE'),
+    [organizations],
+  );
 
-  const { data: competitions, isLoading: compsLoading, error: compsError } = useQuery({
+  const { data: competitionsRaw, isLoading: compsLoading, error: compsError } = useQuery({
     queryKey: ['competitions', orgId],
-    queryFn: () => api.get<CompetitionOption[]>('/competitions'),
+    queryFn: () => api.get<CompetitionOption[]>('/competitions', { pageSize: 200 }),
     enabled: !!orgId,
     refetchInterval: 10_000,
   });
 
-  // Ignore a stale competitionId left in localStorage from a previous/deleted competition.
+  const competitions = useMemo(
+    () => (competitionsRaw ?? []).filter(isJudgeVisibleCompetition),
+    [competitionsRaw],
+  );
+
+  // Ignore a stale competitionId left in localStorage from a previous/deleted/closed competition.
   const activeCompId =
-    (competitionId && competitions?.some((c) => c.id === competitionId)
+    (competitionId && competitions.some((c) => c.id === competitionId)
       ? competitionId
-      : undefined) ?? competitions?.[0]?.id;
-  const activeCompetition = competitions?.find((c) => c.id === activeCompId);
+      : undefined) ?? competitions[0]?.id;
+  const activeCompetition = competitions.find((c) => c.id === activeCompId);
 
   useEffect(() => {
-    if (!competitions?.length) return;
+    if (compsLoading) return;
     if (competitionId && !competitions.some((c) => c.id === competitionId)) {
       setCompetitionId(activeCompId ?? null);
       return;
@@ -92,7 +122,22 @@ export function RoundSelectPage() {
     if (!competitionId && activeCompId) {
       setCompetitionId(activeCompId);
     }
-  }, [competitions, competitionId, activeCompId, setCompetitionId]);
+  }, [competitions, competitionId, activeCompId, setCompetitionId, compsLoading]);
+
+  const handleOrganizationChange = async (organizationId: string) => {
+    if (!organizationId || organizationId === orgId) return;
+    setSwitchingOrg(true);
+    setActionError(null);
+    try {
+      await selectOrganization(organizationId);
+      await queryClient.cancelQueries();
+      queryClient.clear();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Failed to switch organization');
+    } finally {
+      setSwitchingOrg(false);
+    }
+  };
 
   const { data: competitionDetail } = useQuery({
     queryKey: ['competition', activeCompId],
@@ -195,25 +240,54 @@ export function RoundSelectPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Target className="h-6 w-6 text-sky-400" />
-          <div>
+      <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <Target className="h-6 w-6 shrink-0 text-sky-400" />
+          <div className="min-w-0">
             <p className="font-semibold">Select Round</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="truncate text-sm text-muted-foreground">
               {user?.firstName} {user?.lastName}
               {currentOrganization
-                ? ` · ${currentOrganization.shortName} · ${(currentOrganization.customRoleName ?? currentOrganization.role).replace(/_/g, ' ')}`
+                ? ` · ${(currentOrganization.customRoleName ?? currentOrganization.role).replace(/_/g, ' ')}`
                 : user?.orgRole
                   ? ` · ${user.orgRole.replace(/_/g, ' ')}`
                   : ''}
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={logout} className="text-muted-foreground hover:text-foreground">
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign out
-        </Button>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {activeOrganizations.length > 1 ? (
+            <label className="flex min-w-0 max-w-[14rem] flex-col gap-0.5 sm:max-w-xs">
+              <span className="sr-only">Organization</span>
+              <select
+                className="h-9 max-w-full truncate rounded-md border border-border bg-card px-2 text-sm text-foreground"
+                aria-label="Switch organization"
+                disabled={switchingOrg}
+                value={orgId ?? ''}
+                onChange={(e) => void handleOrganizationChange(e.target.value)}
+              >
+                {activeOrganizations.map((o) => (
+                  <option key={o.organizationId} value={o.organizationId}>
+                    {o.shortName} — {o.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : currentOrganization ? (
+            <span className="hidden max-w-[12rem] truncate text-sm text-muted-foreground sm:inline">
+              {currentOrganization.shortName}
+            </span>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={logout}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign out
+          </Button>
+        </div>
       </header>
 
       <main className="mx-auto max-w-2xl p-6">
@@ -226,7 +300,7 @@ export function RoundSelectPage() {
           </p>
         )}
 
-        {competitions && competitions.length > 0 && (
+        {competitions.length > 0 && (
           <div className="mb-6 space-y-2">
             {activeCompetition && (
               <p className="text-sm text-muted-foreground">
@@ -280,10 +354,14 @@ export function RoundSelectPage() {
             title="Organization required"
             body="Sign out and sign in again, then select your organization so competitions can load."
           />
-        ) : !competitions?.length ? (
+        ) : competitions.length === 0 ? (
           <EmptyState
             title="No competition available"
-            body="This organization has no competitions yet. Ask the Meet Director or Chief Judge to create a competition in Admin."
+            body={
+              competitionsRaw && competitionsRaw.length > 0
+                ? 'All competitions for this organization are completed or closed. Switch organization, or wait until a new competition is opened in Admin.'
+                : 'This organization has no open competitions yet. Ask the Meet Director or Chief Judge to create or open a competition in Admin.'
+            }
           />
         ) : !roundsNormalized.length ? (
           <EmptyState

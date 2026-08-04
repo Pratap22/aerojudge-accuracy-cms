@@ -242,7 +242,7 @@ flowchart LR
     Nginx -->|/admin| AdminContainer
     Nginx -->|/judge| JudgeContainer
     Nginx -->|/display| DisplayContainer
-    Nginx -->|/results| PublicResultsContainer
+    Nginx -->|/events| PublicResultsContainer
     API --> PostgreSQL
     API --> UploadVolume
 ```

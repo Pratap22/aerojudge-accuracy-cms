@@ -30,7 +30,7 @@ export const renderSeoHtml = [
   asyncHandler(async (req: Request, res: Response) => {
     const fromHeader = String(req.headers['x-original-uri'] ?? '');
     const fromQuery = typeof req.query.path === 'string' ? req.query.path : '';
-    const rawPath = fromHeader || fromQuery || '/results/';
+    const rawPath = fromHeader || fromQuery || '/events/';
     const meta = await seoService.resolveSeoMeta(rawPath);
     const html = seoService.renderSeoHtml(meta);
     res
@@ -43,7 +43,7 @@ export const renderSeoHtml = [
 
 export const seoMetaJson = [
   asyncHandler(async (req: Request, res: Response) => {
-    const path = typeof req.query.path === 'string' ? req.query.path : '/results/';
+    const path = typeof req.query.path === 'string' ? req.query.path : '/events/';
     const meta = await seoService.resolveSeoMeta(path);
     sendSuccess(res, meta);
   }),

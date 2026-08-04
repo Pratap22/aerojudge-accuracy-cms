@@ -54,7 +54,7 @@ jobs:
             dockerfile: docker/Dockerfile.web
             build_args: |
               APP_NAME=public-results
-              BASE_PATH=/results/
+              BASE_PATH=/events/
           - app: marketing
             dockerfile: docker/Dockerfile.web
             build_args: |

@@ -47,9 +47,9 @@ export function CompetitionSeo() {
 
 export function ListSeo() {
   useDocumentSeo({
-    title: 'AeroJudge · Public Competition Results',
+    title: 'AeroJudge · Events',
     description:
-      'Browse live and completed Paragliding Accuracy competitions — rankings, pilots, teams and official results.',
+      'Browse accuracy competitions — registration, live standings, pilots, teams and official results.',
     url: typeof window !== 'undefined' ? window.location.href.split('#')[0] : undefined,
     image: defaultShareImageUrl(),
   });

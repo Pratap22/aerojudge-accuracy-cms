@@ -33,7 +33,7 @@ function upsertLink(rel: string, href: string) {
 
 /**
  * Client-side document title + Open Graph tags for browser tabs and some crawlers.
- * Social previews for /results/* are primarily served by nginx+API SEO HTML for bots.
+ * Social previews for /events/* are primarily served by nginx+API SEO HTML for bots.
  */
 export function useDocumentSeo({ title, description, url, image, noIndex }: DocumentSeoProps) {
   useEffect(() => {

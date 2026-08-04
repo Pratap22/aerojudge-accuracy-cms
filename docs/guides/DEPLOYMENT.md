@@ -135,7 +135,7 @@ for app in admin judge display; do
 done
 
 docker buildx build --platform linux/amd64 -f docker/Dockerfile.web \
-  --build-arg APP_NAME=public-results --build-arg BASE_PATH=/results/ \
+  --build-arg APP_NAME=public-results --build-arg BASE_PATH=/events/ \
   -t $REGISTRY/public-results:$TAG --push .
 
 docker buildx build --platform linux/amd64 -f docker/Dockerfile.web \

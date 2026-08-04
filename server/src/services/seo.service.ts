@@ -21,16 +21,16 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** Public results base without trailing slash (may include `/results` path prefix). */
+/** Public events app base without trailing slash (may include `/events` path prefix). */
 export function publicResultsBaseUrl(): string {
   return env.PUBLIC_RESULTS_URL.replace(/\/+$/, '');
 }
 
-/** Marketing / site origin (parent of /results when path-deployed). */
+/** Marketing / site origin (parent of /events when path-deployed). */
 export function publicSiteOrigin(): string {
   try {
     const u = new URL(env.PUBLIC_RESULTS_URL);
-    // http://host/results → http://host
+    // http://host/events → http://host
     if (u.pathname && u.pathname !== '/') {
       return `${u.protocol}//${u.host}`;
     }
@@ -44,31 +44,58 @@ export function defaultOgImageUrl(): string {
   return `${publicSiteOrigin()}/og-default.svg`;
 }
 
+/** Known SPA path prefixes (current + legacy). */
+const PUBLIC_APP_PREFIXES = ['/events', '/results'] as const;
+
+function publicAppBasePath(): string {
+  try {
+    const pathname = new URL(publicResultsBaseUrl()).pathname.replace(/\/+$/, '');
+    return pathname && pathname !== '/' ? pathname : '';
+  } catch {
+    return '';
+  }
+}
+
 function absolutePublicUrl(pathname: string): string {
   const base = publicResultsBaseUrl();
-  const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
-  // Avoid double /results when path already includes it
-  if (path.startsWith('/results/') && base.endsWith('/results')) {
-    return `${base.replace(/\/results$/, '')}${path}`;
+  let path = pathname.startsWith('/') ? pathname : `/${pathname}`;
+
+  // Avoid double prefix when path already includes the app mount (or a legacy mount)
+  try {
+    const origin = new URL(base).origin;
+    const basePath = publicAppBasePath();
+    for (const prefix of PUBLIC_APP_PREFIXES) {
+      if (path === prefix || path.startsWith(`${prefix}/`)) {
+        // Rewrite legacy /results → configured base (/events)
+        if (basePath && prefix !== basePath && path.startsWith(prefix)) {
+          path = basePath + path.slice(prefix.length);
+        }
+        return `${origin}${path === '/' ? '' : path}`;
+      }
+    }
+  } catch {
+    // fall through
   }
-  if (path === '/results' && base.endsWith('/results')) {
-    return base;
-  }
+
   return `${base}${path === '/' ? '' : path}`;
 }
 
 /**
  * Normalize request path from browser or gateway.
- * Accepts `/results/competition/x/results` or `/competition/x/results`.
+ * Accepts `/events/competition/x/results`, legacy `/results/...`, or `/competition/x/results`.
  */
 export function normalizePublicPath(raw: string): string {
   let path = (raw.split('?')[0] || '/').trim() || '/';
   if (!path.startsWith('/')) path = `/${path}`;
   // strip trailing slash except root
   if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
-  // strip /results app prefix for routing logic
-  if (path === '/results') return '/';
-  if (path.startsWith('/results/')) path = path.slice('/results'.length) || '/';
+  for (const prefix of PUBLIC_APP_PREFIXES) {
+    if (path === prefix) return '/';
+    if (path.startsWith(`${prefix}/`)) {
+      path = path.slice(prefix.length) || '/';
+      break;
+    }
+  }
   return path || '/';
 }
 
@@ -373,6 +400,7 @@ export function robotsTxt(): string {
   const site = publicSiteOrigin();
   return `User-agent: *
 Allow: /
+Allow: /events/
 Allow: /results/
 Disallow: /admin/
 Disallow: /judge/

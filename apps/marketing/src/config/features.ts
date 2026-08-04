@@ -87,8 +87,8 @@ export const features: MarketingFeature[] = [
   },
   {
     id: 'public-results',
-    name: 'Public Live Results',
-    description: 'Shareable public results for spectators, pilots and officials.',
+    name: 'Public Events',
+    description: 'Shareable events for registration, live standings, pilots and archives.',
     status: 'AVAILABLE',
     category: 'results',
   },

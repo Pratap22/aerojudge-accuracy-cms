@@ -41,11 +41,11 @@ export const aeroJudgeApps: AeroJudgeAppLink[] = [
     requiresAuth: true,
   },
   {
-    id: 'results',
-    name: 'AeroJudge Live',
-    shortName: 'Live Results',
-    description: 'Public live competition results for pilots, teams and spectators.',
-    href: appHref('/results/', 3003),
+    id: 'events',
+    name: 'AeroJudge Events',
+    shortName: 'Events',
+    description: 'Browse competitions — live standings, registration, and past events.',
+    href: appHref('/events/', 3003),
     requiresAuth: false,
   },
   {

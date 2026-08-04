@@ -159,7 +159,7 @@ Services:
 - **http://localhost/admin/** → admin portal
 - **http://localhost/judge/** → scoring terminal
 - **http://localhost/display/** → venue display
-- **http://localhost/results/** → public results
+- **http://localhost/events/** → public events
 - **http://localhost/api/v1/** → API
 
 The API container runs migrations on startup. Set `RUN_SEED=true` in `docker/.env` to seed on first boot (default: `true`).
