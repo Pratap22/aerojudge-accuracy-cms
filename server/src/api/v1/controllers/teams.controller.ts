@@ -69,6 +69,8 @@ export const setMembers = [
       req.body.pilotIds,
       req.body.roles,
     );
+    const { emitRankingUpdated } = await import('../../../socket/index.js');
+    emitRankingUpdated(req.params.competitionId, 'TEAM');
     sendSuccess(res, result);
   }),
 ];

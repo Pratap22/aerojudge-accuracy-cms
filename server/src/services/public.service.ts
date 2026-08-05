@@ -330,18 +330,20 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
     }
   }
 
-  // Stale team scores: teams ranked as N×maximum (empty-roster bug) while members
-  // now have real sub-maximum scores. Force a recalculate so public boards heal.
+  // Stale team scores: empty-roster bug left totals at 1× or N× maximum while
+  // members now have real sub-maximum scores. Heal on read for public boards.
   if (category === 'TEAM') {
     const settings = await prisma.competitionSettings.findUnique({
       where: { competitionId: competition.id },
       select: { maximumScoreCm: true, teamScoringPilots: true },
     });
     const maxCm = settings?.maximumScoreCm ?? 1000;
+    const scoringPilots = settings?.teamScoringPilots ?? 3;
+    const absFillTotal = maxCm * scoringPilots;
     const staleMaxTotals = await prisma.teamScore.count({
       where: {
         team: { competitionId: competition.id },
-        totalScoreCm: maxCm,
+        OR: [{ totalScoreCm: maxCm }, { totalScoreCm: absFillTotal }],
       },
     });
     if (staleMaxTotals > 0) {

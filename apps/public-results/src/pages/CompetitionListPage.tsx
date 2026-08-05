@@ -232,7 +232,9 @@ export function CompetitionListPage() {
         </motion.section>
 
         <footer className="mt-20 border-t border-white/10 pt-8 text-center text-sm text-slate-600">
-          <p className="uppercase tracking-[0.3em] text-slate-500">AeroJudge</p>
+          <p>
+            Powered by <span className="font-medium tracking-wide text-slate-400">AeroJudge</span>
+          </p>
           <p className="mt-2">Professional competition management for air sports</p>
         </footer>
       </div>

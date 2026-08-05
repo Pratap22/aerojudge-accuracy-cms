@@ -153,9 +153,9 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
       });
     }
 
-    for (const tr of teamRoundResults) {
-      await tx.teamScore.create({
-        data: {
+    if (teamRoundResults.length) {
+      await tx.teamScore.createMany({
+        data: teamRoundResults.map((tr) => ({
           teamId: tr.teamId,
           roundId: tr.roundId,
           totalScoreCm: tr.totalScoreCm,
@@ -163,7 +163,7 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
           discardedPilots: tr.discardedPilots as object,
           auditJson: tr.audit as object,
           calculatedAt,
-        },
+        })),
       });
     }
 

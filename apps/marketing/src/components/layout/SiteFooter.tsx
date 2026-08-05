@@ -92,7 +92,7 @@ export function SiteFooter() {
 
         <div className="mt-12 flex flex-col gap-2 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © {new Date().getFullYear()} {siteConfig.companyName}. {siteConfig.productName}.
+            Powered by {siteConfig.productName} · © {new Date().getFullYear()} {siteConfig.companyName}
           </p>
           <p>Designed for FAI-style Paragliding Accuracy competition workflows.</p>
         </div>

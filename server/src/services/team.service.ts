@@ -102,6 +102,8 @@ export async function updateTeam(
 export async function deleteTeam(competitionId: string, teamId: string): Promise<void> {
   await getTeam(competitionId, teamId);
   await prisma.team.delete({ where: { id: teamId } });
+  const { recalculateRankings } = await import('./scoring.service.js');
+  await recalculateRankings(competitionId);
 }
 
 export async function setTeamMembers(
@@ -180,7 +182,14 @@ export async function setTeamMembers(
     })),
   });
 
-  return validateTeam(competitionId, teamId);
+  const validation = await validateTeam(competitionId, teamId);
+
+  // Roster changes invalidate stored team round totals — recalculate so public
+  // boards don't keep empty-roster maxima (especially after late team setup).
+  const { recalculateRankings } = await import('./scoring.service.js');
+  await recalculateRankings(competitionId);
+
+  return validation;
 }
 
 export async function validateTeam(competitionId: string, teamId: string) {
