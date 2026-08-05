@@ -50,6 +50,10 @@ export function initSocket(httpServer: HttpServer): Server {
     socket.on('leave:competition', (competitionId: string) => {
       socket.leave(SOCKET_ROOMS.competition(competitionId));
     });
+
+    socket.on('leave:display', (competitionId: string) => {
+      socket.leave(SOCKET_ROOMS.display(competitionId));
+    });
   });
 
   return io;
@@ -72,12 +76,13 @@ export function emitScoreUpdated(
     country?: string;
     countryCode?: string;
   },
+  roundNumber?: number,
 ): void {
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))
     .to(SOCKET_ROOMS.round(roundId))
     .to(SOCKET_ROOMS.display(competitionId))
-    .emit('score:updated', { competitionId, roundId, score, pilot });
+    .emit('score:updated', { competitionId, roundId, roundNumber, score, pilot });
 }
 
 export function emitRoundStatus(
@@ -96,6 +101,7 @@ export function emitRoundStatus(
 export function emitRankingUpdated(competitionId: string, category: RankingCategory): void {
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))
+    .to(SOCKET_ROOMS.display(competitionId))
     .to(SOCKET_ROOMS.public(competitionId))
     .emit('ranking:updated', { competitionId, category });
 }
@@ -151,7 +157,10 @@ export function emitResultsPublished(
 }
 
 export function emitSyncRequired(competitionId: string): void {
-  getIo().to(SOCKET_ROOMS.competition(competitionId)).emit('sync:required', { competitionId });
+  getIo()
+    .to(SOCKET_ROOMS.competition(competitionId))
+    .to(SOCKET_ROOMS.display(competitionId))
+    .emit('sync:required', { competitionId });
 }
 
 export function emitCompetitionStatus(

@@ -90,7 +90,13 @@ export async function enterScore(
     data: { status: computed.isCountable ? 'SCORED' : 'REFLIGHT' },
   });
 
-  return { score, computed, competitionId: flight.round.competitionId, roundId: flight.roundId };
+  return {
+    score,
+    computed,
+    competitionId: flight.round.competitionId,
+    roundId: flight.roundId,
+    roundNumber: flight.round.number,
+  };
 }
 
 export async function confirmScore(scoreId: string, confirmedById: string) {

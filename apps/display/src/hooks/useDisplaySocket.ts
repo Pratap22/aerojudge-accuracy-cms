@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { ComputedScore, RankingCategory } from '@npha/shared';
-import { connectDisplaySocket, disconnectSocket, onSocketEvent } from '../lib/socket';
+import { connectDisplaySocket, leaveDisplayRooms, onSocketEvent } from '../lib/socket';
 import type { DisplayLayoutType, LiveScore, WindData } from '../lib/types';
 
 interface DisplaySocketState {
@@ -40,9 +40,18 @@ export function useDisplaySocket(
   const activeRoundRef = useRef(activeRoundNumber ?? null);
   activeRoundRef.current = activeRoundNumber ?? null;
 
+  // Keep callbacks stable so score-focus re-renders do not tear down the socket.
+  const onRankingUpdateRef = useRef(onRankingUpdate);
+  const onRoundStatusRef = useRef(onRoundStatus);
+  onRankingUpdateRef.current = onRankingUpdate;
+  onRoundStatusRef.current = onRoundStatus;
+
   const seedLatestScore = useCallback((score: LiveScore | null) => {
     if (!score) return;
     setState((prev) => {
+      const liveFresh =
+        prev.lastLiveScoreAt != null && Date.now() - prev.lastLiveScoreAt < 15_000;
+
       if (
         prev.latestScore &&
         prev.latestScore.pilotId === score.pilotId &&
@@ -60,7 +69,11 @@ export function useDisplaySocket(
           },
         };
       }
-      if (prev.latestScore) return prev;
+
+      // Prefer a very recent live socket score over HTTP seed (avoids flicker).
+      if (prev.latestScore && liveFresh) return prev;
+
+      // Otherwise allow HTTP / recovery seed so a missed socket event can catch up.
       return {
         ...prev,
         latestScore: score,
@@ -69,10 +82,10 @@ export function useDisplaySocket(
     });
   }, []);
 
-  const clearStaleScoresBeforeRound = useCallback((activeRoundNumber: number) => {
+  const clearStaleScoresBeforeRound = useCallback((nextActiveRoundNumber: number) => {
     setState((prev) => {
       if (!prev.latestScore) return prev;
-      if (prev.latestScore.roundNumber >= activeRoundNumber) return prev;
+      if (prev.latestScore.roundNumber >= nextActiveRoundNumber) return prev;
       return {
         ...prev,
         latestScore: null,
@@ -116,32 +129,34 @@ export function useDisplaySocket(
             isBullseye: score.isBullseye,
             resultLabel: resultLabelFromScore(score),
             roundNumber:
+              payload.roundNumber ??
               activeRoundRef.current ??
               prev.latestScore?.roundNumber ??
               0,
             rank: 0,
           },
         }));
-        onRankingUpdate?.();
+        onRankingUpdateRef.current?.();
       }),
       onSocketEvent('ranking:updated', (payload) => {
         if (payload.competitionId !== competitionId) return;
         setState((prev) => ({ ...prev, lastRankingUpdate: payload.category }));
-        onRankingUpdate?.();
+        onRankingUpdateRef.current?.();
       }),
       onSocketEvent('round:status', (payload) => {
         if (payload.competitionId !== competitionId) return;
-        onRoundStatus?.();
+        onRoundStatusRef.current?.();
+        onRankingUpdateRef.current?.();
       }),
       onSocketEvent('competition:status', (payload) => {
         if (payload.competitionId !== competitionId) return;
-        onRoundStatus?.();
-        onRankingUpdate?.();
+        onRoundStatusRef.current?.();
+        onRankingUpdateRef.current?.();
       }),
       onSocketEvent('sync:required', (payload) => {
         if (payload.competitionId !== competitionId) return;
-        onRoundStatus?.();
-        onRankingUpdate?.();
+        onRoundStatusRef.current?.();
+        onRankingUpdateRef.current?.();
       }),
       onSocketEvent('display:layout', (payload) => {
         if (payload.competitionId !== competitionId) return;
@@ -161,9 +176,9 @@ export function useDisplaySocket(
 
     return () => {
       unsubs.forEach((unsub) => unsub());
-      disconnectSocket();
+      leaveDisplayRooms(competitionId);
     };
-  }, [competitionId, onRankingUpdate, onRoundStatus]);
+  }, [competitionId]);
 
   return { ...state, seedLatestScore, clearStaleScoresBeforeRound };
 }

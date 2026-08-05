@@ -165,6 +165,9 @@ export const publish = [
       entityType: 'Competition',
       entityId: competition.id,
     });
+    const { emitCompetitionStatus, emitSyncRequired } = await import('../../../socket/index.js');
+    emitCompetitionStatus(competition.id, competition.status);
+    emitSyncRequired(competition.id);
     sendSuccess(res, competition);
   }),
 ];

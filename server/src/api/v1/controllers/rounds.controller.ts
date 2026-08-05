@@ -161,7 +161,11 @@ export const approve = [
         : undefined,
     );
     emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
-    await scoringService.recalculateRankings(req.params.competitionId);
+    const recalc = await scoringService.recalculateRankings(req.params.competitionId);
+    for (const category of recalc.categories) {
+      emitRankingUpdated(req.params.competitionId, category);
+    }
+    emitRankingUpdated(req.params.competitionId, 'TEAM');
     sendSuccess(res, round);
   }),
 ];
@@ -177,7 +181,11 @@ export const lock = [
     );
     const round = await roundService.lockRound(req.params.competitionId, req.params.roundId);
     emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
-    await scoringService.recalculateRankings(req.params.competitionId);
+    const recalc = await scoringService.recalculateRankings(req.params.competitionId);
+    for (const category of recalc.categories) {
+      emitRankingUpdated(req.params.competitionId, category);
+    }
+    emitRankingUpdated(req.params.competitionId, 'TEAM');
     sendSuccess(res, round);
   }),
 ];
@@ -213,7 +221,7 @@ export const enterScore = [
   validateParams(roundParams),
   validateBody(enterScoreSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { score, computed, competitionId, roundId } = await scoreService.enterScore(
+    const { score, computed, competitionId, roundId, roundNumber } = await scoreService.enterScore(
       req.body.flightId,
       {
         distanceCm: req.body.distanceCm,
@@ -224,12 +232,18 @@ export const enterScore = [
       },
     );
 
-    emitScoreUpdated(competitionId, roundId, computed, {
-      id: score.pilot.id,
-      pilotNumber: score.pilot.pilotNumber,
-      firstName: score.pilot.firstName,
-      lastName: score.pilot.lastName,
-    });
+    emitScoreUpdated(
+      competitionId,
+      roundId,
+      computed,
+      {
+        id: score.pilot.id,
+        pilotNumber: score.pilot.pilotNumber,
+        firstName: score.pilot.firstName,
+        lastName: score.pilot.lastName,
+      },
+      roundNumber,
+    );
     emitCurrentPilot(competitionId, score.pilotId, score.flightId);
 
     const recalc = await scoringService.recalculateRankings(competitionId);

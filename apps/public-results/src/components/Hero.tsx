@@ -10,6 +10,7 @@ import {
   isPreEvent,
   isRegistrationOpen,
 } from '../lib/competitionStatus';
+import { FitHeading } from './FitHeading';
 
 interface HeroProps {
   competition: PublicCompetition;
@@ -22,6 +23,8 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
   const started = hasCompetitionStarted(competition.status);
   const preEvent = isPreEvent(competition.status);
   const registrationOpen = isRegistrationOpen(competition.status);
+  const titleLength = competition.name.trim().length;
+  const titleMaxPx = titleLength > 70 ? 64 : titleLength > 45 ? 80 : titleLength > 28 ? 96 : 112;
 
   return (
     <section className="relative min-h-[85vh] overflow-hidden">
@@ -52,10 +55,15 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
           transition={{ duration: 0.8 }}
         >
           <p className="mb-4 font-serif text-lg italic text-sky-300/80">{competition.organizer}</p>
-          <h1 className="mb-2 font-display text-7xl font-bold leading-none tracking-tight text-white md:text-8xl lg:text-9xl">
+          <FitHeading
+            maxPx={titleMaxPx}
+            minPx={26}
+            maxHeightVh={38}
+            className="mb-2 max-w-full font-display font-bold leading-[1.05] tracking-tight text-white text-balance"
+          >
             {competition.name}
-          </h1>
-          <h2 className="mb-8 max-w-3xl font-serif text-3xl font-light text-sky-100 md:text-4xl">
+          </FitHeading>
+          <h2 className="mb-8 max-w-3xl font-serif text-2xl font-light text-sky-100 md:text-3xl lg:text-4xl">
             {competition.venue}
             {competition.country ? ` · ${competition.country}` : ''}
           </h2>

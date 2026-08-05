@@ -298,8 +298,13 @@ export function CompetitionsPage() {
 
   const publishMutation = useMutation({
     mutationFn: (id: string) => api.post<Competition>(`/competitions/${id}/publish`),
-    onSuccess: () => {
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Competition[]>(['competitions', orgScope ?? 'none'], (prev) =>
+        prev?.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)),
+      );
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', updated.id] });
+      queryClient.invalidateQueries({ queryKey: ['competition', updated.id] });
     },
   });
 

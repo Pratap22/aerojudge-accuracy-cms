@@ -63,6 +63,8 @@ export function useLatestScore() {
     queryKey: ['latest-score', competitionId],
     queryFn: () => fetchLatestScore(competitionId),
     staleTime: 5_000,
+    // Safety net when a socket event is missed on flaky venue wifi
+    refetchInterval: 10_000,
     enabled: Boolean(competitionId),
   });
 }

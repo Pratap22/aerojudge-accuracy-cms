@@ -39,7 +39,7 @@ const enterBody = enterScoreSchema;
 export const enter = [
   validateBody(enterBody),
   asyncHandler(async (req: Request, res: Response) => {
-    const { score, computed, competitionId, roundId } = await scoreService.enterScore(
+    const { score, computed, competitionId, roundId, roundNumber } = await scoreService.enterScore(
       req.body.flightId,
       {
         distanceCm: req.body.distanceCm,
@@ -59,12 +59,18 @@ export const enter = [
       after: score,
     });
 
-    emitScoreUpdated(competitionId, roundId, computed, {
-      id: score.pilot.id,
-      pilotNumber: score.pilot.pilotNumber,
-      firstName: score.pilot.firstName,
-      lastName: score.pilot.lastName,
-    });
+    emitScoreUpdated(
+      competitionId,
+      roundId,
+      computed,
+      {
+        id: score.pilot.id,
+        pilotNumber: score.pilot.pilotNumber,
+        firstName: score.pilot.firstName,
+        lastName: score.pilot.lastName,
+      },
+      roundNumber,
+    );
     emitCurrentPilot(competitionId, score.pilotId, score.flightId);
 
     const recalc = await scoringService.recalculateRankings(competitionId);
@@ -90,6 +96,26 @@ export const confirm = [
       entityId: score.id,
       after: score,
     });
+
+    const computed = scoreService.toComputedScore(score);
+    emitScoreUpdated(
+      score.round.competitionId,
+      score.roundId,
+      computed,
+      {
+        id: score.pilot.id,
+        pilotNumber: score.pilot.pilotNumber,
+        firstName: score.pilot.firstName,
+        lastName: score.pilot.lastName,
+      },
+      score.round.number,
+    );
+    const recalc = await scoringService.recalculateRankings(score.round.competitionId);
+    for (const category of recalc.categories) {
+      emitRankingUpdated(score.round.competitionId, category);
+    }
+    emitRankingUpdated(score.round.competitionId, 'TEAM');
+
     sendSuccess(res, score);
   }),
 ];

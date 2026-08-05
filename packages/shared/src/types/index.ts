@@ -383,6 +383,8 @@ export interface SocketEvents {
   'score:updated': {
     competitionId: string;
     roundId: string;
+    /** Round number when known — Display uses this so live scores aren't gated incorrectly. */
+    roundNumber?: number;
     score: ComputedScore;
     pilot?: {
       id: string;
