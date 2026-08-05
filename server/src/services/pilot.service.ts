@@ -197,24 +197,45 @@ export async function createPilot(
     );
   }
 
-  // Pilot numbers (and their derived QR payloads) must be unique in the competition.
-  const numberOrQrTaken = await prisma.pilot.findFirst({
-    where: {
-      OR: [{ competitionId, pilotNumber }, { qrCode }],
-    },
+  // Pilot numbers must be unique within the competition.
+  const numberTaken = await prisma.pilot.findFirst({
+    where: { competitionId, pilotNumber },
+    select: { firstName: true, lastName: true, pilotNumber: true },
+  });
+  if (numberTaken) {
+    throw AppError.conflict(
+      `Pilot number ${pilotNumber} is already assigned to ${numberTaken.firstName} ${numberTaken.lastName}`,
+    );
+  }
+
+  // QR payloads are globally unique. A stale QR (e.g. after renumbering without
+  // updating the payload) can collide with a free number — repair it in-place.
+  const qrTaken = await prisma.pilot.findFirst({
+    where: { qrCode },
     select: {
+      id: true,
       firstName: true,
       lastName: true,
       pilotNumber: true,
       competitionId: true,
     },
   });
-  if (numberOrQrTaken) {
-    throw AppError.conflict(
-      numberOrQrTaken.competitionId === competitionId
-        ? `Pilot number ${numberOrQrTaken.pilotNumber} is already assigned to ${numberOrQrTaken.firstName} ${numberOrQrTaken.lastName}`
-        : `Pilot number ${pilotNumber} is already in use`,
-    );
+  if (qrTaken) {
+    if (qrTaken.competitionId === competitionId && qrTaken.pilotNumber !== pilotNumber) {
+      const repairedQr = generateQrPayload(
+        env.PUBLIC_RESULTS_URL,
+        competition!.publicSlug,
+        `/pilot/${qrTaken.pilotNumber}`,
+      );
+      await prisma.pilot.update({
+        where: { id: qrTaken.id },
+        data: { qrCode: repairedQr },
+      });
+    } else {
+      throw AppError.conflict(
+        `Pilot number ${pilotNumber} is already in use`,
+      );
+    }
   }
 
   // Organizer-added pilots default to CONFIRMED (ready to compete).
@@ -318,11 +339,32 @@ export async function updatePilot(
       );
     }
     const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
-    rest.qrCode = generateQrPayload(
+    const nextQr = generateQrPayload(
       env.PUBLIC_RESULTS_URL,
       competition!.publicSlug,
       `/pilot/${nextPilotNumber}`,
     );
+    const qrTaken = await prisma.pilot.findFirst({
+      where: { qrCode: nextQr, NOT: { id: pilotId } },
+      select: { id: true, pilotNumber: true, competitionId: true },
+    });
+    if (qrTaken) {
+      if (qrTaken.competitionId === competitionId && qrTaken.pilotNumber !== nextPilotNumber) {
+        await prisma.pilot.update({
+          where: { id: qrTaken.id },
+          data: {
+            qrCode: generateQrPayload(
+              env.PUBLIC_RESULTS_URL,
+              competition!.publicSlug,
+              `/pilot/${qrTaken.pilotNumber}`,
+            ),
+          },
+        });
+      } else {
+        throw AppError.conflict(`Pilot number ${nextPilotNumber} is already in use`);
+      }
+    }
+    rest.qrCode = nextQr;
   }
 
   return prisma.pilot.update({
