@@ -28,9 +28,9 @@ import {
   Textarea,
 } from '@npha/ui';
 import { api, ApiError } from '../lib/api';
-import { useCompetitionId } from '../hooks/useCompetitionId';
-import { competitionPath } from '../hooks/useCompetitionId';
+import { competitionPath, competitionsListPath, useCompetitionId, useRouteOrganizationId } from '../hooks/useCompetitionId';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../lib/auth';
 
 interface RoundOption {
   id: string;
@@ -81,6 +81,10 @@ function formatFlightScore(flight: Flight): ReactNode {
 
 export function ScoringPage() {
   const activeCompetitionId = useCompetitionId();
+  const routeOrganizationId = useRouteOrganizationId();
+  const { activeOrganizationId, user } = useAuth();
+  const orgId = routeOrganizationId ?? activeOrganizationId ?? user?.organizationId ?? null;
+  const competitionsHref = orgId ? competitionsListPath(orgId) : '/competitions';
   const [selectedRoundId, setSelectedRoundId] = useState<string>('');
   const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -206,8 +210,8 @@ export function ScoringPage() {
     setValue('distanceCm', distance);
   };
 
-  if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><Link to="/competitions" className="text-primary underline">Open a competition</Link> from the Competitions list.</p>;
+  if (!activeCompetitionId || !orgId) {
+    return <p className="text-muted-foreground"><Link to={competitionsHref} className="text-primary underline">Open a competition</Link> from the Competitions list.</p>;
   }
 
   return (
@@ -278,7 +282,7 @@ export function ScoringPage() {
               No flights in this round yet.{' '}
               <Link
                 className="text-primary underline"
-                to={competitionPath(activeCompetitionId, 'rounds')}
+                to={competitionPath(orgId, activeCompetitionId, 'rounds')}
               >
                 Open Rounds
               </Link>{' '}

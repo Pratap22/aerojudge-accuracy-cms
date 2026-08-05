@@ -38,6 +38,7 @@ import {
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { PageHeader } from '../../components/PageHeader';
+import { CountrySelect } from '../../components/CountrySelect';
 
 const STATUS_VARIANT: Record<
   OrganizationStatus,
@@ -52,7 +53,7 @@ const STATUS_VARIANT: Record<
  * Global organization list with create dialog, search, and pagination.
  */
 export function OrganizationsPage() {
-  const { user } = useAuth();
+  const { user, refreshMemberships } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -108,11 +109,14 @@ export function OrganizationsPage() {
 
   const plan = watch('plan');
   const ruleProfile = watch('defaultRuleProfile');
+  const country = watch('country');
 
   const createMutation = useMutation({
     mutationFn: (data: CreateOrganizationInput) => api.post<Organization>('/organizations', data),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      // Sidebar dropdown reads AuthContext memberships, not the orgs list query
+      await refreshMemberships();
       setFormOpen(false);
       reset();
     },
@@ -315,7 +319,11 @@ export function OrganizationsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="country">Country</Label>
-              <Input id="country" {...register('country')} />
+              <CountrySelect
+                id="country"
+                value={country}
+                onChange={(selected) => setValue('country', selected?.name ?? undefined)}
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

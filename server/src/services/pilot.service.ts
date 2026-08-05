@@ -115,10 +115,14 @@ export async function createPilot(
 ) {
   await getCompetition(competitionId);
   const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
+  const pilotNumber = Number(data.pilotNumber);
+  if (!Number.isInteger(pilotNumber) || pilotNumber < 1) {
+    throw AppError.badRequest('Pilot number must be a positive integer');
+  }
   const qrCode = generateQrPayload(
     env.PUBLIC_RESULTS_URL,
     competition!.publicSlug,
-    `/pilot/${data.pilotNumber}`,
+    `/pilot/${pilotNumber}`,
   );
 
   const countryId =
@@ -193,38 +197,88 @@ export async function createPilot(
     );
   }
 
+  // Pilot numbers (and their derived QR payloads) must be unique in the competition.
+  const numberOrQrTaken = await prisma.pilot.findFirst({
+    where: {
+      OR: [{ competitionId, pilotNumber }, { qrCode }],
+    },
+    select: {
+      firstName: true,
+      lastName: true,
+      pilotNumber: true,
+      competitionId: true,
+    },
+  });
+  if (numberOrQrTaken) {
+    throw AppError.conflict(
+      numberOrQrTaken.competitionId === competitionId
+        ? `Pilot number ${numberOrQrTaken.pilotNumber} is already assigned to ${numberOrQrTaken.firstName} ${numberOrQrTaken.lastName}`
+        : `Pilot number ${pilotNumber} is already in use`,
+    );
+  }
+
   // Organizer-added pilots default to CONFIRMED (ready to compete).
   // Public self-registration must pass status: 'REGISTERED' explicitly.
   const status = (pilotFields.status as PilotStatus | undefined) ?? 'CONFIRMED';
 
-  const pilot = await prisma.pilot.create({
-    data: {
-      ...pilotFields,
-      firstName: snapshotFirstName,
-      lastName: snapshotLastName,
-      gender: pilotFields.gender ?? person.gender,
-      civlId:
-        (typeof pilotFields.civlId === 'string' ? pilotFields.civlId : null) ?? person.civlId,
-      faiLicense:
-        (typeof pilotFields.faiLicense === 'string' ? pilotFields.faiLicense : null) ??
-        person.faiLicenseNumber,
-      dateOfBirth: pilotFields.dateOfBirth ?? person.dateOfBirth ?? undefined,
-      photoUrl:
-        (typeof pilotFields.photoUrl === 'string' ? pilotFields.photoUrl : null) ?? person.photoUrl,
-      competitionId,
-      personId,
-      competitionParticipantId: linkedParticipant.id,
-      qrCode,
-      countryId: countryId ?? person.nationalityCountryId ?? undefined,
-      isWomen:
-        pilotFields.gender === 'FEMALE' || pilotFields.isWomen === true || person.gender === 'FEMALE',
-      status,
-    },
-    include: {
-      country: true,
-      person: { select: { id: true, aeroJudgeId: true, civlId: true } },
-    },
-  });
+  let pilot;
+  try {
+    pilot = await prisma.pilot.create({
+      data: {
+        ...pilotFields,
+        pilotNumber,
+        firstName: snapshotFirstName,
+        lastName: snapshotLastName,
+        gender: pilotFields.gender ?? person.gender,
+        civlId:
+          (typeof pilotFields.civlId === 'string' ? pilotFields.civlId : null) ?? person.civlId,
+        faiLicense:
+          (typeof pilotFields.faiLicense === 'string' ? pilotFields.faiLicense : null) ??
+          person.faiLicenseNumber,
+        dateOfBirth: pilotFields.dateOfBirth ?? person.dateOfBirth ?? undefined,
+        photoUrl:
+          (typeof pilotFields.photoUrl === 'string' ? pilotFields.photoUrl : null) ?? person.photoUrl,
+        competitionId,
+        personId,
+        competitionParticipantId: linkedParticipant.id,
+        qrCode,
+        countryId: countryId ?? person.nationalityCountryId ?? undefined,
+        isWomen:
+          pilotFields.gender === 'FEMALE' ||
+          pilotFields.isWomen === true ||
+          person.gender === 'FEMALE',
+        status,
+      },
+      include: {
+        country: true,
+        person: { select: { id: true, aeroJudgeId: true, civlId: true } },
+      },
+    });
+  } catch (err) {
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code?: string }).code === 'P2002'
+    ) {
+      const target = (err as { meta?: { target?: string | string[] } }).meta?.target;
+      const fields = Array.isArray(target) ? target : target ? [target] : [];
+      if (
+        fields.some(
+          (f) =>
+            f === 'qrCode' ||
+            f.includes('qrCode') ||
+            f.includes('pilotNumber') ||
+            f.includes('competitionId_pilotNumber'),
+        )
+      ) {
+        throw AppError.conflict(
+          `Pilot number ${pilotNumber} is already in use in this competition`,
+        );
+      }
+    }
+    throw err;
+  }
 
   await syncParticipantStatus(competitionId, personId, status);
   return pilot;
@@ -235,7 +289,7 @@ export async function updatePilot(
   pilotId: string,
   data: Omit<Prisma.PilotUncheckedUpdateInput, 'id' | 'competitionId'>,
 ) {
-  await getPilot(competitionId, pilotId);
+  const existing = await getPilot(competitionId, pilotId);
   const { gender, nationality, countryId, status, ...rest } = data;
 
   let nextCountryId = countryId;
@@ -245,6 +299,30 @@ export async function updatePilot(
 
   if (status !== undefined && status !== null) {
     await setPilotStatus(competitionId, pilotId, status as PilotStatus);
+  }
+
+  const nextPilotNumber =
+    typeof rest.pilotNumber === 'number' ? rest.pilotNumber : undefined;
+  if (nextPilotNumber !== undefined && nextPilotNumber !== existing.pilotNumber) {
+    const numberTaken = await prisma.pilot.findFirst({
+      where: {
+        competitionId,
+        pilotNumber: nextPilotNumber,
+        NOT: { id: pilotId },
+      },
+      select: { firstName: true, lastName: true, pilotNumber: true },
+    });
+    if (numberTaken) {
+      throw AppError.conflict(
+        `Pilot number ${nextPilotNumber} is already assigned to ${numberTaken.firstName} ${numberTaken.lastName}`,
+      );
+    }
+    const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
+    rest.qrCode = generateQrPayload(
+      env.PUBLIC_RESULTS_URL,
+      competition!.publicSlug,
+      `/pilot/${nextPilotNumber}`,
+    );
   }
 
   return prisma.pilot.update({

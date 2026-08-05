@@ -30,7 +30,13 @@ import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { onSocketEvent } from '../lib/socket';
-import { competitionPath, useCompetitionId } from '../hooks/useCompetitionId';
+import {
+  archivedCompetitionsPath,
+  competitionPath,
+  competitionsListPath,
+  useCompetitionId,
+  useRouteOrganizationId,
+} from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';
 import { PageHeader } from '../components/PageHeader';
 
@@ -74,22 +80,25 @@ const statusVariant: Record<
 
 export function DashboardPage() {
   const competitionId = useCompetitionId();
+  const routeOrganizationId = useRouteOrganizationId();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, activeOrganizationId } = useAuth();
   const liveStatus = 'Connected';
   const canUpdateCompetition = usePermission('competition:update');
-  const orgScope = activeOrganizationId ?? user?.organizationId ?? 'none';
+  const orgScope = routeOrganizationId ?? activeOrganizationId ?? user?.organizationId ?? null;
 
   const { data: competitions } = useQuery({
-    queryKey: ['competitions', orgScope],
+    queryKey: ['competitions', orgScope ?? 'none'],
     queryFn: () => api.get<CompetitionSummary[]>('/competitions'),
+    enabled:
+      !!orgScope && (!routeOrganizationId || routeOrganizationId === activeOrganizationId),
   });
 
   const { data: stats, refetch } = useQuery({
     queryKey: ['dashboard', competitionId],
     queryFn: () => api.get<DashboardStats>(`/competitions/${competitionId}/dashboard`),
-    enabled: !!competitionId,
+    enabled: !!competitionId && !!orgScope,
   });
 
   const publishMutation = useMutation({
@@ -112,7 +121,9 @@ export function DashboardPage() {
     mutationFn: () => api.post<CompetitionSummary>(`/competitions/${competitionId}/archive`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
-      navigate('/competitions/archived', { replace: true });
+      if (orgScope) {
+        navigate(archivedCompetitionsPath(orgScope), { replace: true });
+      }
     },
   });
 
@@ -133,8 +144,8 @@ export function DashboardPage() {
     };
   }, [competitionId, refetch, queryClient]);
 
-  if (!competitionId) {
-    return <Navigate to="/competitions" replace />;
+  if (!competitionId || !orgScope) {
+    return <Navigate to={orgScope ? competitionsListPath(orgScope) : '/competitions'} replace />;
   }
 
   const activeCompetition = competitions?.find((c) => c.id === competitionId);
@@ -214,13 +225,13 @@ export function DashboardPage() {
               </Button>
             )}
             <Button variant="outline" asChild className="w-full sm:w-auto">
-              <Link to={competitionPath(competitionId, 'rounds')}>
+              <Link to={orgScope && competitionId ? competitionPath(orgScope, competitionId, 'rounds') : '#'}>
                 <Play className="mr-2 h-4 w-4 shrink-0" />
                 Rounds
               </Link>
             </Button>
             <Button asChild className="w-full sm:w-auto">
-              <Link to={competitionPath(competitionId, 'scoring')}>
+              <Link to={orgScope && competitionId ? competitionPath(orgScope, competitionId, 'scoring') : '#'}>
                 Enter scores
                 <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
               </Link>
@@ -245,7 +256,7 @@ export function DashboardPage() {
           </label>
           <Select
             value={competitionId}
-            onValueChange={(id) => navigate(competitionPath(id))}
+            onValueChange={(id) => orgScope ? navigate(competitionPath(orgScope, id)) : undefined}
           >
             <SelectTrigger id="competition-switch" className="w-full">
               <SelectValue placeholder="Select competition" />
@@ -364,16 +375,16 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
-              <Link to={competitionPath(competitionId, 'pilots')}>Register pilots</Link>
+              <Link to={orgScope && competitionId ? competitionPath(orgScope, competitionId, 'pilots') : '#'}>Register pilots</Link>
             </Button>
             <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
-              <Link to={competitionPath(competitionId, 'teams')}>Manage teams</Link>
+              <Link to={orgScope && competitionId ? competitionPath(orgScope, competitionId, 'teams') : '#'}>Manage teams</Link>
             </Button>
             <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
-              <Link to={competitionPath(competitionId, 'rankings')}>View rankings</Link>
+              <Link to={orgScope && competitionId ? competitionPath(orgScope, competitionId, 'rankings') : '#'}>View rankings</Link>
             </Button>
             <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
-              <Link to={competitionPath(competitionId, 'reports')}>Generate reports</Link>
+              <Link to={orgScope && competitionId ? competitionPath(orgScope, competitionId, 'reports') : '#'}>Generate reports</Link>
             </Button>
           </CardContent>
         </Card>

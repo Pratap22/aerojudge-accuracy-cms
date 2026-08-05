@@ -1,4 +1,4 @@
-import { compareOfficials } from '@npha/shared';
+import { compareOfficials, isEmptyHtml } from '@npha/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
@@ -34,6 +34,25 @@ const publicCompetitionSelect = {
       livePublicResults: true,
       partnersLabel: true,
       partnerTiersEnabled: true,
+    },
+  },
+  info: {
+    select: {
+      aboutHtml: true,
+      dailyScheduleHtml: true,
+      selectionRulesHtml: true,
+      entryFeePaymentHtml: true,
+      flyingSiteHtml: true,
+      travelInfoHtml: true,
+    },
+  },
+  latitude: true,
+  longitude: true,
+  _count: {
+    select: {
+      galleryImages: true,
+      links: true,
+      contacts: { where: { isPublic: true } },
     },
   },
 } as const;
@@ -83,6 +102,8 @@ function mapPublicCompetition(competition: {
   endDate: Date;
   status: string;
   publicSlug: string;
+  latitude?: number | null;
+  longitude?: number | null;
   organization?: {
     name: string;
     shortName: string;
@@ -93,7 +114,33 @@ function mapPublicCompetition(competition: {
     partnersLabel: string | null;
     partnerTiersEnabled: boolean;
   } | null;
+  info?: {
+    aboutHtml: string | null;
+    dailyScheduleHtml: string | null;
+    selectionRulesHtml: string | null;
+    entryFeePaymentHtml: string | null;
+    flyingSiteHtml: string | null;
+    travelInfoHtml: string | null;
+  } | null;
+  _count?: {
+    galleryImages: number;
+    links: number;
+    contacts: number;
+  };
 }) {
+  const info = competition.info;
+  const hasInfo =
+    !isEmptyHtml(info?.aboutHtml) ||
+    !isEmptyHtml(info?.dailyScheduleHtml) ||
+    !isEmptyHtml(info?.selectionRulesHtml) ||
+    !isEmptyHtml(info?.entryFeePaymentHtml) ||
+    !isEmptyHtml(info?.flyingSiteHtml) ||
+    !isEmptyHtml(info?.travelInfoHtml) ||
+    (competition.latitude != null && competition.longitude != null) ||
+    (competition._count?.galleryImages ?? 0) > 0 ||
+    (competition._count?.links ?? 0) > 0 ||
+    (competition._count?.contacts ?? 0) > 0;
+
   return {
     id: competition.id,
     name: competition.name,
@@ -107,6 +154,7 @@ function mapPublicCompetition(competition: {
     publicSlug: competition.publicSlug,
     settings: competition.settings,
     organiser: toPublicOrganiser(competition),
+    hasInfo,
   };
 }
 
@@ -861,6 +909,12 @@ export async function getPublicOfficials(slugOrId: string) {
       isPublic: row.isPublic,
     }))
     .sort(compareOfficials);
+}
+
+export async function getPublicEventInfo(slugOrId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+  const { getEventInfo } = await import('./competition-info.service.js');
+  return getEventInfo(competition.id, { publicOnly: true });
 }
 
 const PUBLIC_REGISTRATION_STATUSES = new Set(['REGISTRATION', 'PRACTICE']);

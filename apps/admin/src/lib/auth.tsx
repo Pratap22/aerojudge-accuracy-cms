@@ -34,6 +34,8 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
   selectOrganization: (organizationId: string) => Promise<void>;
+  /** Re-fetch /auth/me so sidebar memberships stay in sync (e.g. after creating an org). */
+  refreshMemberships: () => Promise<void>;
   logout: () => void;
 }
 
@@ -48,6 +50,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [requiresOrganizationSelection, setRequiresOrganizationSelection] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const applyMeContext = useCallback((me: AuthUser) => {
+    const memberships = me.organizations ?? [];
+    setOrganizations(memberships);
+    const storedOrg = getOrganizationId();
+    const activeMemberships = memberships.filter((o) => o.status === 'ACTIVE');
+
+    if (storedOrg && activeMemberships.some((o) => o.organizationId === storedOrg)) {
+      // Keep this tab's org; refresh user context for that membership
+      const membership = activeMemberships.find((o) => o.organizationId === storedOrg)!;
+      // Ensure API header matches React state (avoids empty competition lists)
+      setOrganizationId(storedOrg);
+      setActiveOrganizationId(storedOrg);
+      setUser({
+        ...me,
+        organizationId: membership.organizationId,
+        orgRole: membership.role,
+        permissions: membership.permissions,
+      });
+      setRequiresOrganizationSelection(false);
+      return;
+    }
+
+    if (me.organizationId) {
+      setOrganizationId(me.organizationId);
+      setActiveOrganizationId(me.organizationId);
+      setUser(me);
+      setRequiresOrganizationSelection(false);
+      return;
+    }
+
+    if (activeMemberships.length > 1) {
+      setOrganizationId(null);
+      setActiveOrganizationId(null);
+      setUser(me);
+      setRequiresOrganizationSelection(true);
+      return;
+    }
+
+    if (activeMemberships.length === 1) {
+      const only = activeMemberships[0].organizationId;
+      setOrganizationId(only);
+      setActiveOrganizationId(only);
+      setUser({
+        ...me,
+        organizationId: only,
+        orgRole: activeMemberships[0].role,
+        permissions: activeMemberships[0].permissions,
+      });
+      setRequiresOrganizationSelection(false);
+      return;
+    }
+
+    setUser(me);
+    setOrganizationId(null);
+    setActiveOrganizationId(null);
+  }, []);
+
   useEffect(() => {
     const token = getAccessToken();
     if (!token) {
@@ -58,35 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api
       .get<AuthUser>('/auth/me')
       .then((me) => {
-        setUser(me);
-        setOrganizations(me.organizations ?? []);
-        const storedOrg = getOrganizationId();
-        const activeMemberships =
-          me.organizations?.filter((o) => o.status === 'ACTIVE') ?? [];
-        if (storedOrg && activeMemberships.some((o) => o.organizationId === storedOrg)) {
-          // Keep this tab's org; refresh user context for that membership
-          const membership = activeMemberships.find((o) => o.organizationId === storedOrg)!;
-          setActiveOrganizationId(storedOrg);
-          setUser({
-            ...me,
-            organizationId: membership.organizationId,
-            orgRole: membership.role,
-            permissions: membership.permissions,
-          });
-          setRequiresOrganizationSelection(false);
-        } else if (me.organizationId) {
-          setOrganizationId(me.organizationId);
-          setActiveOrganizationId(me.organizationId);
-          setRequiresOrganizationSelection(false);
-        } else if (activeMemberships.length > 1) {
-          setActiveOrganizationId(null);
-          setRequiresOrganizationSelection(true);
-        } else if (activeMemberships.length === 1) {
-          const only = activeMemberships[0].organizationId;
-          setOrganizationId(only);
-          setActiveOrganizationId(only);
-          setRequiresOrganizationSelection(false);
-        }
+        applyMeContext(me);
       })
       .catch(() => {
         clearTokens();
@@ -95,14 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveOrganizationId(null);
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [applyMeContext]);
 
   const login = useCallback(async (email: string, password: string) => {
     const result = await api.post<LoginResult>('/auth/login', { email, password });
     setTokens(result.tokens);
-    setUser(result.user);
     setOrganizations(result.organizations);
     setRequiresOrganizationSelection(result.requiresOrganizationSelection);
+    // Write org header before React re-renders so the first competitions fetch is scoped
     if (result.user.organizationId) {
       setOrganizationId(result.user.organizationId);
       setActiveOrganizationId(result.user.organizationId);
@@ -110,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setOrganizationId(null);
       setActiveOrganizationId(null);
     }
+    setUser(result.user);
     return result;
   }, []);
 
@@ -127,12 +159,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     // Drop competition real-time sessions tied to the previous org context
     disconnectSocket();
+    // Header must be set before state updates trigger React Query refetches
     setOrganizationId(organizationId);
     setActiveOrganizationId(organizationId);
     setUser(result.user);
     setOrganizations(result.organizations);
     setRequiresOrganizationSelection(false);
   }, []);
+
+  const refreshMemberships = useCallback(async () => {
+    const me = await api.get<AuthUser>('/auth/me');
+    applyMeContext(me);
+  }, [applyMeContext]);
 
   const logout = useCallback(() => {
     const refreshToken = getRefreshToken();
@@ -166,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user,
       login,
       selectOrganization,
+      refreshMemberships,
       logout,
     }),
     [
@@ -177,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       login,
       selectOrganization,
+      refreshMemberships,
       logout,
     ],
   );

@@ -17,6 +17,8 @@ export interface PublicCompetition {
   publicSlug: string;
   /** Display card for the organising association (logo + name). */
   organiser?: PublicOrganiser | null;
+  /** True when brochure content (about, gallery, map, etc.) is available. */
+  hasInfo?: boolean;
   settings?: {
     livePublicResults: boolean;
     partnersLabel?: string;

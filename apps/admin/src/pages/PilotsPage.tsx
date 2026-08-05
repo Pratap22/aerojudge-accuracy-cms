@@ -36,6 +36,7 @@ import {
 } from '@npha/ui';
 import { api, apiFetch, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
+import { CountrySelect } from '../components/CountrySelect';
 
 interface Pilot {
   id: string;
@@ -176,6 +177,9 @@ export function PilotsPage() {
   });
 
   const gender = watch('gender');
+  const countryId = watch('countryId');
+  const nationality = watch('nationality');
+  const countrySelectValue = countryId || nationality || undefined;
 
   const { data: directoryHits = [] } = useQuery({
     queryKey: ['people-directory', directoryQ],
@@ -553,193 +557,227 @@ export function PilotsPage() {
       </div>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-lg overflow-visible">
-          <DialogHeader>
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg sm:p-0">
+          <DialogHeader className="shrink-0 space-y-0 border-b bg-background px-4 py-4 pr-12 text-left sm:px-6">
             <DialogTitle>{editing ? 'Edit Pilot' : 'Register Pilot'}</DialogTitle>
           </DialogHeader>
+
           <form
             onSubmit={handleSubmit((d) => saveMutation.mutate(d))}
-            className="grid gap-5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-5"
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
           >
-            {!editing && (
-              <div className="relative z-20 space-y-2 sm:col-span-2">
-                <Label>Find returning person</Label>
-                <p className="text-xs text-muted-foreground">
-                  Search AeroJudge ID, CIVL ID, or name — then enter only competition details.
-                </p>
-                {selectedPerson ? (
-                  <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <UserCheck className="h-4 w-4 shrink-0 text-primary" />
-                      <span>
-                        {selectedPerson.firstName} {selectedPerson.lastName}
-                        {selectedPerson.nationalityCountry
-                          ? ` · ${selectedPerson.nationalityCountry.name}`
-                          : ''}
-                        {selectedPerson.civlId ? ` · CIVL ${selectedPerson.civlId}` : ''}
-                        {` · ${selectedPerson.aeroJudgeId}`}
-                      </span>
-                    </div>
-                    <Button type="button" variant="ghost" size="icon" onClick={clearSelectedPerson}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Input
-                      placeholder="e.g. 97253 or AJ-… or Pratap"
-                      value={directoryQ}
-                      onChange={(e) => setDirectoryQ(e.target.value)}
-                      autoComplete="off"
-                    />
-                    {directoryHits.length > 0 && (
-                      <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md">
-                        {directoryHits.map((p) => (
-                          <li key={p.id} className="border-b border-border/40 last:border-0">
-                            <button
-                              type="button"
-                              className="flex w-full flex-col items-start px-3 py-2.5 text-left text-sm hover:bg-muted"
-                              onClick={() => selectPerson(p)}
-                            >
-                              <span className="font-medium">
-                                {p.firstName} {p.lastName}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {p.aeroJudgeId}
-                                {p.civlId ? ` · CIVL ${p.civlId}` : ''}
-                                {p.nationalityCountry ? ` · ${p.nationalityCountry.name}` : ''}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
+            <div className="max-h-[min(calc(90vh-8.5rem),calc(100dvh-8.5rem))] overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+              <div className="grid gap-5 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-5">
+                {!editing && (
+                  <div className="relative z-10 space-y-2 sm:col-span-2">
+                    <Label>Find returning person</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Search AeroJudge ID, CIVL ID, or name — then enter only competition details.
+                    </p>
+                    {selectedPerson ? (
+                      <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2 text-sm">
+                          <UserCheck className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="truncate">
+                            {selectedPerson.firstName} {selectedPerson.lastName}
+                            {selectedPerson.nationalityCountry
+                              ? ` · ${selectedPerson.nationalityCountry.name}`
+                              : ''}
+                            {selectedPerson.civlId ? ` · CIVL ${selectedPerson.civlId}` : ''}
+                            {` · ${selectedPerson.aeroJudgeId}`}
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={clearSelectedPerson}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <Input
+                          placeholder="e.g. 97253 or AJ-… or Pratap"
+                          value={directoryQ}
+                          onChange={(e) => setDirectoryQ(e.target.value)}
+                          autoComplete="off"
+                        />
+                        {directoryHits.length > 0 && (
+                          <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md">
+                            {directoryHits.map((p) => (
+                              <li key={p.id} className="border-b border-border/40 last:border-0">
+                                <button
+                                  type="button"
+                                  className="flex w-full flex-col items-start px-3 py-2.5 text-left text-sm hover:bg-muted"
+                                  onClick={() => selectPerson(p)}
+                                >
+                                  <span className="font-medium">
+                                    {p.firstName} {p.lastName}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {p.aeroJudgeId}
+                                    {p.civlId ? ` · CIVL ${p.civlId}` : ''}
+                                    {p.nationalityCountry ? ` · ${p.nationalityCountry.name}` : ''}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
-              </div>
-            )}
-            <div className="flex flex-col gap-2">
-              <Label>Pilot Number</Label>
-              <Input type="number" {...register('pilotNumber', { valueAsNumber: true })} />
-              {errors.pilotNumber && (
-                <p className="text-sm text-destructive">{errors.pilotNumber.message}</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Gender</Label>
-              <Select value={gender} onValueChange={(v) => setValue('gender', v as Gender)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MALE">Male</SelectItem>
-                  <SelectItem value="FEMALE">Female</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>First Name</Label>
-              <Input {...register('firstName')} disabled={!!selectedPerson} />
-              {errors.firstName && (
-                <p className="text-sm text-destructive">{errors.firstName.message}</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Last Name</Label>
-              <Input {...register('lastName')} disabled={!!selectedPerson} />
-              {errors.lastName && (
-                <p className="text-sm text-destructive">{errors.lastName.message}</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>FAI License</Label>
-              <Input {...register('faiLicense')} disabled={!!selectedPerson} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>CIVL ID</Label>
-              <Input {...register('civlId')} disabled={!!selectedPerson} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Nationality</Label>
-              <Input {...register('nationality')} disabled={!!selectedPerson} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Glider</Label>
-              <Input {...register('glider')} />
-            </div>
-            <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label>Club</Label>
-              <Input {...register('club')} />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Photo</Label>
-              <p className="text-xs text-muted-foreground">
-                Optional headshot for public rankings and venue display (max 2 MB)
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                {photoPreview ? (
-                  <img
-                    src={photoPreview}
-                    alt=""
-                    className="h-14 w-14 rounded-full object-cover object-top ring-1 ring-border"
-                  />
-                ) : (
-                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                    <ImagePlus className="h-5 w-5" />
-                  </span>
-                )}
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview);
-                    if (!file) {
-                      setPhotoFile(null);
-                      setPhotoPreview(photoRemoved ? null : editing?.photoUrl ?? null);
-                      return;
-                    }
-                    if (file.size > PHOTO_MAX_BYTES) {
-                      window.alert('Photo is too large. Maximum size is 2 MB.');
-                      return;
-                    }
-                    setPhotoRemoved(false);
-                    setPhotoFile(file);
-                    setPhotoPreview(URL.createObjectURL(file));
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => photoInputRef.current?.click()}
-                >
-                  <ImagePlus className="mr-2 h-4 w-4" />
-                  {photoPreview ? 'Change photo' : 'Add photo'}
-                </Button>
-                {photoPreview && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={clearPhotoSelection}
+
+                <div className="flex flex-col gap-2">
+                  <Label>Pilot Number</Label>
+                  <Input type="number" {...register('pilotNumber', { valueAsNumber: true })} />
+                  {errors.pilotNumber && (
+                    <p className="text-sm text-destructive">{errors.pilotNumber.message}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Gender</Label>
+                  <Select
+                    value={gender}
+                    onValueChange={(v) => setValue('gender', v as Gender)}
+                    disabled={!!selectedPerson}
                   >
-                    <X className="mr-2 h-4 w-4" />
-                    Remove
-                  </Button>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MALE">Male</SelectItem>
+                      <SelectItem value="FEMALE">Female</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>First Name</Label>
+                  <Input {...register('firstName')} disabled={!!selectedPerson} />
+                  {errors.firstName && (
+                    <p className="text-sm text-destructive">{errors.firstName.message}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Last Name</Label>
+                  <Input {...register('lastName')} disabled={!!selectedPerson} />
+                  {errors.lastName && (
+                    <p className="text-sm text-destructive">{errors.lastName.message}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>FAI License</Label>
+                  <Input {...register('faiLicense')} disabled={!!selectedPerson} />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>CIVL ID</Label>
+                  <Input {...register('civlId')} disabled={!!selectedPerson} />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Nationality</Label>
+                  <CountrySelect
+                    value={countrySelectValue}
+                    disabled={!!selectedPerson}
+                    onChange={(country) => {
+                      setValue('countryId', country?.id ?? undefined);
+                      setValue('nationality', country?.name ?? undefined);
+                    }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Glider</Label>
+                  <Input {...register('glider')} />
+                </div>
+
+                <div className="flex flex-col gap-2 sm:col-span-2">
+                  <Label>Club</Label>
+                  <Input {...register('club')} />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Photo</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Optional headshot for public rankings and venue display (max 2 MB)
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {photoPreview ? (
+                      <img
+                        src={photoPreview}
+                        alt=""
+                        className="h-14 w-14 rounded-full object-cover object-top ring-1 ring-border"
+                      />
+                    ) : (
+                      <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                        <ImagePlus className="h-5 w-5" />
+                      </span>
+                    )}
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview);
+                        if (!file) {
+                          setPhotoFile(null);
+                          setPhotoPreview(photoRemoved ? null : editing?.photoUrl ?? null);
+                          return;
+                        }
+                        if (file.size > PHOTO_MAX_BYTES) {
+                          window.alert('Photo is too large. Maximum size is 2 MB.');
+                          return;
+                        }
+                        setPhotoRemoved(false);
+                        setPhotoFile(file);
+                        setPhotoPreview(URL.createObjectURL(file));
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      <ImagePlus className="mr-2 h-4 w-4" />
+                      {photoPreview ? 'Change photo' : 'Add photo'}
+                    </Button>
+                    {photoPreview && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={clearPhotoSelection}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {saveMutation.isError && (
+                  <p className="sm:col-span-2 text-sm text-destructive">
+                    {(saveMutation.error as Error)?.message ?? 'Failed to save pilot'}
+                  </p>
                 )}
               </div>
             </div>
-            {saveMutation.isError && (
-              <p className="sm:col-span-2 text-sm text-destructive">
-                {(saveMutation.error as Error)?.message ?? 'Failed to save pilot'}
-              </p>
-            )}
-            <DialogFooter className="mt-1 sm:col-span-2">
+
+            <DialogFooter className="relative z-10 shrink-0 border-t bg-background px-4 py-4 sm:px-6">
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 Cancel
               </Button>

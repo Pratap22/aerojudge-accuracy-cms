@@ -27,11 +27,17 @@ import {
   SelectValue,
 } from '@npha/ui';
 import { api } from '../lib/api';
-import { competitionPath } from '../hooks/useCompetitionId';
+import {
+  archivedCompetitionsPath,
+  competitionPath,
+  parseCompetitionLocation,
+  useRouteOrganizationId,
+} from '../hooks/useCompetitionId';
 import { useAuth } from '../lib/auth';
 import { defaultCompetitionSegment } from '../layouts/AppLayout';
 import { usePermission } from '../hooks/usePermission';
 import { PageHeader } from '../components/PageHeader';
+import { CountrySelect } from '../components/CountrySelect';
 
 interface Competition extends Omit<CreateCompetitionInput, 'location' | 'maximumScoreCm' | 'organizationId'> {
   id: string;
@@ -46,7 +52,8 @@ interface Competition extends Omit<CreateCompetitionInput, 'location' | 'maximum
 interface CompetitionFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated?: (id: string) => void;
+  onCreated?: (competition: { id: string; organizationId?: string }) => void;
+  defaultOrganizationId?: string;
 }
 
 const EMPTY_VALUES: CreateCompetitionInput = {
@@ -69,7 +76,12 @@ const EMPTY_VALUES: CreateCompetitionInput = {
   organizationId: undefined,
 };
 
-export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFormProps) {
+export function CompetitionForm({
+  open,
+  onOpenChange,
+  onCreated,
+  defaultOrganizationId,
+}: CompetitionFormProps) {
   const queryClient = useQueryClient();
 
   const { data: organizations } = useQuery({
@@ -93,16 +105,22 @@ export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFo
 
   useEffect(() => {
     if (open) {
-      const defaultOrgId = organizations?.[0]?.id;
+      const defaultOrgId =
+        defaultOrganizationId ??
+        organizations?.find((o) => o.id === defaultOrganizationId)?.id ??
+        organizations?.[0]?.id;
+      const defaultOrg =
+        organizations?.find((o) => o.id === defaultOrgId) ?? organizations?.[0];
       reset({ ...EMPTY_VALUES, organizationId: defaultOrgId });
-      if (organizations?.[0]) {
-        setValue('organizer', organizations[0].name);
+      if (defaultOrg) {
+        setValue('organizer', defaultOrg.name);
       }
     }
-  }, [open, reset, organizations, setValue]);
+  }, [open, reset, organizations, setValue, defaultOrganizationId]);
 
   const ruleSet = watch('ruleSet');
   const organizationId = watch('organizationId');
+  const country = watch('country');
 
   const mutation = useMutation({
     mutationFn: (data: CreateCompetitionInput) => api.post<Competition>('/competitions', data),
@@ -110,7 +128,12 @@ export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFo
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
       onOpenChange(false);
       reset(EMPTY_VALUES);
-      if (result?.id) onCreated?.(result.id);
+      if (result?.id) {
+        onCreated?.({
+          id: result.id,
+          organizationId: result.organizationId ?? result.organization?.id,
+        });
+      }
     },
   });
 
@@ -166,7 +189,14 @@ export function CompetitionForm({ open, onOpenChange, onCreated }: CompetitionFo
           </div>
           <div className="space-y-2">
             <Label htmlFor="country">Country</Label>
-            <Input id="country" {...register('country')} />
+            <CountrySelect
+              id="country"
+              value={country}
+              allowClear={false}
+              placeholder="Select country"
+              onChange={(selected) => setValue('country', selected?.name ?? '', { shouldValidate: true })}
+            />
+            {errors.country && <p className="text-sm text-destructive">{errors.country.message}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
@@ -250,19 +280,21 @@ export function CompetitionsPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { user, activeOrganizationId } = useAuth();
+  const routeOrganizationId = useRouteOrganizationId();
   const canCreate = usePermission('competition:create');
   const canPublish = usePermission('competition:publish');
   const canUpdate = usePermission('competition:update');
-  const orgScope = activeOrganizationId ?? user?.organizationId ?? 'none';
+  const orgScope = routeOrganizationId ?? activeOrganizationId ?? user?.organizationId ?? null;
+  const orgReady =
+    !!orgScope && (!routeOrganizationId || routeOrganizationId === activeOrganizationId);
   const { data: competitions, isLoading } = useQuery({
-    queryKey: ['competitions', orgScope],
+    queryKey: ['competitions', orgScope ?? 'none'],
     queryFn: () => api.get<Competition[]>('/competitions'),
+    enabled: orgReady,
   });
 
   /** Active competition inferred from any open competition URL (shareable path). */
-  const activeFromPath = location.pathname.match(/^\/competitions\/([^/]+)/)?.[1];
-  const activeCompetitionId =
-    activeFromPath && activeFromPath !== 'archived' ? activeFromPath : undefined;
+  const activeCompetitionId = parseCompetitionLocation(location.pathname).competitionId;
 
   const publishMutation = useMutation({
     mutationFn: (id: string) => api.post<Competition>(`/competitions/${id}/publish`),
@@ -272,7 +304,9 @@ export function CompetitionsPage() {
   });
 
   const handleOpen = (comp: Competition) => {
-    navigate(competitionPath(comp.id, defaultCompetitionSegment(user)));
+    const organizationId = comp.organizationId ?? orgScope;
+    if (!organizationId) return;
+    navigate(competitionPath(organizationId, comp.id, defaultCompetitionSegment(user)));
   };
 
   return (
@@ -282,9 +316,9 @@ export function CompetitionsPage() {
         description="Open a competition to work on it. Publish to show it on Display and Public Results."
         actions={
           <>
-            {canUpdate && (
+            {canUpdate && orgScope && (
               <Button variant="outline" asChild className="w-full sm:w-auto">
-                <Link to="/competitions/archived">
+                <Link to={archivedCompetitionsPath(orgScope)}>
                   <Archive className="mr-2 h-4 w-4" />
                   Archived
                 </Link>
@@ -300,7 +334,9 @@ export function CompetitionsPage() {
         }
       />
 
-      {isLoading ? (
+      {!orgScope ? (
+        <p className="text-muted-foreground">Select an organization to view competitions.</p>
+      ) : !orgReady || isLoading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : competitions?.length === 0 ? (
         <Card>
@@ -366,7 +402,12 @@ export function CompetitionsPage() {
         <CompetitionForm
           open={formOpen}
           onOpenChange={setFormOpen}
-          onCreated={(id) => navigate(competitionPath(id, defaultCompetitionSegment(user)))}
+          defaultOrganizationId={orgScope ?? undefined}
+          onCreated={({ id, organizationId }) => {
+            const orgId = organizationId ?? orgScope;
+            if (!orgId) return;
+            navigate(competitionPath(orgId, id, defaultCompetitionSegment(user)));
+          }}
         />
       )}
     </div>

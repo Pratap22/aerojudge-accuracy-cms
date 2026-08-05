@@ -519,11 +519,15 @@ model Competition {
   updatedAt       DateTime          @updatedAt
 
   settings         CompetitionSettings?
+  info             CompetitionInfo?
   pilots           Pilot[]
   teams            Team[]
   rounds           Round[]
   sponsors         Sponsor[]
   officials        CompetitionOfficial[]
+  galleryImages    CompetitionGalleryImage[]
+  links            CompetitionLink[]
+  contacts         CompetitionContact[]
   weatherReadings  Weather[]
   windReadings     Wind[]
   displayLayouts   DisplayLayout[]
@@ -544,6 +548,71 @@ model Competition {
   @@index([status])
   @@index([publicSlug])
   @@index([startDate])
+}
+
+/// Public brochure content for a competition (About, schedule, travel, etc.).
+model CompetitionInfo {
+  id                  String   @id @default(cuid())
+  competitionId       String   @unique
+  competition         Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  aboutHtml           String?  @db.Text
+  dailyScheduleHtml   String?  @db.Text
+  selectionRulesHtml  String?  @db.Text
+  entryFeePaymentHtml String?  @db.Text
+  flyingSiteHtml      String?  @db.Text
+  travelInfoHtml      String?  @db.Text
+  /// Optional map pin label (defaults to venue on public pages).
+  mapLabel            String?
+  /// Override zoom for the event map (OpenStreetMap). Falls back to 13.
+  mapZoom             Int      @default(13)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model CompetitionGalleryImage {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  url           String
+  caption       String?
+  displayOrder  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId])
+  @@index([competitionId, displayOrder])
+}
+
+model CompetitionLink {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  label         String
+  url           String
+  displayOrder  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId])
+  @@index([competitionId, displayOrder])
+}
+
+/// Public event contacts (distinct from Officials roster — e.g. accommodation, transport).
+model CompetitionContact {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  name          String
+  role          String
+  phone         String?
+  email         String?
+  displayOrder  Int      @default(0)
+  isPublic      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId])
+  @@index([competitionId, isPublic])
 }
 
 model CompetitionSettings {

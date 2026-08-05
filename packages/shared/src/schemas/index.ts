@@ -152,11 +152,19 @@ export const createPilotBaseSchema = z.object({
 });
 
 export const createPilotSchema = createPilotBaseSchema.superRefine((val, ctx) => {
-  if (!val.personId && (!val.firstName || !val.lastName)) {
+  if (val.personId) return;
+  if (!val.firstName?.trim()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'firstName and lastName are required when personId is not provided',
+      message: 'First name is required',
       path: ['firstName'],
+    });
+  }
+  if (!val.lastName?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Last name is required',
+      path: ['lastName'],
     });
   }
 });
@@ -514,10 +522,10 @@ export const createOfficialBaseSchema = z.object({
 });
 
 export const createOfficialSchema = createOfficialBaseSchema.superRefine((val, ctx) => {
-  if (!val.personId && !val.name) {
+  if (!val.personId && !val.name?.trim()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'name is required when personId is not provided',
+      message: 'Name is required',
       path: ['name'],
     });
   }
@@ -541,6 +549,88 @@ export type SponsorType = z.infer<typeof sponsorTypeSchema>;
 export type PartnersDisplaySettings = z.infer<typeof partnersDisplaySettingsSchema>;
 export type CreateOfficialInput = z.infer<typeof createOfficialSchema>;
 export type UpdateOfficialInput = z.infer<typeof updateOfficialSchema>;
+
+// ─── Competition event info (public brochure) ───
+
+const richHtml = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((v) => (v === undefined ? undefined : v));
+
+export const updateCompetitionInfoSchema = z.object({
+  aboutHtml: richHtml,
+  dailyScheduleHtml: richHtml,
+  selectionRulesHtml: richHtml,
+  entryFeePaymentHtml: richHtml,
+  flyingSiteHtml: richHtml,
+  travelInfoHtml: richHtml,
+  mapLabel: optionalString,
+  mapZoom: z.number().int().min(1).max(19).optional(),
+  /** Event map coordinates (stored on Competition). */
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  location: optionalString,
+});
+
+export const createGalleryImageSchema = z.object({
+  caption: optionalString,
+  displayOrder: z.number().int().min(0).optional(),
+  /** When creating from an already-uploaded URL (optional — usual path is multipart upload). */
+  url: optionalString,
+});
+
+export const updateGalleryImageSchema = z.object({
+  caption: optionalString,
+  displayOrder: z.number().int().min(0).optional(),
+});
+
+export const createCompetitionLinkSchema = z.object({
+  label: z.string().min(1).max(200),
+  url: z.string().url().max(2000),
+  displayOrder: z.number().int().min(0).optional(),
+});
+
+export const updateCompetitionLinkSchema = createCompetitionLinkSchema.partial();
+
+export const createCompetitionContactSchema = z.object({
+  name: z.string().min(1).max(200),
+  role: z.string().min(1).max(120),
+  phone: optionalString,
+  email: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    z.string().email().optional(),
+  ),
+  displayOrder: z.number().int().min(0).optional(),
+  isPublic: z.boolean().optional(),
+});
+
+export const updateCompetitionContactSchema = createCompetitionContactSchema.partial();
+
+export const updateCompetitionSchema = createCompetitionSchema
+  .omit({ organizationId: true, maximumScoreCm: true })
+  .partial();
+
+/** True when HTML has no visible text (empty editor / whitespace-only). */
+export function isEmptyHtml(html: string | null | undefined): boolean {
+  if (html == null || html.trim() === '') return true;
+  const text = html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#\d+;/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length === 0;
+}
+
+export type UpdateCompetitionInfoInput = z.infer<typeof updateCompetitionInfoSchema>;
+export type CreateGalleryImageInput = z.infer<typeof createGalleryImageSchema>;
+export type UpdateGalleryImageInput = z.infer<typeof updateGalleryImageSchema>;
+export type CreateCompetitionLinkInput = z.infer<typeof createCompetitionLinkSchema>;
+export type UpdateCompetitionLinkInput = z.infer<typeof updateCompetitionLinkSchema>;
+export type CreateCompetitionContactInput = z.infer<typeof createCompetitionContactSchema>;
+export type UpdateCompetitionContactInput = z.infer<typeof updateCompetitionContactSchema>;
+export type UpdateCompetitionInput = z.infer<typeof updateCompetitionSchema>;
 
 // ─── Person directory ───
 

@@ -21,6 +21,7 @@ router.get('/:slug/rounds-status', ...ctrl.getRoundsStatus);
 router.get('/:slug/latest-score', ...ctrl.getLatestScore);
 router.get('/:slug/sponsors', ...ctrl.getSponsors);
 router.get('/:slug/officials', ...ctrl.getOfficials);
+router.get('/:slug/info', ...ctrl.getEventInfo);
 router.get('/:slug/pilots', ...ctrl.listPilots);
 /** Self-reg: login → claim/profile → competition enrollment */
 router.post('/:slug/register', requireAuth, ...ctrl.registerPilot);

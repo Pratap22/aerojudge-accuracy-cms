@@ -7,6 +7,45 @@ import { resolveCountryId } from '../utils/country-resolve.js';
 /** Base32-ish alphabet without ambiguous 0/O/1/I. */
 const AJ_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+/**
+ * Prisma OR clauses for person name search.
+ * Single token: match any name field.
+ * Multiple tokens (e.g. "Aman Thapa"): every token must appear in some name field,
+ * plus a conventional given-name / family-name split.
+ */
+export function personNameSearchOrClauses(rawQuery: string): Prisma.PersonWhereInput[] {
+  const tokens = rawQuery
+    .trim()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  if (tokens.length === 0) return [];
+
+  const tokenInAnyNameField = (token: string): Prisma.PersonWhereInput => ({
+    OR: [
+      { firstName: { contains: token, mode: 'insensitive' } },
+      { middleName: { contains: token, mode: 'insensitive' } },
+      { lastName: { contains: token, mode: 'insensitive' } },
+      { preferredName: { contains: token, mode: 'insensitive' } },
+      { displayName: { contains: token, mode: 'insensitive' } },
+    ],
+  });
+
+  if (tokens.length === 1) {
+    return [tokenInAnyNameField(tokens[0]!)];
+  }
+
+  return [
+    { AND: tokens.map(tokenInAnyNameField) },
+    {
+      AND: [
+        { firstName: { contains: tokens[0]!, mode: 'insensitive' } },
+        { lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' } },
+      ],
+    },
+  ];
+}
+
 export function generateAeroJudgeId(): string {
   const bytes = randomBytes(6);
   let code = '';
@@ -217,7 +256,7 @@ export async function createPerson(input: CreatePersonInput, opts?: { actorUserI
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
   if (!firstName || !lastName) {
-    throw AppError.badRequest('firstName and lastName are required');
+    throw AppError.badRequest('First name and last name are required');
   }
 
   const civlId = input.civlId?.trim() || null;
@@ -505,18 +544,8 @@ export async function matchPersons(input: MatchInput): Promise<PersonMatch[]> {
       { aeroJudgeId: { equals: upper, mode: 'insensitive' } },
       { civlId: { equals: q, mode: 'insensitive' } },
       { faiLicenseNumber: { contains: q, mode: 'insensitive' } },
-      { firstName: { contains: q, mode: 'insensitive' } },
-      { lastName: { contains: q, mode: 'insensitive' } },
+      ...personNameSearchOrClauses(q),
     ];
-    if (q.includes(' ')) {
-      const [first, ...rest] = q.split(/\s+/);
-      or.push({
-        AND: [
-          { firstName: { contains: first, mode: 'insensitive' } },
-          { lastName: { contains: rest.join(' '), mode: 'insensitive' } },
-        ],
-      });
-    }
     const persons = await prisma.person.findMany({
       where: { status: 'ACTIVE', OR: or },
       include: { nationalityCountry: true },
@@ -564,9 +593,8 @@ export async function searchPeopleDirectory(query: {
       { aeroJudgeId: { contains: q.toUpperCase(), mode: 'insensitive' } },
       { civlId: { contains: q, mode: 'insensitive' } },
       { faiLicenseNumber: { contains: q, mode: 'insensitive' } },
-      { firstName: { contains: q, mode: 'insensitive' } },
-      { lastName: { contains: q, mode: 'insensitive' } },
       { email: { contains: q, mode: 'insensitive' } },
+      ...personNameSearchOrClauses(q),
     ];
   }
 

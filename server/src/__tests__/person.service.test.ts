@@ -5,7 +5,11 @@ import {
   isPilotRole,
   mapOfficialLabelToRole,
 } from '../services/competition-participant.service.js';
-import { generateAeroJudgeId, personDisplayName } from '../services/person.service.js';
+import {
+  generateAeroJudgeId,
+  personDisplayName,
+  personNameSearchOrClauses,
+} from '../services/person.service.js';
 import { AppError } from '../utils/errors.js';
 
 describe('Person identity architecture', () => {
@@ -15,6 +19,35 @@ describe('Person identity architecture', () => {
         const id = generateAeroJudgeId();
         expect(id).toMatch(/^AJ-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/);
       }
+    });
+  });
+
+  describe('personNameSearchOrClauses', () => {
+    it('matches a single token against any name field', () => {
+      const clauses = personNameSearchOrClauses('Thapa');
+      expect(clauses).toHaveLength(1);
+      expect(clauses[0]).toMatchObject({
+        OR: expect.arrayContaining([
+          { lastName: { contains: 'Thapa', mode: 'insensitive' } },
+          { firstName: { contains: 'Thapa', mode: 'insensitive' } },
+        ]),
+      });
+    });
+
+    it('requires every token of a full name to appear in some name field', () => {
+      const clauses = personNameSearchOrClauses('Aman Thapa');
+      expect(clauses.some((c) => 'AND' in c && Array.isArray(c.AND) && c.AND.length === 2)).toBe(
+        true,
+      );
+      const tokenAnd = clauses.find((c) => 'AND' in c && Array.isArray(c.AND) && c.AND.length === 2);
+      expect(JSON.stringify(tokenAnd)).toContain('"contains":"Aman"');
+      expect(JSON.stringify(tokenAnd)).toContain('"contains":"Thapa"');
+    });
+
+    it('ignores extra whitespace', () => {
+      expect(personNameSearchOrClauses('  Aman   Thapa  ')).toEqual(
+        personNameSearchOrClauses('Aman Thapa'),
+      );
     });
   });
 

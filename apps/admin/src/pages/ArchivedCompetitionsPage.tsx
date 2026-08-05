@@ -13,7 +13,11 @@ import {
 } from '@npha/ui';
 import { api } from '../lib/api';
 import { usePermission } from '../hooks/usePermission';
-import { competitionPath } from '../hooks/useCompetitionId';
+import {
+  competitionPath,
+  competitionsListPath,
+  useRouteOrganizationId,
+} from '../hooks/useCompetitionId';
 import { useAuth } from '../lib/auth';
 import { defaultCompetitionSegment } from '../layouts/AppLayout';
 
@@ -25,6 +29,7 @@ interface Competition {
   status: CompetitionStatus;
   startDate: string;
   endDate: string;
+  organizationId?: string;
 }
 
 /**
@@ -35,12 +40,14 @@ export function ArchivedCompetitionsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, activeOrganizationId } = useAuth();
+  const routeOrganizationId = useRouteOrganizationId();
   const canUpdate = usePermission('competition:update');
-  const orgScope = activeOrganizationId ?? user?.organizationId ?? 'none';
+  const orgScope = routeOrganizationId ?? activeOrganizationId ?? user?.organizationId ?? null;
 
   const { data: competitions, isLoading } = useQuery({
-    queryKey: ['competitions', orgScope, 'archived'],
+    queryKey: ['competitions', orgScope ?? 'none', 'archived'],
     queryFn: () => api.get<Competition[]>('/competitions', { status: 'ARCHIVED' }),
+    enabled: !!orgScope,
   });
 
   const unarchiveMutation = useMutation({
@@ -70,12 +77,16 @@ export function ArchivedCompetitionsPage() {
             COMPLETED (unpublished).
           </p>
         </div>
-        <Button variant="outline" asChild>
-          <Link to="/competitions">Back to Competitions</Link>
-        </Button>
+        {orgScope && (
+          <Button variant="outline" asChild>
+            <Link to={competitionsListPath(orgScope)}>Back to Competitions</Link>
+          </Button>
+        )}
       </div>
 
-      {isLoading ? (
+      {!orgScope ? (
+        <p className="text-muted-foreground">Select an organization to view archived competitions.</p>
+      ) : isLoading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : competitions?.length === 0 ? (
         <p className="text-muted-foreground">No archived competitions</p>
@@ -105,7 +116,10 @@ export function ArchivedCompetitionsPage() {
                     ) {
                       unarchiveMutation.mutate(comp.id, {
                         onSuccess: () => {
-                          navigate(competitionPath(comp.id, defaultCompetitionSegment(user)));
+                          const organizationId = comp.organizationId ?? orgScope;
+                          navigate(
+                            competitionPath(organizationId, comp.id, defaultCompetitionSegment(user)),
+                          );
                         },
                       });
                     }

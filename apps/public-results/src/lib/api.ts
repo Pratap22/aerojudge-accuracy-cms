@@ -1,6 +1,7 @@
 import type {
   ApiResponse,
   AuthenticatedPilotRegistrationInput,
+  CompetitionEventInfo,
   RankingCategory,
 } from '@npha/shared';
 import { API_VERSION } from '@npha/shared';
@@ -111,6 +112,10 @@ export interface PublicOfficial {
 
 export function fetchOfficials(idOrSlug: string): Promise<PublicOfficial[]> {
   return publicFetch<PublicOfficial[]>(`/${idOrSlug}/officials`);
+}
+
+export function fetchEventInfo(idOrSlug: string): Promise<CompetitionEventInfo> {
+  return publicFetch<CompetitionEventInfo>(`/${idOrSlug}/info`);
 }
 
 export interface RegisteredPilot {

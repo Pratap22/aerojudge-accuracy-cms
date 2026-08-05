@@ -28,6 +28,7 @@ import {
 import { api, apiFetch } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { competitionPath } from '../../hooks/useCompetitionId';
+import { CountrySelect } from '../../components/CountrySelect';
 import { OrganizationMembersPage } from './OrganizationMembersPage';
 import { OrganizationRolesPage } from './OrganizationRolesPage';
 
@@ -145,6 +146,7 @@ export function OrganizationDetailPage() {
   const accentColor = watch('accentColor');
   const plan = watch('plan');
   const ruleProfile = watch('defaultRuleProfile');
+  const country = watch('country');
 
   const saveMutation = useMutation({
     mutationFn: (data: UpdateOrganizationInput) =>
@@ -353,7 +355,12 @@ export function OrganizationDetailPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="country">Country</Label>
-            <Input id="country" {...register('country')} disabled={!canManage} />
+            <CountrySelect
+              id="country"
+              value={country}
+              disabled={!canManage}
+              onChange={(selected) => setValue('country', selected?.name ?? undefined)}
+            />
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="address">Address</Label>
@@ -598,7 +605,7 @@ export function OrganizationDetailPage() {
               <li key={c.id} className="flex items-center justify-between gap-4 px-4 py-3">
                 <div>
                   <Link
-                    to={competitionPath(c.id)}
+                    to={competitionPath(organizationId, c.id)}
                     className="font-medium text-primary hover:underline"
                   >
                     {c.name}

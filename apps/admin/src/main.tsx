@@ -11,6 +11,7 @@ import App from './App';
 try { localStorage.removeItem('npha_active_competition'); } catch { /* ignore */ }
 import { AuthProvider } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
+import { Toaster } from '@npha/ui';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +32,7 @@ createRoot(document.getElementById('root')!).render(
         <BrowserRouter basename={routerBasename}>
           <AuthProvider>
             <App />
+            <Toaster />
           </AuthProvider>
         </BrowserRouter>
       </ThemeProvider>

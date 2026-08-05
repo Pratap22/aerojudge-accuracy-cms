@@ -22,12 +22,14 @@ export function Navigation() {
   const navItems = preEvent
     ? [
         { path: '', label: 'Home' },
+        ...(competition?.hasInfo ? [{ path: 'info', label: 'Info' }] : []),
         { path: 'pilots', label: 'Pilots' },
         { path: 'officials', label: 'Officials' },
         ...(registrationOpen ? [{ path: 'register', label: 'Register' }] : []),
       ]
     : [
         { path: '', label: 'Home' },
+        ...(competition?.hasInfo ? [{ path: 'info', label: 'Info' }] : []),
         { path: 'results', label: completed ? 'Final Results' : 'Live Results' },
         { path: 'pilots', label: 'Pilots' },
         { path: 'officials', label: 'Officials' },

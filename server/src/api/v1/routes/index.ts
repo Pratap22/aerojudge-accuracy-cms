@@ -15,6 +15,7 @@ import weatherRoutes from './weather.routes.js';
 import displayRoutes from './display.routes.js';
 import sponsorsRoutes from './sponsors.routes.js';
 import officialsRoutes from './officials.routes.js';
+import competitionInfoRoutes from './competition-info.routes.js';
 import statisticsRoutes from './statistics.routes.js';
 import syncRoutes from './sync.routes.js';
 import peopleRoutes from './people.routes.js';
@@ -55,6 +56,7 @@ nested.use('/weather', weatherRoutes);
 nested.use('/display-layouts', displayRoutes);
 nested.use('/sponsors', sponsorsRoutes);
 nested.use('/officials', officialsRoutes);
+nested.use('/info', competitionInfoRoutes);
 nested.use('/statistics', statisticsRoutes);
 nested.use('/audit', auditRoutes);
 

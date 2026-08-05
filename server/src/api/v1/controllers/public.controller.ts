@@ -132,6 +132,14 @@ export const getOfficials = [
   }),
 ];
 
+export const getEventInfo = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const info = await publicService.getPublicEventInfo(req.params.slug);
+    sendSuccess(res, info);
+  }),
+];
+
 export const listCountries = [
   asyncHandler(async (_req: Request, res: Response) => {
     const countries = await publicService.listPublicCountries();

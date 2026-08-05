@@ -23,6 +23,7 @@ import {
   Building2,
   Handshake,
   Gavel,
+  Info,
   X,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
@@ -31,13 +32,13 @@ import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { api } from '../lib/api';
 import { connectSocket, disconnectSocket } from '../lib/socket';
-import { competitionPath } from '../hooks/useCompetitionId';
+import { competitionPath, competitionsListPath, parseCompetitionLocation } from '../hooks/useCompetitionId';
 import { checkPermission } from '../hooks/usePermission';
 
-const platformNav = [
-  { to: '/competitions', label: 'Competitions', icon: Trophy, end: true },
-  { to: '/organizations', label: 'Organizations', icon: Building2, end: true },
-  { to: '/users', label: 'Users', icon: Shield, end: false },
+const platformNavBase = [
+  { key: 'competitions' as const, label: 'Competitions', icon: Trophy, end: true },
+  { key: 'organizations' as const, to: '/organizations', label: 'Organizations', icon: Building2, end: true },
+  { key: 'users' as const, to: '/users', label: 'Users', icon: Shield, end: false },
 ] as const;
 
 type CompetitionNavItem = {
@@ -76,6 +77,13 @@ const competitionNavGroups: Array<{
         segment: 'officials',
         label: 'Officials',
         icon: Gavel,
+        end: false,
+        anyOf: ['competition:update'],
+      },
+      {
+        segment: 'info',
+        label: 'Event info',
+        icon: Info,
         end: false,
         anyOf: ['competition:update'],
       },
@@ -141,13 +149,6 @@ const competitionNavGroups: Array<{
   },
 ];
 
-function competitionIdFromPath(pathname: string): string | undefined {
-  const match = pathname.match(/^\/competitions\/([^/]+)/);
-  const id = match?.[1];
-  if (!id || id === 'archived') return undefined;
-  return id;
-}
-
 function NavSectionLabel({ children }: { children: ReactNode }) {
   return (
     <p className="px-3 pb-1.5 pt-3 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50 first:pt-1">
@@ -203,41 +204,53 @@ export function AppLayout() {
   const { pathname } = useLocation();
   const queryClient = useQueryClient();
   const [navOpen, setNavOpen] = useState(false);
-  const competitionId = useMemo(() => competitionIdFromPath(pathname), [pathname]);
-  const orgScope = activeOrganizationId ?? user?.organizationId ?? 'none';
+  const routeIds = useMemo(() => parseCompetitionLocation(pathname), [pathname]);
+  const competitionId = routeIds.competitionId;
+  const routeOrganizationId = routeIds.organizationId;
+  const orgScope = activeOrganizationId ?? user?.organizationId ?? null;
 
   const visiblePlatformNav = useMemo(() => {
     if (!user) return [];
-    return platformNav.filter((item) => {
-      if (item.to === '/users') {
-        return hasPermission(user.role, 'user:manage');
-      }
-      if (item.to === '/organizations') {
-        return (
-          hasEffectivePermission({
-            platformRole: user.role,
-            orgRole: user.orgRole,
-            permissions: user.permissions,
-            permission: 'organization:manage',
-          }) ||
-          hasEffectivePermission({
-            platformRole: user.role,
-            orgRole: user.orgRole,
-            permissions: user.permissions,
-            permission: 'organization:members',
-          }) ||
-          hasEffectivePermission({
-            platformRole: user.role,
-            orgRole: user.orgRole,
-            permissions: user.permissions,
-            permission: 'organization:read',
-          }) ||
-          hasPermission(user.role, 'platform:organizations')
-        );
-      }
-      return true;
-    });
-  }, [user]);
+    return platformNavBase
+      .filter((item) => {
+        if (item.key === 'users') {
+          return hasPermission(user.role, 'user:manage');
+        }
+        if (item.key === 'organizations') {
+          return (
+            hasEffectivePermission({
+              platformRole: user.role,
+              orgRole: user.orgRole,
+              permissions: user.permissions,
+              permission: 'organization:manage',
+            }) ||
+            hasEffectivePermission({
+              platformRole: user.role,
+              orgRole: user.orgRole,
+              permissions: user.permissions,
+              permission: 'organization:members',
+            }) ||
+            hasEffectivePermission({
+              platformRole: user.role,
+              orgRole: user.orgRole,
+              permissions: user.permissions,
+              permission: 'organization:read',
+            }) ||
+            hasPermission(user.role, 'platform:organizations')
+          );
+        }
+        return true;
+      })
+      .map((item) => {
+        if (item.key === 'competitions') {
+          return {
+            ...item,
+            to: orgScope ? competitionsListPath(orgScope) : '/competitions',
+          };
+        }
+        return item;
+      });
+  }, [user, orgScope]);
 
   const visibleCompetitionGroups = useMemo(() => {
     if (!user) return [];
@@ -252,12 +265,15 @@ export function AppLayout() {
   }, [user]);
 
   const { data: competitions } = useQuery({
-    queryKey: ['competitions', orgScope],
+    queryKey: ['competitions', orgScope ?? 'none'],
     queryFn: () =>
       api.get<
         Array<{ id: string; name: string; code: string; status: string; organizationId?: string }>
       >('/competitions'),
-    enabled: !!activeOrganizationId || !!user,
+    // Wait for org header — missing x-organization-id returns an empty list.
+    // Also wait until URL org matches active org so we don't cache the wrong tenant's list.
+    enabled:
+      !!orgScope && (!routeOrganizationId || routeOrganizationId === activeOrganizationId),
   });
 
   const activeCompetition = competitions?.find((c) => c.id === competitionId);
@@ -266,6 +282,8 @@ export function AppLayout() {
   const inCompetition = Boolean(
     competitionId && activeCompetition && visibleCompetitionGroups.length > 0,
   );
+  const navOrganizationId =
+    routeOrganizationId ?? orgScope ?? activeCompetition?.organizationId ?? undefined;
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -292,14 +310,49 @@ export function AppLayout() {
     return () => window.removeEventListener('keydown', onKey);
   }, [navOpen]);
 
+  // Align selected org with the organization id in the URL (shareable deep links)
+  useEffect(() => {
+    if (!routeOrganizationId) return;
+    if (routeOrganizationId === activeOrganizationId) return;
+    const membership = organizations.find(
+      (o) => o.organizationId === routeOrganizationId && o.status === 'ACTIVE',
+    );
+    if (!membership) return;
+    let cancelled = false;
+    void (async () => {
+      await selectOrganization(routeOrganizationId);
+      if (cancelled) return;
+      await queryClient.cancelQueries();
+      queryClient.clear();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    routeOrganizationId,
+    activeOrganizationId,
+    organizations,
+    selectOrganization,
+    queryClient,
+  ]);
+
   // Leave competition routes that are not part of the active organization
   useEffect(() => {
-    if (!competitionId || !competitions) return;
+    if (!competitionId || !competitions || !orgScope) return;
+    // Don't bounce while URL org is still being selected
+    if (routeOrganizationId && routeOrganizationId !== activeOrganizationId) return;
     if (!competitions.some((c) => c.id === competitionId)) {
       disconnectSocket();
-      navigate('/competitions', { replace: true });
+      navigate(competitionsListPath(orgScope), { replace: true });
     }
-  }, [competitionId, competitions, navigate]);
+  }, [
+    competitionId,
+    competitions,
+    navigate,
+    orgScope,
+    routeOrganizationId,
+    activeOrganizationId,
+  ]);
 
   useEffect(() => {
     if (competitionId && competitionBelongsToOrg && activeCompetition) {
@@ -316,9 +369,7 @@ export function AppLayout() {
     await selectOrganization(organizationId);
     await queryClient.cancelQueries();
     queryClient.clear();
-    if (competitionIdFromPath(pathname)) {
-      navigate('/competitions', { replace: true });
-    }
+    navigate(competitionsListPath(organizationId), { replace: true });
   };
 
   const roleLabel =
@@ -367,7 +418,8 @@ export function AppLayout() {
                 type="button"
                 onClick={() => {
                   closeNav();
-                  navigate('/competitions');
+                  if (navOrganizationId) navigate(competitionsListPath(navOrganizationId));
+                  else navigate('/competitions');
                 }}
                 className="mb-2 inline-flex min-h-9 items-center gap-1 text-[11px] font-medium text-sidebar-foreground/60 transition-colors hover:text-sidebar-foreground"
               >
@@ -391,7 +443,11 @@ export function AppLayout() {
                   {group.items.map(({ segment, label, icon, end }) => (
                     <SidebarLink
                       key={segment || 'overview'}
-                      to={competitionPath(competitionId!, segment)}
+                      to={
+                        navOrganizationId && competitionId
+                          ? competitionPath(navOrganizationId, competitionId, segment)
+                          : '#'
+                      }
                       end={end}
                       icon={icon}
                       onNavigate={closeNav}

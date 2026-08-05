@@ -107,15 +107,25 @@ export function errorHandler(
     'code' in err &&
     (err as { code?: string }).code === 'P2002'
   ) {
-    const target = (err as { meta?: { target?: string[] } }).meta?.target;
-    sendError(
-      res,
-      409,
-      'CONFLICT',
-      target?.length
-        ? `A record with this ${target.join(', ')} already exists`
-        : 'A conflicting record already exists',
-    );
+    const rawTarget = (err as { meta?: { target?: string | string[] } }).meta?.target;
+    const target = Array.isArray(rawTarget) ? rawTarget : rawTarget ? [rawTarget] : [];
+    // QR payloads are derived from competition + pilot number, so a qrCode clash
+    // almost always means the pilot number is already taken.
+    let message = 'A conflicting record already exists';
+    if (
+      target.some(
+        (t) =>
+          t === 'qrCode' ||
+          t.includes('qrCode') ||
+          t.includes('pilotNumber') ||
+          t.includes('competitionId_pilotNumber'),
+      )
+    ) {
+      message = 'Pilot number is already in use in this competition';
+    } else if (target.length) {
+      message = `A record with this ${target.join(', ')} already exists`;
+    }
+    sendError(res, 409, 'CONFLICT', message);
     return;
   }
 

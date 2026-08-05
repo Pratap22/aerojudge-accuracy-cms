@@ -15,11 +15,18 @@ import {
   Label,
 } from '@npha/ui';
 import { useAuth } from '../lib/auth';
+import { competitionsListPath } from '../hooks/useCompetitionId';
 import { ApiError } from '../lib/api';
 
 export function LoginPage() {
-  const { login, selectOrganization, isAuthenticated, requiresOrganizationSelection, organizations } =
-    useAuth();
+  const {
+    login,
+    selectOrganization,
+    isAuthenticated,
+    requiresOrganizationSelection,
+    organizations,
+    activeOrganizationId,
+  } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +41,11 @@ export function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
-  const from = (location.state as { from?: Location })?.from?.pathname ?? '/competitions';
+  const requestedFrom = (location.state as { from?: Location })?.from?.pathname;
+  const defaultHome = activeOrganizationId
+    ? competitionsListPath(activeOrganizationId)
+    : '/competitions';
+  const from = requestedFrom && requestedFrom !== '/login' ? requestedFrom : defaultHome;
 
   if (isAuthenticated && !requiresOrganizationSelection && !selecting) {
     navigate(from, { replace: true });
@@ -49,7 +60,14 @@ export function LoginPage() {
         setSelecting(true);
         return;
       }
-      navigate(from, { replace: true });
+      const orgId = result.user.organizationId;
+      const dest =
+        requestedFrom && requestedFrom !== '/login'
+          ? requestedFrom
+          : orgId
+            ? competitionsListPath(orgId)
+            : '/competitions';
+      navigate(dest, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Login failed. Check your credentials.');
     }
@@ -59,7 +77,11 @@ export function LoginPage() {
     setError(null);
     try {
       await selectOrganization(organizationId);
-      navigate(from, { replace: true });
+      const dest =
+        requestedFrom && requestedFrom !== '/login'
+          ? requestedFrom
+          : competitionsListPath(organizationId);
+      navigate(dest, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to select organization.');
     }

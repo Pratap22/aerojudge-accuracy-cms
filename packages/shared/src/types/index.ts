@@ -442,6 +442,59 @@ export interface CompetitionOfficial {
   person?: { id: string; aeroJudgeId: string; name: string } | null;
 }
 
+/** Rich-text brochure fields for a competition (About, schedule, etc.). */
+export interface CompetitionInfoContent {
+  aboutHtml: string | null;
+  dailyScheduleHtml: string | null;
+  selectionRulesHtml: string | null;
+  entryFeePaymentHtml: string | null;
+  flyingSiteHtml: string | null;
+  travelInfoHtml: string | null;
+  mapLabel: string | null;
+  mapZoom: number;
+}
+
+export interface CompetitionGalleryImage {
+  id: string;
+  competitionId: string;
+  url: string;
+  caption: string | null;
+  displayOrder: number;
+}
+
+export interface CompetitionLink {
+  id: string;
+  competitionId: string;
+  label: string;
+  url: string;
+  displayOrder: number;
+}
+
+export interface CompetitionContact {
+  id: string;
+  competitionId: string;
+  name: string;
+  role: string;
+  phone: string | null;
+  email: string | null;
+  displayOrder: number;
+  isPublic: boolean;
+}
+
+/** Full event-info payload for admin + public brochure pages. */
+export interface CompetitionEventInfo extends CompetitionInfoContent {
+  competitionId: string;
+  latitude: number | null;
+  longitude: number | null;
+  venue: string;
+  location: string | null;
+  gallery: CompetitionGalleryImage[];
+  links: CompetitionLink[];
+  contacts: CompetitionContact[];
+  /** True when any public brochure section has content. */
+  hasContent: boolean;
+}
+
 /** Directory identity for reusable people search. */
 export interface PersonDirectoryEntry {
   id: string;

@@ -15,6 +15,7 @@
     "@npha/ui": "*",
     "@npha/utils": "^1.0.0",
     "@tanstack/react-query": "^5.28.4",
+    "dompurify": "^3.4.13",
     "framer-motion": "^11.0.24",
     "lucide-react": "^0.363.0",
     "react": "^18.2.0",
@@ -23,6 +24,7 @@
     "socket.io-client": "^4.7.5"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/react": "^18.2.73",
     "@types/react-dom": "^18.2.23",
     "@vitejs/plugin-react": "^4.2.1",

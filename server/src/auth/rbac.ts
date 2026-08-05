@@ -231,20 +231,114 @@ export function requirePermission(permission: Permission) {
 }
 
 /**
- * Ensures the active organization context matches :id route param.
+ * Ensures the caller may act on the organization identified by a route param.
+ *
+ * Allows (without forcing a sidebar/org-header switch):
+ * 1. Active org context already matching the param
+ * 2. An ACTIVE membership on the target org (request context is switched to it)
+ * 3. Platform operators with `platform:organizations`
+ *
+ * Downstream `requirePermission(...)` checks then evaluate against the target org
+ * (or platform-granted org permissions), not the previously selected sidebar org.
  */
 export function requireOrgMatchesParam(paramName = 'id') {
-  return (req: Request, _res: Response, next: NextFunction): void => {
-    const targetId = req.params[paramName];
-    if (!req.organizationId || !targetId || req.organizationId !== targetId) {
-      next(
-        AppError.forbidden(
-          'Switch to this organization before performing this action',
-        ),
-      );
+  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+    if (!req.user) {
+      next(AppError.unauthorized());
       return;
     }
-    next();
+
+    const targetId = req.params[paramName];
+    if (!targetId) {
+      next(AppError.badRequest('Organization id required'));
+      return;
+    }
+
+    // Already scoped to this organization via X-Organization-Id / JWT
+    if (req.organizationId === targetId) {
+      next();
+      return;
+    }
+
+    try {
+      const membership = await prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: targetId,
+            userId: req.user.id,
+          },
+        },
+        include: {
+          organization: { select: { id: true, status: true, isActive: true } },
+          customRole: { select: { id: true, permissions: true, name: true } },
+        },
+      });
+
+      if (
+        membership &&
+        membership.status === 'ACTIVE' &&
+        membership.organization.isActive &&
+        membership.organization.status !== 'ARCHIVED'
+      ) {
+        const permissions = resolveMembershipPermissions({
+          role: membership.role,
+          customRole: membership.customRole,
+        });
+        req.organizationId = membership.organizationId;
+        req.orgRole = membership.role;
+        req.permissions = permissions;
+        req.membership = {
+          id: membership.id,
+          organizationId: membership.organizationId,
+          userId: membership.userId,
+          role: membership.role,
+          status: membership.status,
+          customRoleId: membership.customRoleId,
+        };
+        req.user.organizationId = membership.organizationId;
+        req.user.orgRole = membership.role;
+        req.user.permissions = permissions;
+        next();
+        return;
+      }
+
+      // Platform operators can manage any tenant without switching the sidebar org
+      if (
+        hasEffectivePermission({
+          platformRole: req.user.role,
+          permission: 'platform:organizations',
+          allowLegacyGlobalRole: false,
+        })
+      ) {
+        const org = await prisma.organization.findUnique({
+          where: { id: targetId },
+          select: { id: true },
+        });
+        if (!org) {
+          next(AppError.notFound('Organization not found'));
+          return;
+        }
+        req.organizationId = targetId;
+        req.orgRole = undefined;
+        req.membership = undefined;
+        // So requirePermission('organization:manage'|members|roles) succeeds for this request
+        req.permissions = [
+          'organization:read',
+          'organization:manage',
+          'organization:members',
+          'organization:roles',
+        ];
+        req.user.organizationId = targetId;
+        req.user.orgRole = undefined;
+        req.user.permissions = req.permissions;
+        next();
+        return;
+      }
+
+      next(AppError.forbidden('You do not have access to perform this action on this organization'));
+    } catch (err) {
+      next(err);
+    }
   };
 }
 

@@ -1,7 +1,11 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RequirePermission } from './components/RequirePermission';
+import {
+  ActiveOrgCompetitionsRedirect,
+  LegacyCompetitionRedirect,
+} from './components/OrgRouteRedirects';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CompetitionsPage } from './pages/CompetitionsPage';
@@ -9,6 +13,7 @@ import { ArchivedCompetitionsPage } from './pages/ArchivedCompetitionsPage';
 import { PilotsPage } from './pages/PilotsPage';
 import { TeamsPage } from './pages/TeamsPage';
 import { SponsorsPage } from './pages/SponsorsPage';
+import { EventInfoPage } from './pages/EventInfoPage';
 import { OfficialsPage } from './pages/OfficialsPage';
 import { RoundsPage } from './pages/RoundsPage';
 import { ScoringPage } from './pages/ScoringPage';
@@ -23,6 +28,130 @@ import { ArchivedOrganizationsPage } from './pages/organizations/ArchivedOrganiz
 import { OrganizationDetailPage } from './pages/organizations/OrganizationDetailPage';
 import { OrganizationMembersPage } from './pages/organizations/OrganizationMembersPage';
 
+function CompetitionRoutes() {
+  return (
+    <>
+      <Route path=":organizationId/competitions" element={<CompetitionsPage />} />
+      <Route
+        path=":organizationId/competitions/archived"
+        element={
+          <RequirePermission anyOf={['competition:update']}>
+            <ArchivedCompetitionsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId"
+        element={
+          <RequirePermission anyOf={['competition:update', 'competition:publish', 'round:manage']}>
+            <DashboardPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/pilots"
+        element={
+          <RequirePermission anyOf={['pilot:manage']}>
+            <PilotsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/teams"
+        element={
+          <RequirePermission anyOf={['team:manage']}>
+            <TeamsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/sponsors"
+        element={
+          <RequirePermission anyOf={['competition:update']}>
+            <SponsorsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/officials"
+        element={
+          <RequirePermission anyOf={['competition:update']}>
+            <OfficialsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/info"
+        element={
+          <RequirePermission anyOf={['competition:update']}>
+            <EventInfoPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/rounds"
+        element={
+          <RequirePermission anyOf={['round:manage', 'round:start', 'round:close']}>
+            <RoundsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/scoring"
+        element={
+          <RequirePermission anyOf={['score:enter', 'score:confirm']}>
+            <ScoringPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/rankings"
+        element={
+          <RequirePermission
+            anyOf={['results:publish', 'score:confirm', 'round:manage', 'print:generate']}
+          >
+            <RankingsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/reports"
+        element={
+          <RequirePermission anyOf={['print:generate']}>
+            <ReportsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/statistics"
+        element={
+          <RequirePermission
+            anyOf={['results:publish', 'score:confirm', 'audit:view', 'print:generate']}
+          >
+            <StatisticsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/audit"
+        element={
+          <RequirePermission anyOf={['audit:view']}>
+            <AuditPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/settings"
+        element={
+          <RequirePermission anyOf={['competition:update']}>
+            <SettingsPage />
+          </RequirePermission>
+        }
+      />
+    </>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
@@ -34,167 +163,68 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/competitions" replace />} />
-        <Route path="competitions" element={<CompetitionsPage />} />
-        <Route
-          path="competitions/archived"
-          element={
-            <RequirePermission anyOf={['competition:update']}>
-              <ArchivedCompetitionsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId"
-          element={
-            <RequirePermission anyOf={['competition:update', 'competition:publish', 'round:manage']}>
-              <DashboardPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/pilots"
-          element={
-            <RequirePermission anyOf={['pilot:manage']}>
-              <PilotsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/teams"
-          element={
-            <RequirePermission anyOf={['team:manage']}>
-              <TeamsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/sponsors"
-          element={
-            <RequirePermission anyOf={['competition:update']}>
-              <SponsorsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/officials"
-          element={
-            <RequirePermission anyOf={['competition:update']}>
-              <OfficialsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/rounds"
-          element={
-            <RequirePermission anyOf={['round:manage', 'round:start', 'round:close']}>
-              <RoundsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/scoring"
-          element={
-            <RequirePermission anyOf={['score:enter', 'score:confirm']}>
-              <ScoringPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/rankings"
-          element={
-            <RequirePermission
-              anyOf={['results:publish', 'score:confirm', 'round:manage', 'print:generate']}
-            >
-              <RankingsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/reports"
-          element={
-            <RequirePermission anyOf={['print:generate']}>
-              <ReportsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/statistics"
-          element={
-            <RequirePermission
-              anyOf={['results:publish', 'score:confirm', 'audit:view', 'print:generate']}
-            >
-              <StatisticsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/audit"
-          element={
-            <RequirePermission anyOf={['audit:view']}>
-              <AuditPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="competitions/:competitionId/settings"
-          element={
-            <RequirePermission anyOf={['competition:update']}>
-              <SettingsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="organizations"
-          element={
-            <RequirePermission
-              anyOf={[
-                'organization:read',
-                'organization:manage',
-                'organization:members',
-                'platform:organizations',
-              ]}
-            >
-              <OrganizationsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="organizations/archived"
-          element={
-            <RequirePermission anyOf={['platform:organizations']}>
-              <ArchivedOrganizationsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="organizations/:organizationId"
-          element={
-            <RequirePermission
-              anyOf={[
-                'organization:read',
-                'organization:manage',
-                'organization:members',
-                'platform:organizations',
-              ]}
-            >
-              <OrganizationDetailPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="organizations/:organizationId/members"
-          element={
-            <RequirePermission
-              anyOf={['organization:members', 'organization:manage', 'platform:organizations']}
-            >
-              <OrganizationMembersPage />
-            </RequirePermission>
-          }
-        />
+        <Route index element={<ActiveOrgCompetitionsRedirect />} />
+
+        {/* Legacy competition URLs → org-nested */}
+        <Route path="competitions" element={<ActiveOrgCompetitionsRedirect />} />
+        <Route path="competitions/archived" element={<ActiveOrgCompetitionsRedirect archived />} />
+        <Route path="competitions/:competitionId/*" element={<LegacyCompetitionRedirect />} />
+
+        <Route path="organizations">
+          <Route
+            index
+            element={
+              <RequirePermission
+                anyOf={[
+                  'organization:read',
+                  'organization:manage',
+                  'organization:members',
+                  'platform:organizations',
+                ]}
+              >
+                <OrganizationsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="archived"
+            element={
+              <RequirePermission anyOf={['platform:organizations']}>
+                <ArchivedOrganizationsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path=":organizationId"
+            element={
+              <RequirePermission
+                anyOf={[
+                  'organization:read',
+                  'organization:manage',
+                  'organization:members',
+                  'platform:organizations',
+                ]}
+              >
+                <OrganizationDetailPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path=":organizationId/members"
+            element={
+              <RequirePermission
+                anyOf={['organization:members', 'organization:manage', 'platform:organizations']}
+              >
+                <OrganizationMembersPage />
+              </RequirePermission>
+            }
+          />
+          {CompetitionRoutes()}
+        </Route>
+
         <Route path="users" element={<UsersPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/competitions" replace />} />
+      <Route path="*" element={<ActiveOrgCompetitionsRedirect />} />
     </Routes>
   );
 }
