@@ -330,6 +330,36 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
     }
   }
 
+  // Stale team scores: teams ranked as N×maximum (empty-roster bug) while members
+  // now have real sub-maximum scores. Force a recalculate so public boards heal.
+  if (category === 'TEAM') {
+    const settings = await prisma.competitionSettings.findUnique({
+      where: { competitionId: competition.id },
+      select: { maximumScoreCm: true, teamScoringPilots: true },
+    });
+    const maxCm = settings?.maximumScoreCm ?? 1000;
+    const staleMaxTotals = await prisma.teamScore.count({
+      where: {
+        team: { competitionId: competition.id },
+        totalScoreCm: maxCm,
+      },
+    });
+    if (staleMaxTotals > 0) {
+      const betterPilotScore = await prisma.score.findFirst({
+        where: {
+          flight: { round: { competitionId: competition.id, type: 'OFFICIAL' } },
+          finalScoreCm: { not: null, lt: maxCm },
+          status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+          pilot: { teamMembers: { some: { team: { competitionId: competition.id } } } },
+        },
+        select: { id: true },
+      });
+      if (betterPilotScore) {
+        await recalculateRankings(competition.id);
+      }
+    }
+  }
+
   const result = await prisma.result.findFirst({
     where: {
       competitionId: competition.id,

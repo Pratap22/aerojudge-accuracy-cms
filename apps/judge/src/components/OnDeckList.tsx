@@ -82,9 +82,8 @@ export function OnDeckList({ pilots, currentId, onSelect, className }: OnDeckLis
         <h3 className="mb-1.5 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-400">
           Switch pilot
         </h3>
-        <div className="mb-1 grid shrink-0 grid-cols-[2.5rem_minmax(0,1fr)_auto_3.25rem] gap-x-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="mb-1 grid shrink-0 grid-cols-[2.5rem_1fr_3.5rem] gap-x-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
           <span>#</span>
-          <span>Pilot</span>
           <span className="text-right">Status</span>
           <span className="text-right">Score</span>
         </div>
@@ -96,13 +95,10 @@ export function OnDeckList({ pilots, currentId, onSelect, className }: OnDeckLis
               <button
                 key={p.id}
                 type="button"
-                className="grid w-full grid-cols-[2.5rem_minmax(0,1fr)_auto_3.25rem] items-center gap-x-2 rounded-lg px-3 py-1.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 active:scale-[0.99]"
+                className="grid w-full grid-cols-[2.5rem_1fr_3.5rem] items-center gap-x-3 rounded-lg px-3 py-1.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 active:scale-[0.99]"
                 onClick={() => onSelect?.(p.id)}
               >
                 <span className="font-mono text-sky-400">{formatPilotNo(p.pilotNumber)}</span>
-                <span className="truncate">
-                  {p.firstName} {p.lastName}
-                </span>
                 <span className="shrink-0 text-right text-[10px] text-slate-500">
                   {isScored ? 'scored' : ''}
                 </span>

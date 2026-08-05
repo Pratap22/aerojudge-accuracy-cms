@@ -134,7 +134,8 @@ export function calculateTeamRoundScore(
     }
   }
 
-  // If still short, fill remaining with maximum scores (ABS) from non-selected
+  // If still short, fill remaining slots with maximum (ABS). Keep filling until
+  // we reach scoringCount — an early `break` left incomplete teams at 1× max.
   while (selected.length < scoringCount) {
     const filler = contributions.find(
       (c) => !selected.some((s) => s.pilotId === c.pilotId),
@@ -147,7 +148,7 @@ export function calculateTeamRoundScore(
         reason: 'Missing pilot – maximum score applied',
         isReserve: false,
       });
-      break;
+      continue;
     }
     selected.push({
       ...filler,

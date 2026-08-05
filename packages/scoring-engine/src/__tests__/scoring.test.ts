@@ -396,6 +396,50 @@ describe('team scoring', () => {
     expect(result.audit.length).toBeGreaterThan(0);
   });
 
+  it('fills all vacant scoring slots when the roster is empty (not a single max)', () => {
+    const result = calculateTeamRoundScore(
+      {
+        teamId: 'empty',
+        type: 'NATIONAL',
+        members: [],
+        scoringPilots: 3,
+      },
+      'r1',
+      [],
+      { ...rules, maximumScoreCm: 500 },
+    );
+    expect(result.countedPilots).toHaveLength(3);
+    expect(result.totalScoreCm).toBe(1500);
+  });
+
+  it('sums best three real scores and discards the worst', () => {
+    const result = calculateTeamRoundScore(
+      {
+        teamId: 'lachung',
+        type: 'NATIONAL',
+        members: [
+          { pilotId: 'p1', role: 'PILOT', order: 1 },
+          { pilotId: 'p2', role: 'PILOT', order: 2 },
+          { pilotId: 'p3', role: 'PILOT', order: 3 },
+          { pilotId: 'p4', role: 'PILOT', order: 4 },
+        ],
+        scoringPilots: 3,
+      },
+      'r1',
+      [
+        { pilotId: 'p1', scoreCm: 42, resultType: 'MEASURED', isCountable: true },
+        { pilotId: 'p2', scoreCm: 12, resultType: 'MEASURED', isCountable: true },
+        { pilotId: 'p3', scoreCm: 500, resultType: 'MEASURED', isCountable: true },
+        { pilotId: 'p4', scoreCm: 1, resultType: 'MEASURED', isCountable: true },
+      ],
+      { ...rules, maximumScoreCm: 500 },
+    );
+    expect(result.totalScoreCm).toBe(55);
+    expect(result.countedPilots).toHaveLength(3);
+    expect(result.discardedPilots).toHaveLength(1);
+    expect(result.discardedPilots[0].scoreCm).toBe(500);
+  });
+
   it('validates team composition', () => {
     const result = validateTeamComposition(
       {

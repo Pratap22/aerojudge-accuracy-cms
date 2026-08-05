@@ -76,14 +76,19 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
   const teamRoundResults: TeamRoundScoreResult[] = [];
   for (const round of rounds) {
     for (const team of teams) {
+      const scoringPilots = team.scoringPilots || rules.teamScoringPilots;
       const pilotScores = team.members.map((m) => {
         const pilot = pilots.find((p) => p.pilotId === m.pilotId);
         const roundScore = pilot?.roundScores.find((rs) => rs.roundId === round.id);
+        const provisional = roundScore?.isProvisional === true;
+        const resultType = roundScore?.resultType ?? 'ABS';
         return {
           pilotId: m.pilotId,
           scoreCm: roundScore?.finalScoreCm ?? rules.maximumScoreCm,
-          resultType: roundScore?.resultType ?? 'ABS',
-          isCountable: !!roundScore,
+          resultType,
+          // Provisional live fills must not count as real team scores.
+          isCountable:
+            Boolean(roundScore) && !provisional && resultType !== 'REFLIGHT',
           status: pilot?.status,
         };
       });
@@ -92,7 +97,7 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
         {
           teamId: team.id,
           type: team.type,
-          scoringPilots: rules.teamScoringPilots,
+          scoringPilots,
           maxReserves: rules.teamAllowReserves ? rules.teamMaxReserves : 0,
           members: team.members.map((m) => ({
             pilotId: m.pilotId,
@@ -113,7 +118,7 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
       teamId: t.id,
       type: t.type,
       members: t.members.map((m) => ({ pilotId: m.pilotId, role: m.role, order: m.order })),
-      scoringPilots: rules.teamScoringPilots,
+      scoringPilots: t.scoringPilots || rules.teamScoringPilots,
       maxReserves: rules.teamAllowReserves ? rules.teamMaxReserves : 0,
     })),
     teamRoundResults,
