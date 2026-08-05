@@ -7,6 +7,7 @@ import { Badge, Button, Card, CardContent } from '@npha/ui';
 import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api, ApiError, getOrganizationId } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { SwitchToAdminButton } from '../components/SwitchToAdminButton';
 
 interface RoundOption {
   id: string;
@@ -278,6 +279,7 @@ export function RoundSelectPage() {
               {currentOrganization.shortName}
             </span>
           ) : null}
+          <SwitchToAdminButton className="text-muted-foreground hover:text-foreground" />
           <Button
             variant="ghost"
             size="sm"

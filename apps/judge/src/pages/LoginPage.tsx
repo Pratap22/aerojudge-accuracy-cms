@@ -7,6 +7,7 @@ import { Building2, Target } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@npha/ui';
 import { useAuth } from '../lib/auth';
 import { ApiError } from '../lib/api';
+import { redirectToPreferredStaffAppIfNeeded } from '../lib/staff-app';
 
 export function LoginPage() {
   const {
@@ -15,6 +16,7 @@ export function LoginPage() {
     isAuthenticated,
     requiresOrganizationSelection,
     organizations,
+    user,
   } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,6 +36,9 @@ export function LoginPage() {
   const showSelector = selecting || requiresOrganizationSelection;
 
   if (isAuthenticated && !requiresOrganizationSelection && !selecting) {
+    if (user && redirectToPreferredStaffAppIfNeeded(user)) {
+      return null;
+    }
     navigate(from, { replace: true });
     return null;
   }
@@ -46,6 +51,9 @@ export function LoginPage() {
         setSelecting(true);
         return;
       }
+      if (redirectToPreferredStaffAppIfNeeded(result.user)) {
+        return;
+      }
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Login failed');
@@ -55,7 +63,11 @@ export function LoginPage() {
   const onSelectOrg = async (organizationId: string) => {
     setError(null);
     try {
-      await selectOrganization(organizationId);
+      const result = await selectOrganization(organizationId);
+      setSelecting(false);
+      if (redirectToPreferredStaffAppIfNeeded(result.user)) {
+        return;
+      }
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to select organization');

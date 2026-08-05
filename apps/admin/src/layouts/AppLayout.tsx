@@ -5,9 +5,13 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   BarChart3,
+  Building2,
   ClipboardList,
   FileText,
   Gauge,
+  Gavel,
+  Handshake,
+  Info,
   LayoutDashboard,
   LogOut,
   Medal,
@@ -20,10 +24,6 @@ import {
   Trophy,
   Users,
   UsersRound,
-  Building2,
-  Handshake,
-  Gavel,
-  Info,
   X,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
@@ -34,6 +34,7 @@ import { api } from '../lib/api';
 import { connectSocket, disconnectSocket } from '../lib/socket';
 import { competitionPath, competitionsListPath, parseCompetitionLocation } from '../hooks/useCompetitionId';
 import { checkPermission } from '../hooks/usePermission';
+import { SwitchToScoringButton } from '../components/SwitchToScoringButton';
 
 const platformNavBase = [
   { key: 'competitions' as const, label: 'Competitions', icon: Trophy, end: true },
@@ -526,6 +527,10 @@ export function AppLayout() {
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
+        <SwitchToScoringButton
+          className="mb-2 min-h-10 w-full border-white/20 bg-transparent text-sidebar-foreground hover:bg-white/10"
+          onNavigate={closeNav}
+        />
         <Button
           variant="outline"
           size="sm"
@@ -592,6 +597,7 @@ export function AppLayout() {
               <p className="truncate text-xs text-muted-foreground">Admin</p>
             )}
           </div>
+          <SwitchToScoringButton compact variant="ghost" className="shrink-0" />
         </header>
 
         <main className="min-w-0 flex-1">

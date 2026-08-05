@@ -7,6 +7,9 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './lib/auth';
+import { consumeStaffSessionHandoff } from './lib/staff-app';
+
+consumeStaffSessionHandoff();
 
 const queryClient = new QueryClient({
   defaultOptions: {

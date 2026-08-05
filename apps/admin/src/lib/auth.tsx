@@ -33,7 +33,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
-  selectOrganization: (organizationId: string) => Promise<void>;
+  selectOrganization: (organizationId: string) => Promise<LoginResult>;
   /** Re-fetch /auth/me so sidebar memberships stay in sync (e.g. after creating an org). */
   refreshMemberships: () => Promise<void>;
   logout: () => void;
@@ -165,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(result.user);
     setOrganizations(result.organizations);
     setRequiresOrganizationSelection(false);
+    return result;
   }, []);
 
   const refreshMemberships = useCallback(async () => {

@@ -10,7 +10,7 @@ alwaysApply: false
 
 - JWT access + refresh (`server/src/auth/jwt.ts`); refresh tokens persisted (`RefreshToken`)
 - Passwords: bcrypt; never log tokens or password fields
-- Admin storage keys: `npha_access_token`, `npha_refresh_token`
+- Staff storage keys (Admin + Judge): `npha_access_token`, `npha_refresh_token`
 - Env: Zod-validated in `server/src/config/env.ts`; JWT secrets ≥ 32 chars
 
 ## HTTP hardening

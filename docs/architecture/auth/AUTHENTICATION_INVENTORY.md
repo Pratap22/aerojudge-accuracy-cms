@@ -68,7 +68,7 @@ Source: `server/src/config/env.ts`, root `.env.example`.
 | App | Auth client |
 |-----|-------------|
 | `apps/admin` | `lib/auth.tsx`, `lib/api.ts` (`npha_*` keys) |
-| `apps/judge` | `lib/auth.tsx`, `lib/api.ts` (`npha_judge_*` keys) |
+| `apps/judge` | `lib/auth.tsx`, `lib/api.ts` (`npha_*` keys; migrates legacy `npha_judge_*`) |
 | `apps/public-results` | `lib/auth.tsx`, `lib/auth-api.ts` (participant) |
 | `apps/display` / `apps/marketing` | No staff auth client |
 
@@ -96,6 +96,7 @@ Source: `server/src/config/env.ts`, root `.env.example`.
 8. Issue identity-only access JWT (`sub`, email, names, platform `role` — **no org claim**)
 9. Issue refresh JWT; persist `RefreshToken` (DB expiry hardcoded ~7 days in issue path)
 10. Client stores tokens in `localStorage`; org id in `sessionStorage` (per tab)
+11. After org context is known, Admin/Judge clients **auto-open** the preferred staff app (`getPreferredStaffApp`): Judge-only → `/judge`, no `score:enter` → `/admin`, dual-capable roles stay. Each app exposes a cross-link (Admin ↔ Scoring) for intentional switches. Cross-port handoff uses a one-time URL hash (`aj_staff_handoff=`).
 
 ---
 

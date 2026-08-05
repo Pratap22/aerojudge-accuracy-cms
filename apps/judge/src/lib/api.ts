@@ -1,9 +1,41 @@
 import type { ApiResponse, AuthTokens } from '@npha/shared';
 import { API_VERSION, ORGANIZATION_HEADER } from '@npha/shared';
 
-const ACCESS_TOKEN_KEY = 'npha_judge_access_token';
-const REFRESH_TOKEN_KEY = 'npha_judge_refresh_token';
-const ORGANIZATION_ID_KEY = 'npha_judge_organization_id';
+/** Shared with Admin so same-origin redirects reuse one staff session. */
+const ACCESS_TOKEN_KEY = 'npha_access_token';
+const REFRESH_TOKEN_KEY = 'npha_refresh_token';
+const ORGANIZATION_ID_KEY = 'npha_organization_id';
+
+const LEGACY_ACCESS_TOKEN_KEY = 'npha_judge_access_token';
+const LEGACY_REFRESH_TOKEN_KEY = 'npha_judge_refresh_token';
+const LEGACY_ORGANIZATION_ID_KEY = 'npha_judge_organization_id';
+
+function migrateLegacyJudgeSession(): void {
+  try {
+    const legacyAccess = localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY);
+    if (legacyAccess && !localStorage.getItem(ACCESS_TOKEN_KEY)) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, legacyAccess);
+    }
+    const legacyRefresh = localStorage.getItem(LEGACY_REFRESH_TOKEN_KEY);
+    if (legacyRefresh && !localStorage.getItem(REFRESH_TOKEN_KEY)) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, legacyRefresh);
+    }
+    const legacyOrg =
+      sessionStorage.getItem(LEGACY_ORGANIZATION_ID_KEY) ??
+      localStorage.getItem(LEGACY_ORGANIZATION_ID_KEY);
+    if (legacyOrg && !sessionStorage.getItem(ORGANIZATION_ID_KEY)) {
+      sessionStorage.setItem(ORGANIZATION_ID_KEY, legacyOrg);
+    }
+    localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_ORGANIZATION_ID_KEY);
+    sessionStorage.removeItem(LEGACY_ORGANIZATION_ID_KEY);
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+migrateLegacyJudgeSession();
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -44,6 +76,10 @@ export function clearTokens(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(ORGANIZATION_ID_KEY);
   sessionStorage.removeItem(ORGANIZATION_ID_KEY);
+  localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_ORGANIZATION_ID_KEY);
+  sessionStorage.removeItem(LEGACY_ORGANIZATION_ID_KEY);
 }
 
 let refreshPromise: Promise<string | null> | null = null;

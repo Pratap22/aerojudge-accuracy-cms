@@ -33,7 +33,7 @@ interface AuthContextValue {
   competitionId: string | null;
   setCompetitionId: (id: string | null) => void;
   login: (email: string, password: string) => Promise<LoginResult>;
-  selectOrganization: (organizationId: string) => Promise<void>;
+  selectOrganization: (organizationId: string) => Promise<LoginResult>;
   logout: () => void;
 }
 
@@ -136,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOrganizations(result.organizations);
     setRequiresOrganizationSelection(false);
     setCompetitionId(null);
+    return result;
   }, [setCompetitionId]);
 
   const logout = useCallback(() => {

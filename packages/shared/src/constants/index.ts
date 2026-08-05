@@ -114,6 +114,8 @@ const JUDGE_PERMISSIONS: Permission[] = [
   'round:manage',
   'round:start',
   'round:close',
+  // Round score / standings PDFs from Admin → Rounds (and Reports page).
+  'print:generate',
 ];
 
 const SCORER_PERMISSIONS: Permission[] = [
@@ -383,6 +385,74 @@ export function mapLegacyRoleToOrgRole(role: Role): OrgRole {
     default:
       return 'VIEWER';
   }
+}
+
+/**
+ * Permissions that mean Admin (ops console) is an appropriate home app.
+ * Users with `score:enter` but none of these are Judge-terminal-primary.
+ */
+const ADMIN_HOME_PERMISSIONS: readonly Permission[] = [
+  'score:confirm',
+  'competition:create',
+  'competition:update',
+  'competition:publish',
+  'competition:delete',
+  'pilot:manage',
+  'team:manage',
+  'results:publish',
+  'print:generate',
+  'print:approve',
+  'organization:manage',
+  'organization:members',
+  'organization:roles',
+  'audit:view',
+  'score:approve_chief',
+  'score:approve_director',
+  'display:control',
+  'platform:organizations',
+  'platform:licenses',
+  'platform:analytics',
+  'user:manage',
+];
+
+export type StaffAppId = 'admin' | 'judge';
+/** Where a staff user should primarily work after login. */
+export type PreferredStaffApp = StaffAppId | 'either';
+
+/**
+ * Pick the primary staff app from the active org membership.
+ * - Judge-only (score entry, no ops bundle) → judge terminal
+ * - No score entry → admin
+ * - Dual-capable (Chief Judge, Scorer, Owner, custom roles with ops/print, …) → either
+ *
+ * Callers should offer a soft choice when preferred differs — Judges often still need
+ * Admin for rounds / report downloads.
+ */
+export function getPreferredStaffApp(input: {
+  permissions?: readonly string[] | null;
+  orgRole?: OrgRole | null;
+}): PreferredStaffApp {
+  const permissions = input.permissions ?? [];
+
+  // Explicit system Judge role is terminal-primary, but login UX must still allow Admin.
+  if (input.orgRole === 'JUDGE') return 'judge';
+
+  const canEnterScores = roleHasPermission(permissions, 'score:enter');
+  if (!canEnterScores) return 'admin';
+
+  const hasAdminHomeWork = ADMIN_HOME_PERMISSIONS.some((permission) =>
+    roleHasPermission(permissions, permission),
+  );
+  return hasAdminHomeWork ? 'either' : 'judge';
+}
+
+/** Returns the app to open, or null when the user may stay on `currentApp`. */
+export function staffAppRedirectTarget(
+  currentApp: StaffAppId,
+  preferred: PreferredStaffApp,
+): StaffAppId | null {
+  if (preferred === 'either' || preferred === currentApp) return null;
+  return preferred;
 }
 
 export const SOCKET_ROOMS = {

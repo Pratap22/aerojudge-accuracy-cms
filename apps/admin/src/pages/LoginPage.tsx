@@ -17,6 +17,7 @@ import {
 import { useAuth } from '../lib/auth';
 import { competitionsListPath } from '../hooks/useCompetitionId';
 import { ApiError } from '../lib/api';
+import { redirectToPreferredStaffAppIfNeeded } from '../lib/staff-app';
 
 export function LoginPage() {
   const {
@@ -26,6 +27,7 @@ export function LoginPage() {
     requiresOrganizationSelection,
     organizations,
     activeOrganizationId,
+    user,
   } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,6 +50,9 @@ export function LoginPage() {
   const from = requestedFrom && requestedFrom !== '/login' ? requestedFrom : defaultHome;
 
   if (isAuthenticated && !requiresOrganizationSelection && !selecting) {
+    if (user && redirectToPreferredStaffAppIfNeeded(user)) {
+      return null;
+    }
     navigate(from, { replace: true });
     return null;
   }
@@ -58,6 +63,9 @@ export function LoginPage() {
       const result = await login(data.email, data.password);
       if (result.requiresOrganizationSelection) {
         setSelecting(true);
+        return;
+      }
+      if (redirectToPreferredStaffAppIfNeeded(result.user)) {
         return;
       }
       const orgId = result.user.organizationId;
@@ -76,7 +84,11 @@ export function LoginPage() {
   const onSelectOrg = async (organizationId: string) => {
     setError(null);
     try {
-      await selectOrganization(organizationId);
+      const result = await selectOrganization(organizationId);
+      setSelecting(false);
+      if (redirectToPreferredStaffAppIfNeeded(result.user)) {
+        return;
+      }
       const dest =
         requestedFrom && requestedFrom !== '/login'
           ? requestedFrom

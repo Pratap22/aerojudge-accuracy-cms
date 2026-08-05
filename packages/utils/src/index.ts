@@ -153,3 +153,46 @@ export function ageFromDob(dob: Date, reference = new Date()): number {
   if (m < 0 || (m === 0 && reference.getDate() < dob.getDate())) age--;
   return age;
 }
+
+/** One-time staff session handoff between Admin and Judge (cross-origin / cross-port). */
+export interface StaffSessionHandoff {
+  accessToken: string;
+  refreshToken?: string;
+  organizationId?: string | null;
+  /** Target app the user intentionally opened (skips preferred-app bounce). */
+  intent?: 'admin' | 'judge';
+}
+
+export const STAFF_SESSION_HANDOFF_PREFIX = 'aj_staff_handoff=';
+
+function toBase64Url(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function fromBase64Url(value: string): string {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padLength = (4 - (padded.length % 4)) % 4;
+  const binary = atob(padded + '='.repeat(padLength));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+export function encodeStaffSessionHandoff(payload: StaffSessionHandoff): string {
+  return `${STAFF_SESSION_HANDOFF_PREFIX}${toBase64Url(JSON.stringify(payload))}`;
+}
+
+export function parseStaffSessionHandoff(hash: string): StaffSessionHandoff | null {
+  const raw = hash.startsWith('#') ? hash.slice(1) : hash;
+  if (!raw.startsWith(STAFF_SESSION_HANDOFF_PREFIX)) return null;
+  try {
+    const encoded = raw.slice(STAFF_SESSION_HANDOFF_PREFIX.length);
+    const parsed = JSON.parse(fromBase64Url(encoded)) as StaffSessionHandoff;
+    if (!parsed?.accessToken || typeof parsed.accessToken !== 'string') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}

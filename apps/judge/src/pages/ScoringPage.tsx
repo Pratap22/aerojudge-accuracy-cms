@@ -19,6 +19,7 @@ import { NumericKeypad } from '../components/NumericKeypad';
 import { QuickScoreButtons } from '../components/QuickScoreButtons';
 import { OnDeckList } from '../components/OnDeckList';
 import { OfflineIndicator } from '../components/OfflineIndicator';
+import { SwitchToAdminButton } from '../components/SwitchToAdminButton';
 
 interface Flight {
   id: string;
@@ -249,7 +250,11 @@ export function ScoringPage() {
             Pilot {currentIndex + 1}/{flights?.length ?? 0}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <SwitchToAdminButton
+            compact
+            className="text-slate-400 hover:text-white"
+          />
           <OfflineIndicator pendingCount={pendingCount} isOnline={isOnline} />
           {pendingCount > 0 && isOnline && (
             <Button size="sm" variant="secondary" onClick={handleSync}>
