@@ -10,7 +10,7 @@ import { MarketingButton } from '../ui/MarketingButton';
 
 const navLinks = [
   { href: '/#problem', label: 'Why AeroJudge' },
-  { href: '/#testimonials', label: 'Events' },
+  { href: '/#events', label: 'Events' },
   { href: '/#solution', label: 'How it works' },
   { href: '/#roles', label: 'Roles' },
   { href: '/#features', label: 'Features' },

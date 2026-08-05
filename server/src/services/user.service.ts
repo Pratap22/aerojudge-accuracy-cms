@@ -94,17 +94,28 @@ export async function createUser(data: {
 
 export async function updateUser(
   id: string,
-  data: Prisma.UserUpdateInput & { password?: string },
+  data: {
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    role?: string;
+    phone?: string | null;
+    status?: string;
+  },
 ) {
   await getUser(id);
-  const { password, ...rest } = data;
-  const updateData: Prisma.UserUpdateInput = { ...rest };
-  if (password) {
-    updateData.passwordHash = await hashPassword(password);
-  }
   return prisma.user.update({
     where: { id },
-    data: updateData,
+    data: {
+      ...(data.email !== undefined ? { email: data.email.toLowerCase() } : {}),
+      ...(data.firstName !== undefined ? { firstName: data.firstName } : {}),
+      ...(data.lastName !== undefined ? { lastName: data.lastName } : {}),
+      ...(data.role !== undefined ? { role: data.role as Prisma.UserUpdateInput['role'] } : {}),
+      ...(data.phone !== undefined ? { phone: data.phone } : {}),
+      ...(data.status !== undefined
+        ? { status: data.status as Prisma.UserUpdateInput['status'] }
+        : {}),
+    },
     select: {
       id: true,
       email: true,
@@ -116,6 +127,25 @@ export async function updateUser(
       avatarUrl: true,
     },
   });
+}
+
+/**
+ * Super Admin sets a user's password and revokes their refresh tokens
+ * so existing sessions must re-authenticate.
+ */
+export async function setUserPassword(id: string, password: string): Promise<void> {
+  await getUser(id);
+  const passwordHash = await hashPassword(password);
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id },
+      data: { passwordHash },
+    }),
+    prisma.refreshToken.updateMany({
+      where: { userId: id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
 }
 
 export async function deleteUser(id: string): Promise<void> {

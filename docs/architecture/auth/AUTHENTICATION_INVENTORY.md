@@ -213,6 +213,7 @@ No invitation token table, no email, no single-use accept URL.
 |------|--------|
 | Forgot / reset password | **Not implemented** |
 | Change password self-service | **Not implemented** |
+| Super Admin set/reset user password | `POST /users/:id/password` (`user:manage`) — revokes refresh tokens |
 | Email verification | Field `Person.emailVerifiedAt` / set on register without mailer |
 
 ---

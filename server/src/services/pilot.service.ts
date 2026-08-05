@@ -13,6 +13,7 @@ import {
 import { getCompetition } from './competition.service.js';
 import {
   createPerson,
+  displayedPilotPhotoUrl,
   getPerson,
   matchPersons,
   personDisplayName,
@@ -81,13 +82,21 @@ export async function listPilots(
       orderBy: { pilotNumber: 'asc' },
       include: {
         country: true,
-        person: { select: { id: true, aeroJudgeId: true, civlId: true } },
+        person: { select: { id: true, aeroJudgeId: true, civlId: true, photoUrl: true } },
       },
     }),
     prisma.pilot.count({ where }),
   ]);
 
-  return { items, total, page: query.page, pageSize: query.pageSize };
+  return {
+    items: items.map((pilot) => ({
+      ...pilot,
+      photoUrl: displayedPilotPhotoUrl(pilot),
+    })),
+    total,
+    page: query.page,
+    pageSize: query.pageSize,
+  };
 }
 
 export async function getPilot(competitionId: string, pilotId: string) {
@@ -100,7 +109,10 @@ export async function getPilot(competitionId: string, pilotId: string) {
     },
   });
   if (!pilot) throw AppError.notFound('Pilot not found');
-  return pilot;
+  return {
+    ...pilot,
+    photoUrl: displayedPilotPhotoUrl(pilot),
+  };
 }
 
 export type CreatePilotInput = Omit<Prisma.PilotUncheckedCreateInput, 'competitionId'> & {
@@ -417,7 +429,8 @@ export async function rejectPilot(competitionId: string, pilotId: string) {
 }
 
 /**
- * Upload pilot headshot (Cloudinary). Also refreshes linked Person.photoUrl.
+ * Upload pilot headshot (Cloudinary). Writes Person.photoUrl (SSoT) and syncs
+ * every competition Pilot row for that person so all boards stay consistent.
  */
 export async function uploadPilotPhoto(
   competitionId: string,
@@ -431,46 +444,50 @@ export async function uploadPilotPhoto(
     publicId: pilotId,
   });
 
-  const updated = await prisma.pilot.update({
-    where: { id: pilotId },
-    data: { photoUrl: url },
-    include: {
-      country: true,
-      person: { select: { id: true, aeroJudgeId: true, civlId: true } },
-    },
-  });
-
   if (pilot.personId) {
-    await prisma.person.update({
-      where: { id: pilot.personId },
+    await prisma.$transaction([
+      prisma.person.update({
+        where: { id: pilot.personId },
+        data: { photoUrl: url },
+      }),
+      prisma.pilot.updateMany({
+        where: { personId: pilot.personId },
+        data: { photoUrl: url },
+      }),
+    ]);
+  } else {
+    await prisma.pilot.update({
+      where: { id: pilotId },
       data: { photoUrl: url },
     });
   }
 
-  return updated;
+  return getPilot(competitionId, pilotId);
 }
 
-/** Clear pilot headshot (competition snapshot). Does not delete Cloudinary assets. */
+/** Clear pilot headshot. Clears Person SSoT when linked, and all of that person's pilot rows. */
 export async function removePilotPhoto(competitionId: string, pilotId: string) {
   const pilot = await getPilot(competitionId, pilotId);
-  const updated = await prisma.pilot.update({
-    where: { id: pilotId },
-    data: { photoUrl: null },
-    include: {
-      country: true,
-      person: { select: { id: true, aeroJudgeId: true, civlId: true } },
-    },
-  });
 
-  // Only clear Person.photoUrl when it still matches this pilot's former headshot.
-  if (pilot.personId && pilot.photoUrl) {
-    await prisma.person.updateMany({
-      where: { id: pilot.personId, photoUrl: pilot.photoUrl },
+  if (pilot.personId) {
+    await prisma.$transaction([
+      prisma.person.update({
+        where: { id: pilot.personId },
+        data: { photoUrl: null },
+      }),
+      prisma.pilot.updateMany({
+        where: { personId: pilot.personId },
+        data: { photoUrl: null },
+      }),
+    ]);
+  } else {
+    await prisma.pilot.update({
+      where: { id: pilotId },
       data: { photoUrl: null },
     });
   }
 
-  return updated;
+  return getPilot(competitionId, pilotId);
 }
 
 export async function deletePilot(

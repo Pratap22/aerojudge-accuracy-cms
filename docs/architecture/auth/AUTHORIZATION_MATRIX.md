@@ -61,6 +61,7 @@ Columns: **Owner** = `ORGANIZATION_OWNER` · **MD** = `MEET_DIRECTOR` · **CJ** 
 | Licenses | `platform:licenses` | ✓ | | | none |
 | Platform analytics | `platform:analytics` | ✓ | ✓ | | none |
 | Manage platform users | `user:manage` | ✓ | | | none |
+| Set / reset user password | `user:manage` | ✓ | | | none |
 
 Platform roles **do not** receive org competition data without an `OrganizationMember` row (enforced by `hasEffectivePermission` when org-scoped checks use membership permissions).
 

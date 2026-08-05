@@ -231,6 +231,24 @@ export async function resolvePersonPhotoUrl(
   return map.get(personId) ?? null;
 }
 
+/**
+ * Display photo for a competition Pilot row.
+ * Person.photoUrl is the SSoT so an upload in any competition shows everywhere;
+ * Pilot.photoUrl remains a fallback for legacy rows without a linked Person photo.
+ */
+export function displayedPilotPhotoUrl(pilot: {
+  photoUrl?: string | null;
+  person?: { photoUrl?: string | null } | null;
+}): string | null {
+  return pilot.person?.photoUrl ?? pilot.photoUrl ?? null;
+}
+
+/** Prisma select fragment when returning pilot photos publicly / to clients. */
+export const pilotPhotoWithPersonSelect = {
+  photoUrl: true,
+  person: { select: { photoUrl: true } },
+} as const;
+
 export type CreatePersonInput = {
   firstName: string;
   lastName: string;

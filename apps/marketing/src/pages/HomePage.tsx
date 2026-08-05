@@ -1,6 +1,7 @@
 import { AppsSection } from '../components/sections/AppsSection';
 import { CtaSection } from '../components/sections/CtaSection';
 import { DisplaySection } from '../components/sections/DisplaySection';
+import { EventsSection } from '../components/sections/EventsSection';
 import { FeaturesSection } from '../components/sections/FeaturesSection';
 import { HeroSection } from '../components/sections/HeroSection';
 import { LifecycleSection } from '../components/sections/LifecycleSection';
@@ -11,14 +12,13 @@ import { ProblemSection } from '../components/sections/ProblemSection';
 import { RolesSection } from '../components/sections/RolesSection';
 import { SolutionSection } from '../components/sections/SolutionSection';
 import { TeamScoringSection } from '../components/sections/TeamScoringSection';
-import { TestimonialsSection } from '../components/sections/TestimonialsSection';
 
 export default function HomePage() {
   return (
     <>
       <HeroSection />
+      <EventsSection />
       <ProblemSection />
-      <TestimonialsSection />
       <SolutionSection />
       <LifecycleSection />
       <RolesSection />

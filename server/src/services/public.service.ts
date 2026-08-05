@@ -5,6 +5,10 @@ import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { syncCompetitionStatusFromRounds } from './competition.service.js';
 import { recalculateRankings } from './scoring.service.js';
 import { resolveCountryId, toPublicCountry } from '../utils/country-resolve.js';
+import {
+  displayedPilotPhotoUrl,
+  pilotPhotoWithPersonSelect,
+} from './person.service.js';
 
 const ACTIVE_STATUSES = new Set(['REGISTRATION', 'PRACTICE', 'OFFICIAL', 'PAUSED']);
 const PAST_STATUSES = new Set(['COMPLETED', 'CANCELLED']);
@@ -392,7 +396,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
                     pilotNumber: true,
                     firstName: true,
                     lastName: true,
-                    photoUrl: true,
+                    ...pilotPhotoWithPersonSelect,
                   },
                 },
               },
@@ -426,7 +430,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
                         pilotNumber: true,
                         firstName: true,
                         lastName: true,
-                        photoUrl: true,
+                        ...pilotPhotoWithPersonSelect,
                       },
                     },
                   },
@@ -559,7 +563,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
             pilotNumber: pilot.pilotNumber,
             firstName: pilot.firstName,
             lastName: pilot.lastName,
-            photoUrl: pilot.photoUrl,
+            photoUrl: displayedPilotPhotoUrl(pilot),
             role: m.role,
             roundScores: pilotRoundScores,
           };
@@ -667,7 +671,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           firstName: true,
           lastName: true,
           nationality: true,
-          photoUrl: true,
+          ...pilotPhotoWithPersonSelect,
           country: { select: { name: true, code: true, code2: true } },
         },
       },
@@ -795,7 +799,9 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       pilot: r.pilot
         ? {
             ...r.pilot,
+            photoUrl: displayedPilotPhotoUrl(r.pilot),
             country: toPublicCountry(r.pilot.country),
+            person: undefined,
           }
         : null,
       roundScores: scoresByPilotId.get(r.pilotId) ?? [],
@@ -870,7 +876,7 @@ export async function getLatestPublicScore(slugOrId: string) {
           firstName: true,
           lastName: true,
           nationality: true,
-          photoUrl: true,
+          ...pilotPhotoWithPersonSelect,
           country: { select: { name: true, code: true, code2: true } },
         },
       },
@@ -890,7 +896,7 @@ export async function getLatestPublicScore(slugOrId: string) {
     pilotNumber: score.pilot.pilotNumber,
     firstName: score.pilot.firstName,
     lastName: score.pilot.lastName,
-    photoUrl: score.pilot.photoUrl,
+    photoUrl: displayedPilotPhotoUrl(score.pilot),
     countryCode: flagCode,
     countryName: score.pilot.country?.name ?? score.pilot.nationality ?? null,
     scoreCm: score.finalScoreCm,
@@ -979,7 +985,7 @@ export async function listPublicPilots(slugOrId: string) {
       status: true,
       isWomen: true,
       isJunior: true,
-      photoUrl: true,
+      ...pilotPhotoWithPersonSelect,
       country: { select: { name: true, code: true, code2: true } },
     },
   });
@@ -989,6 +995,8 @@ export async function listPublicPilots(slugOrId: string) {
     registrationOpen: PUBLIC_REGISTRATION_STATUSES.has(competition.status),
     pilots: pilots.map((p) => ({
       ...p,
+      photoUrl: displayedPilotPhotoUrl(p),
+      person: undefined,
       country: toPublicCountry(p.country),
     })),
   };

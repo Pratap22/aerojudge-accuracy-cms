@@ -268,6 +268,42 @@ export const createUserSchema = z.object({
   phone: z.string().optional(),
 });
 
+/** Super Admin sets/resets another user's password (platform Users page). */
+export const setUserPasswordSchema = z
+  .object({
+    password: z.string().min(8).max(128),
+    confirmPassword: z.string().min(8).max(128),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+/** Profile fields only — use setUserPasswordSchema for password changes. */
+export const updateUserSchema = z.object({
+  email: z.string().email().optional(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  role: z
+    .enum([
+      'SUPER_ADMIN',
+      'PLATFORM_SUPPORT',
+      'PLATFORM_DEVELOPER',
+      'COMPETITION_DIRECTOR',
+      'CHIEF_JUDGE',
+      'JUDGE',
+      'SCOREKEEPER',
+      'LAUNCH_MARSHAL',
+      'GOAL_MARSHAL',
+      'ANNOUNCER',
+      'DISPLAY_OPERATOR',
+      'PUBLIC_USER',
+    ])
+    .optional(),
+  phone: z.string().optional().nullable(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+});
+
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
@@ -371,6 +407,8 @@ export type CreateRoundInput = z.infer<typeof createRoundSchema>;
 export type UpdateRoundTypeInput = z.infer<typeof updateRoundTypeSchema>;
 export type EnterScoreInput = z.infer<typeof enterScoreSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+export type SetUserPasswordInput = z.infer<typeof setUserPasswordSchema>;
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
