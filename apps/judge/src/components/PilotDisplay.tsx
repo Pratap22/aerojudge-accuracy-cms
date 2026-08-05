@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Search } from 'lucide-react';
+import type { ScoreResultType } from '@npha/shared';
 import { cn, Input } from '@npha/ui';
-import { padPilotNumber } from '@npha/utils';
+import { formatScoreCm, padPilotNumber } from '@npha/utils';
 
 export interface PilotOption {
   id: string;
@@ -9,6 +10,9 @@ export interface PilotOption {
   firstName: string;
   lastName: string;
   status?: string;
+  distanceCm?: number | null;
+  resultType?: ScoreResultType | null;
+  finalScoreCm?: number | null;
 }
 
 interface PilotDisplayProps {
@@ -35,6 +39,18 @@ function countryFlag(code?: string): string {
 
 function formatPilotNo(n: number): string {
   return padPilotNumber(n, 2);
+}
+
+function formatPickerScore(p: PilotOption): string | null {
+  const type = p.resultType;
+  const hasScore =
+    p.status === 'SCORED' || type != null || p.finalScoreCm != null || p.distanceCm != null;
+  if (!hasScore) return null;
+  if (type === 'BULLSEYE' || (p.distanceCm === 0 && type === 'MEASURED')) return '0';
+  if (type && type !== 'MEASURED' && type !== 'MAXIMUM') return type;
+  if (p.finalScoreCm != null) return formatScoreCm(p.finalScoreCm);
+  if (p.distanceCm != null) return formatScoreCm(p.distanceCm);
+  return '—';
 }
 
 /** Compact pilot switcher for the no-scroll scoring terminal. */
@@ -171,6 +187,7 @@ export function PilotDisplay({
             ) : (
               filtered.map((p) => {
                 const isSelected = p.id === selectedId;
+                const scoreLabel = formatPickerScore(p);
                 return (
                   <li key={p.id}>
                     <button
@@ -194,8 +211,13 @@ export function PilotDisplay({
                       <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
                         {p.firstName} {p.lastName}
                       </span>
-                      {p.status === 'SCORED' && (
-                        <span className="shrink-0 text-xs text-slate-500">scored</span>
+                      {scoreLabel != null && (
+                        <>
+                          <span className="shrink-0 text-xs text-slate-500">scored</span>
+                          <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-sky-300">
+                            {scoreLabel}
+                          </span>
+                        </>
                       )}
                     </button>
                   </li>

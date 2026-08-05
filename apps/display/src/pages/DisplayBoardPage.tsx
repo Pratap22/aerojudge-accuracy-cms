@@ -453,23 +453,29 @@ export function DisplayBoardPage() {
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-8 py-4"
+        className="absolute left-0 right-0 top-0 z-10 flex items-start justify-between gap-3 px-3 py-2.5 sm:items-center sm:gap-4 sm:px-8 sm:py-4"
       >
-        <div>
-          <p className="text-xs uppercase tracking-[0.4em] text-sky-400/60">AeroJudge</p>
-          <h1 className="font-display text-2xl uppercase tracking-wider text-white">{competition.name}</h1>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] uppercase tracking-[0.35em] text-sky-400/60 sm:text-xs sm:tracking-[0.4em]">
+            AeroJudge
+          </p>
+          <h1 className="line-clamp-2 font-display text-sm uppercase leading-snug tracking-wide text-white sm:line-clamp-1 sm:text-xl sm:tracking-wider md:text-2xl">
+            {competition.name}
+          </h1>
         </div>
         {socketState.wind && (
-          <div className="rounded-lg border border-sky-500/30 bg-broadcast-navy-mid/80 px-4 py-2 text-right">
-            <p className="text-xs uppercase tracking-wider text-sky-400">Wind</p>
-            <p className="font-mono text-lg text-white">
+          <div className="hidden shrink-0 rounded-lg border border-sky-500/30 bg-broadcast-navy-mid/80 px-3 py-1.5 text-right sm:block sm:px-4 sm:py-2">
+            <p className="text-[10px] uppercase tracking-wider text-sky-400 sm:text-xs">Wind</p>
+            <p className="font-mono text-sm text-white sm:text-lg">
               {socketState.wind.speedMs.toFixed(1)} m/s · {Math.round(socketState.wind.directionDeg)}°
             </p>
           </div>
         )}
       </motion.header>
 
-      <main className={`h-full pt-20 ${competitionCompleted ? 'pb-0' : 'pb-16'}`}>
+      <main
+        className={`h-full ${competitionCompleted ? 'pb-0' : 'pb-[4.5rem] sm:pb-16'} pt-14 sm:pt-20`}
+      >
         <LayoutRouter
           layoutKey={
             competitionCompleted

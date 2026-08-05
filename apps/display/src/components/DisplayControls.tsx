@@ -79,14 +79,14 @@ export function DisplayControls({
       animate={{ y: 0, opacity: 1 }}
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-sky-500/20 bg-broadcast-navy/95 backdrop-blur-sm"
     >
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-3">
-        <div className="flex flex-wrap gap-2">
+      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:py-3">
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden">
           {layouts.map(({ id, label }) => (
             <button
               key={id}
               type="button"
               onClick={() => onLayoutChange(id)}
-              className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`shrink-0 rounded px-3 py-2 text-xs font-medium transition-colors sm:py-1.5 sm:text-sm ${
                 layout === id
                   ? 'bg-sky-500 text-broadcast-navy'
                   : 'bg-broadcast-navy-light text-sky-300 hover:bg-sky-500/20'
@@ -96,7 +96,7 @@ export function DisplayControls({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-2">
           <button
             type="button"
             onClick={onKioskToggle}

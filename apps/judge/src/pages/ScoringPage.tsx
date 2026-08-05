@@ -32,6 +32,7 @@ interface Flight {
   status: 'PENDING' | 'ON_DECK' | 'CURRENT' | 'SCORED';
   distanceCm: number | null;
   resultType: ScoreResultType | null;
+  finalScoreCm?: number | null;
 }
 
 export function ScoringPage() {
@@ -284,6 +285,9 @@ export function ScoringPage() {
                       firstName: f.firstName,
                       lastName: f.lastName,
                       status: f.status,
+                      distanceCm: f.distanceCm,
+                      resultType: f.resultType,
+                      finalScoreCm: f.finalScoreCm,
                     })) ?? []
                   }
                   selectedId={currentFlight.id}
@@ -430,6 +434,9 @@ export function ScoringPage() {
                       : f.status === 'ON_DECK'
                         ? 'ON_DECK'
                         : 'PENDING',
+                distanceCm: f.distanceCm,
+                resultType: f.resultType,
+                finalScoreCm: f.finalScoreCm,
               })) ?? []
             }
             currentId={currentFlight?.id ?? null}

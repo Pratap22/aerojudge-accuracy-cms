@@ -23,7 +23,7 @@ export function CurrentPilotLayout({
 }: CurrentPilotLayoutProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-hidden p-8 xl:p-10">
+      <div className="min-h-0 flex-1 overflow-hidden p-3 sm:p-6 md:p-8 xl:p-10">
         <PilotHero
           pilot={pilot}
           competitionName={competitionName}
