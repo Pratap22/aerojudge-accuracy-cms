@@ -19,6 +19,7 @@
     "migrate": "npm run prisma -- migrate dev --schema=./prisma/schema.prisma",
     "migrate:deploy": "npm run prisma -- migrate deploy --schema=./prisma/schema.prisma",
     "seed": "node ./scripts/with-root-env.mjs --import tsx prisma/seed/index.ts",
+    "seed:countries": "node ./scripts/with-root-env.mjs --import tsx prisma/seed/seed-countries.ts",
     "reset": "npm run prisma -- migrate reset --schema=./prisma/schema.prisma --force",
     "studio": "npm run prisma -- studio --schema=./prisma/schema.prisma",
     "clean": "rm -rf dist"

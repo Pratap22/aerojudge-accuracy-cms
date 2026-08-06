@@ -10,7 +10,7 @@ import {
   type CreateSponsorInput,
   type SponsorType,
 } from '@npha/shared';
-import { Handshake, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Handshake, ImagePlus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -44,6 +44,8 @@ const TYPE_LABELS: Record<SponsorType, string> = {
   STANDARD: 'Standard',
 };
 
+const LOGO_MAX_BYTES = 5 * 1024 * 1024;
+
 interface CompetitionWithPartners {
   id: string;
   settings?: {
@@ -59,13 +61,31 @@ function singularLabel(label: string): string {
   return label;
 }
 
+async function uploadSponsorLogo(
+  competitionId: string,
+  sponsorId: string,
+  file: File,
+): Promise<CompetitionSponsor> {
+  if (file.size > LOGO_MAX_BYTES) {
+    throw new Error('Logo is too large. Maximum size is 5 MB.');
+  }
+  const formData = new FormData();
+  formData.append('logo', file);
+  return apiRequest<CompetitionSponsor>(`/competitions/${competitionId}/sponsors/${sponsorId}/logo`, {
+    method: 'POST',
+    formData,
+  });
+}
+
 export function SponsorsPage() {
   const competitionId = useCompetitionId();
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CompetitionSponsor | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
   const { data: competition } = useQuery({
     queryKey: ['competition', competitionId],
@@ -102,29 +122,40 @@ export function SponsorsPage() {
     queryClient.invalidateQueries({ queryKey: ['competition', competitionId] });
   };
 
+  const resetLogoState = () => {
+    if (logoFile && logoPreview?.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoError(null);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
   const partnersSettingsMutation = useMutation({
     mutationFn: (data: { partnersLabel: string; partnerTiersEnabled: boolean }) =>
       api.put(`/competitions/${competitionId}/settings`, data),
     onSuccess: invalidate,
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: CreateSponsorInput) =>
-      api.post<CompetitionSponsor>(`/competitions/${competitionId}/sponsors`, data),
-    onSuccess: () => {
-      invalidate();
-      setFormOpen(false);
-      reset({ name: '', type: tiersEnabled ? 'STANDARD' : null });
-    },
-  });
+  const saveMutation = useMutation({
+    mutationFn: async (data: CreateSponsorInput) => {
+      if (!competitionId) throw new Error('No competition selected');
+      let sponsor = editing
+        ? await api.patch<CompetitionSponsor>(
+            `/competitions/${competitionId}/sponsors/${editing.id}`,
+            data,
+          )
+        : await api.post<CompetitionSponsor>(`/competitions/${competitionId}/sponsors`, data);
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: CreateSponsorInput }) =>
-      api.patch<CompetitionSponsor>(`/competitions/${competitionId}/sponsors/${id}`, data),
+      if (logoFile) {
+        sponsor = await uploadSponsorLogo(competitionId, sponsor.id, logoFile);
+      }
+      return sponsor;
+    },
     onSuccess: () => {
       invalidate();
       setFormOpen(false);
       setEditing(null);
+      resetLogoState();
       reset({ name: '', type: tiersEnabled ? 'STANDARD' : null });
     },
   });
@@ -134,33 +165,19 @@ export function SponsorsPage() {
     onSuccess: invalidate,
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: async ({ id, file }: { id: string; file: File }) => {
-      const maxBytes = 5 * 1024 * 1024;
-      if (file.size > maxBytes) {
-        throw new Error('Sponsor logo is too large. Maximum size is 5 MB.');
-      }
-      const formData = new FormData();
-      formData.append('logo', file);
-      return apiRequest<CompetitionSponsor>(
-        `/competitions/${competitionId}/sponsors/${id}/logo`,
-        { method: 'POST', formData },
-      );
-    },
-    onSuccess: () => {
-      invalidate();
-      setUploadTargetId(null);
-    },
-  });
-
   const openCreate = () => {
     setEditing(null);
+    resetLogoState();
+    saveMutation.reset();
     reset({ name: '', type: tiersEnabled ? 'STANDARD' : null, websiteUrl: undefined });
     setFormOpen(true);
   };
 
   const openEdit = (sponsor: CompetitionSponsor) => {
     setEditing(sponsor);
+    resetLogoState();
+    setLogoPreview(sponsor.logoUrl ?? null);
+    saveMutation.reset();
     const type =
       sponsor.type && SPONSOR_TYPES.includes(sponsor.type as SponsorType)
         ? (sponsor.type as SponsorType)
@@ -176,13 +193,20 @@ export function SponsorsPage() {
     setFormOpen(true);
   };
 
+  const clearLogoSelection = () => {
+    if (logoFile && logoPreview?.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+    setLogoFile(null);
+    setLogoPreview(editing?.logoUrl ?? null);
+    setLogoError(null);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
   const onSubmit = handleSubmit((data) => {
     const payload: CreateSponsorInput = {
       ...data,
       type: tiersEnabled ? (data.type ?? 'STANDARD') : null,
     };
-    if (editing) updateMutation.mutate({ id: editing.id, data: payload });
-    else createMutation.mutate(payload);
+    saveMutation.mutate(payload);
   });
 
   const byType = useMemo(() => {
@@ -219,14 +243,6 @@ export function SponsorsPage() {
           Add {singular.toLowerCase()}
         </Button>
       </div>
-
-      {uploadMutation.isError && (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {uploadMutation.error instanceof Error
-            ? uploadMutation.error.message
-            : 'Logo upload failed'}
-        </p>
-      )}
 
       <Card>
         <CardHeader>
@@ -320,17 +336,6 @@ export function SponsorsPage() {
                           </div>
                         </div>
                         <div className="flex shrink-0 gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => {
-                              setUploadTargetId(sponsor.id);
-                              fileRef.current?.click();
-                            }}
-                            title="Upload logo"
-                          >
-                            <Upload className="h-4 w-4" />
-                          </Button>
                           <Button size="icon" variant="ghost" onClick={() => openEdit(sponsor)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -369,21 +374,16 @@ export function SponsorsPage() {
         </div>
       )}
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file && uploadTargetId) {
-            uploadMutation.mutate({ id: uploadTargetId, file });
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) {
+            setEditing(null);
+            resetLogoState();
           }
-          e.target.value = '';
         }}
-      />
-
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -424,15 +424,93 @@ export function SponsorsPage() {
                 placeholder="https://example.com"
               />
             </div>
+            <div className="space-y-2">
+              <Label>Logo (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                PNG, JPEG, WebP, or SVG · max 5 MB · applied when you save
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                {logoPreview ? (
+                  <img
+                    src={logoPreview}
+                    alt=""
+                    className="h-16 w-16 rounded-md border bg-muted/40 object-contain p-1"
+                  />
+                ) : (
+                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                    <ImagePlus className="h-5 w-5" />
+                  </span>
+                )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setLogoError(null);
+                    if (logoFile && logoPreview?.startsWith('blob:')) {
+                      URL.revokeObjectURL(logoPreview);
+                    }
+                    if (!file) {
+                      setLogoFile(null);
+                      setLogoPreview(editing?.logoUrl ?? null);
+                      return;
+                    }
+                    if (file.size > LOGO_MAX_BYTES) {
+                      setLogoError('Logo is too large. Maximum size is 5 MB.');
+                      e.target.value = '';
+                      return;
+                    }
+                    setLogoFile(file);
+                    setLogoPreview(URL.createObjectURL(file));
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                  {logoPreview ? 'Change logo' : 'Add logo'}
+                </Button>
+                {logoFile && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={clearLogoSelection}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Clear new selection
+                  </Button>
+                )}
+              </div>
+              {(logoError || saveMutation.isError) && (
+                <p className="text-sm text-destructive">
+                  {logoError ??
+                    (saveMutation.error instanceof Error
+                      ? saveMutation.error.message
+                      : 'Failed to save')}
+                </p>
+              )}
+            </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setFormOpen(false);
+                  setEditing(null);
+                  resetLogoState();
+                }}
+              >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-              >
-                {editing ? 'Save' : 'Create'}
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? 'Saving…' : editing ? 'Save' : 'Create'}
               </Button>
             </DialogFooter>
           </form>

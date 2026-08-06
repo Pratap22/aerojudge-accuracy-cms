@@ -8,11 +8,12 @@ import {
   type CreateUserInput,
   type Role,
   type SetUserPasswordInput,
+  type UserStatus,
   ROLES,
   hasPermission,
 } from '@npha/shared';
 import { z } from 'zod';
-import { KeyRound, Pencil, Plus, Shield, Trash2 } from 'lucide-react';
+import { KeyRound, Pencil, Plus, RotateCcw, Shield, Trash2 } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -35,13 +36,39 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  cn,
 } from '@npha/ui';
 import type { AuthUser } from '@npha/shared';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
+type StatusFilter = UserStatus | 'ALL';
+
+const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
+  { id: 'ACTIVE', label: 'Active' },
+  { id: 'INACTIVE', label: 'Inactive' },
+  { id: 'SUSPENDED', label: 'Suspended' },
+  { id: 'ALL', label: 'All' },
+];
+
+function statusBadgeVariant(
+  status: UserStatus | undefined,
+): 'success' | 'secondary' | 'destructive' | 'outline' {
+  switch (status) {
+    case 'ACTIVE':
+      return 'success';
+    case 'INACTIVE':
+      return 'secondary';
+    case 'SUSPENDED':
+      return 'destructive';
+    default:
+      return 'outline';
+  }
+}
+
 export function UsersPage() {
   const { user: currentUser } = useAuth();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AuthUser | null>(null);
   const [passwordTarget, setPasswordTarget] = useState<AuthUser | null>(null);
@@ -51,8 +78,8 @@ export function UsersPage() {
   const canManage = currentUser && hasPermission(currentUser.role, 'user:manage');
 
   const { data: users, isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => api.get<AuthUser[]>('/users'),
+    queryKey: ['users', statusFilter],
+    queryFn: () => api.get<AuthUser[]>('/users', { status: statusFilter }),
     enabled: !!canManage,
   });
 
@@ -124,6 +151,11 @@ export function UsersPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   });
 
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) => api.patch<AuthUser>(`/users/${id}`, { status: 'ACTIVE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+  });
+
   if (!canManage) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -152,6 +184,8 @@ export function UsersPage() {
     setPasswordTarget(u);
   };
 
+  const showStatusColumn = statusFilter !== 'ACTIVE';
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -165,6 +199,24 @@ export function UsersPage() {
         </Button>
       </div>
 
+      <div className="flex flex-wrap gap-1.5">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setStatusFilter(f.id)}
+            className={cn(
+              'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+              statusFilter === f.id
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-background text-muted-foreground hover:bg-muted',
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
@@ -172,54 +224,98 @@ export function UsersPage() {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              {showStatusColumn && <TableHead>Status</TableHead>}
               <TableHead className="w-32" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell
+                  colSpan={showStatusColumn ? 5 : 4}
+                  className="text-center text-muted-foreground"
+                >
                   Loading…
                 </TableCell>
               </TableRow>
+            ) : users?.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={showStatusColumn ? 5 : 4}
+                  className="text-center text-muted-foreground"
+                >
+                  {statusFilter === 'INACTIVE'
+                    ? 'No inactive users'
+                    : statusFilter === 'SUSPENDED'
+                      ? 'No suspended users'
+                      : 'No users found'}
+                </TableCell>
+              </TableRow>
             ) : (
-              users?.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">
-                    {u.firstName} {u.lastName}
-                  </TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{u.role.replace(/_/g, ' ')}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openSetPassword(u)}
-                        title="Set password"
-                        aria-label={`Set password for ${u.email}`}
-                      >
-                        <KeyRound className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Edit user">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {u.id !== currentUser?.id && (
+              users?.map((u) => {
+                const isInactive = u.status === 'INACTIVE' || u.status === 'SUSPENDED';
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">
+                      {u.firstName} {u.lastName}
+                    </TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{u.role.replace(/_/g, ' ')}</Badge>
+                    </TableCell>
+                    {showStatusColumn && (
+                      <TableCell>
+                        <Badge variant={statusBadgeVariant(u.status)}>
+                          {(u.status ?? 'ACTIVE').replace(/_/g, ' ')}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <div className="flex gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => deleteMutation.mutate(u.id)}
-                          title="Deactivate user"
+                          onClick={() => openSetPassword(u)}
+                          title="Set password"
+                          aria-label={`Set password for ${u.email}`}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <KeyRound className="h-4 w-4" />
                         </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEdit(u)}
+                          title="Edit user"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {u.id !== currentUser?.id &&
+                          (isInactive ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => reactivateMutation.mutate(u.id)}
+                              disabled={reactivateMutation.isPending}
+                              title="Reactivate user"
+                              aria-label={`Reactivate ${u.email}`}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteMutation.mutate(u.id)}
+                              title="Deactivate user"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          ))}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

@@ -30,6 +30,7 @@
     "db:generate": "npm run generate --workspace=@npha/database",
     "db:migrate": "npm run migrate --workspace=@npha/database",
     "db:seed": "npm run seed --workspace=@npha/database",
+    "db:seed:countries": "npm run seed:countries --workspace=@npha/database",
     "db:reset": "npm run reset --workspace=@npha/database",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d --build",
     "docker:down": "docker compose -f docker/docker-compose.yml down",

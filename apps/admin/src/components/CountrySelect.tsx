@@ -1,13 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  cn,
-} from '@npha/ui';
+import { Check, ChevronsUpDown, Search } from 'lucide-react';
+import { Button, Input, cn } from '@npha/ui';
 import { api } from '../lib/api';
 
 export interface CountryOption {
@@ -16,8 +10,6 @@ export interface CountryOption {
   code2: string;
   name: string;
 }
-
-const NONE = '__none__';
 
 export function useCountries(enabled = true) {
   return useQuery({
@@ -45,6 +37,10 @@ export function findCountry(
   );
 }
 
+function countryLabel(c: CountryOption): string {
+  return `${c.name} (${c.code2 || c.code})`;
+}
+
 interface CountrySelectProps {
   value?: string | null;
   /** Called with the selected country, or null when cleared. */
@@ -58,7 +54,7 @@ interface CountrySelectProps {
 }
 
 /**
- * Country dropdown backed by the shared Country reference table.
+ * Searchable country picker backed by the shared Country reference table.
  * `value` may be a country id, ISO code, or English name — it is resolved to the list.
  */
 export function CountrySelect({
@@ -73,33 +69,131 @@ export function CountrySelect({
 }: CountrySelectProps) {
   const { data: countries = [], isLoading } = useCountries();
   const selected = useMemo(() => findCountry(countries, value), [countries, value]);
-  const selectValue = selected?.id ?? (allowClear ? NONE : undefined);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return countries;
+    return countries.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.code.toLowerCase().includes(q) ||
+        c.code2.toLowerCase().includes(q),
+    );
+  }, [countries, query]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      const id = window.setTimeout(() => searchRef.current?.focus(), 0);
+      return () => window.clearTimeout(id);
+    }
+  }, [open]);
+
+  const selectCountry = (country: CountryOption | null) => {
+    onChange(country);
+    setOpen(false);
+    setQuery('');
+  };
 
   return (
-    <div className={cn(className)}>
-      <Select
-        value={selectValue}
+    <div ref={rootRef} className={cn('relative', className)}>
+      <Button
+        id={id}
+        type="button"
+        variant="outline"
         disabled={disabled || isLoading}
-        onValueChange={(next) => {
-          if (next === NONE) {
-            onChange(null);
-            return;
-          }
-          onChange(countries.find((c) => c.id === next) ?? null);
-        }}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className={cn(
+          'h-10 w-full justify-between px-3 font-normal',
+          !selected && 'text-muted-foreground',
+          triggerClassName,
+        )}
+        onClick={() => setOpen((prev) => !prev)}
       >
-        <SelectTrigger id={id} className={triggerClassName}>
-          <SelectValue placeholder={isLoading ? 'Loading…' : placeholder} />
-        </SelectTrigger>
-        <SelectContent className="max-h-72">
-          {allowClear && <SelectItem value={NONE}>Not specified</SelectItem>}
-          {countries.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.name} ({c.code2 || c.code})
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <span className="truncate">
+          {isLoading ? 'Loading…' : selected ? countryLabel(selected) : placeholder}
+        </span>
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
+          <div className="flex items-center gap-2 border-b px-2">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <Input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search countries…"
+              className="h-9 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-2"
+              autoComplete="off"
+            />
+          </div>
+          <ul role="listbox" className="max-h-60 overflow-auto py-1">
+            {allowClear && (
+              <li>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!selected}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                  onClick={() => selectCountry(null)}
+                >
+                  <Check className={cn('h-4 w-4', selected ? 'opacity-0' : 'opacity-100')} />
+                  <span>Not specified</span>
+                </button>
+              </li>
+            )}
+            {filtered.length === 0 ? (
+              <li className="px-3 py-6 text-center text-sm text-muted-foreground">No countries found</li>
+            ) : (
+              filtered.map((c) => {
+                const isSelected = selected?.id === c.id;
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                      onClick={() => selectCountry(c)}
+                    >
+                      <Check className={cn('h-4 w-4', isSelected ? 'opacity-100' : 'opacity-0')} />
+                      <span className="truncate">{countryLabel(c)}</span>
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

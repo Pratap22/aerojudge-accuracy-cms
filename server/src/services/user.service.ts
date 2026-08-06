@@ -3,8 +3,16 @@ import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { hashPassword } from './auth.service.js';
 
-export async function listUsers(query: { page: number; pageSize: number; search?: string }) {
+export async function listUsers(query: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'ALL';
+}) {
   const where: Prisma.UserWhereInput = {};
+  if (query.status && query.status !== 'ALL') {
+    where.status = query.status;
+  }
   if (query.search) {
     where.OR = [
       { email: { contains: query.search, mode: 'insensitive' } },
@@ -150,5 +158,11 @@ export async function setUserPassword(id: string, password: string): Promise<voi
 
 export async function deleteUser(id: string): Promise<void> {
   await getUser(id);
-  await prisma.user.update({ where: { id }, data: { status: 'INACTIVE' } });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id }, data: { status: 'INACTIVE' } }),
+    prisma.refreshToken.updateMany({
+      where: { userId: id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
 }

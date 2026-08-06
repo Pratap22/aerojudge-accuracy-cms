@@ -324,9 +324,13 @@ export function PilotsPage() {
   const clearPhotoSelection = () => {
     if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoFile(null);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    if (photoFile) {
+      setPhotoPreview(photoRemoved ? null : editing?.photoUrl ?? selectedPerson?.photoUrl ?? null);
+      return;
+    }
     setPhotoPreview(null);
     setPhotoRemoved(Boolean(editing?.photoUrl));
-    if (photoInputRef.current) photoInputRef.current.value = '';
   };
 
   const selectPerson = (person: PersonDirectoryEntry) => {
@@ -340,11 +344,19 @@ export function PilotsPage() {
     setValue('faiLicense', person.faiLicenseNumber ?? undefined);
     setValue('nationality', person.nationalityCountry?.code ?? undefined);
     setValue('countryId', person.nationalityCountryId ?? undefined);
+    if (!photoFile) {
+      setPhotoPreview(person.photoUrl ?? null);
+      setPhotoRemoved(false);
+    }
   };
 
   const clearSelectedPerson = () => {
     setSelectedPerson(null);
     setValue('personId', undefined);
+    if (!photoFile) {
+      setPhotoPreview(null);
+      setPhotoRemoved(false);
+    }
   };
 
   if (!activeCompetitionId) {
@@ -709,7 +721,11 @@ export function PilotsPage() {
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Photo</Label>
                   <p className="text-xs text-muted-foreground">
-                    Optional headshot for public rankings and venue display (max 2 MB)
+                    {photoFile
+                      ? 'Optional headshot for public rankings and venue display (max 2 MB)'
+                      : selectedPerson?.photoUrl && photoPreview
+                        ? 'Using profile photo from returning person · upload to replace'
+                        : 'Optional headshot for public rankings and venue display (max 2 MB)'}
                   </p>
                   <div className="flex flex-wrap items-center gap-3">
                     {photoPreview ? (
@@ -733,7 +749,11 @@ export function PilotsPage() {
                         if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview);
                         if (!file) {
                           setPhotoFile(null);
-                          setPhotoPreview(photoRemoved ? null : editing?.photoUrl ?? null);
+                          setPhotoPreview(
+                            photoRemoved
+                              ? null
+                              : editing?.photoUrl ?? selectedPerson?.photoUrl ?? null,
+                          );
                           return;
                         }
                         if (file.size > PHOTO_MAX_BYTES) {
@@ -754,7 +774,7 @@ export function PilotsPage() {
                       <ImagePlus className="mr-2 h-4 w-4" />
                       {photoPreview ? 'Change photo' : 'Add photo'}
                     </Button>
-                    {photoPreview && (
+                    {photoPreview && (photoFile || editing) && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -763,7 +783,7 @@ export function PilotsPage() {
                         onClick={clearPhotoSelection}
                       >
                         <X className="mr-2 h-4 w-4" />
-                        Remove
+                        {photoFile ? 'Clear new selection' : 'Remove'}
                       </Button>
                     )}
                   </div>

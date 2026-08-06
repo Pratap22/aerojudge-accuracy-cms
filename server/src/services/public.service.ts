@@ -57,6 +57,7 @@ const publicCompetitionSelect = {
       galleryImages: true,
       links: true,
       contacts: { where: { isPublic: true } },
+      teams: true,
     },
   },
 } as const;
@@ -130,6 +131,7 @@ function mapPublicCompetition(competition: {
     galleryImages: number;
     links: number;
     contacts: number;
+    teams?: number;
   };
 }) {
   const info = competition.info;
@@ -159,6 +161,7 @@ function mapPublicCompetition(competition: {
     settings: competition.settings,
     organiser: toPublicOrganiser(competition),
     hasInfo,
+    teamCount: competition._count?.teams ?? 0,
   };
 }
 

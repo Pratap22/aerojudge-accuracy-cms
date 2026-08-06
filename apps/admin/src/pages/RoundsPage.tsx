@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Pause,
@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Download,
   Loader2,
+  Upload,
 } from 'lucide-react';
 import {
   Badge,
@@ -40,10 +41,19 @@ import {
   TableRow,
 } from '@npha/ui';
 import type { CompetitionStatus, ReportType, RoundStatus, RoundType } from '@npha/shared';
-import { api, ApiError, apiFetch } from '../lib/api';
+import { api, ApiError, apiFetch, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';
 
+interface ScoreImportResult {
+  format: 'wide' | 'long';
+  roundsDetected: number[];
+  roundsCreated: number[];
+  scoresUpserted: number;
+  rowsProcessed: number;
+  skipped: { pilotNumber: number; round?: number; reason: string }[];
+  unknownPilots: number[];
+}
 interface RoundApi {
   id: string;
   number: number;
@@ -150,6 +160,9 @@ export function RoundsPage() {
     roundId?: string;
     message: string;
   } | null>(null);
+  const scoreImportRef = useRef<HTMLInputElement>(null);
+  const [importResult, setImportResult] = useState<ScoreImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const { data: competition } = useQuery({
     queryKey: ['competition', competitionId],
@@ -170,6 +183,27 @@ export function RoundsPage() {
     enabled: !!competitionId,
   });
 
+  const importScoresMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return apiRequest<ScoreImportResult>(`/competitions/${competitionId}/rounds/import-scores`, {
+        method: 'POST',
+        formData,
+      });
+    },
+    onSuccess: (result) => {
+      setImportError(null);
+      setImportResult(result);
+      void queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+      void queryClient.invalidateQueries({ queryKey: ['rankings', competitionId] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (err) => {
+      setImportResult(null);
+      setImportError(err instanceof ApiError ? err.message : 'Score import failed');
+    },
+  });
   const rounds = useMemo(() => (roundsRaw ?? []).map(normalizeRound), [roundsRaw]);
   const hasTeams = (teams?.length ?? 0) > 0;
   /** Latest approved/locked official round — used for overall report approver stamp. */
@@ -409,6 +443,29 @@ export function RoundsPage() {
               )}
             </>
           )}
+          <Button
+            variant="outline"
+            disabled={importScoresMutation.isPending}
+            onClick={() => scoreImportRef.current?.click()}
+          >
+            {importScoresMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="mr-2 h-4 w-4" />
+            )}
+            Import scores CSV
+          </Button>
+          <input
+            ref={scoreImportRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) importScoresMutation.mutate(file);
+            }}
+          />
           {canCloseCompetition && (
             <Button
               variant="outline"
@@ -433,6 +490,41 @@ export function RoundsPage() {
 
       {downloadError && !downloadError.roundId && (
         <p className="text-sm text-destructive">{downloadError.message}</p>
+      )}
+
+      {importError && (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {importError}
+        </p>
+      )}
+
+      {importResult && (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm">
+          <p className="font-medium text-emerald-700 dark:text-emerald-300">
+            Imported {importResult.scoresUpserted} score(s) across rounds{' '}
+            {importResult.roundsDetected.join(', ') || '—'}
+            {importResult.roundsCreated.length > 0
+              ? ` (created rounds ${importResult.roundsCreated.join(', ')})`
+              : ''}
+            .
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            Format: {importResult.format}. Rows: {importResult.rowsProcessed}. Skipped:{' '}
+            {importResult.skipped.length}
+            {importResult.unknownPilots.length > 0
+              ? `. Unknown pilots: ${importResult.unknownPilots.join(', ')}`
+              : ''}
+            .
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            CSV: wide sheet with <code className="rounded bg-muted px-1">pilotNumber</code> /{' '}
+            <code className="rounded bg-muted px-1">Pilot&apos;s ID</code> and{' '}
+            <code className="rounded bg-muted px-1">Round 1…N</code> columns (Rank, Name, Team,
+            Total ignored), or long form{' '}
+            <code className="rounded bg-muted px-1">pilotNumber,round,score</code>. Cells: cm,
+            DNF, DNS, ABS, DSQ. Pilots must already be registered.
+          </p>
+        </div>
       )}
 
       <div className="grid gap-4 sm:grid-cols-4">

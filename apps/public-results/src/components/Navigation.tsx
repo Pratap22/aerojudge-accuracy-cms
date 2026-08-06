@@ -34,7 +34,7 @@ export function Navigation() {
         { path: 'pilots', label: 'Pilots' },
         { path: 'officials', label: 'Officials' },
         { path: 'women', label: 'Women' },
-        { path: 'teams', label: 'Team ranking' },
+        ...((competition?.teamCount ?? 0) > 0 ? [{ path: 'teams', label: 'Team ranking' }] : []),
         { path: 'countries', label: 'Countries' },
         { path: 'statistics', label: 'Statistics' },
         ...(registrationOpen ? [{ path: 'register', label: 'Register' }] : []),

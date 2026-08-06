@@ -16,7 +16,7 @@ import type { PrintFormat, ReportType } from '@npha/shared';
 import { api, apiFetch } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
-const reportTypes: { value: ReportType; label: string }[] = [
+const allReportTypes: { value: ReportType; label: string }[] = [
   { value: 'OVERALL_RESULTS', label: 'Overall Results' },
   { value: 'ROUND_RESULTS', label: 'Round Results' },
   { value: 'TEAM_RESULTS', label: 'Team Results' },
@@ -53,6 +53,10 @@ interface RoundOption {
   status: string;
 }
 
+interface TeamOption {
+  id: string;
+}
+
 const selectClassName =
   'flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -70,7 +74,26 @@ export function ReportsPage() {
     enabled: !!activeCompetitionId,
   });
 
+  const { data: teams } = useQuery({
+    queryKey: ['teams', activeCompetitionId],
+    queryFn: () =>
+      api.get<TeamOption[]>(`/competitions/${activeCompetitionId}/teams`, { pageSize: 1 }),
+    enabled: !!activeCompetitionId,
+  });
+
+  const hasTeams = (teams?.length ?? 0) > 0;
+  const reportTypes = hasTeams
+    ? allReportTypes
+    : allReportTypes.filter((r) => r.value !== 'TEAM_RESULTS');
+
   const sortedRounds = [...(rounds ?? [])].sort((a, b) => a.number - b.number);
+
+  useEffect(() => {
+    if (reportType === 'TEAM_RESULTS' && !hasTeams) {
+      setReportType('OVERALL_RESULTS');
+      setPreview(null);
+    }
+  }, [reportType, hasTeams]);
 
   useEffect(() => {
     if (!needsRoundSelection(reportType)) {

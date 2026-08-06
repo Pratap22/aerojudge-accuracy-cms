@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import {
   createUserSchema,
-  paginationSchema,
+  listUsersQuerySchema,
   setUserPasswordSchema,
   updateUserSchema,
 } from '@npha/shared';
@@ -15,7 +15,7 @@ import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 const idParams = z.object({ id: z.string().min(1) });
 
 export const list = [
-  validateQuery(paginationSchema),
+  validateQuery(listUsersQuerySchema),
   asyncHandler(async (req: Request, res: Response) => {
     const result = await userService.listUsers(req.query as never);
     sendSuccess(res, result.items, 200, {

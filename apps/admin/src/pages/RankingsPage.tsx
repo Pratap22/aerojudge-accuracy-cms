@@ -26,7 +26,7 @@ import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { connectSocket, onSocketEvent } from '../lib/socket';
 
-const categories: { value: RankingCategory; label: string }[] = [
+const allCategories: { value: RankingCategory; label: string }[] = [
   { value: 'OVERALL', label: 'Overall' },
   { value: 'WOMEN', label: 'Women' },
   { value: 'JUNIOR', label: 'Junior' },
@@ -122,6 +122,21 @@ export function RankingsPage() {
   const [category, setCategory] = useState<RankingCategory>('OVERALL');
   const [liveUpdate, setLiveUpdate] = useState<Date | null>(null);
   const queryClient = useQueryClient();
+
+  const { data: teams } = useQuery({
+    queryKey: ['teams', activeCompetitionId],
+    queryFn: () =>
+      api.get<{ id: string }[]>(`/competitions/${activeCompetitionId}/teams`, { pageSize: 1 }),
+    enabled: !!activeCompetitionId,
+  });
+  const hasTeams = (teams?.length ?? 0) > 0;
+  const categories = hasTeams
+    ? allCategories
+    : allCategories.filter((c) => c.value !== 'TEAM');
+
+  useEffect(() => {
+    if (category === 'TEAM' && !hasTeams) setCategory('OVERALL');
+  }, [category, hasTeams]);
 
   useEffect(() => {
     if (activeCompetitionId) connectSocket(activeCompetitionId);

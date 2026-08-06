@@ -12,6 +12,7 @@ import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as roundService from '../../../services/round.service.js';
 import * as scoreService from '../../../services/score.service.js';
+import * as scoreImportService from '../../../services/score-import.service.js';
 import * as scoringService from '../../../services/scoring.service.js';
 import {
   emitRankingUpdated,
@@ -19,6 +20,7 @@ import {
   emitScoreUpdated,
   emitCurrentPilot,
 } from '../../../socket/index.js';
+import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
 
 function approverRoleLabel(req: Request): string {
@@ -253,5 +255,45 @@ export const enterScore = [
     emitRankingUpdated(competitionId, 'TEAM');
 
     sendSuccess(res, { score, computed, rankings: recalc }, 201);
+  }),
+];
+
+export const importScores = [
+  validateParams(competitionParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'NO_FILE', message: 'CSV file required' },
+      });
+      return;
+    }
+
+    const result = await scoreImportService.importScoresFromCsv(
+      req.params.competitionId,
+      file.buffer.toString('utf-8'),
+      { enteredById: req.user!.id },
+    );
+
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      action: 'SCORES_IMPORTED',
+      entityType: 'Competition',
+      entityId: req.params.competitionId,
+      after: {
+        format: result.format,
+        scoresUpserted: result.scoresUpserted,
+        roundsDetected: result.roundsDetected,
+        roundsCreated: result.roundsCreated,
+        unknownPilots: result.unknownPilots,
+        skippedCount: result.skipped.length,
+      },
+    });
+
+    emitRankingUpdated(req.params.competitionId, 'OVERALL');
+    emitRankingUpdated(req.params.competitionId, 'TEAM');
+
+    sendSuccess(res, result, 201);
   }),
 ];

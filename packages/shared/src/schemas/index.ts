@@ -279,6 +279,8 @@ export const setUserPasswordSchema = z
     path: ['confirmPassword'],
   });
 
+export const userStatusSchema = z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']);
+
 /** Profile fields only — use setUserPasswordSchema for password changes. */
 export const updateUserSchema = z.object({
   email: z.string().email().optional(),
@@ -301,7 +303,7 @@ export const updateUserSchema = z.object({
     ])
     .optional(),
   phone: z.string().optional().nullable(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+  status: userStatusSchema.optional(),
 });
 
 export const paginationSchema = z.object({
@@ -310,6 +312,11 @@ export const paginationSchema = z.object({
   search: z.string().optional(),
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
+});
+
+/** Platform users list — defaults to ACTIVE (soft-deleted users are INACTIVE). */
+export const listUsersQuerySchema = paginationSchema.extend({
+  status: z.union([userStatusSchema, z.literal('ALL')]).default('ACTIVE'),
 });
 
 const orgSlugSchema = z
@@ -409,6 +416,8 @@ export type EnterScoreInput = z.infer<typeof enterScoreSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type SetUserPasswordInput = z.infer<typeof setUserPasswordSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type UserStatus = z.infer<typeof userStatusSchema>;
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;

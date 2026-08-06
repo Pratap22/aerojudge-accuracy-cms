@@ -276,6 +276,8 @@ export interface AuthUser {
   lastName: string;
   /** Platform / legacy global role. Org access requires membership. */
   role: Role;
+  /** Present on users list/detail; omitted on some auth payloads. */
+  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   avatarUrl?: string | null;
   /** Active organization context (when selected for this tab). */
   organizationId?: string | null;

@@ -20,6 +20,7 @@ import {
   ScoreResultType,
   ScoreStatus,
 } from '@prisma/client';
+import { COUNTRIES } from './countries-data.js';
 
 const prisma = new PrismaClient();
 
@@ -49,19 +50,6 @@ const DEFAULT_FAI_2022_RULES = {
     'PILOT_NUMBER',
   ],
 };
-
-const COUNTRIES = [
-  { code: 'NPL', code2: 'NP', name: 'Nepal' },
-  { code: 'IND', code2: 'IN', name: 'India' },
-  { code: 'CHN', code2: 'CN', name: 'China' },
-  { code: 'FRA', code2: 'FR', name: 'France' },
-  { code: 'GBR', code2: 'GB', name: 'United Kingdom' },
-  { code: 'USA', code2: 'US', name: 'United States' },
-  { code: 'CHE', code2: 'CH', name: 'Switzerland' },
-  { code: 'AUT', code2: 'AT', name: 'Austria' },
-  { code: 'JPN', code2: 'JP', name: 'Japan' },
-  { code: 'KOR', code2: 'KR', name: 'Korea' },
-] as const;
 
 interface PilotSeed {
   pilotNumber: number;
