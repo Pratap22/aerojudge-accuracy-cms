@@ -114,6 +114,21 @@ export function fetchOfficials(idOrSlug: string): Promise<PublicOfficial[]> {
   return publicFetch<PublicOfficial[]>(`/${idOrSlug}/officials`);
 }
 
+export interface PublicSponsor {
+  id: string;
+  competitionId: string;
+  name: string;
+  type: string | null;
+  logoUrl: string | null;
+  websiteUrl: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export function fetchSponsors(idOrSlug: string): Promise<PublicSponsor[]> {
+  return publicFetch<PublicSponsor[]>(`/${idOrSlug}/sponsors`);
+}
+
 export function fetchEventInfo(idOrSlug: string): Promise<CompetitionEventInfo> {
   return publicFetch<CompetitionEventInfo>(`/${idOrSlug}/info`);
 }

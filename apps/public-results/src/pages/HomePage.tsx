@@ -4,8 +4,9 @@ import { isEmptyHtml } from '@npha/shared';
 import { Layout } from '../components/Layout';
 import { Hero } from '../components/Hero';
 import { OrganizingTeamSection } from '../components/OrganizingTeam';
+import { PartnersSection } from '../components/PartnersSection';
 import { useCompetition, useResults } from '../hooks/useCompetition';
-import { competitionPath, fetchEventInfo, fetchOfficials } from '../lib/api';
+import { competitionPath, fetchEventInfo, fetchOfficials, fetchSponsors } from '../lib/api';
 import { sanitizePublicHtml } from '../lib/rich-html';
 import { pilotFullName, formatScore } from '../lib/utils';
 
@@ -20,6 +21,15 @@ export function HomePage() {
   } = useQuery({
     queryKey: ['public-officials', competitionId],
     queryFn: () => fetchOfficials(competitionId!),
+    enabled: Boolean(competitionId),
+  });
+  const {
+    data: sponsors = [],
+    isLoading: sponsorsLoading,
+    error: sponsorsError,
+  } = useQuery({
+    queryKey: ['public-sponsors', competitionId],
+    queryFn: () => fetchSponsors(competitionId!),
     enabled: Boolean(competitionId),
   });
   const { data: eventInfo } = useQuery({
@@ -108,6 +118,13 @@ export function HomePage() {
         limit={4}
         isLoading={officialsLoading}
         error={officialsError instanceof Error ? officialsError : null}
+      />
+      <PartnersSection
+        partners={sponsors}
+        label={competition.settings?.partnersLabel?.trim() || 'Sponsors'}
+        tiersEnabled={competition.settings?.partnerTiersEnabled ?? true}
+        isLoading={sponsorsLoading}
+        error={sponsorsError instanceof Error ? sponsorsError : null}
       />
     </Layout>
   );
