@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type {
   AuthOrganizationMembership,
   AuthTokens,
@@ -8,6 +8,7 @@ import type {
   Permission,
 } from '@npha/shared';
 import { prisma } from '../config/prisma.js';
+import { env } from '../config/env.js';
 import {
   accessTokenExpiresInSeconds,
   signAccessToken,
@@ -19,6 +20,8 @@ import { hashPassword, verifyPassword } from '../auth/password.js';
 import { resolveMembershipPermissions } from '../auth/permissions.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
+import { sendPasswordResetEmail } from './email.service.js';
+import { resolvePersonPhotoUrl } from './person.service.js';
 
 function toAuthUser(
   user: {
@@ -65,6 +68,7 @@ async function loadPersonSummary(personId: string | null | undefined): Promise<A
     },
   });
   if (!person) return null;
+  const photoUrl = await resolvePersonPhotoUrl(person.id, person.photoUrl);
   return {
     id: person.id,
     aeroJudgeId: person.aeroJudgeId,
@@ -76,7 +80,7 @@ async function loadPersonSummary(personId: string | null | undefined): Promise<A
     gender: person.gender,
     civlId: person.civlId,
     faiLicenseNumber: person.faiLicenseNumber,
-    photoUrl: person.photoUrl,
+    photoUrl,
     nationalityCountryId: person.nationalityCountryId,
     nationalityCountry: person.nationalityCountry,
   };
@@ -264,6 +268,8 @@ export async function registerParticipant(
   });
 
   // Prefer claim by email match to existing Person directory entry.
+  // If no email match, leave User unlinked so the pilot can Claim by AJ/CIVL ID
+  // (creating a Person here would hide that step and risk duplicates).
   let personId: string | null = null;
   const existingPerson = await prisma.person.findFirst({
     where: { email, status: 'ACTIVE' },
@@ -285,24 +291,6 @@ export async function registerParticipant(
     }
   }
 
-  if (!personId) {
-    const { createPerson } = await import('./person.service.js');
-    const person = await createPerson(
-      {
-        firstName: input.firstName.trim(),
-        lastName: input.lastName.trim(),
-        email,
-        forceCreate: true,
-      },
-      { actorUserId: user.id },
-    );
-    personId = person.id;
-    await prisma.person.update({
-      where: { id: personId },
-      data: { emailVerifiedAt: new Date() },
-    });
-  }
-
   await prisma.user.update({
     where: { id: user.id },
     data: { personId, lastLoginAt: new Date() },
@@ -320,7 +308,7 @@ export async function registerParticipant(
       action: 'PARTICIPANT_ACCOUNT_CREATED',
       entityType: 'User',
       entityId: user.id,
-      afterJson: { personId, email },
+      afterJson: { personId, email, linkedExistingPerson: Boolean(personId) },
     },
   });
 
@@ -505,6 +493,108 @@ export async function getMe(
     organizations,
     person,
   );
+}
+
+const PASSWORD_RESET_GENERIC_MESSAGE =
+  'If an account exists for that email, we sent password reset instructions.';
+
+/**
+ * Start self-serve password reset. Always returns the same message
+ * to avoid email enumeration. Emails a one-time link when the user exists.
+ */
+export async function requestPasswordReset(
+  email: string,
+  opts: {
+    appOrigin: string;
+    userAgent?: string;
+    ipAddress?: string;
+  },
+): Promise<{ message: string }> {
+  const normalized = email.toLowerCase().trim();
+  const user = await prisma.user.findUnique({ where: { email: normalized } });
+
+  if (user && user.status === 'ACTIVE') {
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const expiresInMinutes = env.PASSWORD_RESET_TOKEN_TTL_MINUTES;
+    const expiresAt = new Date(Date.now() + expiresInMinutes * 60_000);
+
+    // Invalidate any unused tokens for this user
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        requestIp: opts.ipAddress,
+        userAgent: opts.userAgent,
+      },
+    });
+
+    const origin = opts.appOrigin.replace(/\/+$/, '');
+    const resetUrl = `${origin}/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+    try {
+      await sendPasswordResetEmail({
+        to: user.email,
+        firstName: user.firstName,
+        resetUrl,
+        expiresInMinutes,
+      });
+    } catch (err) {
+      console.error('[auth] Failed to send password reset email', err);
+      // Still return generic success — do not leak delivery failures to client
+    }
+  }
+
+  return { message: PASSWORD_RESET_GENERIC_MESSAGE };
+}
+
+/**
+ * Complete password reset with a one-time token. Revokes all refresh sessions.
+ */
+export async function resetPasswordWithToken(
+  token: string,
+  password: string,
+): Promise<{ userId: string }> {
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    include: { user: { select: { id: true, status: true } } },
+  });
+
+  if (!record || record.usedAt || record.expiresAt < new Date()) {
+    throw AppError.badRequest('This reset link is invalid or has expired');
+  }
+  if (record.user.status !== 'ACTIVE') {
+    throw AppError.badRequest('This account cannot reset its password');
+  }
+
+  const passwordHash = await hashPassword(password);
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash },
+    }),
+    prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { userId: record.userId, usedAt: null, NOT: { id: record.id } },
+      data: { usedAt: new Date() },
+    }),
+    prisma.refreshToken.updateMany({
+      where: { userId: record.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
+
+  return { userId: record.userId };
 }
 
 export { hashPassword };

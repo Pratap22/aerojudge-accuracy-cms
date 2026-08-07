@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, type LoginInput } from '@npha/shared';
@@ -134,9 +134,17 @@ export function LoginPage() {
                 {errors.email && <p className="text-sm text-red-400">{errors.email.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-muted-foreground">
-                  Password
-                </Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="password" className="text-muted-foreground">
+                    Password
+                  </Label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs font-medium text-sky-400 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   type="password"

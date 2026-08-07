@@ -279,6 +279,23 @@ export const setUserPasswordSchema = z
     path: ['confirmPassword'],
   });
 
+/** Request a password-reset email (self-serve). */
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+/** Complete password reset with emailed one-time token. */
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(32).max(256),
+    password: z.string().min(8).max(128),
+    confirmPassword: z.string().min(8).max(128),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
 export const userStatusSchema = z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']);
 
 /** Profile fields only — use setUserPasswordSchema for password changes. */
@@ -415,6 +432,8 @@ export type UpdateRoundTypeInput = z.infer<typeof updateRoundTypeSchema>;
 export type EnterScoreInput = z.infer<typeof enterScoreSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type SetUserPasswordInput = z.infer<typeof setUserPasswordSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type UserStatus = z.infer<typeof userStatusSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
@@ -749,7 +768,18 @@ export const requestProfileClaimSchema = z.object({
   verificationMethod: z.string().min(1).max(120),
 });
 
+/** Organiser links an AeroJudge login to an existing Person (force claim). */
+export const linkUserToPersonSchema = z
+  .object({
+    userId: z.string().min(1).optional(),
+    userEmail: z.string().email().optional(),
+  })
+  .refine((v) => Boolean(v.userId?.trim() || v.userEmail?.trim()), {
+    message: 'userId or userEmail is required',
+  });
+
 export type CreatePersonInput = z.infer<typeof createPersonSchema>;
 export type UpdatePersonInput = z.infer<typeof updatePersonSchema>;
 export type MatchPersonInput = z.infer<typeof matchPersonSchema>;
 export type CompetitionRoleType = z.infer<typeof competitionRoleSchema>;
+export type LinkUserToPersonInput = z.infer<typeof linkUserToPersonSchema>;

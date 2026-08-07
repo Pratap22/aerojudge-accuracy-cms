@@ -5,6 +5,8 @@ import { LeaderboardPage } from './pages/LeaderboardPage';
 import { PilotsPage } from './pages/PilotsPage';
 import { PilotProfilePage } from './pages/PilotProfilePage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { WomenPage, TeamsPage, CountriesPage } from './pages/CategoryPages';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { OfficialsPage } from './pages/OfficialsPage';
@@ -38,6 +40,8 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/competition/:competitionId" element={<HomePage />} />
       <Route path="/competition/:competitionId/results" element={<LeaderboardPage />} />
       <Route path="/competition/:competitionId/pilots" element={<PilotsPage />} />

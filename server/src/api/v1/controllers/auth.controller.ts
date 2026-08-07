@@ -1,8 +1,10 @@
 import type { Request, Response } from 'express';
 import {
   claimPersonByIdentitySchema,
+  forgotPasswordSchema,
   loginSchema,
   registerParticipantSchema,
+  resetPasswordSchema,
 } from '@npha/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
@@ -10,6 +12,8 @@ import { sendSuccess } from '../../../utils/response.js';
 import * as authService from '../../../services/auth.service.js';
 import * as personService from '../../../services/person.service.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
+import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
+import { env } from '../../../config/env.js';
 
 const refreshSchema = z.object({
   refreshToken: z.string().min(1),
@@ -21,6 +25,14 @@ const claimLookupQuery = z.object({
   civlId: z.string().optional(),
 });
 
+function resolveAppOrigin(req: Request): string {
+  const origin = req.headers.origin?.trim();
+  if (origin && env.corsOrigins.includes(origin)) {
+    return origin.replace(/\/+$/, '');
+  }
+  // Prefer first CORS origin (admin in local defaults)
+  return (env.corsOrigins[0] ?? 'http://localhost:3000').replace(/\/+$/, '');
+}
 export const login = [
   validateBody(loginSchema),
   asyncHandler(async (req: Request, res: Response) => {
@@ -102,5 +114,36 @@ export const claimPerson = [
   asyncHandler(async (req: Request, res: Response) => {
     const result = await personService.claimPersonByVerifiedEmail(req.user!.id, req.body);
     sendSuccess(res, result);
+  }),
+];
+
+export const forgotPassword = [
+  validateBody(forgotPasswordSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const result = await authService.requestPasswordReset(req.body.email, {
+      appOrigin: resolveAppOrigin(req),
+      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip,
+    });
+    sendSuccess(res, result);
+  }),
+];
+
+export const resetPassword = [
+  validateBody(resetPasswordSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = await authService.resetPasswordWithToken(
+      req.body.token,
+      req.body.password,
+    );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      userId,
+      action: 'USER_PASSWORD_RESET',
+      entityType: 'User',
+      entityId: userId,
+      after: { via: 'forgot-password' },
+    });
+    sendSuccess(res, { message: 'Password updated. You can sign in with your new password.' });
   }),
 ];

@@ -15,6 +15,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.1104.0",
     "@npha/database": "*",
     "@npha/pdf-engine": "*",
     "@npha/scoring-engine": "*",

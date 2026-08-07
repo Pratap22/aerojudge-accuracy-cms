@@ -951,6 +951,12 @@ export async function approveProfileClaim(claimId: string, reviewedByUserId: str
     throw AppError.conflict('Person is already linked to another user account');
   }
 
+  const claimUser = await prisma.user.findUnique({ where: { id: claim.userId } });
+  if (!claimUser) throw AppError.notFound('User not found');
+  if (claimUser.personId && claimUser.personId !== person.id) {
+    throw AppError.conflict('User is already linked to a different Person');
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: claim.userId },
@@ -962,6 +968,20 @@ export async function approveProfileClaim(claimId: string, reviewedByUserId: str
         status: 'APPROVED',
         reviewedByUserId,
         reviewedAt: new Date(),
+      },
+    });
+    // Close other pending claims for this user or person
+    await tx.profileClaimRequest.updateMany({
+      where: {
+        status: 'PENDING',
+        NOT: { id: claimId },
+        OR: [{ userId: claim.userId }, { personId: person.id }],
+      },
+      data: {
+        status: 'REJECTED',
+        reviewedByUserId,
+        reviewedAt: new Date(),
+        verificationNotes: 'Superseded by approved claim',
       },
     });
   });
@@ -977,6 +997,197 @@ export async function approveProfileClaim(claimId: string, reviewedByUserId: str
   });
 
   return getPerson(person.id);
+}
+
+export async function rejectProfileClaim(
+  claimId: string,
+  reviewedByUserId: string,
+  notes?: string,
+) {
+  const claim = await prisma.profileClaimRequest.findUnique({ where: { id: claimId } });
+  if (!claim) throw AppError.notFound('Claim request not found');
+  if (claim.status !== 'PENDING') throw AppError.badRequest('Claim is not pending');
+
+  const updated = await prisma.profileClaimRequest.update({
+    where: { id: claimId },
+    data: {
+      status: 'REJECTED',
+      reviewedByUserId,
+      reviewedAt: new Date(),
+      verificationNotes: notes?.trim() || null,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: reviewedByUserId,
+      action: 'PROFILE_CLAIM_REJECTED',
+      entityType: 'ProfileClaimRequest',
+      entityId: claimId,
+      afterJson: { personId: claim.personId, userId: claim.userId },
+    },
+  });
+
+  return updated;
+}
+
+export async function listPendingProfileClaims() {
+  const claims = await prisma.profileClaimRequest.findMany({
+    where: { status: 'PENDING' },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      person: {
+        select: {
+          id: true,
+          aeroJudgeId: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          civlId: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  });
+
+  return claims.map((c) => ({
+    id: c.id,
+    status: c.status,
+    verificationMethod: c.verificationMethod,
+    createdAt: c.createdAt,
+    person: c.person,
+    user: c.user,
+  }));
+}
+
+/**
+ * Organiser force-links a User login to a Person (when email doesn't match or
+ * there is no pending claim). Closes related pending claims.
+ */
+export async function adminLinkUserToPerson(
+  personId: string,
+  input: { userId?: string; userEmail?: string },
+  actorUserId: string,
+) {
+  const person = await getPerson(personId);
+  if (person.status !== 'ACTIVE') throw AppError.badRequest('Person is not linkable');
+
+  let user =
+    input.userId != null
+      ? await prisma.user.findUnique({ where: { id: input.userId } })
+      : null;
+  if (!user && input.userEmail?.trim()) {
+    user = await prisma.user.findUnique({
+      where: { email: input.userEmail.trim().toLowerCase() },
+    });
+  }
+  if (!user) throw AppError.notFound('User account not found');
+  if (user.status !== 'ACTIVE') throw AppError.badRequest('User account is not active');
+
+  if (user.personId && user.personId !== person.id) {
+    throw AppError.conflict('This login is already linked to a different Person profile');
+  }
+
+  const otherUser = await prisma.user.findFirst({
+    where: { personId: person.id, NOT: { id: user.id } },
+  });
+  if (otherUser) {
+    throw AppError.conflict('This Person is already linked to another AeroJudge account');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user!.id },
+      data: { personId: person.id },
+    });
+    if (!person.email) {
+      await tx.person.update({
+        where: { id: person.id },
+        data: { email: user!.email, emailVerifiedAt: new Date() },
+      });
+    } else if (person.email.toLowerCase() === user!.email.toLowerCase()) {
+      await tx.person.update({
+        where: { id: person.id },
+        data: { emailVerifiedAt: new Date() },
+      });
+    }
+    await tx.profileClaimRequest.updateMany({
+      where: {
+        status: 'PENDING',
+        userId: user!.id,
+        personId: person.id,
+      },
+      data: {
+        status: 'APPROVED',
+        reviewedByUserId: actorUserId,
+        reviewedAt: new Date(),
+        verificationNotes: 'Linked by organiser',
+      },
+    });
+    await tx.profileClaimRequest.updateMany({
+      where: {
+        status: 'PENDING',
+        OR: [{ userId: user!.id }, { personId: person.id }],
+      },
+      data: {
+        status: 'REJECTED',
+        reviewedByUserId: actorUserId,
+        reviewedAt: new Date(),
+        verificationNotes: 'Superseded by organiser link',
+      },
+    });
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: actorUserId,
+      action: 'PROFILE_LINKED_BY_ADMIN',
+      entityType: 'Person',
+      entityId: person.id,
+      afterJson: { userId: user.id, userEmail: user.email },
+    },
+  });
+
+  return {
+    person: toPersonPrivateView(await getPerson(person.id)),
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      personId: person.id,
+    },
+  };
+}
+
+export async function adminUnlinkUserFromPerson(personId: string, actorUserId: string) {
+  const person = await getPerson(personId);
+  const user = await prisma.user.findFirst({ where: { personId: person.id } });
+  if (!user) throw AppError.notFound('No login account is linked to this Person');
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { personId: null },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: actorUserId,
+      action: 'PROFILE_UNLINKED_BY_ADMIN',
+      entityType: 'Person',
+      entityId: person.id,
+      afterJson: { userId: user.id, userEmail: user.email },
+    },
+  });
+
+  return { unlinked: true, userId: user.id };
 }
 
 /**

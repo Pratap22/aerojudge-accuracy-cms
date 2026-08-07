@@ -29,6 +29,14 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   CLOUDINARY_FOLDER: z.string().default('aerojudge'),
+  /** AWS SES — password reset and transactional email */
+  AWS_REGION: z.string().default('ap-south-1'),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  SES_FROM_EMAIL: z.string().email().optional(),
+  SES_FROM_NAME: z.string().default('AeroJudge'),
+  /** How long password-reset links remain valid */
+  PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(60),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -56,6 +64,7 @@ export const env = {
   cloudinaryEnabled: Boolean(
     raw.CLOUDINARY_CLOUD_NAME && raw.CLOUDINARY_API_KEY && raw.CLOUDINARY_API_SECRET,
   ),
+  sesEnabled: Boolean(raw.SES_FROM_EMAIL),
 } as const;
 
 export type Env = typeof env;

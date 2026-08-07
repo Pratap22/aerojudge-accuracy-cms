@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import {
   createPersonSchema,
+  linkUserToPersonSchema,
   matchPersonSchema,
   mergePersonSchema,
   paginationSchema,
@@ -15,11 +16,15 @@ import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
 
 const idParams = z.object({ personId: z.string().min(1) });
+const claimIdParams = z.object({ claimId: z.string().min(1) });
 const ajParams = z.object({ aeroJudgeId: z.string().min(1) });
 const searchQuery = paginationSchema.extend({
   q: z.string().optional(),
   civlId: z.string().optional(),
   aeroJudgeId: z.string().optional(),
+});
+const rejectClaimBody = z.object({
+  notes: z.string().max(500).optional(),
 });
 
 export const search = [
@@ -110,6 +115,76 @@ export const requestClaim = [
       req.body.verificationMethod,
     );
     sendSuccess(res, claim, 201);
+  }),
+];
+
+export const listPendingClaims = [
+  asyncHandler(async (_req: Request, res: Response) => {
+    const claims = await personService.listPendingProfileClaims();
+    sendSuccess(res, claims);
+  }),
+];
+
+export const approveClaim = [
+  validateParams(claimIdParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user?.id) throw AppError.unauthorized();
+    const person = await personService.approveProfileClaim(req.params.claimId, req.user.id);
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      action: 'PROFILE_CLAIM_APPROVED',
+      entityType: 'Person',
+      entityId: person.id,
+      after: personService.toPersonDirectoryView(person),
+    });
+    sendSuccess(res, personService.toPersonDirectoryView(person));
+  }),
+];
+
+export const rejectClaim = [
+  validateParams(claimIdParams),
+  validateBody(rejectClaimBody),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user?.id) throw AppError.unauthorized();
+    const claim = await personService.rejectProfileClaim(
+      req.params.claimId,
+      req.user.id,
+      req.body.notes,
+    );
+    sendSuccess(res, claim);
+  }),
+];
+
+export const linkUser = [
+  validateParams(idParams),
+  validateBody(linkUserToPersonSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user?.id) throw AppError.unauthorized();
+    const result = await personService.adminLinkUserToPerson(
+      req.params.personId,
+      req.body,
+      req.user.id,
+    );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      action: 'PROFILE_LINKED_BY_ADMIN',
+      entityType: 'Person',
+      entityId: req.params.personId,
+      after: result,
+    });
+    sendSuccess(res, result);
+  }),
+];
+
+export const unlinkUser = [
+  validateParams(idParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user?.id) throw AppError.unauthorized();
+    const result = await personService.adminUnlinkUserFromPerson(
+      req.params.personId,
+      req.user.id,
+    );
+    sendSuccess(res, result);
   }),
 ];
 

@@ -24,6 +24,7 @@ import {
   Trophy,
   Users,
   UsersRound,
+  UserCheck,
   X,
 } from 'lucide-react';
 import { Badge, Button, cn } from '@npha/ui';
@@ -39,6 +40,7 @@ import { SwitchToScoringButton } from '../components/SwitchToScoringButton';
 const platformNavBase = [
   { key: 'competitions' as const, label: 'Competitions', icon: Trophy, end: true },
   { key: 'organizations' as const, to: '/organizations', label: 'Organizations', icon: Building2, end: true },
+  { key: 'profile-claims' as const, to: '/profile-claims', label: 'Profile claims', icon: UserCheck, end: false },
   { key: 'users' as const, to: '/users', label: 'Users', icon: Shield, end: false },
 ] as const;
 
@@ -216,6 +218,9 @@ export function AppLayout() {
       .filter((item) => {
         if (item.key === 'users') {
           return hasPermission(user.role, 'user:manage');
+        }
+        if (item.key === 'profile-claims') {
+          return checkPermission(user, 'pilot:manage');
         }
         if (item.key === 'organizations') {
           return (

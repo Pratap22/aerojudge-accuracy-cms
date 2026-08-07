@@ -17,6 +17,7 @@ import {
   getPerson,
   matchPersons,
   personDisplayName,
+  resolvePersonPhotoUrl,
   type CreatePersonInput,
 } from './person.service.js';
 
@@ -253,6 +254,9 @@ export async function createPilot(
   // Organizer-added pilots default to CONFIRMED (ready to compete).
   // Public self-registration must pass status: 'REGISTERED' explicitly.
   const status = (pilotFields.status as PilotStatus | undefined) ?? 'CONFIRMED';
+  const profilePhotoUrl =
+    (typeof pilotFields.photoUrl === 'string' ? pilotFields.photoUrl : null) ??
+    (await resolvePersonPhotoUrl(personId, person.photoUrl));
 
   let pilot;
   try {
@@ -269,8 +273,7 @@ export async function createPilot(
           (typeof pilotFields.faiLicense === 'string' ? pilotFields.faiLicense : null) ??
           person.faiLicenseNumber,
         dateOfBirth: pilotFields.dateOfBirth ?? person.dateOfBirth ?? undefined,
-        photoUrl:
-          (typeof pilotFields.photoUrl === 'string' ? pilotFields.photoUrl : null) ?? person.photoUrl,
+        photoUrl: profilePhotoUrl,
         competitionId,
         personId,
         competitionParticipantId: linkedParticipant.id,

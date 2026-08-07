@@ -162,3 +162,50 @@ export function claimPerson(body: {
     body: JSON.stringify(body),
   });
 }
+
+const PASSWORD_RESET_RETURN_KEY = 'aj_password_reset_return';
+
+function isSafeAppPath(path: string): boolean {
+  return path.startsWith('/') && !path.startsWith('//');
+}
+
+/** Remember where to send the user after a successful password reset. */
+export function setPasswordResetReturnTo(path: string | null): void {
+  if (path && isSafeAppPath(path)) {
+    sessionStorage.setItem(PASSWORD_RESET_RETURN_KEY, path);
+  } else {
+    sessionStorage.removeItem(PASSWORD_RESET_RETURN_KEY);
+  }
+}
+
+export function peekPasswordResetReturnTo(fallback = '/'): string {
+  const stored = sessionStorage.getItem(PASSWORD_RESET_RETURN_KEY);
+  if (stored && isSafeAppPath(stored)) return stored;
+  return fallback;
+}
+
+export function consumePasswordResetReturnTo(fallback = '/'): string {
+  const stored = peekPasswordResetReturnTo(fallback);
+  sessionStorage.removeItem(PASSWORD_RESET_RETURN_KEY);
+  return stored;
+}
+
+export function forgotPassword(email: string): Promise<{ message: string }> {
+  return authFetch<{ message: string }>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    skipAuth: true,
+  });
+}
+
+export function resetPassword(body: {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}): Promise<{ message: string }> {
+  return authFetch<{ message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    skipAuth: true,
+  });
+}

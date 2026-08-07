@@ -7,6 +7,8 @@ import {
   LegacyCompetitionRedirect,
 } from './components/OrgRouteRedirects';
 import { LoginPage } from './pages/LoginPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CompetitionsPage } from './pages/CompetitionsPage';
 import { ArchivedCompetitionsPage } from './pages/ArchivedCompetitionsPage';
@@ -19,6 +21,7 @@ import { RoundsPage } from './pages/RoundsPage';
 import { ScoringPage } from './pages/ScoringPage';
 import { RankingsPage } from './pages/RankingsPage';
 import { UsersPage } from './pages/UsersPage';
+import { ProfileClaimsPage } from './pages/ProfileClaimsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { AuditPage } from './pages/AuditPage';
@@ -156,6 +159,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         element={
           <ProtectedRoute>
@@ -223,6 +228,14 @@ export default function App() {
         </Route>
 
         <Route path="users" element={<UsersPage />} />
+        <Route
+          path="profile-claims"
+          element={
+            <RequirePermission anyOf={['pilot:manage']}>
+              <ProfileClaimsPage />
+            </RequirePermission>
+          }
+        />
       </Route>
       <Route path="*" element={<ActiveOrgCompetitionsRedirect />} />
     </Routes>

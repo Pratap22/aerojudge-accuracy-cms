@@ -87,6 +87,8 @@ export function RegisterPage() {
 
   const person = user?.person;
   const hasPerson = !!person;
+  const profilePhotoUrl = person?.photoUrl ?? null;
+  const displayPhotoUrl = photoPreview ?? profilePhotoUrl;
 
   const mutation = useMutation({
     mutationFn: async (body: AuthenticatedPilotRegistrationInput) => {
@@ -110,7 +112,7 @@ export function RegisterPage() {
   });
 
   const onPhotoChange = (file: File | null) => {
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    if (photoPreview?.startsWith('blob:')) URL.revokeObjectURL(photoPreview);
     if (!file) {
       setPhotoFile(null);
       setPhotoPreview(null);
@@ -254,8 +256,8 @@ export function RegisterPage() {
         </p>
         <h1 className="mt-2 font-display text-4xl font-bold text-white">Pilot registration</h1>
         <p className="mt-3 text-sky-300/70">
-          Sign in to your AeroJudge account, use your Person profile, then enter only this
-          competition&apos;s details.
+          Create an AeroJudge account or sign in. If organisers already added you, claim that
+          profile with your AJ-… or CIVL ID, then enter only this competition&apos;s details.
         </p>
 
         {/* Step 1: Auth */}
@@ -322,7 +324,22 @@ export function RegisterPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-sky-200">Password *</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sky-200">Password *</Label>
+                  {authMode === 'login' ? (
+                    <Link
+                      to={`/forgot-password?${new URLSearchParams({
+                        returnTo: competitionPath(competitionId, 'register'),
+                        ...(authForm.email.trim()
+                          ? { email: authForm.email.trim() }
+                          : {}),
+                      }).toString()}`}
+                      className="text-xs font-medium text-sky-400 hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  ) : null}
+                </div>
                 <Input
                   type="password"
                   required
@@ -379,8 +396,10 @@ export function RegisterPage() {
               <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-6">
                 <h2 className="text-lg font-semibold text-white">Claim an existing profile?</h2>
                 <p className="mt-1 text-sm text-sky-300/70">
-                  If organisers already added you (CIVL or AeroJudge ID), claim that Person. Secure
-                  claims require the profile email to match your login email.
+                  Already in the pilot list (added by organisers)? Enter your AeroJudge ID (AJ-…) or
+                  CIVL ID to link that Person instead of creating a duplicate. Instant claim works
+                  when the profile email matches your login email; otherwise an organiser must
+                  approve.
                 </p>
                 <form onSubmit={onClaim} className="mt-4 flex flex-wrap gap-3">
                   <Input
@@ -402,7 +421,8 @@ export function RegisterPage() {
                   <p className="mt-3 text-sm text-sky-200/90">{claimMsg}</p>
                 )}
                 <p className="mt-4 text-xs text-sky-400/60">
-                  Or skip and create a new profile when you submit registration below.
+                  New to AeroJudge? Skip this and we&apos;ll create your profile when you submit
+                  registration below.
                 </p>
               </div>
             )}
@@ -526,12 +546,16 @@ export function RegisterPage() {
               <div className="space-y-2">
                 <Label className="text-sky-200">Photo (optional)</Label>
                 <p className="text-xs text-sky-400/60">
-                  Headshot for leaderboards and venue display · PNG/JPEG/WebP · max 2 MB
+                  {photoFile
+                    ? 'New photo will be used for leaderboards and venue display · PNG/JPEG/WebP · max 2 MB'
+                    : profilePhotoUrl
+                      ? 'Using your AeroJudge profile photo · choose a file to replace'
+                      : 'Headshot for leaderboards and venue display · PNG/JPEG/WebP · max 2 MB'}
                 </p>
                 <div className="flex items-center gap-4">
-                  {photoPreview ? (
+                  {displayPhotoUrl ? (
                     <img
-                      src={photoPreview}
+                      src={displayPhotoUrl}
                       alt=""
                       className="h-16 w-16 rounded-full object-cover object-top ring-1 ring-white/20"
                     />

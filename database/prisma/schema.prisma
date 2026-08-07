@@ -92,6 +92,7 @@ model User {
   offlineSyncQueues  OfflineSyncQueue[]
   profileClaims      ProfileClaimRequest[]
   personMergesPerformed PersonMergeLog[] @relation("PersonMergePerformedBy")
+  passwordResetTokens PasswordResetToken[]
 
   @@index([email])
   @@index([role])
@@ -110,6 +111,22 @@ model RefreshToken {
 
   @@index([userId])
   @@index([token])
+}
+
+/// One-time password reset tokens (store hash only; raw token emailed once).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  requestIp String?
+  userAgent String?
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model CompetitionUser {
