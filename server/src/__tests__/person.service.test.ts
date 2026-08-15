@@ -91,6 +91,8 @@ describe('Person identity architecture', () => {
       expect(mapOfficialLabelToRole('Chief Judge')).toBe('CHIEF_JUDGE');
       expect(mapOfficialLabelToRole('Target Judge')).toBe('TARGET_JUDGE');
       expect(mapOfficialLabelToRole('Meet Director')).toBe('MEET_DIRECTOR');
+      expect(mapOfficialLabelToRole('Event Judge')).toBe('MEET_DIRECTOR');
+      expect(mapOfficialLabelToRole('Event Director')).toBe('MEET_DIRECTOR');
       expect(mapOfficialLabelToRole('Scorekeeper')).toBe('SCORER');
     });
   });

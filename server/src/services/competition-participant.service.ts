@@ -182,7 +182,8 @@ export function mapOfficialLabelToRole(label: string): CompetitionRole {
   if (r.includes('chief') && r.includes('judge')) return 'CHIEF_JUDGE';
   if (r.includes('target') && r.includes('judge')) return 'TARGET_JUDGE';
   if (r.includes('meet') && r.includes('director')) return 'MEET_DIRECTOR';
-  if (r.includes('event') && r.includes('director')) return 'MEET_DIRECTOR';
+  // Event Judge (current) and legacy "Event Director" label
+  if (r.includes('event') && (r.includes('judge') || r.includes('director'))) return 'MEET_DIRECTOR';
   if (r.includes('score')) return 'SCORER';
   if (r.includes('announce')) return 'ANNOUNCER';
   if (r.includes('display')) return 'DISPLAY_OPERATOR';

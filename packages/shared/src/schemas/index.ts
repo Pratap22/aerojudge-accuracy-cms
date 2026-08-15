@@ -520,7 +520,7 @@ export const updateSponsorSchema = createSponsorSchema.partial();
 export const OFFICIAL_ROLE_OPTIONS = [
   'Chief Judge',
   'Meet Director',
-  'Event Director',
+  'Event Judge',
   'Judge',
   'Scorekeeper',
   'Launch Marshal',
@@ -533,6 +533,11 @@ export const OFFICIAL_ROLE_OPTIONS = [
 /** Lower number = higher precedence on public/admin lists. Unknown roles sort last. */
 export function officialRoleRank(role: string): number {
   const normalized = role.trim().toLowerCase();
+  // Legacy label kept in DB for older officials rows
+  if (normalized === 'event director') {
+    const eventJudgeIdx = OFFICIAL_ROLE_OPTIONS.findIndex((r) => r === 'Event Judge');
+    return eventJudgeIdx === -1 ? OFFICIAL_ROLE_OPTIONS.length : eventJudgeIdx;
+  }
   const idx = OFFICIAL_ROLE_OPTIONS.findIndex((r) => r.toLowerCase() === normalized);
   return idx === -1 ? OFFICIAL_ROLE_OPTIONS.length : idx;
 }
