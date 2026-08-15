@@ -108,6 +108,7 @@ export function resolveReportCellValue(
   }
   if (key === 'country' || key.startsWith('country')) return { text: row.country ?? '' };
   if (key === 'signature' || key === 'sign' || key.includes('signature')) return { text: '' };
+  if (key === 'remarks' || key === 'remark') return { text: '' };
   if (
     key === 'total' ||
     key === 'team total' ||
@@ -145,6 +146,30 @@ export interface GenerateReportInput {
   footerNote?: string;
   /** Shown at the bottom of every page once the report is approved */
   approvalLine?: string;
+  /** Non-table layouts (pilot accreditation cards, certificates). */
+  layout?: 'table' | 'pilot_cards' | 'certificates';
+  cardItems?: ReportCardItem[];
+  /**
+   * Extra header fields on operational sheets (round, start/end time).
+   * Use `blank: true` for handwritten fill-in lines.
+   */
+  sheetFields?: Array<{ label: string; value?: string; blank?: boolean }>;
+}
+
+/** Pilot card / certificate payload for grid and full-page layouts. */
+export interface ReportCardItem {
+  pilotNumber: number;
+  name: string;
+  country?: string;
+  team?: string;
+  /** Absolute URL encoded into the QR (public pilot/results link). */
+  qrUrl?: string;
+  rank?: number;
+  totalScore?: string;
+  /** Certificate headline, e.g. Certificate of Participation */
+  certificateTitle?: string;
+  /** Extra line under the name (placement text). */
+  placementLine?: string;
 }
 
 export interface GeneratedPdf {
@@ -180,9 +205,11 @@ function columnWeight(column: string): number {
   if (key === 'team') return 2.4;
   if (key === 'country') return 1.35;
   if (key === 'team total') return 1.05;
-  if (key === 'total' || key === 'bullseyes' || key === 'value') return 0.95;
+  if (key === 'total' || key === 'bullseyes' || key === 'value' || key === 'result') return 0.95;
+  if (key.includes('distance') || key === 'score (cm)') return 1.05;
   if (key === 'notes' || key === 'note' || key === 'gender' || key === 'club' || key === 'status')
     return 1.2;
+  if (key === 'remarks' || key === 'remark') return 1.6;
   if (/^r\d+$/i.test(key)) return 0.7;
   if (key.includes('signature') || key === 'sign') return 1.4;
   return 1;
@@ -271,10 +298,43 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
   if (input.subtitle) {
     doc.fontSize(10).font('Helvetica').text(input.subtitle, { align: 'center' });
   }
-  if (input.branding.roundNumber != null) {
+
+  // Operational sheet fields (Round, Start Time, End Time, …)
+  if (input.sheetFields && input.sheetFields.length > 0) {
+    doc.moveDown(0.5);
+    const fieldY = doc.y;
+    const fieldGap = 12;
+    const fieldCount = input.sheetFields.length;
+    const fieldsWidth = size[0] - doc.page.margins.left - doc.page.margins.right;
+    const fieldW = (fieldsWidth - fieldGap * (fieldCount - 1)) / fieldCount;
+    let fieldX = doc.page.margins.left;
+    for (const field of input.sheetFields) {
+      doc.fontSize(9).font('Helvetica-Bold').fillColor('#111').text(field.label, fieldX, fieldY, {
+        width: fieldW,
+        lineBreak: false,
+      });
+      const boxY = fieldY + 14;
+      doc.rect(fieldX, boxY, fieldW, 18).strokeColor('#94a3b8').lineWidth(0.8).stroke();
+      if (!field.blank && field.value) {
+        doc
+          .fontSize(11)
+          .font('Helvetica-Bold')
+          .fillColor('#1a365d')
+          .text(field.value, fieldX + 6, boxY + 4, {
+            width: fieldW - 12,
+            lineBreak: false,
+          });
+      }
+      fieldX += fieldW + fieldGap;
+    }
+    doc.strokeColor('#000').lineWidth(1);
+    doc.y = fieldY + 40;
+  } else if (input.branding.roundNumber != null) {
     doc.fontSize(10).text(`Round ${input.branding.roundNumber}`, { align: 'center' });
+    doc.moveDown(0.8);
+  } else {
+    doc.moveDown(0.8);
   }
-  doc.moveDown(0.8);
 
   // Table header
   const startX = doc.page.margins.left;
@@ -314,6 +374,17 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
     const cells = input.columns.map((col) => resolveReportCellValue(col, row, scoreIdx));
 
     let rowH = row.rowKind === 'team_total' ? 16 : 14;
+    const hasWritableCols = input.columns.some((c) => {
+      const key = c.toLowerCase().trim();
+      return (
+        key.includes('signature') ||
+        key === 'sign' ||
+        key === 'remarks' ||
+        key === 'remark' ||
+        key === 'notes'
+      );
+    });
+    if (hasWritableCols) rowH = Math.max(rowH, 22);
     input.columns.forEach((col, i) => {
       const cell = cells[i];
       if (cell.skip || !cell.text) return;
@@ -485,7 +556,7 @@ export async function generateJudgeSheetPdf(
     branding,
     title: 'Blank Judge Scoring Sheet',
     subtitle: 'Record measured distance in centimetres from target centre',
-    columns: ['#', 'Pilot No', 'Name', 'Country', 'Distance (cm)', 'Result', 'Notes'],
+    columns: ['#', 'No', 'Name', 'Country', 'Distance (cm)', 'Result', 'Notes'],
     rows: pilots.map((p, i) => ({
       rank: i + 1,
       pilotNumber: p.pilotNumber,
@@ -494,36 +565,375 @@ export async function generateJudgeSheetPdf(
       scores: ['', ''],
       total: '',
     })),
-    footerNote: 'Bullseye = 000 cm · Maximum = 1000 cm · DNF / ABS / DNS = Maximum',
+    footerNote: 'Bullseye = 000 cm · Maximum applies for DNF / ABS / DNS',
   });
 }
 
-export async function generatePilotCardsPdf(
-  branding: ReportBranding,
-  pilots: Array<{
-    pilotNumber: number;
-    name: string;
-    country?: string;
-    team?: string;
-    qrPayload: string;
-  }>,
-  format: PrintFormat = 'A4_PORTRAIT',
-): Promise<GeneratedPdf> {
-  // Reuse results table layout for batch pilot card listing; full card grid can extend later
-  return generateResultsPdf({
-    reportType: 'PILOT_CARDS',
-    format,
-    branding,
-    title: 'Pilot Cards / Accreditation List',
-    columns: ['#', 'Pilot No', 'Name', 'Country', 'Team', 'QR Ref'],
-    rows: pilots.map((p, i) => ({
-      rank: i + 1,
-      pilotNumber: p.pilotNumber,
-      name: p.name,
-      country: p.country,
-      team: p.team,
-      scores: [p.qrPayload.slice(-12)],
-      total: '',
-    })),
+/**
+ * Dispatch PDF generation by report layout / type.
+ */
+export async function generateReportPdf(input: GenerateReportInput): Promise<GeneratedPdf> {
+  const layout =
+    input.layout ??
+    (input.reportType === 'PILOT_CARDS'
+      ? 'pilot_cards'
+      : input.reportType === 'CERTIFICATES'
+        ? 'certificates'
+        : 'table');
+
+  if (layout === 'pilot_cards') {
+    return generatePilotCardsPdf(input);
+  }
+  if (layout === 'certificates') {
+    return generateCertificatesPdf(input);
+  }
+  return generateResultsPdf(input);
+}
+
+export async function generatePilotCardsPdf(input: GenerateReportInput): Promise<GeneratedPdf> {
+  const items =
+    input.cardItems ??
+    input.rows.map((r) => ({
+      pilotNumber: r.pilotNumber ?? r.rank,
+      name: r.name,
+      country: r.country,
+      team: r.team,
+      qrUrl: typeof r.scores?.[0] === 'string' ? r.scores[0] : undefined,
+    }));
+
+  const size = pageSize(input.format);
+  const doc = new PDFDocument({
+    size,
+    margins: { top: 36, bottom: 36, left: 36, right: 36 },
+    bufferPages: true,
+    info: {
+      Title: input.title,
+      Author: input.branding.organizer,
+      Subject: `${input.branding.competitionName} – Pilot Cards`,
+      Creator: 'AeroJudge',
+    },
   });
+
+  const chunks: Buffer[] = [];
+  doc.on('data', (c: Buffer) => chunks.push(c));
+  const done = new Promise<Buffer>((resolve) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+
+  const margin = 36;
+  const gap = 12;
+  const cols = size[0] > size[1] ? 3 : 2;
+  const rowsPerPage = size[0] > size[1] ? 2 : 4;
+  const cardW = (size[0] - margin * 2 - gap * (cols - 1)) / cols;
+  const cardH = (size[1] - margin * 2 - 48 - gap * (rowsPerPage - 1)) / rowsPerPage;
+  const perPage = cols * rowsPerPage;
+
+  const drawHeader = () => {
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .fillColor('#000')
+      .text(input.branding.competitionName, margin, margin, {
+        width: size[0] - margin * 2,
+        align: 'center',
+      });
+    doc
+      .fontSize(10)
+      .font('Helvetica')
+      .text(input.title, { align: 'center' });
+    doc.moveDown(0.4);
+  };
+
+  for (let i = 0; i < items.length; i++) {
+    const indexOnPage = i % perPage;
+    if (indexOnPage === 0) {
+      if (i > 0) doc.addPage();
+      drawHeader();
+    }
+
+    const col = indexOnPage % cols;
+    const row = Math.floor(indexOnPage / cols);
+    const headerOffset = 42;
+    const x = margin + col * (cardW + gap);
+    const y = margin + headerOffset + row * (cardH + gap);
+    const item = items[i]!;
+
+    doc.roundedRect(x, y, cardW, cardH, 6).lineWidth(1).strokeColor('#1a365d').stroke();
+    doc
+      .fontSize(18)
+      .font('Helvetica-Bold')
+      .fillColor('#1a365d')
+      .text(String(item.pilotNumber).padStart(3, '0'), x + 10, y + 12, {
+        width: cardW - 90,
+        lineBreak: false,
+      });
+    doc
+      .fontSize(11)
+      .font('Helvetica-Bold')
+      .fillColor('#000')
+      .text(item.name, x + 10, y + 40, { width: cardW - 90 });
+    doc
+      .fontSize(9)
+      .font('Helvetica')
+      .fillColor('#444')
+      .text(item.country ?? '', x + 10, y + 58, { width: cardW - 90 });
+    if (item.team) {
+      doc.text(item.team, x + 10, y + 72, { width: cardW - 90 });
+    }
+    doc
+      .fontSize(7)
+      .fillColor('#666')
+      .text(input.branding.organizer, x + 10, y + cardH - 22, {
+        width: cardW - 90,
+        lineBreak: false,
+      });
+
+    const qrUrl = item.qrUrl || input.branding.publicResultsUrl;
+    try {
+      const qr = await qrBuffer(qrUrl);
+      doc.image(qr, x + cardW - 72, y + 12, { width: 56 });
+    } catch {
+      // QR optional
+    }
+  }
+
+  if (items.length === 0) {
+    drawHeader();
+    doc.fontSize(11).fillColor('#666').text('No registered pilots.', { align: 'center' });
+  }
+
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(i);
+    doc
+      .fontSize(7)
+      .fillColor('#666')
+      .text(
+        `Page ${i + 1} of ${range.count} · Generated by AeroJudge`,
+        margin,
+        size[1] - 28,
+        { width: size[0] - margin * 2, align: 'center', lineBreak: false },
+      );
+  }
+
+  doc.end();
+  const buffer = await done;
+  return { buffer, pageCount: Math.max(range.count, 1), mimeType: 'application/pdf' };
+}
+
+export async function generateCertificatesPdf(input: GenerateReportInput): Promise<GeneratedPdf> {
+  const items =
+    input.cardItems ??
+    input.rows.map((r) => ({
+      pilotNumber: r.pilotNumber ?? r.rank,
+      name: r.name,
+      country: r.country,
+      team: r.team,
+      rank: r.rank,
+      totalScore: scoreValueText(r.total),
+      certificateTitle: 'Certificate of Participation',
+      placementLine: r.notes,
+      qrUrl: input.branding.publicResultsUrl,
+    }));
+
+  const size = pageSize(input.format);
+  const doc = new PDFDocument({
+    size,
+    margins: { top: 48, bottom: 48, left: 48, right: 48 },
+    bufferPages: true,
+    info: {
+      Title: input.title,
+      Author: input.branding.organizer,
+      Subject: `${input.branding.competitionName} – Certificates`,
+      Creator: 'AeroJudge',
+    },
+  });
+
+  const chunks: Buffer[] = [];
+  doc.on('data', (c: Buffer) => chunks.push(c));
+  const done = new Promise<Buffer>((resolve) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+
+  const innerPad = 28;
+
+  for (let i = 0; i < items.length; i++) {
+    if (i > 0) doc.addPage();
+    const item = items[i]!;
+    const x = 48;
+    const y = 48;
+    const w = size[0] - 96;
+    const h = size[1] - 96;
+
+    doc.roundedRect(x, y, w, h, 8).lineWidth(2).strokeColor('#1a365d').stroke();
+    doc
+      .roundedRect(x + 8, y + 8, w - 16, h - 16, 4)
+      .lineWidth(0.8)
+      .strokeColor('#94a3b8')
+      .stroke();
+
+    const cx = size[0] / 2;
+    let cursorY = y + innerPad + 24;
+
+    const logoPath = input.branding.organizerLogoPath;
+    if (logoPath && /\.(png|jpe?g)$/i.test(logoPath)) {
+      try {
+        doc.image(logoPath, cx - 36, cursorY, { fit: [72, 48] });
+        cursorY += 56;
+      } catch {
+        // skip logo
+      }
+    }
+
+    doc
+      .fontSize(11)
+      .font('Helvetica')
+      .fillColor('#64748b')
+      .text(input.branding.organizer.toUpperCase(), x + innerPad, cursorY, {
+        width: w - innerPad * 2,
+        align: 'center',
+      });
+    cursorY += 28;
+
+    doc
+      .fontSize(22)
+      .font('Helvetica-Bold')
+      .fillColor('#1a365d')
+      .text(item.certificateTitle ?? 'Certificate of Participation', x + innerPad, cursorY, {
+        width: w - innerPad * 2,
+        align: 'center',
+      });
+    cursorY += 40;
+
+    doc
+      .fontSize(11)
+      .font('Helvetica')
+      .fillColor('#334155')
+      .text('This certifies that', x + innerPad, cursorY, {
+        width: w - innerPad * 2,
+        align: 'center',
+      });
+    cursorY += 28;
+
+    doc
+      .fontSize(20)
+      .font('Helvetica-Bold')
+      .fillColor('#0f172a')
+      .text(item.name, x + innerPad, cursorY, {
+        width: w - innerPad * 2,
+        align: 'center',
+      });
+    cursorY += 28;
+
+    const meta = [
+      item.country,
+      item.team,
+      item.pilotNumber != null ? `Pilot No. ${String(item.pilotNumber).padStart(3, '0')}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    if (meta) {
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#64748b')
+        .text(meta, x + innerPad, cursorY, { width: w - innerPad * 2, align: 'center' });
+      cursorY += 22;
+    }
+
+    doc
+      .fontSize(11)
+      .font('Helvetica')
+      .fillColor('#334155')
+      .text(`participated in ${input.branding.competitionName}`, x + innerPad, cursorY, {
+        width: w - innerPad * 2,
+        align: 'center',
+      });
+    cursorY += 20;
+    doc.text(
+      `${input.branding.venue}, ${input.branding.country} · ${input.branding.dateLabel}`,
+      x + innerPad,
+      cursorY,
+      { width: w - innerPad * 2, align: 'center' },
+    );
+    cursorY += 28;
+
+    if (item.placementLine) {
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#1a365d')
+        .text(item.placementLine, x + innerPad, cursorY, {
+          width: w - innerPad * 2,
+          align: 'center',
+        });
+      cursorY += 24;
+    }
+
+    if (item.totalScore) {
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#475569')
+        .text(`Total score: ${item.totalScore} cm`, x + innerPad, cursorY, {
+          width: w - innerPad * 2,
+          align: 'center',
+        });
+      cursorY += 20;
+    }
+
+    const sigY = y + h - 100;
+    doc
+      .fontSize(9)
+      .font('Helvetica')
+      .fillColor('#000')
+      .text('________________________', x + 40, sigY, { lineBreak: false });
+    doc.text('Meet Director', x + 40, sigY + 14, { lineBreak: false });
+    if (input.branding.directorName) {
+      doc.fontSize(8).text(input.branding.directorName, x + 40, sigY + 26, { lineBreak: false });
+    }
+
+    doc
+      .fontSize(9)
+      .text('________________________', x + w - 200, sigY, { lineBreak: false });
+    doc.text('Chief Judge', x + w - 200, sigY + 14, { lineBreak: false });
+    if (input.branding.chiefJudgeName) {
+      doc
+        .fontSize(8)
+        .text(input.branding.chiefJudgeName, x + w - 200, sigY + 26, { lineBreak: false });
+    }
+
+    try {
+      const qr = await qrBuffer(item.qrUrl || input.branding.publicResultsUrl);
+      doc.image(qr, cx - 24, sigY - 8, { width: 48 });
+    } catch {
+      // optional
+    }
+
+    if (input.approvalLine) {
+      doc
+        .fontSize(8)
+        .fillColor('#111')
+        .text(input.approvalLine, x + innerPad, y + h - 28, {
+          width: w - innerPad * 2,
+          align: 'center',
+          lineBreak: false,
+        });
+    }
+  }
+
+  if (items.length === 0) {
+    doc
+      .fontSize(12)
+      .fillColor('#666')
+      .text('No pilots available for certificates.', 48, size[1] / 2, {
+        width: size[0] - 96,
+        align: 'center',
+      });
+  }
+
+  const range = doc.bufferedPageRange();
+  doc.end();
+  const buffer = await done;
+  return { buffer, pageCount: Math.max(range.count, 1), mimeType: 'application/pdf' };
 }

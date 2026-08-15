@@ -22,6 +22,7 @@ const allReportTypes: { value: ReportType; label: string }[] = [
   { value: 'TEAM_RESULTS', label: 'Team Results' },
   { value: 'PILOT_LIST', label: 'Pilot List' },
   { value: 'LAUNCH_ORDER', label: 'Launch Order' },
+  { value: 'SCORE_SHEETS', label: 'Score Sheets' },
   { value: 'JUDGE_SHEETS', label: 'Judge Sheets' },
   { value: 'PILOT_CARDS', label: 'Pilot Cards' },
   { value: 'CERTIFICATES', label: 'Certificates' },
@@ -36,7 +37,10 @@ const formats: { value: PrintFormat; label: string }[] = [
 ];
 
 const needsRoundSelection = (type: ReportType) =>
-  type === 'ROUND_RESULTS' || type === 'LAUNCH_ORDER';
+  type === 'ROUND_RESULTS' ||
+  type === 'LAUNCH_ORDER' ||
+  type === 'SCORE_SHEETS' ||
+  type === 'JUDGE_SHEETS';
 
 interface ReportPreview {
   id: string;

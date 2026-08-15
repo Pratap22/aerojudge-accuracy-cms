@@ -1,9 +1,10 @@
 import { readFile, unlink, access } from 'node:fs/promises';
 import path from 'node:path';
 import {
-  generateResultsPdf,
+  generateReportPdf,
   resolveReportCellValue,
   type GenerateReportInput,
+  type ReportCardItem,
   type ResultRow,
 } from '@npha/pdf-engine';
 import { applyDiscardRules, resolveCompetitionRules } from '@npha/scoring-engine';
@@ -158,13 +159,26 @@ async function resolveOrganizerLogoPath(logoSource: string | null): Promise<stri
 }
 
 function reportToHtml(input: GenerateReportInput): string {
+  if (input.layout === 'pilot_cards' || input.reportType === 'PILOT_CARDS') {
+    return cardsToHtml(input);
+  }
+  if (input.layout === 'certificates' || input.reportType === 'CERTIFICATES') {
+    return certificatesToHtml(input);
+  }
+
   const headerCells = input.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
   const bodyRows = input.rows
     .map((row) => {
       const scoreIdx = { current: 0 };
       const cells = input.columns.map((col) => {
         const key = col.toLowerCase().trim();
-        if (key === 'signature' || key === 'sign' || key.includes('signature')) {
+        if (
+          key === 'signature' ||
+          key === 'sign' ||
+          key.includes('signature') ||
+          key === 'remarks' ||
+          key === 'remark'
+        ) {
           return `<td class="sig">&nbsp;</td>`;
         }
         const cell = resolveReportCellValue(col, row, scoreIdx);
@@ -189,6 +203,26 @@ function reportToHtml(input: GenerateReportInput): string {
   const logoHtml = logoUrl
     ? `<img class="organiser-logo" src="${escapeHtml(logoUrl)}" alt="" />`
     : '';
+
+  const roundField = input.sheetFields?.find((f) => f.label.toLowerCase() === 'round');
+  const roundBadge =
+    roundField?.value != null && roundField.value !== ''
+      ? `<div class="round-badge">Round ${escapeHtml(roundField.value)}</div>`
+      : input.branding.roundNumber != null
+        ? `<div class="round-badge">Round ${escapeHtml(String(input.branding.roundNumber))}</div>`
+        : '';
+
+  const sheetFieldsHtml =
+    input.sheetFields && input.sheetFields.length > 0
+      ? `<div class="sheet-fields">${input.sheetFields
+          .map(
+            (f) => `<div class="sheet-field">
+          <label>${escapeHtml(f.label)}</label>
+          <div class="box">${f.blank ? '&nbsp;' : escapeHtml(f.value ?? '')}</div>
+        </div>`,
+          )
+          .join('')}</div>`
+      : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -220,8 +254,8 @@ function reportToHtml(input: GenerateReportInput): string {
       object-fit: contain;
     }
     .npha-report-preview h1 { font-size: 22px; margin: 0 0 4px; color: #111; }
-    .npha-report-preview h2 { font-size: 14px; font-weight: normal; color: #444; margin: 0 0 16px; }
-    .npha-report-preview .meta { font-size: 12px; color: #555; margin-bottom: 20px; }
+    .npha-report-preview h2 { font-size: 14px; font-weight: normal; color: #444; margin: 0 0 8px; }
+    .npha-report-preview .meta { font-size: 12px; color: #555; margin-bottom: 12px; }
     .npha-report-preview table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .npha-report-preview th,
     .npha-report-preview td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; color: #111; vertical-align: middle; }
@@ -235,7 +269,39 @@ function reportToHtml(input: GenerateReportInput): string {
       text-align: center;
     }
     .npha-report-preview td.bold { font-weight: 600; }
-    .npha-report-preview td.sig { min-width: 140px; height: 32px; background: #fff; }
+    .npha-report-preview td.sig { min-width: 120px; height: 36px; background: #fff; }
+    .npha-report-preview .sheet-fields {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 12px 0 20px;
+    }
+    .npha-report-preview .sheet-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #111;
+    }
+    .npha-report-preview .sheet-field .box {
+      border: 1px solid #94a3b8;
+      min-height: 28px;
+      padding: 4px 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a365d;
+      background: #fff;
+    }
+    .npha-report-preview .round-badge {
+      display: inline-block;
+      margin: 4px 0 8px;
+      padding: 4px 12px;
+      border: 2px solid #1a365d;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a365d;
+    }
     .npha-report-preview .footer { margin-top: 24px; font-size: 11px; color: #666; }
     .npha-report-preview .approval {
       margin-top: 16px;
@@ -269,6 +335,7 @@ function reportToHtml(input: GenerateReportInput): string {
     <div class="report-header">
       <div class="report-header-main">
         <h1>${escapeHtml(input.title)}</h1>
+        ${roundBadge}
         <h2>${escapeHtml(input.branding.competitionName)}</h2>
         <div class="meta">
           ${escapeHtml(input.branding.organizer)} · ${escapeHtml(input.branding.venue)},
@@ -278,6 +345,7 @@ function reportToHtml(input: GenerateReportInput): string {
       </div>
       ${logoHtml}
     </div>
+    ${sheetFieldsHtml}
     <table>
       <thead><tr>${headerCells}</tr></thead>
       <tbody>${bodyRows || `<tr><td colspan="${input.columns.length}">No data available</td></tr>`}</tbody>
@@ -294,6 +362,126 @@ function reportToHtml(input: GenerateReportInput): string {
       ? `<div class="print-page-footer">${escapeHtml(input.approvalLine)}</div>`
       : ''
   }
+</body>
+</html>`;
+}
+
+function cardsToHtml(input: GenerateReportInput): string {
+  const items = input.cardItems ?? [];
+  const cards = items
+    .map(
+      (item) => `<article class="pilot-card">
+      <div class="pilot-card-no">${escapeHtml(String(item.pilotNumber).padStart(3, '0'))}</div>
+      <div class="pilot-card-body">
+        <div class="pilot-card-name">${escapeHtml(item.name)}</div>
+        <div class="pilot-card-meta">${escapeHtml(
+          [item.country, item.team].filter(Boolean).join(' · '),
+        )}</div>
+        <div class="pilot-card-org">${escapeHtml(input.branding.organizer)}</div>
+      </div>
+      ${
+        item.qrUrl
+          ? `<div class="pilot-card-qr" title="${escapeHtml(item.qrUrl)}"><span>QR</span></div>`
+          : ''
+      }
+    </article>`,
+    )
+    .join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(input.title)}</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #fff; }
+    .npha-report-preview { font-family: Georgia, 'Times New Roman', serif; color: #111; padding: 24px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    h2 { font-size: 13px; font-weight: normal; color: #444; margin: 0 0 16px; }
+    .card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .pilot-card {
+      border: 1.5px solid #1a365d; border-radius: 8px; padding: 12px;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+      min-height: 110px; break-inside: avoid;
+    }
+    .pilot-card-no { font-size: 22px; font-weight: 700; color: #1a365d; }
+    .pilot-card-name { font-size: 14px; font-weight: 700; }
+    .pilot-card-meta, .pilot-card-org { font-size: 11px; color: #555; margin-top: 2px; }
+    .pilot-card-qr {
+      width: 64px; height: 64px; border: 1px dashed #94a3b8; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: #64748b; letter-spacing: 0.08em;
+    }
+    .footer { margin-top: 20px; font-size: 11px; color: #666; }
+    @media print { .pilot-card { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <div class="npha-report-preview">
+    <h1>${escapeHtml(input.title)}</h1>
+    <h2>${escapeHtml(input.branding.competitionName)}</h2>
+    <div class="card-grid">${cards || '<p>No registered pilots.</p>'}</div>
+    <div class="footer">${escapeHtml(input.footerNote ?? 'Accreditation cards')} · Generated by AeroJudge</div>
+  </div>
+</body>
+</html>`;
+}
+
+function certificatesToHtml(input: GenerateReportInput): string {
+  const items = input.cardItems ?? [];
+  const pages = items
+    .map((item) => {
+      const meta = [item.country, item.team, `Pilot No. ${String(item.pilotNumber).padStart(3, '0')}`]
+        .filter(Boolean)
+        .join(' · ');
+      return `<section class="certificate">
+        <div class="certificate-inner">
+          <p class="org">${escapeHtml(input.branding.organizer)}</p>
+          <h1>${escapeHtml(item.certificateTitle ?? 'Certificate of Participation')}</h1>
+          <p class="lead">This certifies that</p>
+          <p class="name">${escapeHtml(item.name)}</p>
+          <p class="meta">${escapeHtml(meta)}</p>
+          <p class="lead">participated in ${escapeHtml(input.branding.competitionName)}</p>
+          <p class="meta">${escapeHtml(input.branding.venue)}, ${escapeHtml(input.branding.country)} · ${escapeHtml(input.branding.dateLabel)}</p>
+          ${item.placementLine ? `<p class="placement">${escapeHtml(item.placementLine)}</p>` : ''}
+          ${item.totalScore ? `<p class="meta">Total score: ${escapeHtml(item.totalScore)} cm</p>` : ''}
+          <div class="sigs">
+            <div><div class="line"></div><div>Meet Director</div></div>
+            <div><div class="line"></div><div>Chief Judge</div></div>
+          </div>
+        </div>
+      </section>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(input.title)}</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #fff; }
+    .certificate {
+      font-family: Georgia, 'Times New Roman', serif; color: #111;
+      padding: 24px; page-break-after: always; box-sizing: border-box;
+    }
+    .certificate:last-child { page-break-after: auto; }
+    .certificate-inner {
+      border: 3px solid #1a365d; border-radius: 10px; padding: 36px 28px;
+      min-height: 520px; text-align: center;
+    }
+    .org { letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; font-size: 12px; }
+    h1 { color: #1a365d; font-size: 26px; margin: 18px 0; }
+    .lead { font-size: 14px; color: #334155; margin: 10px 0; }
+    .name { font-size: 24px; font-weight: 700; margin: 8px 0 4px; }
+    .meta { font-size: 12px; color: #64748b; margin: 6px 0; }
+    .placement { font-size: 15px; font-weight: 700; color: #1a365d; margin-top: 16px; }
+    .sigs { display: flex; justify-content: space-between; margin-top: 64px; padding: 0 24px; font-size: 12px; }
+    .sigs .line { border-top: 1px solid #111; width: 180px; margin: 0 auto 8px; }
+  </style>
+</head>
+<body>
+  ${pages || '<p style="padding:24px">No pilots available for certificates.</p>'}
 </body>
 </html>`;
 }
@@ -374,7 +562,7 @@ export async function generateReport(
     if (roundApproval) {
       reportInput.approvalLine = roundApproval.line;
     }
-    const pdf = await generateResultsPdf(reportInput);
+    const pdf = await generateReportPdf(reportInput);
     // Keep PDF only in memory for the HTTP response path — do not retain on disk.
     const filename = `${competition.code}-${input.reportType}-${printRecord.id}.pdf`;
 
@@ -466,7 +654,7 @@ export async function downloadReport(competitionId: string, printId: string) {
     reportInput.approvalLine = approvalLine;
   }
 
-  const pdf = await generateResultsPdf(reportInput);
+  const pdf = await generateReportPdf(reportInput);
   const filename = `${competition.code}-${record.reportType}-${record.id}.pdf`;
 
   await prisma.printHistory.update({
@@ -865,6 +1053,13 @@ async function buildReportInput(
           orderBy: [{ number: 'desc' }, { createdAt: 'desc' }],
         });
 
+    const launchColumns = ['Order', 'No', 'Name', 'Country', 'Signature', 'Remarks'];
+    const launchSheetFields = (roundNumber?: number) => [
+      { label: 'Round', value: roundNumber != null ? String(roundNumber) : '', blank: roundNumber == null },
+      { label: 'Start Time', blank: true },
+      { label: 'End Time', blank: true },
+    ];
+
     if (!round) {
       return {
         reportType,
@@ -872,7 +1067,8 @@ async function buildReportInput(
         branding,
         title: 'Launch Order',
         subtitle: 'No rounds available',
-        columns: ['Order', 'No', 'Name', 'Country', 'Signature'],
+        sheetFields: launchSheetFields(),
+        columns: launchColumns,
         rows: [],
       };
     }
@@ -887,16 +1083,18 @@ async function buildReportInput(
       reportType,
       format,
       branding: { ...branding, roundNumber: round.number },
-      title: `Launch Order — Round ${round.number}`,
-      columns: ['Order', 'No', 'Name', 'Country', 'Signature'],
+      title: 'Launch Order',
+      sheetFields: launchSheetFields(round.number),
+      columns: launchColumns,
       rows: flights.map((f) => ({
         rank: f.flightOrder,
         pilotNumber: f.pilot.pilotNumber,
         name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
         country: f.pilot.country?.name ?? '',
-        scores: [''],
+        scores: [],
         total: '',
       })),
+      footerNote: 'Fill Start/End Time on site · Remarks for judge notes after printing',
     };
   }
 
@@ -976,6 +1174,247 @@ async function buildReportInput(
     };
   }
 
+  if (reportType === 'SCORE_SHEETS' || reportType === 'JUDGE_SHEETS') {
+    const round = roundId
+      ? await prisma.round.findFirst({ where: { id: roundId, competitionId: competition.id } })
+      : await prisma.round.findFirst({
+          where: { competitionId: competition.id },
+          orderBy: [{ number: 'desc' }, { createdAt: 'desc' }],
+        });
+
+    if (!round) {
+      return {
+        reportType,
+        format,
+        branding,
+        title: reportType === 'SCORE_SHEETS' ? 'Score Sheet' : 'Judge Sheets',
+        subtitle: 'No rounds available',
+        ...(reportType === 'SCORE_SHEETS'
+          ? {
+              sheetFields: [
+                { label: 'Round', blank: true },
+                { label: 'Start Time', blank: true },
+                { label: 'End Time', blank: true },
+              ],
+            }
+          : {}),
+        columns:
+          reportType === 'SCORE_SHEETS'
+            ? ['Order', 'No', 'Name', 'Country', 'Score (cm)', 'Result', 'Signature', 'Remarks']
+            : ['Order', 'No', 'Name', 'Country', 'Distance (cm)', 'Result', 'Notes'],
+        rows: [],
+      };
+    }
+
+    const flights = await prisma.flight.findMany({
+      where: { roundId: round.id },
+      include: { pilot: { include: { country: true } } },
+      orderBy: { flightOrder: 'asc' },
+    });
+
+    type SheetPilot = {
+      order: number;
+      pilotNumber: number;
+      name: string;
+      country: string;
+      pilotId: string;
+    };
+
+    let sheetPilots: SheetPilot[];
+    if (flights.length > 0) {
+      sheetPilots = flights.map((f) => ({
+        order: f.flightOrder,
+        pilotNumber: f.pilot.pilotNumber,
+        name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
+        country: f.pilot.country?.name ?? f.pilot.nationality ?? '',
+        pilotId: f.pilot.id,
+      }));
+    } else {
+      const pilots = await prisma.pilot.findMany({
+        where: {
+          competitionId: competition.id,
+          status: { in: ['REGISTERED', 'CONFIRMED', 'ACTIVE', 'CHECKED_IN'] },
+        },
+        include: { country: true },
+        orderBy: { pilotNumber: 'asc' },
+      });
+      sheetPilots = pilots.map((p, i) => ({
+        order: i + 1,
+        pilotNumber: p.pilotNumber,
+        name: formatPilotName(p.firstName, p.lastName),
+        country: p.country?.name ?? p.nationality ?? '',
+        pilotId: p.id,
+      }));
+    }
+
+    if (reportType === 'JUDGE_SHEETS') {
+      return {
+        reportType,
+        format,
+        branding: { ...branding, roundNumber: round.number },
+        title: `Judge Sheets — Round ${round.number}`,
+        subtitle: 'Blank scoring form — record measured distance from target centre (cm)',
+        columns: ['Order', 'No', 'Name', 'Country', 'Distance (cm)', 'Result', 'Notes'],
+        rows: sheetPilots.map((p) => ({
+          rank: p.order,
+          pilotNumber: p.pilotNumber,
+          name: p.name,
+          country: p.country,
+          scores: ['', ''],
+          total: '',
+        })),
+        footerNote: 'Bullseye = 000 cm · DNF / ABS / DNS = Maximum · Judge initials in Notes',
+      };
+    }
+
+    const scores = await prisma.score.findMany({
+      where: {
+        roundId: round.id,
+        status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+      },
+      select: {
+        pilotId: true,
+        finalScoreCm: true,
+        resultType: true,
+        isBullseye: true,
+      },
+    });
+    const scoreByPilot = new Map(scores.map((s) => [s.pilotId, s]));
+
+    return {
+      reportType,
+      format,
+      branding: { ...branding, roundNumber: round.number },
+      title: 'Score Sheet',
+      subtitle: 'Pilots sign to confirm their recorded score for this round',
+      sheetFields: [
+        { label: 'Round', value: String(round.number) },
+        { label: 'Start Time', blank: true },
+        { label: 'End Time', blank: true },
+      ],
+      columns: ['Order', 'No', 'Name', 'Country', 'Score (cm)', 'Result', 'Signature', 'Remarks'],
+      rows: sheetPilots.map((p) => {
+        const score = scoreByPilot.get(p.pilotId);
+        const resultLabel = score?.isBullseye
+          ? 'BULLSEYE'
+          : (score?.resultType ?? '');
+        return {
+          rank: p.order,
+          pilotNumber: p.pilotNumber,
+          name: p.name,
+          country: p.country,
+          scores: [resultLabel],
+          total: score?.finalScoreCm != null ? formatScoreCm(score.finalScoreCm) : '',
+        };
+      }),
+      footerNote:
+        'Pilot signature confirms the recorded score · Remarks for judge notes after printing',
+    };
+  }
+
+  if (reportType === 'PILOT_CARDS') {
+    const pilots = await prisma.pilot.findMany({
+      where: { competitionId: competition.id },
+      include: {
+        country: true,
+        teamMembers: { include: { team: { select: { name: true } } }, take: 1 },
+      },
+      orderBy: { pilotNumber: 'asc' },
+    });
+
+    const cardItems: ReportCardItem[] = pilots.map((p) => {
+      const qrUrl =
+        p.qrCode && /^https?:\/\//i.test(p.qrCode)
+          ? p.qrCode
+          : `${branding.publicResultsUrl}?pilot=${encodeURIComponent(String(p.pilotNumber))}`;
+      return {
+        pilotNumber: p.pilotNumber,
+        name: formatPilotName(p.firstName, p.lastName),
+        country: p.country?.name ?? p.nationality ?? '',
+        team: p.teamMembers[0]?.team?.name,
+        qrUrl,
+      };
+    });
+
+    return {
+      reportType,
+      format,
+      branding,
+      layout: 'pilot_cards',
+      title: 'Pilot Cards',
+      subtitle: 'Accreditation cards for check-in and launch control',
+      columns: ['No', 'Name', 'Country', 'Team'],
+      rows: cardItems.map((c, i) => ({
+        rank: i + 1,
+        pilotNumber: c.pilotNumber,
+        name: c.name,
+        country: c.country,
+        team: c.team,
+        scores: [c.qrUrl ?? ''],
+        total: '',
+      })),
+      cardItems,
+      footerNote: 'Present at registration and launch',
+    };
+  }
+
+  if (reportType === 'CERTIFICATES') {
+    await recalculateRankings(competition.id);
+    const rankings = await getIndividualRankings(competition.id, 'OVERALL');
+    const rankByPilot = new Map(rankings.map((r) => [r.pilotId, r]));
+
+    const pilots = await prisma.pilot.findMany({
+      where: { competitionId: competition.id },
+      include: {
+        country: true,
+        teamMembers: { include: { team: { select: { name: true } } }, take: 1 },
+      },
+      orderBy: { pilotNumber: 'asc' },
+    });
+
+    const cardItems: ReportCardItem[] = pilots.map((p) => {
+      const ranking = rankByPilot.get(p.id);
+      const placementLine = ranking
+        ? ranking.rank <= 3
+          ? `Placed ${ordinal(ranking.rank)} overall`
+          : `Overall rank ${ranking.rank}`
+        : 'Certificate of Participation';
+      return {
+        pilotNumber: p.pilotNumber,
+        name: formatPilotName(p.firstName, p.lastName),
+        country: p.country?.name ?? p.nationality ?? '',
+        team: p.teamMembers[0]?.team?.name,
+        qrUrl: branding.publicResultsUrl,
+        rank: ranking?.rank,
+        totalScore: ranking ? formatScoreCm(ranking.totalScoreCm) : undefined,
+        certificateTitle:
+          ranking && ranking.rank <= 3 ? 'Certificate of Achievement' : 'Certificate of Participation',
+        placementLine: ranking ? placementLine : undefined,
+      };
+    });
+
+    return {
+      reportType,
+      format,
+      branding,
+      layout: 'certificates',
+      title: 'Certificates',
+      subtitle: 'One certificate per registered pilot',
+      columns: ['No', 'Name', 'Country', 'Rank', 'Total'],
+      rows: cardItems.map((c, i) => ({
+        rank: c.rank ?? i + 1,
+        pilotNumber: c.pilotNumber,
+        name: c.name,
+        country: c.country,
+        scores: [],
+        total: c.totalScore ?? '',
+        notes: c.placementLine,
+      })),
+      cardItems,
+      footerNote: 'Present at the awards ceremony',
+    };
+  }
+
   // Remaining types: show a structured placeholder so preview never 404s
   return {
     reportType,
@@ -995,4 +1434,19 @@ async function buildReportInput(
     ],
     footerNote: 'Preview placeholder',
   };
+}
+
+function ordinal(n: number): string {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
 }

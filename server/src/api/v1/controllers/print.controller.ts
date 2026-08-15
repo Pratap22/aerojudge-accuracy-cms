@@ -19,6 +19,7 @@ const generateBody = z.object({
     'LAUNCH_ORDER',
     'PILOT_LIST',
     'REGISTRATION_LIST',
+    'SCORE_SHEETS',
     'JUDGE_SHEETS',
     'PILOT_CARDS',
     'CERTIFICATES',
