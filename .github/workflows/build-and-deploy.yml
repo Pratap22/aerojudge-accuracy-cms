@@ -1,6 +1,8 @@
 name: Build and deploy
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       image_tag:
@@ -18,7 +20,7 @@ on:
         type: boolean
         default: false
       base_sha:
-        description: 'Diff base SHA (default: last successful deploy on this branch, else HEAD~1)'
+        description: 'Diff base SHA (default: push before SHA, else last successful deploy, else HEAD~1)'
         required: false
         type: string
 
@@ -45,6 +47,7 @@ jobs:
       has_retag: ${{ steps.plan.outputs.has_retag }}
       image_tag: ${{ steps.plan.outputs.image_tag }}
       summary: ${{ steps.plan.outputs.summary }}
+      should_deploy: ${{ steps.plan.outputs.should_deploy }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -55,14 +58,17 @@ jobs:
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
-          FORCE_ALL: ${{ inputs.force_all }}
-          BASE_SHA_INPUT: ${{ inputs.base_sha }}
-          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
+          FORCE_ALL: ${{ github.event_name == 'workflow_dispatch' && inputs.force_all || false }}
+          BASE_SHA_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || '' }}
+          IMAGE_TAG_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || '' }}
+          PUSH_BEFORE: ${{ github.event_name == 'push' && github.event.before || '' }}
+          SHOULD_DEPLOY: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy) }}
         run: |
           set -euo pipefail
 
           IMAGE_TAG="${IMAGE_TAG_INPUT:-${GITHUB_SHA}}"
           echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "should_deploy=${SHOULD_DEPLOY}" >> "$GITHUB_OUTPUT"
 
           ALL_APPS='["api","admin","judge","display","public-results","marketing"]'
 
@@ -99,7 +105,16 @@ jobs:
             exit 0
           fi
 
+          ZERO_SHA='0000000000000000000000000000000000000000'
           BASE="${BASE_SHA_INPUT:-}"
+
+          # Prefer the pre-push SHA on merges to main (exact change set for this push).
+          if [ -z "${BASE}" ] && [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "${ZERO_SHA}" ]; then
+            if git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+              BASE="${PUSH_BEFORE}"
+            fi
+          fi
+
           if [ -z "${BASE}" ]; then
             BASE="$(gh run list \
               --workflow "Build and deploy" \
@@ -327,7 +342,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       always() &&
-      inputs.deploy == true &&
+      needs.detect.outputs.should_deploy == 'true' &&
       needs.detect.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
       (needs.retag.result == 'success' || needs.retag.result == 'skipped')

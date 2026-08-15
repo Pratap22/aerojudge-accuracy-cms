@@ -88,12 +88,32 @@ For a private repo, either:
 | `GHCR_READ_TOKEN` | Optional; PAT with `read:packages` if private |
 | `GHCR_USER` | Optional; GitHub username for that PAT |
 
-### Manual runs only
+### Automatic deploy on `main`
 
-Workflows do **not** run on push or pull request. Use **Actions → Build and deploy → Run workflow**.
+Merging a PR into **`main`** (or pushing to `main`) runs **Build and deploy**:
 
-- **Deploy** checked → build images, push to GHCR, deploy to EC2  
-- **Deploy** unchecked → build and push images only  
+1. Diff against the previous `main` tip (or last successful deploy)
+2. Build/push only changed services; retag unchanged ones from `:latest`
+3. Deploy the new image tag to EC2
+
+| Path change | Rebuilds |
+|-------------|----------|
+| `apps/admin/` | admin |
+| `apps/judge/` | judge |
+| `apps/display/` | display |
+| `apps/public-results/` | public-results |
+| `apps/marketing/` | marketing |
+| `server/`, `database/`, `packages/scoring-engine/`, `packages/pdf-engine/` | api |
+| `packages/shared/`, `packages/utils/`, `packages/ui/` | all web apps (+ api for shared/utils) |
+| Root `package.json` / lockfile / `turbo.json` / `Dockerfile.web` | all services |
+
+### Manual runs
+
+**Actions → Build and deploy → Run workflow** still works for one-off deploys:
+
+- **Deploy** checked → build + EC2
+- **Deploy** unchecked → build/push images only
+- **force_all** → rebuild every service (ignore change detection)
 
 ### Environment
 
@@ -103,8 +123,8 @@ Create a GitHub Environment named **`production`** (Settings → Environments). 
 
 ## Day-to-day
 
-1. Push code to `main` when ready (no Actions run).
-2. **Actions → Build and deploy → Run workflow** (Deploy = true to update EC2).
+1. Merge the PR into `main` — Actions builds changed apps and deploys.
+2. Or run **Actions → Build and deploy** manually (`force_all` if images are missing).
 3. To free RAM/CPU without affecting other apps on the box: `docker compose … stop` (see above).
 
 Manual deploy on the box:
