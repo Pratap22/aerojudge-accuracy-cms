@@ -26,6 +26,11 @@ const RANKING_ROUND_STATUSES = [
   'LOCKED',
 ] as const;
 
+/** Operational worksheets — printable without official approval stamp. */
+function reportSkipsApproval(reportType: ReportType): boolean {
+  return reportType === 'LAUNCH_ORDER' || reportType === 'SCORE_SHEETS';
+}
+
 /**
  * Delete a print PDF only if it lives under PRINT_ARCHIVE_DIR (avoids path tricks).
  * Disk copies are ephemeral: stream to the client then purge so the archive does not grow.
@@ -498,11 +503,17 @@ export async function previewReport(
   const competition = await getCompetition(competitionId);
   const format = input.format ?? 'A4_PORTRAIT';
   const reportInput = await buildReportInput(competition, input.reportType, format, input.roundId);
-  const roundApproval = await resolveRoundApprovalLine(competitionId, input.roundId);
+  const skipApproval = reportSkipsApproval(input.reportType);
+  const roundApproval = skipApproval
+    ? undefined
+    : await resolveRoundApprovalLine(competitionId, input.roundId);
   if (roundApproval) {
     reportInput.approvalLine = roundApproval.line;
   }
   const html = reportToHtml(reportInput);
+
+  // Operational sheets are ready to print immediately (no approve step / stamp).
+  const readyStatus = skipApproval || roundApproval ? 'APPROVED' : 'PREVIEW';
 
   const printRecord = await prisma.printHistory.create({
     data: {
@@ -510,7 +521,7 @@ export async function previewReport(
       roundId: input.roundId,
       reportType: input.reportType,
       format,
-      status: roundApproval ? 'APPROVED' : 'PREVIEW',
+      status: readyStatus,
       printedById: input.printedById,
       approvedAt: roundApproval?.approvedAt,
       approvedById: roundApproval?.approvedById,
@@ -518,6 +529,7 @@ export async function previewReport(
       metadataJson: {
         html,
         title: reportInput.title,
+        ...(skipApproval ? { skipsApproval: true } : {}),
         ...(roundApproval ? { approvalLine: roundApproval.line } : {}),
       },
     },
@@ -526,10 +538,11 @@ export async function previewReport(
   return {
     id: printRecord.id,
     html,
-    status: (roundApproval ? 'APPROVED' : 'DRAFT') as 'DRAFT' | 'APPROVED',
+    status: (readyStatus === 'APPROVED' ? 'APPROVED' : 'DRAFT') as 'DRAFT' | 'APPROVED',
     reportType: input.reportType,
     format,
     approvalLine: roundApproval?.line,
+    skipsApproval: skipApproval,
   };
 }
 
@@ -558,7 +571,10 @@ export async function generateReport(
 
   try {
     const reportInput = await buildReportInput(competition, input.reportType, format, input.roundId);
-    const roundApproval = await resolveRoundApprovalLine(competitionId, input.roundId);
+    const skipApproval = reportSkipsApproval(input.reportType);
+    const roundApproval = skipApproval
+      ? undefined
+      : await resolveRoundApprovalLine(competitionId, input.roundId);
     if (roundApproval) {
       reportInput.approvalLine = roundApproval.line;
     }
@@ -569,7 +585,7 @@ export async function generateReport(
     const updated = await prisma.printHistory.update({
       where: { id: printRecord.id },
       data: {
-        status: roundApproval ? 'APPROVED' : 'ARCHIVED',
+        status: skipApproval || roundApproval ? 'APPROVED' : 'ARCHIVED',
         fileUrl: null,
         pageCount: pdf.pageCount,
         printedAt: new Date(),
@@ -579,6 +595,7 @@ export async function generateReport(
         metadataJson: {
           mimeType: pdf.mimeType,
           filename,
+          ...(skipApproval ? { skipsApproval: true } : {}),
           ...(roundApproval ? { approvalLine: roundApproval.line } : {}),
         },
       },
@@ -608,8 +625,14 @@ export async function downloadReport(competitionId: string, printId: string) {
   });
   if (!record) throw AppError.notFound('Print record not found');
 
+  const skipApproval = reportSkipsApproval(record.reportType as ReportType);
+
   let approvalLine =
-    record.status === 'APPROVED' && record.approvedBy && record.approvedByRole && record.approvedAt
+    !skipApproval &&
+    record.status === 'APPROVED' &&
+    record.approvedBy &&
+    record.approvedByRole &&
+    record.approvedAt
       ? buildApprovalLine({
           firstName: record.approvedBy.firstName,
           lastName: record.approvedBy.lastName,
@@ -620,7 +643,7 @@ export async function downloadReport(competitionId: string, printId: string) {
 
   // Prefer the round approver when print history was not separately approved.
   let roundApprovalMeta: Awaited<ReturnType<typeof resolveRoundApprovalLine>> | undefined;
-  if (!approvalLine) {
+  if (!skipApproval && !approvalLine) {
     roundApprovalMeta = await resolveRoundApprovalLine(
       competitionId,
       record.roundId ?? undefined,
@@ -705,6 +728,10 @@ export async function approvePrint(
     where: { id: printId, competitionId },
   });
   if (!record) throw AppError.notFound('Print record not found');
+
+  if (reportSkipsApproval(record.reportType as ReportType)) {
+    throw AppError.badRequest('Launch Order and Score Sheets do not require approval');
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: approver.userId },

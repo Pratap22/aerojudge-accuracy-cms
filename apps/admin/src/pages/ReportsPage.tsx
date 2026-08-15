@@ -42,11 +42,17 @@ const needsRoundSelection = (type: ReportType) =>
   type === 'SCORE_SHEETS' ||
   type === 'JUDGE_SHEETS';
 
+/** Operational worksheets — print/download without an approve step. */
+const skipsPrintApproval = (type: ReportType) =>
+  type === 'LAUNCH_ORDER' || type === 'SCORE_SHEETS';
+
 interface ReportPreview {
   id: string;
   html: string;
   status: 'DRAFT' | 'APPROVED' | 'PUBLISHED' | 'PREVIEW';
   approvalLine?: string;
+  reportType?: ReportType;
+  skipsApproval?: boolean;
 }
 
 interface RoundOption {
@@ -202,6 +208,18 @@ export function ReportsPage() {
 
   const roundRequired = needsRoundSelection(reportType);
   const canGenerate = !roundRequired || Boolean(roundId);
+  const previewReadyToPrint =
+    !!preview &&
+    (preview.status === 'APPROVED' ||
+      preview.status === 'PUBLISHED' ||
+      preview.skipsApproval === true ||
+      skipsPrintApproval(reportType));
+  const showApproveButton =
+    !!preview &&
+    !skipsPrintApproval(reportType) &&
+    !preview.skipsApproval &&
+    preview.status !== 'APPROVED' &&
+    preview.status !== 'PUBLISHED';
 
   return (
     <div className="space-y-6">
@@ -305,8 +323,14 @@ export function ReportsPage() {
             <div className="flex items-center justify-between">
               <CardTitle>Preview</CardTitle>
               {preview && (
-                <Badge variant={preview.status === 'APPROVED' ? 'success' : 'warning'}>
-                  {preview.status}
+                <Badge
+                  variant={
+                    previewReadyToPrint || preview.status === 'APPROVED' ? 'success' : 'warning'
+                  }
+                >
+                  {skipsPrintApproval(reportType) || preview.skipsApproval
+                    ? 'READY'
+                    : preview.status}
                 </Badge>
               )}
             </div>
@@ -324,7 +348,7 @@ export function ReportsPage() {
                 </div>
                 {downloadError && <p className="text-sm text-destructive">{downloadError}</p>}
                 <div className="flex flex-wrap gap-2">
-                  {preview.status !== 'APPROVED' && preview.status !== 'PUBLISHED' && (
+                  {showApproveButton && (
                     <Button
                       onClick={() => approveMutation.mutate(preview.id)}
                       disabled={approveMutation.isPending}
@@ -333,18 +357,14 @@ export function ReportsPage() {
                       Approve
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    onClick={handlePrint}
-                    disabled={preview.status !== 'APPROVED' && preview.status !== 'PUBLISHED'}
-                  >
+                  <Button variant="outline" onClick={handlePrint} disabled={!previewReadyToPrint}>
                     <Printer className="mr-2 h-4 w-4" />
                     Print
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => void handleDownload()}
-                    disabled={preview.status !== 'APPROVED' && preview.status !== 'PUBLISHED'}
+                    disabled={!previewReadyToPrint}
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Download PDF

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import {
@@ -6,6 +6,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  Pencil,
   Play,
   Target,
   Trophy,
@@ -20,11 +21,19 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  toast,
 } from '@npha/ui';
 import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api } from '../lib/api';
@@ -86,7 +95,13 @@ export function DashboardPage() {
   const { user, activeOrganizationId } = useAuth();
   const liveStatus = 'Connected';
   const canUpdateCompetition = usePermission('competition:update');
+  const canUpdateWeather = usePermission('weather:update');
   const orgScope = routeOrganizationId ?? activeOrganizationId ?? user?.organizationId ?? null;
+  const [windDialogOpen, setWindDialogOpen] = useState(false);
+  const [windSpeedMs, setWindSpeedMs] = useState('0');
+  const [windDirectionDeg, setWindDirectionDeg] = useState('0');
+  const [windGustMs, setWindGustMs] = useState('');
+  const [windError, setWindError] = useState<string | null>(null);
 
   const { data: competitions } = useQuery({
     queryKey: ['competitions', orgScope ?? 'none'],
@@ -136,6 +151,57 @@ export function DashboardPage() {
       }
     },
   });
+
+  const windMutation = useMutation({
+    mutationFn: (body: { speedMs: number; directionDeg: number; gustMs?: number }) =>
+      api.post(`/competitions/${competitionId}/weather/wind`, {
+        ...body,
+        source: 'manual',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard', competitionId] });
+      setWindDialogOpen(false);
+      setWindError(null);
+      toast({ title: 'Wind updated', description: 'Display boards will refresh live.' });
+    },
+    onError: (err) => {
+      setWindError(err instanceof Error ? err.message : 'Failed to update wind');
+    },
+  });
+
+  const openWindDialog = () => {
+    setWindSpeedMs(String(stats?.windSpeedMs ?? 0));
+    setWindDirectionDeg(String(stats?.windDirectionDeg ?? 0));
+    setWindGustMs('');
+    setWindError(null);
+    setWindDialogOpen(true);
+  };
+
+  const submitWind = () => {
+    const speedMs = Number(windSpeedMs);
+    const directionDeg = Number(windDirectionDeg);
+    const gustMs = windGustMs.trim() === '' ? undefined : Number(windGustMs);
+
+    if (!Number.isFinite(speedMs) || speedMs < 0) {
+      setWindError('Speed must be 0 or greater (m/s).');
+      return;
+    }
+    if (!Number.isFinite(directionDeg) || directionDeg < 0 || directionDeg > 360) {
+      setWindError('Direction must be between 0 and 360°.');
+      return;
+    }
+    if (gustMs != null && (!Number.isFinite(gustMs) || gustMs < 0)) {
+      setWindError('Gust must be 0 or greater (m/s), or left blank.');
+      return;
+    }
+
+    setWindError(null);
+    windMutation.mutate({
+      speedMs,
+      directionDeg,
+      ...(gustMs != null ? { gustMs } : {}),
+    });
+  };
 
   useEffect(() => {
     if (!competitionId) return;
@@ -371,9 +437,24 @@ export function DashboardPage() {
               <span className="flex items-center gap-2 text-sm">
                 <Wind className="h-4 w-4 shrink-0" /> Wind
               </span>
-              <span className="text-sm font-medium">
-                {stats ? `${stats.windSpeedMs} m/s @ ${stats.windDirectionDeg}°` : '—'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {stats ? `${stats.windSpeedMs} m/s @ ${stats.windDirectionDeg}°` : '—'}
+                </span>
+                {canUpdateWeather && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={openWindDialog}
+                    disabled={!competitionId}
+                  >
+                    <Pencil className="mr-1 h-3.5 w-3.5" />
+                    Update
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -399,6 +480,64 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={windDialogOpen} onOpenChange={setWindDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update wind</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="wind-speed">Speed (m/s)</Label>
+              <Input
+                id="wind-speed"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.1"
+                value={windSpeedMs}
+                onChange={(e) => setWindSpeedMs(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wind-direction">Direction (°)</Label>
+              <Input
+                id="wind-direction"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={360}
+                step="1"
+                value={windDirectionDeg}
+                onChange={(e) => setWindDirectionDeg(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">0–360 · meteorological direction wind is from</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wind-gust">Gust (m/s, optional)</Label>
+              <Input
+                id="wind-gust"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.1"
+                value={windGustMs}
+                onChange={(e) => setWindGustMs(e.target.value)}
+                placeholder="Leave blank if none"
+              />
+            </div>
+            {windError && <p className="text-sm text-destructive">{windError}</p>}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setWindDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={submitWind} disabled={windMutation.isPending}>
+              {windMutation.isPending ? 'Saving…' : 'Save wind'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
