@@ -105,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me);
     setOrganizationId(null);
     setActiveOrganizationId(null);
+    setRequiresOrganizationSelection(false);
   }, []);
 
   useEffect(() => {
@@ -127,6 +128,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .finally(() => setIsLoading(false));
   }, [applyMeContext]);
+
+  // Recover inconsistent sessions: memberships exist but no tenant was chosen.
+  useEffect(() => {
+    if (isLoading || !user) return;
+    if (activeOrganizationId || user.organizationId) return;
+    const activeCount = organizations.filter((o) => o.status === 'ACTIVE').length;
+    if (activeCount > 1) {
+      setRequiresOrganizationSelection(true);
+    }
+  }, [isLoading, user, activeOrganizationId, organizations]);
 
   const login = useCallback(async (email: string, password: string) => {
     const result = await api.post<LoginResult>('/auth/login', { email, password });

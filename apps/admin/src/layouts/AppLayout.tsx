@@ -503,6 +503,11 @@ export function AppLayout() {
                 if (id) void handleOrganizationChange(id);
               }}
             >
+              {!(currentOrganization?.organizationId ?? activeOrganizationId) && (
+                <option value="" disabled className="text-foreground">
+                  Select organization…
+                </option>
+              )}
               {organizations
                 .filter((o) => o.status === 'ACTIVE')
                 .map((o) => (

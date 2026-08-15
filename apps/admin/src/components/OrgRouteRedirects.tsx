@@ -25,7 +25,11 @@ export function ActiveOrgCompetitionsRedirect({
     );
   }
 
-  if (requiresOrganizationSelection || !orgId) {
+  if (requiresOrganizationSelection) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!orgId) {
     return <Navigate to="/organizations" replace />;
   }
 

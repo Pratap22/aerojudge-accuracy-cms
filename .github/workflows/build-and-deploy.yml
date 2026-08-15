@@ -12,6 +12,15 @@ on:
         required: true
         type: boolean
         default: true
+      force_all:
+        description: 'Build all services (ignore change detection)'
+        required: false
+        type: boolean
+        default: false
+      base_sha:
+        description: 'Diff base SHA (default: last successful deploy on this branch, else HEAD~1)'
+        required: false
+        type: string
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -23,45 +32,193 @@ env:
 permissions:
   contents: read
   packages: write
+  actions: read
 
 jobs:
+  detect:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    outputs:
+      build_matrix: ${{ steps.plan.outputs.build_matrix }}
+      retag_apps: ${{ steps.plan.outputs.retag_apps }}
+      has_build: ${{ steps.plan.outputs.has_build }}
+      has_retag: ${{ steps.plan.outputs.has_retag }}
+      image_tag: ${{ steps.plan.outputs.image_tag }}
+      summary: ${{ steps.plan.outputs.summary }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Plan builds
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_ALL: ${{ inputs.force_all }}
+          BASE_SHA_INPUT: ${{ inputs.base_sha }}
+          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          IMAGE_TAG="${IMAGE_TAG_INPUT:-${GITHUB_SHA}}"
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+
+          ALL_APPS='["api","admin","judge","display","public-results","marketing"]'
+
+          matrix_for() {
+            # stdin: newline-separated app names → JSON matrix include
+            node -e '
+              const apps = require("fs").readFileSync(0, "utf8").trim().split("\n").filter(Boolean);
+              const buildArgs = {
+                api: "",
+                admin: "APP_NAME=admin\nBASE_PATH=/admin/",
+                judge: "APP_NAME=judge\nBASE_PATH=/judge/",
+                display: "APP_NAME=display\nBASE_PATH=/display/",
+                "public-results": "APP_NAME=public-results\nBASE_PATH=/events/",
+                marketing: "APP_NAME=marketing\nBASE_PATH=/\nVITE_SITE_URL=https://aerojudge.nepalabs.com\nVITE_CONTACT_EMAIL=hello@nepalabs.com",
+              };
+              const dockerfile = (app) => (app === "api" ? "docker/Dockerfile.api" : "docker/Dockerfile.web");
+              const include = apps.map((app) => ({
+                app,
+                dockerfile: dockerfile(app),
+                build_args: buildArgs[app] ?? "",
+              }));
+              process.stdout.write(JSON.stringify(include));
+            '
+          }
+
+          if [ "${FORCE_ALL}" = "true" ]; then
+            BUILD="$(printf '%s\n' api admin judge display public-results marketing | matrix_for)"
+            echo "build_matrix=${BUILD}" >> "$GITHUB_OUTPUT"
+            echo "retag_apps=[]" >> "$GITHUB_OUTPUT"
+            echo "has_build=true" >> "$GITHUB_OUTPUT"
+            echo "has_retag=false" >> "$GITHUB_OUTPUT"
+            echo "summary=force_all: building every service" >> "$GITHUB_OUTPUT"
+            echo "::notice::Force build all services"
+            exit 0
+          fi
+
+          BASE="${BASE_SHA_INPUT:-}"
+          if [ -z "${BASE}" ]; then
+            BASE="$(gh run list \
+              --workflow "Build and deploy" \
+              --branch "${GITHUB_REF_NAME}" \
+              --status success \
+              --limit 20 \
+              --json headSha,databaseId \
+              --jq "[.[] | select(.headSha != \"${GITHUB_SHA}\")][0].headSha // empty" \
+              || true)"
+          fi
+          if [ -z "${BASE}" ] || [ "${BASE}" = "${GITHUB_SHA}" ]; then
+            if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+              BASE="$(git rev-parse HEAD^)"
+            else
+              BASE=""
+            fi
+          fi
+
+          if [ -z "${BASE}" ]; then
+            echo "::warning::No base SHA available; building all services"
+            BUILD="$(printf '%s\n' api admin judge display public-results marketing | matrix_for)"
+            echo "build_matrix=${BUILD}" >> "$GITHUB_OUTPUT"
+            echo "retag_apps=[]" >> "$GITHUB_OUTPUT"
+            echo "has_build=true" >> "$GITHUB_OUTPUT"
+            echo "has_retag=false" >> "$GITHUB_OUTPUT"
+            echo "summary=no base SHA; building every service" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Comparing ${BASE}...${GITHUB_SHA}"
+          CHANGED="$(git diff --name-only "${BASE}" "${GITHUB_SHA}" || true)"
+          echo "Changed files:"
+          echo "${CHANGED}"
+
+          # Global rebuild triggers
+          if echo "${CHANGED}" | grep -Eq '^(package-lock\.json|package\.json|turbo\.json|docker/Dockerfile\.web)$'; then
+            echo "::notice::Root/lockfile or Dockerfile.web changed — building all web apps + api if needed"
+            BUILD_API=1
+            BUILD_ADMIN=1
+            BUILD_JUDGE=1
+            BUILD_DISPLAY=1
+            BUILD_PUBLIC=1
+            BUILD_MARKETING=1
+          else
+            BUILD_API=0
+            BUILD_ADMIN=0
+            BUILD_JUDGE=0
+            BUILD_DISPLAY=0
+            BUILD_PUBLIC=0
+            BUILD_MARKETING=0
+          fi
+
+          echo "${CHANGED}" | grep -Eq '^(server/|database/|packages/scoring-engine/|packages/pdf-engine/|docker/Dockerfile\.api|docker/api-entrypoint\.sh)' && BUILD_API=1 || true
+          echo "${CHANGED}" | grep -Eq '^packages/(shared|utils)/' && BUILD_API=1 || true
+
+          echo "${CHANGED}" | grep -Eq '^packages/(shared|utils|ui)/' && {
+            BUILD_ADMIN=1; BUILD_JUDGE=1; BUILD_DISPLAY=1; BUILD_PUBLIC=1; BUILD_MARKETING=1;
+          } || true
+
+          echo "${CHANGED}" | grep -Eq '^apps/admin/' && BUILD_ADMIN=1 || true
+          echo "${CHANGED}" | grep -Eq '^apps/judge/' && BUILD_JUDGE=1 || true
+          echo "${CHANGED}" | grep -Eq '^apps/display/' && BUILD_DISPLAY=1 || true
+          echo "${CHANGED}" | grep -Eq '^apps/public-results/' && BUILD_PUBLIC=1 || true
+          echo "${CHANGED}" | grep -Eq '^apps/marketing/' && BUILD_MARKETING=1 || true
+
+          # Workflow/deploy-only changes: no image rebuild required
+          BUILD_LIST=""
+          [ "${BUILD_API}" = "1" ] && BUILD_LIST="${BUILD_LIST}api"$'\n'
+          [ "${BUILD_ADMIN}" = "1" ] && BUILD_LIST="${BUILD_LIST}admin"$'\n'
+          [ "${BUILD_JUDGE}" = "1" ] && BUILD_LIST="${BUILD_LIST}judge"$'\n'
+          [ "${BUILD_DISPLAY}" = "1" ] && BUILD_LIST="${BUILD_LIST}display"$'\n'
+          [ "${BUILD_PUBLIC}" = "1" ] && BUILD_LIST="${BUILD_LIST}public-results"$'\n'
+          [ "${BUILD_MARKETING}" = "1" ] && BUILD_LIST="${BUILD_LIST}marketing"$'\n'
+
+          BUILD_LIST="$(printf '%s' "${BUILD_LIST}" | sed '/^$/d')"
+
+          if [ -z "${BUILD_LIST}" ]; then
+            echo "::notice::No service source changes — retagging all apps from :latest"
+            echo "build_matrix=[]" >> "$GITHUB_OUTPUT"
+            echo "retag_apps=${ALL_APPS}" >> "$GITHUB_OUTPUT"
+            echo "has_build=false" >> "$GITHUB_OUTPUT"
+            echo "has_retag=true" >> "$GITHUB_OUTPUT"
+            echo "summary=no app source changes; retag all from latest → ${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          RETAG_LIST=""
+          for app in api admin judge display public-results marketing; do
+            if ! printf '%s\n' "${BUILD_LIST}" | grep -qx "${app}"; then
+              RETAG_LIST="${RETAG_LIST}${app}"$'\n'
+            fi
+          done
+          RETAG_LIST="$(printf '%s' "${RETAG_LIST}" | sed '/^$/d')"
+
+          BUILD="$(printf '%s\n' "${BUILD_LIST}" | matrix_for)"
+          if [ -n "${RETAG_LIST}" ]; then
+            RETAG="$(printf '%s\n' "${RETAG_LIST}" | node -e 'const a=require("fs").readFileSync(0,"utf8").trim().split("\n").filter(Boolean); process.stdout.write(JSON.stringify(a))')"
+            HAS_RETAG=true
+          else
+            RETAG='[]'
+            HAS_RETAG=false
+          fi
+
+          echo "build_matrix=${BUILD}" >> "$GITHUB_OUTPUT"
+          echo "retag_apps=${RETAG}" >> "$GITHUB_OUTPUT"
+          echo "has_build=true" >> "$GITHUB_OUTPUT"
+          echo "has_retag=${HAS_RETAG}" >> "$GITHUB_OUTPUT"
+          echo "summary=build: $(echo "${BUILD_LIST}" | tr '\n' ' '); retag: $(echo "${RETAG_LIST}" | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+          echo "::notice::Build [$(echo "${BUILD_LIST}" | tr '\n' ' ')] Retag [$(echo "${RETAG_LIST}" | tr '\n' ' ')]"
+
   build:
     name: Build & push (${{ matrix.app }})
+    needs: detect
+    if: needs.detect.outputs.has_build == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - app: api
-            dockerfile: docker/Dockerfile.api
-            build_args: ''
-          - app: admin
-            dockerfile: docker/Dockerfile.web
-            build_args: |
-              APP_NAME=admin
-              BASE_PATH=/admin/
-          - app: judge
-            dockerfile: docker/Dockerfile.web
-            build_args: |
-              APP_NAME=judge
-              BASE_PATH=/judge/
-          - app: display
-            dockerfile: docker/Dockerfile.web
-            build_args: |
-              APP_NAME=display
-              BASE_PATH=/display/
-          - app: public-results
-            dockerfile: docker/Dockerfile.web
-            build_args: |
-              APP_NAME=public-results
-              BASE_PATH=/events/
-          - app: marketing
-            dockerfile: docker/Dockerfile.web
-            build_args: |
-              APP_NAME=marketing
-              BASE_PATH=/
-              VITE_SITE_URL=https://aerojudge.nepalabs.com
-              VITE_CONTACT_EMAIL=hello@nepalabs.com
+        include: ${{ fromJson(needs.detect.outputs.build_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -73,7 +230,6 @@ jobs:
       # Mirror + retry avoids "Client.Timeout exceeded while awaiting headers".
       - name: Configure Docker Hub mirror
         run: |
-          # Pull-through cache for Docker Hub (buildx boots via moby/buildkit from docker.io)
           echo '{"registry-mirrors":["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
           docker info 2>/dev/null | grep -A3 'Registry Mirrors' || true
@@ -108,7 +264,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.app }}
           tags: |
-            type=raw,value=${{ inputs.image_tag || github.sha }}
+            type=raw,value=${{ needs.detect.outputs.image_tag }}
             type=sha,prefix=,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
@@ -125,11 +281,56 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
 
+  retag:
+    name: Retag unchanged (${{ matrix.app }})
+    needs: detect
+    if: needs.detect.outputs.has_retag == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.detect.outputs.retag_apps) }}
+    steps:
+      - name: Lowercase image name
+        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Point new tag at existing :latest
+        env:
+          APP: ${{ matrix.app }}
+          TAG: ${{ needs.detect.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          SRC="${REGISTRY}/${IMAGE_NAME}/${APP}:latest"
+          DEST="${REGISTRY}/${IMAGE_NAME}/${APP}:${TAG}"
+          echo "Retag ${SRC} → ${DEST}"
+          if ! docker buildx imagetools inspect "${SRC}" >/dev/null 2>&1; then
+            echo "::error::Missing ${SRC}. Run once with force_all=true to seed :latest images."
+            exit 1
+          fi
+          docker buildx imagetools create --tag "${DEST}" "${SRC}"
+          # Keep short SHA alias when TAG is full SHA
+          SHORT="$(echo "${TAG}" | cut -c1-7)"
+          if [ "${SHORT}" != "${TAG}" ]; then
+            docker buildx imagetools create --tag "${REGISTRY}/${IMAGE_NAME}/${APP}:${SHORT}" "${SRC}" || true
+          fi
+
   deploy:
     name: Deploy to EC2
-    needs: build
+    needs: [detect, build, retag]
     runs-on: ubuntu-latest
-    if: inputs.deploy == true
+    if: |
+      always() &&
+      inputs.deploy == true &&
+      needs.detect.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.retag.result == 'success' || needs.retag.result == 'skipped')
     environment: production
     steps:
       - name: Checkout (deploy assets)
@@ -138,10 +339,10 @@ jobs:
       - name: Resolve image tag
         id: tag
         run: |
-          TAG="${{ inputs.image_tag }}"
-          if [ -z "$TAG" ]; then TAG="${GITHUB_SHA}"; fi
+          TAG="${{ needs.detect.outputs.image_tag }}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "registry=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "Plan: ${{ needs.detect.outputs.summary }}"
 
       - name: Sync compose + nginx + deploy script
         uses: appleboy/scp-action@v0.1.7
