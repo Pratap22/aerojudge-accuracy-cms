@@ -5,6 +5,12 @@ import { z } from 'zod';
 loadDotenv({ path: path.resolve(process.cwd(), '../.env') });
 loadDotenv();
 
+/** Docker Compose passes unset optionals as "" — treat those as missing. */
+const emptyToUndefined = (value: unknown) => (value === '' ? undefined : value);
+const optionalUrl = z.preprocess(emptyToUndefined, z.string().url().optional());
+const optionalEmail = z.preprocess(emptyToUndefined, z.string().email().optional());
+const optionalString = z.preprocess(emptyToUndefined, z.string().optional());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
@@ -20,20 +26,20 @@ const envSchema = z.object({
   PRINT_ARCHIVE_DIR: z.string().default('./uploads/documents/prints'),
   PUBLIC_RESULTS_URL: z.string().url().default('http://localhost:3003'),
   /** Public origin for API + /uploads (absolute logo URLs). Falls back to API_URL or localhost:PORT. */
-  PUBLIC_API_URL: z.string().url().optional(),
-  API_URL: z.string().url().optional(),
+  PUBLIC_API_URL: optionalUrl,
+  API_URL: optionalUrl,
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(15_000),
   /** Cloudinary — required for competition official photo uploads */
-  CLOUDINARY_CLOUD_NAME: z.string().optional(),
-  CLOUDINARY_API_KEY: z.string().optional(),
-  CLOUDINARY_API_SECRET: z.string().optional(),
+  CLOUDINARY_CLOUD_NAME: optionalString,
+  CLOUDINARY_API_KEY: optionalString,
+  CLOUDINARY_API_SECRET: optionalString,
   CLOUDINARY_FOLDER: z.string().default('aerojudge'),
   /** AWS SES — password reset and transactional email */
   AWS_REGION: z.string().default('ap-south-1'),
-  AWS_ACCESS_KEY_ID: z.string().optional(),
-  AWS_SECRET_ACCESS_KEY: z.string().optional(),
-  SES_FROM_EMAIL: z.string().email().optional(),
+  AWS_ACCESS_KEY_ID: optionalString,
+  AWS_SECRET_ACCESS_KEY: optionalString,
+  SES_FROM_EMAIL: optionalEmail,
   SES_FROM_NAME: z.string().default('AeroJudge'),
   /** How long password-reset links remain valid */
   PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(60),
