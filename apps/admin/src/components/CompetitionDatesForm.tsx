@@ -11,10 +11,7 @@ interface CompetitionDates {
   endDate: string;
 }
 
-/**
- * Edit a competition's start and end dates.
- * Shown on Settings and from the overview "Edit dates" action.
- */
+/** Edit a competition's start and end dates from Settings. */
 export function CompetitionDatesForm({
   competitionId,
   onSaved,
