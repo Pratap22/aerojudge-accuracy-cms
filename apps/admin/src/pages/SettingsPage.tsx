@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_FAI_2022_RULES, type RuleConfig } from '@npha/shared';
-import { Save, Settings } from 'lucide-react';
+import { Calendar, Save, Settings } from 'lucide-react';
 import {
   Button,
   Card,
@@ -15,6 +15,7 @@ import {
 } from '@npha/ui';
 import { api } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
+import { CompetitionDatesForm } from '../components/CompetitionDatesForm';
 
 export function SettingsPage() {
   const activeCompetitionId = useCompetitionId();
@@ -48,8 +49,23 @@ export function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Competition rules and scoring configuration</p>
+        <p className="text-muted-foreground">Competition dates, rules, and scoring configuration</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Competition dates
+          </CardTitle>
+          <CardDescription>
+            Start and end dates shown on public results, the venue display, and reports.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CompetitionDatesForm competitionId={activeCompetitionId} />
+        </CardContent>
+      </Card>
 
       <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="grid gap-6 lg:grid-cols-2">
         <Card>

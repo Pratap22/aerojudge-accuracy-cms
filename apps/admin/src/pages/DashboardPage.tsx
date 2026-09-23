@@ -48,6 +48,8 @@ import {
 } from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';
 import { PageHeader } from '../components/PageHeader';
+import { CompetitionDatesForm } from '../components/CompetitionDatesForm';
+import { formatCompetitionDateRange } from '../lib/competition-dates';
 
 interface DashboardStats {
   status?: CompetitionStatus;
@@ -98,6 +100,7 @@ export function DashboardPage() {
   const canUpdateWeather = usePermission('weather:update');
   const orgScope = routeOrganizationId ?? activeOrganizationId ?? user?.organizationId ?? null;
   const [windDialogOpen, setWindDialogOpen] = useState(false);
+  const [datesDialogOpen, setDatesDialogOpen] = useState(false);
   const [windSpeedMs, setWindSpeedMs] = useState('0');
   const [windDirectionDeg, setWindDirectionDeg] = useState('0');
   const [windGustMs, setWindGustMs] = useState('');
@@ -248,9 +251,26 @@ export function DashboardPage() {
         title="Overview"
         description={
           activeCompetition ? (
-            <span className="flex flex-col gap-0.5 sm:block">
-              <span className="font-medium text-foreground">{activeCompetition.name}</span>
-              <span className="sm:before:content-['·_']">{activeCompetition.venue}</span>
+            <span className="flex flex-col gap-1">
+              <span>
+                <span className="font-medium text-foreground">{activeCompetition.name}</span>
+                <span className="sm:before:content-['·_']">{activeCompetition.venue}</span>
+              </span>
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>
+                  {formatCompetitionDateRange(activeCompetition.startDate, activeCompetition.endDate)}
+                </span>
+                {canUpdateCompetition && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto p-0 text-sm"
+                    onClick={() => setDatesDialogOpen(true)}
+                  >
+                    Edit dates
+                  </Button>
+                )}
+              </span>
             </span>
           ) : (
             'Loading competition…'
@@ -480,6 +500,18 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={datesDialogOpen} onOpenChange={setDatesDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Competition dates</DialogTitle>
+          </DialogHeader>
+          <CompetitionDatesForm
+            competitionId={competitionId}
+            onSaved={() => setDatesDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={windDialogOpen} onOpenChange={setWindDialogOpen}>
         <DialogContent className="sm:max-w-md">

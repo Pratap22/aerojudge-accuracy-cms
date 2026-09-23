@@ -38,6 +38,8 @@ import { defaultCompetitionSegment } from '../layouts/AppLayout';
 import { usePermission } from '../hooks/usePermission';
 import { PageHeader } from '../components/PageHeader';
 import { CountrySelect } from '../components/CountrySelect';
+import { CompetitionDatesForm } from '../components/CompetitionDatesForm';
+import { formatCompetitionDateRange } from '../lib/competition-dates';
 
 interface Competition extends Omit<CreateCompetitionInput, 'location' | 'maximumScoreCm' | 'organizationId'> {
   id: string;
@@ -276,6 +278,7 @@ export function CompetitionForm({
 
 export function CompetitionsPage() {
   const [formOpen, setFormOpen] = useState(false);
+  const [editingDatesId, setEditingDatesId] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -379,12 +382,25 @@ export function CompetitionsPage() {
                   </div>
                   <CardDescription>
                     {comp.code} · {comp.venue}
+                    <span className="mt-1 block">
+                      {formatCompetitionDateRange(comp.startDate, comp.endDate)}
+                    </span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <Button className="w-full sm:w-auto" size="sm" onClick={() => handleOpen(comp)}>
                     Open
                   </Button>
+                  {canUpdate && (
+                    <Button
+                      className="w-full sm:w-auto"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingDatesId(comp.id)}
+                    >
+                      Edit dates
+                    </Button>
+                  )}
                   {needsPublish && canPublish && (
                     <Button
                       className="w-full sm:w-auto"
@@ -402,6 +418,20 @@ export function CompetitionsPage() {
           })}
         </div>
       )}
+
+      <Dialog open={!!editingDatesId} onOpenChange={(open) => !open && setEditingDatesId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Competition dates</DialogTitle>
+          </DialogHeader>
+          {editingDatesId && (
+            <CompetitionDatesForm
+              competitionId={editingDatesId}
+              onSaved={() => setEditingDatesId(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {canCreate && (
         <CompetitionForm

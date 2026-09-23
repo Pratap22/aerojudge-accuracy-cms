@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createCompetitionSchema, paginationSchema } from '@npha/shared';
+import { createCompetitionSchema, paginationSchema, updateCompetitionSchema } from '@npha/shared';
 import { ScoringEngine } from '@npha/scoring-engine';
 import { z } from 'zod';
 import { asyncHandler, AppError } from '../../../utils/errors.js';
@@ -98,6 +98,28 @@ export const create = [
       after: competition,
     });
     sendSuccess(res, competition, 201);
+  }),
+];
+
+export const update = [
+  validateParams(idParams),
+  validateBody(updateCompetitionSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const before = await competitionService.getCompetition(req.params.id, req.organizationId);
+    const competition = await competitionService.updateCompetition(req.params.id, req.body);
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: competition.id,
+      action: 'UPDATE',
+      entityType: 'Competition',
+      entityId: competition.id,
+      before: { startDate: before.startDate, endDate: before.endDate },
+      after: { startDate: competition.startDate, endDate: competition.endDate },
+    });
+    const { emitCompetitionStatus, emitSyncRequired } = await import('../../../socket/index.js');
+    emitCompetitionStatus(competition.id, competition.status);
+    emitSyncRequired(competition.id);
+    sendSuccess(res, competition);
   }),
 ];
 

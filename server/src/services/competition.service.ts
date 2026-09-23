@@ -113,8 +113,17 @@ export async function createCompetition(data: {
   });
 }
 
+/** UTC calendar day (`YYYY-MM-DD`) so date-only edits compare days, not clock times. */
+function competitionCalendarDay(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+/**
+ * Update competition identity fields, including start and end dates.
+ * End date must fall on or after the start date (calendar day, UTC).
+ */
 export async function updateCompetition(id: string, data: Record<string, unknown>) {
-  await getCompetition(id);
+  const existing = await getCompetition(id);
 
   const {
     startDate,
@@ -132,12 +141,18 @@ export async function updateCompetition(id: string, data: Record<string, unknown
     ...rest,
   };
 
-  if (startDate != null) {
-    updateData.startDate = new Date(startDate as string | Date);
+  const nextStart =
+    startDate != null ? new Date(startDate as string | Date) : existing.startDate;
+  const nextEnd = endDate != null ? new Date(endDate as string | Date) : existing.endDate;
+  if (Number.isNaN(nextStart.getTime()) || Number.isNaN(nextEnd.getTime())) {
+    throw AppError.badRequest('Invalid start or end date');
   }
-  if (endDate != null) {
-    updateData.endDate = new Date(endDate as string | Date);
+  if (competitionCalendarDay(nextEnd) < competitionCalendarDay(nextStart)) {
+    throw AppError.badRequest('End date must be on or after the start date');
   }
+
+  if (startDate != null) updateData.startDate = nextStart;
+  if (endDate != null) updateData.endDate = nextEnd;
 
   if (maximumScoreCm != null && Number.isFinite(Number(maximumScoreCm))) {
     updateData.settings = {

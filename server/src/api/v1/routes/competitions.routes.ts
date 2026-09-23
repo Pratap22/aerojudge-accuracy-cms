@@ -15,6 +15,13 @@ router.use(requireAuth, resolveOrganizationContext);
 router.get('/', ...ctrl.list);
 router.post('/', requireOrgContext, requirePermission('competition:create'), ...ctrl.create);
 router.get('/:id', requireOrgContext, requireCompetitionInOrg, ...ctrl.get);
+router.patch(
+  '/:id',
+  requireOrgContext,
+  requireCompetitionInOrg,
+  requirePermission('competition:update'),
+  ...ctrl.update,
+);
 router.get('/:id/dashboard', requireOrgContext, requireCompetitionInOrg, ...ctrl.dashboard);
 router.delete(
   '/:id',
