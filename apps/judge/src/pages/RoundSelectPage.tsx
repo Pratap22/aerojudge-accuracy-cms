@@ -8,6 +8,7 @@ import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api, ApiError, getOrganizationId } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { SwitchToAdminButton } from '../components/SwitchToAdminButton';
+import { WindSpeedDialog, type WindDraft } from '../components/WindSpeedDialog';
 
 interface RoundOption {
   id: string;
@@ -88,6 +89,9 @@ export function RoundSelectPage() {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [switchingOrg, setSwitchingOrg] = useState(false);
+  const [pendingWind, setPendingWind] = useState<
+    { kind: 'start'; roundId: string } | { kind: 'create' } | null
+  >(null);
 
   const orgId = currentOrganization?.organizationId ?? getOrganizationId();
   const activeOrganizations = useMemo(
@@ -184,20 +188,45 @@ export function RoundSelectPage() {
     !previousRound || COMPLETED_FOR_NEXT.includes(previousRound.status);
   const canCreateNext = !!activeCompId && !atMax && previousCompleted;
 
+  const { data: latestWind } = useQuery({
+    queryKey: ['wind', activeCompId],
+    queryFn: () =>
+      api.get<{ speedMs: number; directionDeg: number } | null>(
+        `/competitions/${activeCompId}/weather/wind/latest`,
+      ),
+    enabled: !!activeCompId,
+  });
+
   const invalidateRounds = () => {
     queryClient.invalidateQueries({ queryKey: ['rounds', activeCompId] });
     queryClient.invalidateQueries({ queryKey: ['competition', activeCompId] });
   };
 
   const startMutation = useMutation({
-    mutationFn: async ({ roundId, resume }: { roundId: string; resume?: boolean }) => {
+    mutationFn: async ({
+      roundId,
+      resume,
+      wind,
+    }: {
+      roundId: string;
+      resume?: boolean;
+      wind?: WindDraft;
+    }) => {
       setActionError(null);
+      if (wind) {
+        await api.post(`/competitions/${activeCompId}/weather/wind`, {
+          speedMs: wind.speedMs,
+          directionDeg: wind.directionDeg,
+          source: 'round-start',
+        });
+      }
       const action = resume ? 'resume' : 'start';
       return api.post<{ id: string }>(
         `/competitions/${activeCompId}/rounds/${roundId}/${action}`,
       );
     },
     onSuccess: (round) => {
+      setPendingWind(null);
       invalidateRounds();
       if (activeCompId) setCompetitionId(activeCompId);
       navigate(`/score/${round.id}`);
@@ -208,7 +237,7 @@ export function RoundSelectPage() {
   });
 
   const createAndStartMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (wind: WindDraft) => {
       setActionError(null);
       const created = await api.post<{ id: string; number: number }>(
         `/competitions/${activeCompId}/rounds`,
@@ -219,10 +248,16 @@ export function RoundSelectPage() {
           orderType: 'RANDOM',
         },
       );
+      await api.post(`/competitions/${activeCompId}/weather/wind`, {
+        speedMs: wind.speedMs,
+        directionDeg: wind.directionDeg,
+        source: 'round-start',
+      });
       await api.post(`/competitions/${activeCompId}/rounds/${created.id}/start`);
       return created;
     },
     onSuccess: (round) => {
+      setPendingWind(null);
       invalidateRounds();
       if (activeCompId) setCompetitionId(activeCompId);
       navigate(`/score/${round.id}`);
@@ -333,7 +368,7 @@ export function RoundSelectPage() {
             <Button
               className="h-12 w-full text-base font-semibold"
               disabled={busy}
-              onClick={() => createAndStartMutation.mutate()}
+              onClick={() => setPendingWind({ kind: 'create' })}
             >
               <Plus className="mr-2 h-5 w-5" />
               {createAndStartMutation.isPending
@@ -378,7 +413,7 @@ export function RoundSelectPage() {
               <Button
                 className="mt-6"
                 disabled={busy}
-                onClick={() => createAndStartMutation.mutate()}
+                onClick={() => setPendingWind({ kind: 'create' })}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Create & Start Round 1
@@ -401,7 +436,7 @@ export function RoundSelectPage() {
                   round={round}
                   busy={busy}
                   onSelect={selectRound}
-                  onStart={(id) => startMutation.mutate({ roundId: id })}
+                  onStart={(id) => setPendingWind({ kind: 'start', roundId: id })}
                   onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
                 />
               ))}
@@ -415,13 +450,34 @@ export function RoundSelectPage() {
                 round={round}
                 busy={busy}
                 onSelect={selectRound}
-                onStart={(id) => startMutation.mutate({ roundId: id })}
+                onStart={(id) => setPendingWind({ kind: 'start', roundId: id })}
                 onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
               />
             ))}
           </div>
         )}
       </main>
+      <WindSpeedDialog
+        open={pendingWind != null}
+        title={pendingWind?.kind === 'create' ? `Start round ${nextNumber}` : 'Start round'}
+        confirmLabel="Save wind and start"
+        initialSpeed={latestWind?.speedMs}
+        initialDirection={latestWind?.directionDeg}
+        busy={busy}
+        error={actionError}
+        onClose={() => {
+          if (!busy) setPendingWind(null);
+        }}
+        onConfirm={(wind) => {
+          if (pendingWind?.kind === 'create') {
+            createAndStartMutation.mutate(wind);
+            return;
+          }
+          if (pendingWind?.kind === 'start') {
+            startMutation.mutate({ roundId: pendingWind.roundId, wind });
+          }
+        }}
+      />
     </div>
   );
 }

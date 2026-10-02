@@ -40,7 +40,7 @@ Columns: **Owner** = `ORGANIZATION_OWNER` · **MD** = `MEET_DIRECTOR` · **CJ** 
 | Approve print | `print:approve` | ✓ | ✓ | ✓ | | | | | | | |
 | Control venue display | `display:control` | ✓ | ✓ | | | | | ✓ | | | |
 | Announcements | `announce` | ✓ | ✓ | | | | ✓ | | | | |
-| Weather updates | `weather:update` | ✓ | ✓ | ✓ | | | | | ✓ | | |
+| Weather updates | `weather:update` | ✓ | ✓ | ✓ | ✓ | ✓ | | | ✓ | | |
 | View audit logs | `audit:view` | ✓ | ✓ | ✓ | | | | | | | |
 
 ### Derived product notes (from code, not product marketing)

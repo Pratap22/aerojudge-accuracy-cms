@@ -137,6 +137,7 @@ export function emitWindUpdated(
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))
     .to(SOCKET_ROOMS.display(competitionId))
+    .to(SOCKET_ROOMS.public(competitionId))
     .emit('wind:updated', { competitionId, ...wind });
 }
 

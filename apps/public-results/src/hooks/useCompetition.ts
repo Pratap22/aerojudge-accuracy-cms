@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import type { RankingCategory } from '@npha/shared';
-import { fetchCompetition, fetchResults } from '../lib/api';
+import { fetchCompetition, fetchLatestWind, fetchResults } from '../lib/api';
 import { connectPublicSocket, disconnectSocket, onSocketEvent } from '../lib/socket';
 import type { PublicResults } from '../lib/types';
 
@@ -62,6 +62,36 @@ export function useResults(category: RankingCategory = 'OVERALL') {
       unsubs.forEach((u) => u());
       disconnectSocket();
     };
+  }, [roomKey, slug, queryClient]);
+
+  return query;
+}
+
+export function useLatestWind() {
+  const slug = useSlug();
+  const { data: competition } = useCompetition();
+  const queryClient = useQueryClient();
+  const roomKey = competition?.id ?? slug;
+
+  const query = useQuery({
+    queryKey: ['wind', slug],
+    queryFn: () => fetchLatestWind(slug),
+    enabled: Boolean(slug),
+    staleTime: 15_000,
+  });
+
+  useEffect(() => {
+    if (!roomKey) return;
+    connectPublicSocket(roomKey);
+    return onSocketEvent('wind:updated', (payload) => {
+      if (payload.competitionId !== roomKey && payload.competitionId !== slug) return;
+      queryClient.setQueryData(['wind', slug], {
+        speedMs: payload.speedMs,
+        directionDeg: payload.directionDeg,
+        gustMs: null,
+        recordedAt: new Date().toISOString(),
+      });
+    });
   }, [roomKey, slug, queryClient]);
 
   return query;

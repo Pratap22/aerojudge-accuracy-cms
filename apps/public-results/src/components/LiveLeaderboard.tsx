@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { Input, LeaderboardTable } from '@npha/ui';
-import { useCompetition, useResults, toLeaderboardEntries } from '../hooks/useCompetition';
+import { useCompetition, useLatestWind, useResults, toLeaderboardEntries } from '../hooks/useCompetition';
 import { isCompetitionCompleted } from '../lib/competitionStatus';
 
 interface LiveLeaderboardProps {
@@ -14,6 +14,7 @@ interface LiveLeaderboardProps {
 export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeaderboardProps) {
   const { data: competition } = useCompetition();
   const { data: results, isLoading, error } = useResults('OVERALL');
+  const { data: wind } = useLatestWind();
   const [search, setSearch] = useState('');
   const completed = isCompetitionCompleted(competition?.status);
   const heading = title ?? (completed ? 'Final Results' : 'Live Leaderboard');
@@ -82,6 +83,11 @@ export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeade
           : results?.official
             ? 'Official results · Updated live'
             : 'Provisional results · Updated live'}
+        {!completed && wind ? (
+          <span className="mt-1 block font-mono text-sky-200/80">
+            Wind {wind.speedMs.toFixed(1)} m/s · {Math.round(wind.directionDeg)}°
+          </span>
+        ) : null}
       </p>
     </motion.div>
   );

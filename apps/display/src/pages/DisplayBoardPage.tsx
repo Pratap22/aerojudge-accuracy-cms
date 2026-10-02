@@ -14,7 +14,7 @@ import { TopTeamsLayout } from '../layouts/TopTeamsLayout';
 import { CountryLayout } from '../layouts/CountryLayout';
 import { NextPilotsLayout } from '../layouts/NextPilotsLayout';
 import { SponsorsLayout } from '../layouts/SponsorsLayout';
-import { useCompetition, useLatestScore, useResults, useRoundsStatus, useSponsors, toLeaderboardEntries } from '../hooks/useCompetition';
+import { useCompetition, useLatestScore, useLatestWind, useResults, useRoundsStatus, useSponsors, toLeaderboardEntries } from '../hooks/useCompetition';
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
@@ -98,6 +98,7 @@ export function DisplayBoardPage() {
   const { data: countryResults } = useResults('COUNTRY');
   const { data: sponsors = [] } = useSponsors();
   const { data: persistedLatest } = useLatestScore();
+  const { data: latestWind } = useLatestWind();
   const { data: roundsStatus, invalidate: refreshRoundsStatus } = useRoundsStatus();
 
   const competitionCompleted = competition?.status === 'COMPLETED';
@@ -123,6 +124,14 @@ export function DisplayBoardPage() {
     if (roundPhase.activeRoundNumber == null) return;
     socketState.clearStaleScoresBeforeRound(roundPhase.activeRoundNumber);
   }, [roundPhase.activeRoundNumber, socketState.clearStaleScoresBeforeRound]);
+
+  useEffect(() => {
+    if (!latestWind) return;
+    socketState.seedWind({
+      speedMs: latestWind.speedMs,
+      directionDeg: latestWind.directionDeg,
+    });
+  }, [latestWind, socketState.seedWind]);
 
   useEffect(() => {
     if (!persistedLatest) return;
@@ -503,10 +512,10 @@ export function DisplayBoardPage() {
             {competition.name}
           </h1>
         </div>
-        {socketState.wind && (
-          <div className="hidden shrink-0 rounded-lg border border-sky-500/30 bg-broadcast-navy-mid/80 px-3 py-1.5 text-right sm:block sm:px-4 sm:py-2">
+        {socketState.wind && !competitionCompleted && (
+          <div className="shrink-0 rounded-lg border border-sky-500/30 bg-broadcast-navy-mid/80 px-2.5 py-1 text-right sm:px-4 sm:py-2">
             <p className="text-[10px] uppercase tracking-wider text-sky-400 sm:text-xs">Wind</p>
-            <p className="font-mono text-sm text-white sm:text-lg">
+            <p className="font-mono text-xs text-white sm:text-lg">
               {socketState.wind.speedMs.toFixed(1)} m/s · {Math.round(socketState.wind.directionDeg)}°
             </p>
           </div>

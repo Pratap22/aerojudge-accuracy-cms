@@ -20,6 +20,7 @@ import { QuickScoreButtons } from '../components/QuickScoreButtons';
 import { OnDeckList } from '../components/OnDeckList';
 import { OfflineIndicator } from '../components/OfflineIndicator';
 import { SwitchToAdminButton } from '../components/SwitchToAdminButton';
+import { WindSpeedDialog, type WindDraft } from '../components/WindSpeedDialog';
 
 interface Flight {
   id: string;
@@ -49,6 +50,7 @@ export function ScoringPage() {
   const [pendingCount, setPendingCount] = useState(getPendingCount());
   const [confirmed, setConfirmed] = useState(false);
   const [pilotPickerOpen, setPilotPickerOpen] = useState(false);
+  const [windOpen, setWindOpen] = useState(false);
 
   const { data: flights, refetch } = useQuery({
     queryKey: ['judge-flights', competitionId, roundId],
@@ -68,6 +70,32 @@ export function ScoringPage() {
 
   const scoresReadOnly =
     !!roundMeta && ['APPROVED', 'LOCKED'].includes(roundMeta.status);
+  const canUpdateWind =
+    isOnline &&
+    !!roundMeta &&
+    ['ACTIVE', 'OPEN', 'PAUSED', 'BRIEFING'].includes(roundMeta.status);
+
+  const { data: latestWind } = useQuery({
+    queryKey: ['wind', competitionId],
+    queryFn: () =>
+      api.get<{ speedMs: number; directionDeg: number } | null>(
+        `/competitions/${competitionId}/weather/wind/latest`,
+      ),
+    enabled: !!competitionId,
+  });
+
+  const windMutation = useMutation({
+    mutationFn: (wind: WindDraft) =>
+      api.post(`/competitions/${competitionId}/weather/wind`, {
+        speedMs: wind.speedMs,
+        directionDeg: wind.directionDeg,
+        source: 'scorer',
+      }),
+    onSuccess: (reading) => {
+      queryClient.setQueryData(['wind', competitionId], reading);
+      setWindOpen(false);
+    },
+  });
 
   const { data: rules } = useQuery({
     queryKey: ['settings', competitionId],
@@ -88,12 +116,20 @@ export function ScoringPage() {
     const unsubFlight = onSocketEvent('flight:status', () => refetch());
     const unsubPilot = onSocketEvent('pilot:current', () => refetch());
     const unsubScore = onSocketEvent('score:updated', () => refetch());
+    const unsubWind = onSocketEvent('wind:updated', (payload) => {
+      if (payload.competitionId !== competitionId) return;
+      queryClient.setQueryData(['wind', competitionId], {
+        speedMs: payload.speedMs,
+        directionDeg: payload.directionDeg,
+      });
+    });
     return () => {
       unsubFlight();
       unsubPilot();
       unsubScore();
+      unsubWind();
     };
-  }, [competitionId, refetch]);
+  }, [competitionId, queryClient, refetch]);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -263,6 +299,23 @@ export function ScoringPage() {
           )}
         </div>
       </header>
+
+      <button
+        type="button"
+        className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 bg-slate-950/80 px-3 py-1.5 text-left"
+        onClick={() => {
+          if (canUpdateWind) setWindOpen(true);
+        }}
+        disabled={!canUpdateWind}
+      >
+        <span className="text-[10px] uppercase tracking-wider text-slate-500">Wind</span>
+        <span className="font-mono text-sm text-sky-300">
+          {latestWind
+            ? `${latestWind.speedMs.toFixed(1)} m/s · ${Math.round(latestWind.directionDeg)}°`
+            : 'Not reported'}
+        </span>
+        {canUpdateWind ? <span className="text-xs text-sky-400">Update</span> : <span className="w-10" />}
+      </button>
 
       <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-1 gap-2 overflow-hidden p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:gap-3 sm:p-3 lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-4 lg:p-4">
         <section className="flex min-h-0 flex-col gap-1.5 overflow-hidden sm:gap-2">
@@ -449,6 +502,19 @@ export function ScoringPage() {
           />
         </aside>
       </div>
+      <WindSpeedDialog
+        open={windOpen}
+        title="Update wind"
+        confirmLabel="Save wind"
+        initialSpeed={latestWind?.speedMs}
+        initialDirection={latestWind?.directionDeg}
+        busy={windMutation.isPending}
+        error={windMutation.error instanceof ApiError ? windMutation.error.message : null}
+        onClose={() => {
+          if (!windMutation.isPending) setWindOpen(false);
+        }}
+        onConfirm={(wind) => windMutation.mutate(wind)}
+      />
     </div>
   );
 }

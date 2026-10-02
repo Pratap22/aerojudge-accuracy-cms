@@ -56,6 +56,17 @@ export function fetchResults(
   return publicFetch<PublicResults>(`/${idOrSlug}/results`, { category });
 }
 
+export interface PublicWind {
+  speedMs: number;
+  directionDeg: number;
+  gustMs: number | null;
+  recordedAt: string;
+}
+
+export function fetchLatestWind(idOrSlug: string): Promise<PublicWind | null> {
+  return publicFetch<PublicWind | null>(`/${idOrSlug}/wind`);
+}
+
 export function fetchRoundResults(idOrSlug: string, round: number): Promise<RoundResults> {
   return publicFetch<RoundResults>(`/${idOrSlug}/rounds`, { round });
 }

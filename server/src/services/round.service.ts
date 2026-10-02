@@ -171,12 +171,21 @@ export async function startRound(competitionId: string, roundId: string) {
     await generateFlightOrder(competitionId, roundId, round.orderType as FlightOrderType);
   }
 
+  const latestWind = await prisma.wind.findFirst({
+    where: { competitionId },
+    orderBy: { recordedAt: 'desc' },
+    select: { speedMs: true, directionDeg: true },
+  });
+
   const updated = await prisma.round.update({
     where: { id: roundId },
     data: {
       status: 'ACTIVE',
       startedAt: round.startedAt ?? new Date(),
       pausedAt: null,
+      ...(latestWind
+        ? { windSpeed: latestWind.speedMs, windDirection: latestWind.directionDeg }
+        : {}),
     },
     include: { flights: { orderBy: { flightOrder: 'asc' }, include: { pilot: true } } },
   });

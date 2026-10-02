@@ -36,8 +36,21 @@ export async function recordWind(
   },
 ) {
   await getCompetition(competitionId);
-  return prisma.wind.create({
-    data: { competitionId, ...data },
+  return prisma.$transaction(async (tx) => {
+    const reading = await tx.wind.create({
+      data: { competitionId, ...data },
+    });
+    await tx.round.updateMany({
+      where: {
+        competitionId,
+        status: { in: ['ACTIVE', 'OPEN', 'PAUSED', 'BRIEFING'] },
+      },
+      data: {
+        windSpeed: data.speedMs,
+        windDirection: data.directionDeg,
+      },
+    });
+    return reading;
   });
 }
 

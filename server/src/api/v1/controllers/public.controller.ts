@@ -116,6 +116,14 @@ export const getLatestScore = [
   }),
 ];
 
+export const getLatestWind = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const wind = await publicService.getPublicLatestWind(req.params.slug);
+    sendSuccess(res, wind);
+  }),
+];
+
 export const getSponsors = [
   validateParams(slugParams),
   asyncHandler(async (req: Request, res: Response) => {

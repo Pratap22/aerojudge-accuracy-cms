@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import type { RankingCategory } from '@npha/shared';
-import { fetchCompetition, fetchLatestScore, fetchResults, fetchRoundsStatus, fetchSponsors } from '../lib/api';
+import { fetchCompetition, fetchLatestScore, fetchLatestWind, fetchResults, fetchRoundsStatus, fetchSponsors } from '../lib/api';
 import type { PublicResults, Sponsor } from '../lib/types';
 import { useEffect } from 'react';
 import { connectDisplaySocket, onSocketEvent } from '../lib/socket';
@@ -55,6 +55,16 @@ export function useSponsors() {
   }, [roomKey, competitionId, queryClient]);
 
   return query;
+}
+
+export function useLatestWind() {
+  const competitionId = useCompetitionId();
+  return useQuery({
+    queryKey: ['wind', competitionId],
+    queryFn: () => fetchLatestWind(competitionId),
+    enabled: Boolean(competitionId),
+    staleTime: 15_000,
+  });
 }
 
 export function useLatestScore() {

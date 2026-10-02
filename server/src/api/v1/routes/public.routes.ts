@@ -19,6 +19,7 @@ router.get('/:slug/results', ...ctrl.getResults);
 router.get('/:slug/rounds', ...ctrl.getRoundResults);
 router.get('/:slug/rounds-status', ...ctrl.getRoundsStatus);
 router.get('/:slug/latest-score', ...ctrl.getLatestScore);
+router.get('/:slug/wind', ...ctrl.getLatestWind);
 router.get('/:slug/sponsors', ...ctrl.getSponsors);
 router.get('/:slug/officials', ...ctrl.getOfficials);
 router.get('/:slug/info', ...ctrl.getEventInfo);

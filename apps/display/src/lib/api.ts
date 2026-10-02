@@ -64,6 +64,17 @@ export function fetchLatestScore(idOrSlug: string): Promise<LatestPublicScore | 
   return publicFetch<LatestPublicScore | null>(`/${idOrSlug}/latest-score`);
 }
 
+export interface PublicWind {
+  speedMs: number;
+  directionDeg: number;
+  gustMs: number | null;
+  recordedAt: string;
+}
+
+export function fetchLatestWind(idOrSlug: string): Promise<PublicWind | null> {
+  return publicFetch<PublicWind | null>(`/${idOrSlug}/wind`);
+}
+
 export interface PublicRoundStatusRow {
   id: string;
   number: number;

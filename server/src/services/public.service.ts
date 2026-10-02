@@ -854,6 +854,21 @@ export async function getPublicRoundsStatus(slugOrId: string) {
   return { competitionId: competition.id, rounds };
 }
 
+export async function getPublicLatestWind(slugOrId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+  const wind = await prisma.wind.findFirst({
+    where: { competitionId: competition.id },
+    orderBy: { recordedAt: 'desc' },
+    select: {
+      speedMs: true,
+      directionDeg: true,
+      gustMs: true,
+      recordedAt: true,
+    },
+  });
+  return wind;
+}
+
 export async function getLatestPublicScore(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
 

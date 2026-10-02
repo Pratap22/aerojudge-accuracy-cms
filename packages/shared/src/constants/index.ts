@@ -68,6 +68,8 @@ export const PERMISSIONS = {
     'GOAL_MARSHAL',
     'CHIEF_JUDGE',
     'COMPETITION_DIRECTOR',
+    'JUDGE',
+    'SCOREKEEPER',
   ],
   'audit:view': ['SUPER_ADMIN', 'COMPETITION_DIRECTOR', 'CHIEF_JUDGE'],
 } as const;
@@ -116,6 +118,7 @@ const JUDGE_PERMISSIONS: Permission[] = [
   'round:close',
   // Round score / standings PDFs from Admin → Rounds (and Reports page).
   'print:generate',
+  'weather:update',
 ];
 
 const SCORER_PERMISSIONS: Permission[] = [

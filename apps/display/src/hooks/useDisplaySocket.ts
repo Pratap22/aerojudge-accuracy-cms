@@ -45,6 +45,11 @@ export function useDisplaySocket(
   const onRoundStatusRef = useRef(onRoundStatus);
   onRankingUpdateRef.current = onRankingUpdate;
   onRoundStatusRef.current = onRoundStatus;
+  const windFromSocketRef = useRef(false);
+
+  useEffect(() => {
+    windFromSocketRef.current = false;
+  }, [competitionId]);
 
   const seedLatestScore = useCallback((score: LiveScore | null) => {
     if (!score) return;
@@ -167,6 +172,7 @@ export function useDisplaySocket(
       }),
       onSocketEvent('wind:updated', (payload) => {
         if (payload.competitionId !== competitionId) return;
+        windFromSocketRef.current = true;
         setState((prev) => ({
           ...prev,
           wind: { directionDeg: payload.directionDeg, speedMs: payload.speedMs },
@@ -180,5 +186,10 @@ export function useDisplaySocket(
     };
   }, [competitionId]);
 
-  return { ...state, seedLatestScore, clearStaleScoresBeforeRound };
+  const seedWind = useCallback((wind: WindData | null) => {
+    if (!wind || windFromSocketRef.current) return;
+    setState((prev) => ({ ...prev, wind }));
+  }, []);
+
+  return { ...state, seedLatestScore, clearStaleScoresBeforeRound, seedWind };
 }
