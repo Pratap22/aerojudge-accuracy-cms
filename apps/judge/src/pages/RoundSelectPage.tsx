@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, ClipboardList, LogOut, Play, Plus, Target } from 'lucide-react';
 import { Badge, Button, Card, CardContent } from '@npha/ui';
 import type { CompetitionStatus, RoundStatus } from '@npha/shared';
@@ -9,6 +9,7 @@ import { api, ApiError, getOrganizationId } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { SwitchToAdminButton } from '../components/SwitchToAdminButton';
 import { WindSpeedDialog, type WindDraft } from '../components/WindSpeedDialog';
+import { roundsPath, scorePath } from '../lib/paths';
 
 interface RoundOption {
   id: string;
@@ -27,12 +28,14 @@ interface CompetitionOption {
   maxRounds?: number;
 }
 
-/** Competitions no longer available for live judge scoring. */
-const HIDDEN_COMPETITION_STATUSES = new Set<string>([
-  'COMPLETED',
-  'ARCHIVED',
-  'CANCELLED',
-]);
+/** Archived and cancelled competitions stay off the scoring terminal. */
+const HIDDEN_COMPETITION_STATUSES = new Set<string>(['ARCHIVED', 'CANCELLED']);
+
+function competitionLabel(competition: CompetitionOption): string {
+  const status = competition.status?.replace(/_/g, ' ').toLowerCase();
+  const suffix = status && status !== 'official' ? ` — ${status}` : '';
+  return `${competition.name} (${competition.code})${suffix}`;
+}
 
 function isJudgeVisibleCompetition(c: CompetitionOption): boolean {
   if (!c.status) return true;
@@ -76,24 +79,22 @@ const COMPLETED_FOR_NEXT: RoundStatus[] = [
 ];
 
 export function RoundSelectPage() {
+  const { organizationId: routeOrgId, competitionId: routeCompetitionId } = useParams();
   const {
     user,
-    competitionId,
     setCompetitionId,
     logout,
     currentOrganization,
     organizations,
-    selectOrganization,
   } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
-  const [switchingOrg, setSwitchingOrg] = useState(false);
   const [pendingWind, setPendingWind] = useState<
     { kind: 'start'; roundId: string } | { kind: 'create' } | null
   >(null);
 
-  const orgId = currentOrganization?.organizationId ?? getOrganizationId();
+  const orgId = routeOrgId ?? currentOrganization?.organizationId ?? getOrganizationId();
   const activeOrganizations = useMemo(
     () => organizations.filter((o) => o.status === 'ACTIVE'),
     [organizations],
@@ -111,37 +112,32 @@ export function RoundSelectPage() {
     [competitionsRaw],
   );
 
-  // Ignore a stale competitionId left in localStorage from a previous/deleted/closed competition.
   const activeCompId =
-    (competitionId && competitions.some((c) => c.id === competitionId)
-      ? competitionId
-      : undefined) ?? competitions[0]?.id;
+    routeCompetitionId && competitions.some((c) => c.id === routeCompetitionId)
+      ? routeCompetitionId
+      : undefined;
   const activeCompetition = competitions.find((c) => c.id === activeCompId);
 
   useEffect(() => {
-    if (compsLoading) return;
-    if (competitionId && !competitions.some((c) => c.id === competitionId)) {
-      setCompetitionId(activeCompId ?? null);
-      return;
-    }
-    if (!competitionId && activeCompId) {
-      setCompetitionId(activeCompId);
-    }
-  }, [competitions, competitionId, activeCompId, setCompetitionId, compsLoading]);
+    if (!activeCompId) return;
+    setCompetitionId(activeCompId);
+  }, [activeCompId, setCompetitionId]);
 
-  const handleOrganizationChange = async (organizationId: string) => {
+  useEffect(() => {
+    if (compsLoading || !routeOrgId || !competitions.length) return;
+    if (routeCompetitionId && competitions.some((c) => c.id === routeCompetitionId)) return;
+    const next =
+      competitions.find(
+        (c) => c.status && !['COMPLETED', 'ARCHIVED', 'CANCELLED'].includes(c.status),
+      ) ?? competitions[0];
+    if (next) navigate(roundsPath(routeOrgId, next.id), { replace: true });
+  }, [compsLoading, competitions, navigate, routeCompetitionId, routeOrgId]);
+
+  const handleOrganizationChange = (organizationId: string) => {
     if (!organizationId || organizationId === orgId) return;
-    setSwitchingOrg(true);
+    setPendingWind(null);
     setActionError(null);
-    try {
-      await selectOrganization(organizationId);
-      await queryClient.cancelQueries();
-      queryClient.clear();
-    } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Failed to switch organization');
-    } finally {
-      setSwitchingOrg(false);
-    }
+    navigate(`/organizations/${organizationId}`);
   };
 
   const { data: competitionDetail } = useQuery({
@@ -186,7 +182,10 @@ export function RoundSelectPage() {
   }, [roundsNormalized]);
   const previousCompleted =
     !previousRound || COMPLETED_FOR_NEXT.includes(previousRound.status);
-  const canCreateNext = !!activeCompId && !atMax && previousCompleted;
+  const competitionAcceptsRounds =
+    !!activeCompetition?.status &&
+    !['COMPLETED', 'ARCHIVED', 'CANCELLED'].includes(activeCompetition.status);
+  const canCreateNext = !!activeCompId && !atMax && previousCompleted && competitionAcceptsRounds;
 
   const { data: latestWind } = useQuery({
     queryKey: ['wind', activeCompId],
@@ -228,8 +227,10 @@ export function RoundSelectPage() {
     onSuccess: (round) => {
       setPendingWind(null);
       invalidateRounds();
-      if (activeCompId) setCompetitionId(activeCompId);
-      navigate(`/score/${round.id}`);
+      if (activeCompId && routeOrgId) {
+        setCompetitionId(activeCompId);
+        navigate(scorePath(routeOrgId, activeCompId, round.id));
+      }
     },
     onError: (err) => {
       setActionError(err instanceof ApiError ? err.message : 'Failed to start round');
@@ -259,8 +260,10 @@ export function RoundSelectPage() {
     onSuccess: (round) => {
       setPendingWind(null);
       invalidateRounds();
-      if (activeCompId) setCompetitionId(activeCompId);
-      navigate(`/score/${round.id}`);
+      if (activeCompId && routeOrgId) {
+        setCompetitionId(activeCompId);
+        navigate(scorePath(routeOrgId, activeCompId, round.id));
+      }
     },
     onError: (err) => {
       setActionError(err instanceof ApiError ? err.message : 'Failed to create round');
@@ -268,8 +271,10 @@ export function RoundSelectPage() {
   });
 
   const selectRound = (roundId: string) => {
-    if (activeCompId) setCompetitionId(activeCompId);
-    navigate(`/score/${roundId}`);
+    if (activeCompId && routeOrgId) {
+      setCompetitionId(activeCompId);
+      navigate(scorePath(routeOrgId, activeCompId, roundId));
+    }
   };
 
   const busy = startMutation.isPending || createAndStartMutation.isPending;
@@ -298,9 +303,8 @@ export function RoundSelectPage() {
               <select
                 className="h-9 max-w-full truncate rounded-md border border-border bg-card px-2 text-sm text-foreground"
                 aria-label="Switch organization"
-                disabled={switchingOrg}
                 value={orgId ?? ''}
-                onChange={(e) => void handleOrganizationChange(e.target.value)}
+                onChange={(e) => handleOrganizationChange(e.target.value)}
               >
                 {activeOrganizations.map((o) => (
                   <option key={o.organizationId} value={o.organizationId}>
@@ -312,6 +316,33 @@ export function RoundSelectPage() {
           ) : currentOrganization ? (
             <span className="hidden max-w-[12rem] truncate text-sm text-muted-foreground sm:inline">
               {currentOrganization.shortName}
+            </span>
+          ) : null}
+          {competitions.length > 1 ? (
+            <label className="flex min-w-0 max-w-[14rem] flex-col gap-0.5 sm:max-w-xs">
+              <span className="sr-only">Competition</span>
+              <select
+                className="h-9 max-w-full truncate rounded-md border border-border bg-card px-2 text-sm text-foreground"
+                aria-label="Switch competition"
+                value={activeCompId ?? ''}
+                onChange={(e) => {
+                  if (!routeOrgId) return;
+                  setPendingWind(null);
+                  setActionError(null);
+                  setCompetitionId(e.target.value);
+                  navigate(roundsPath(routeOrgId, e.target.value));
+                }}
+              >
+                {competitions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {competitionLabel(c)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : activeCompetition ? (
+            <span className="hidden max-w-[12rem] truncate text-sm text-muted-foreground sm:inline">
+              {activeCompetition.code}
             </span>
           ) : null}
           <SwitchToAdminButton className="text-muted-foreground hover:text-foreground" />
@@ -335,32 +366,6 @@ export function RoundSelectPage() {
               (roundsError as Error | null)?.message ||
               'Failed to load competition data. Check organization context.'}
           </p>
-        )}
-
-        {competitions.length > 0 && (
-          <div className="mb-6 space-y-2">
-            {activeCompetition && (
-              <p className="text-sm text-muted-foreground">
-                Competition:{' '}
-                <span className="font-medium text-foreground">{activeCompetition.name}</span>
-                <span className="text-muted-foreground"> ({activeCompetition.code})</span>
-              </p>
-            )}
-            {competitions.length > 1 && (
-              <div className="flex flex-wrap gap-2">
-                {competitions.map((c) => (
-                  <Button
-                    key={c.id}
-                    variant={c.id === activeCompId ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCompetitionId(c.id)}
-                  >
-                    {c.code}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
         )}
 
         {canCreateNext && roundsNormalized.length > 0 && (
@@ -396,8 +401,8 @@ export function RoundSelectPage() {
             title="No competition available"
             body={
               competitionsRaw && competitionsRaw.length > 0
-                ? 'All competitions for this organization are completed or closed. Switch organization, or wait until a new competition is opened in Admin.'
-                : 'This organization has no open competitions yet. Ask the Meet Director or Chief Judge to create or open a competition in Admin.'
+                ? 'Every competition in this organization is archived or cancelled.'
+                : 'This organization has no competitions yet. Ask the Meet Director or Chief Judge to create one in Admin.'
             }
           />
         ) : !roundsNormalized.length ? (

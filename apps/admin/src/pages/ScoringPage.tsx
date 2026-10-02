@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enterScoreSchema, type EnterScoreInput, type ScoreResultType, type RuleConfig } from '@npha/shared';
 import { formatScoreCm } from '@npha/utils';
-import { Save, Target } from 'lucide-react';
+import { Save, Target, Wind } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -12,6 +12,11 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Input,
   Label,
   Select,
@@ -26,17 +31,26 @@ import {
   TableHeader,
   TableRow,
   Textarea,
+  toast,
 } from '@npha/ui';
 import { api, ApiError } from '../lib/api';
 import { competitionPath, competitionsListPath, useCompetitionId, useRouteOrganizationId } from '../hooks/useCompetitionId';
+import { usePermission } from '../hooks/usePermission';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { onSocketEvent } from '../lib/socket';
 
 interface RoundOption {
   id: string;
   number: number;
   name: string;
   status: string;
+}
+
+interface LatestWind {
+  speedMs: number;
+  directionDeg: number;
+  gustMs?: number | null;
 }
 
 interface Flight {
@@ -83,10 +97,16 @@ export function ScoringPage() {
   const activeCompetitionId = useCompetitionId();
   const routeOrganizationId = useRouteOrganizationId();
   const { activeOrganizationId, user } = useAuth();
+  const canUpdateWeather = usePermission('weather:update');
   const orgId = routeOrganizationId ?? activeOrganizationId ?? user?.organizationId ?? null;
   const competitionsHref = orgId ? competitionsListPath(orgId) : '/competitions';
   const [selectedRoundId, setSelectedRoundId] = useState<string>('');
   const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
+  const [windDialogOpen, setWindDialogOpen] = useState(false);
+  const [windSpeedMs, setWindSpeedMs] = useState('');
+  const [windDirectionDeg, setWindDirectionDeg] = useState('');
+  const [windGustMs, setWindGustMs] = useState('');
+  const [windError, setWindError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: rounds } = useQuery({
@@ -102,6 +122,76 @@ export function ScoringPage() {
   });
 
   const maximumScoreCm = rules?.maximumScoreCm ?? 1000;
+
+  const { data: latestWind } = useQuery({
+    queryKey: ['wind', activeCompetitionId],
+    queryFn: () =>
+      api.get<LatestWind | null>(`/competitions/${activeCompetitionId}/weather/wind/latest`),
+    enabled: !!activeCompetitionId,
+  });
+
+  useEffect(() => {
+    if (!activeCompetitionId) return;
+    return onSocketEvent('wind:updated', (payload) => {
+      if (payload.competitionId !== activeCompetitionId) return;
+      queryClient.setQueryData<LatestWind>(['wind', activeCompetitionId], (prev) => ({
+        speedMs: payload.speedMs,
+        directionDeg: payload.directionDeg,
+        gustMs: prev?.gustMs ?? null,
+      }));
+    });
+  }, [activeCompetitionId, queryClient]);
+
+  const windMutation = useMutation({
+    mutationFn: (body: { speedMs: number; directionDeg: number; gustMs?: number }) =>
+      api.post(`/competitions/${activeCompetitionId}/weather/wind`, {
+        ...body,
+        source: 'scoring',
+      }),
+    onSuccess: (reading) => {
+      queryClient.setQueryData(['wind', activeCompetitionId], reading);
+      setWindDialogOpen(false);
+      setWindError(null);
+      toast({ title: 'Wind recorded', description: 'Live boards show this reading.' });
+    },
+    onError: (err) => {
+      setWindError(err instanceof Error ? err.message : 'Failed to record wind');
+    },
+  });
+
+  const openWindDialog = () => {
+    setWindSpeedMs(latestWind ? String(latestWind.speedMs) : '');
+    setWindDirectionDeg(latestWind ? String(Math.round(latestWind.directionDeg)) : '');
+    setWindGustMs(latestWind?.gustMs != null ? String(latestWind.gustMs) : '');
+    setWindError(null);
+    setWindDialogOpen(true);
+  };
+
+  const submitWind = () => {
+    const speedMs = Number(windSpeedMs);
+    const directionDeg = windDirectionDeg.trim() === '' ? (latestWind?.directionDeg ?? 0) : Number(windDirectionDeg);
+    const gustMs = windGustMs.trim() === '' ? undefined : Number(windGustMs);
+
+    if (!Number.isFinite(speedMs) || speedMs < 0) {
+      setWindError('Speed must be 0 or greater (m/s).');
+      return;
+    }
+    if (!Number.isFinite(directionDeg) || directionDeg < 0 || directionDeg > 360) {
+      setWindError('Direction must be between 0 and 360°.');
+      return;
+    }
+    if (gustMs != null && (!Number.isFinite(gustMs) || gustMs < 0)) {
+      setWindError('Gust must be 0 or greater (m/s), or left blank.');
+      return;
+    }
+
+    setWindError(null);
+    windMutation.mutate({
+      speedMs,
+      directionDeg,
+      ...(gustMs != null ? { gustMs } : {}),
+    });
+  };
 
   const { data: flights } = useQuery({
     queryKey: ['flights', activeCompetitionId, selectedRoundId],
@@ -221,26 +311,45 @@ export function ScoringPage() {
         <p className="text-muted-foreground">Enter and confirm flight scores by round</p>
       </div>
 
-      <div className="max-w-xs space-y-2">
-        <Label>Select Round</Label>
-        <Select
-          value={selectedRoundId}
-          onValueChange={(v) => {
-            setSelectedRoundId(v);
-            setSelectedFlightId(null);
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Choose round…" />
-          </SelectTrigger>
-          <SelectContent>
-            {rounds?.map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                R{r.number} {r.name} ({r.status})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="w-full max-w-xs space-y-2">
+          <Label>Select Round</Label>
+          <Select
+            value={selectedRoundId}
+            onValueChange={(v) => {
+              setSelectedRoundId(v);
+              setSelectedFlightId(null);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Choose round…" />
+            </SelectTrigger>
+            <SelectContent>
+              {rounds?.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  R{r.number} {r.name} ({r.status})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Wind</Label>
+          <div className="flex h-10 items-center gap-3 rounded-md border bg-card px-3">
+            <Wind className="h-4 w-4 text-muted-foreground" />
+            <span className="font-mono text-sm">
+              {latestWind
+                ? `${latestWind.speedMs.toFixed(1)} m/s · ${Math.round(latestWind.directionDeg)}°`
+                : 'Not reported'}
+            </span>
+            {canUpdateWeather && (
+              <Button type="button" size="sm" variant="outline" onClick={openWindDialog}>
+                Record
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       {selectedRoundId && (
@@ -476,6 +585,63 @@ export function ScoringPage() {
         </div>
         </div>
       )}
+
+      <Dialog open={windDialogOpen} onOpenChange={setWindDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record wind</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="scoring-wind-speed">Speed (m/s)</Label>
+              <Input
+                id="scoring-wind-speed"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.1"
+                value={windSpeedMs}
+                onChange={(e) => setWindSpeedMs(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="scoring-wind-direction">Direction (°)</Label>
+              <Input
+                id="scoring-wind-direction"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={360}
+                step="1"
+                value={windDirectionDeg}
+                onChange={(e) => setWindDirectionDeg(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="scoring-wind-gust">Gust (m/s, optional)</Label>
+              <Input
+                id="scoring-wind-gust"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.1"
+                value={windGustMs}
+                onChange={(e) => setWindGustMs(e.target.value)}
+                placeholder="Leave blank if none"
+              />
+            </div>
+            {windError && <p className="text-sm text-destructive">{windError}</p>}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setWindDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={submitWind} disabled={windMutation.isPending}>
+              {windMutation.isPending ? 'Saving…' : 'Save wind'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

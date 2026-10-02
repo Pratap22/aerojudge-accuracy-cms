@@ -7,6 +7,7 @@ import { Button } from '@npha/ui';
 import type { EnterScoreInput, RuleConfig, ScoreResultType } from '@npha/shared';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { roundsPath } from '../lib/paths';
 import { connectSocket, onSocketEvent } from '../lib/socket';
 import {
   enqueueScore,
@@ -38,11 +39,21 @@ interface Flight {
 }
 
 export function ScoringPage() {
-  const { roundId } = useParams<{ roundId: string }>();
-  const { competitionId } = useAuth();
+  const { organizationId, competitionId, roundId } = useParams<{
+    organizationId: string;
+    competitionId: string;
+    roundId: string;
+  }>();
+  const { setCompetitionId } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    if (competitionId) setCompetitionId(competitionId);
+  }, [competitionId, setCompetitionId]);
+
+  const roundsHref =
+    organizationId && competitionId ? roundsPath(organizationId, competitionId) : '/login';
   const [currentIndex, setCurrentIndex] = useState(0);
   const [distanceInput, setDistanceInput] = useState('');
   const [resultType, setResultType] = useState<ScoreResultType>('MEASURED');
@@ -256,7 +267,7 @@ export function ScoringPage() {
       queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
       queryClient.invalidateQueries({ queryKey: ['judge-round', competitionId, roundId] });
       queryClient.invalidateQueries({ queryKey: ['judge-flights', competitionId, roundId] });
-      navigate('/rounds');
+      navigate(roundsHref);
     },
   });
 
@@ -271,7 +282,7 @@ export function ScoringPage() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-slate-900 text-white">
       <header className="flex shrink-0 items-center justify-between border-b border-slate-700 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/rounds')} className="text-slate-400">
+        <Button variant="ghost" size="sm" onClick={() => navigate(roundsHref)} className="text-slate-400">
           <ArrowLeft className="mr-1 h-4 w-4" />
           Rounds
         </Button>
@@ -425,7 +436,7 @@ export function ScoringPage() {
                 <Button
                   size="lg"
                   className="h-11 w-full text-base font-bold sm:h-12"
-                  onClick={() => navigate('/rounds')}
+                  onClick={() => navigate(roundsHref)}
                 >
                   Round closed — start next round
                 </Button>

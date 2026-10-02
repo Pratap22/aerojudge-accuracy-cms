@@ -1,13 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, type LoginInput } from '@npha/shared';
-import { Building2, Target } from 'lucide-react';
+import { Building2, Flag, Target } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@npha/ui';
 import { useAuth } from '../lib/auth';
-import { ApiError } from '../lib/api';
+import { api, ApiError, getOrganizationId } from '../lib/api';
+import { parseJudgeLocation, roundsPath } from '../lib/paths';
 import { redirectToPreferredStaffAppIfNeeded } from '../lib/staff-app';
+
+const HIDDEN_COMPETITION_STATUSES = new Set(['ARCHIVED', 'CANCELLED']);
+
+interface CompetitionChoice {
+  id: string;
+  name: string;
+  code: string;
+  status?: string;
+}
 
 export function LoginPage() {
   const {
@@ -21,7 +31,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
-  const [selecting, setSelecting] = useState(false);
+  const [step, setStep] = useState<'form' | 'organization' | 'competition'>('form');
+  const [competitions, setCompetitions] = useState<CompetitionChoice[]>([]);
 
   const {
     register,
@@ -32,29 +43,58 @@ export function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
-  const from = (location.state as { from?: Location })?.from?.pathname ?? '/rounds';
-  const showSelector = selecting || requiresOrganizationSelection;
-
-  if (isAuthenticated && !requiresOrganizationSelection && !selecting) {
-    if (user && redirectToPreferredStaffAppIfNeeded(user)) {
-      return null;
+  useEffect(() => {
+    if (!isAuthenticated || requiresOrganizationSelection) {
+      if (requiresOrganizationSelection) setStep('organization');
+      return;
     }
-    navigate(from, { replace: true });
-    return null;
-  }
+    if (step === 'competition') return;
+    if (user && redirectToPreferredStaffAppIfNeeded(user)) return;
+
+    const orgId = getOrganizationId();
+    if (!orgId) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const list = await api.get<CompetitionChoice[]>('/competitions', { pageSize: 200 });
+        if (cancelled) return;
+        const visible = list.filter(
+          (competition) => !competition.status || !HIDDEN_COMPETITION_STATUSES.has(competition.status),
+        );
+        const fromPath =
+          (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '';
+        const parsed = parseJudgeLocation(fromPath);
+        if (
+          parsed.organizationId === orgId &&
+          parsed.competitionId &&
+          visible.some((competition) => competition.id === parsed.competitionId)
+        ) {
+          navigate(fromPath, { replace: true });
+          return;
+        }
+        if (visible.length === 1) {
+          navigate(roundsPath(orgId, visible[0].id), { replace: true });
+          return;
+        }
+        setCompetitions(visible);
+        setStep('competition');
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof ApiError ? err.message : 'Failed to load competitions');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, requiresOrganizationSelection, step, user, location.state, navigate]);
 
   const onSubmit = async (data: LoginInput) => {
     setError(null);
     try {
-      const result = await login(data.email, data.password);
-      if (result.requiresOrganizationSelection) {
-        setSelecting(true);
-        return;
-      }
-      if (redirectToPreferredStaffAppIfNeeded(result.user)) {
-        return;
-      }
-      navigate(from, { replace: true });
+      await login(data.email, data.password);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Login failed');
     }
@@ -63,16 +103,20 @@ export function LoginPage() {
   const onSelectOrg = async (organizationId: string) => {
     setError(null);
     try {
-      const result = await selectOrganization(organizationId);
-      setSelecting(false);
-      if (redirectToPreferredStaffAppIfNeeded(result.user)) {
-        return;
-      }
-      navigate(from, { replace: true });
+      await selectOrganization(organizationId);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to select organization');
     }
   };
+
+  const onSelectCompetition = (competitionId: string) => {
+    const orgId = getOrganizationId();
+    if (!orgId) return;
+    navigate(roundsPath(orgId, competitionId), { replace: true });
+  };
+
+  const showOrganization = step === 'organization' || requiresOrganizationSelection;
+  const showCompetition = step === 'competition' && !showOrganization;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6">
@@ -89,11 +133,15 @@ export function LoginPage() {
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader>
           <CardTitle className="text-foreground">
-            {showSelector ? 'Select organization' : 'Sign in to score'}
+            {showOrganization
+              ? 'Select organization'
+              : showCompetition
+                ? 'Select competition'
+                : 'Sign in to score'}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {showSelector ? (
+          {showOrganization ? (
             <div className="space-y-3">
               {organizations
                 .filter((o) => o.status === 'ACTIVE')
@@ -113,6 +161,37 @@ export function LoginPage() {
                     </span>
                   </Button>
                 ))}
+              {error && (
+                <div className="rounded-lg bg-destructive/20 px-4 py-3 text-sm text-red-300">{error}</div>
+              )}
+            </div>
+          ) : showCompetition ? (
+            <div className="space-y-3">
+              {competitions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  This organization has no competitions yet.
+                </p>
+              ) : (
+                competitions.map((competition) => (
+                  <Button
+                    key={competition.id}
+                    variant="outline"
+                    className="flex h-auto w-full items-start justify-start gap-3 border-border bg-muted/40 p-4 text-left text-foreground hover:bg-muted"
+                    onClick={() => onSelectCompetition(competition.id)}
+                  >
+                    <Flag className="mt-0.5 h-5 w-5 shrink-0 text-sky-400" />
+                    <span>
+                      <span className="block font-semibold">{competition.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {competition.code}
+                        {competition.status && competition.status !== 'OFFICIAL'
+                          ? ` · ${competition.status.replace(/_/g, ' ').toLowerCase()}`
+                          : ''}
+                      </span>
+                    </span>
+                  </Button>
+                ))
+              )}
               {error && (
                 <div className="rounded-lg bg-destructive/20 px-4 py-3 text-sm text-red-300">{error}</div>
               )}
