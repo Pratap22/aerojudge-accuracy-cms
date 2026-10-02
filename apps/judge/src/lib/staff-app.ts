@@ -10,17 +10,23 @@ import { getAccessToken, getOrganizationId, getRefreshToken, setOrganizationId, 
 const CURRENT_APP: StaffAppId = 'judge';
 const STAFF_APP_INTENT_KEY = 'npha_staff_app_intent';
 
+/** Keep the host the browser used, so a LAN IP still reaches the sibling app. */
+function devAppUrl(port: number): string {
+  const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  return `http://${host}:${port}/`;
+}
+
 export function siblingStaffAppUrl(target: StaffAppId): string {
   if (target === 'admin') {
     const override = import.meta.env.VITE_ADMIN_URL;
     if (override) return override.endsWith('/') ? override : `${override}/`;
-    if (import.meta.env.DEV) return 'http://localhost:3000/';
+    if (import.meta.env.DEV) return devAppUrl(3000);
     return `${window.location.origin}/admin/`;
   }
 
   const override = import.meta.env.VITE_JUDGE_URL;
   if (override) return override.endsWith('/') ? override : `${override}/`;
-  if (import.meta.env.DEV) return 'http://localhost:3001/';
+  if (import.meta.env.DEV) return devAppUrl(3001);
   return `${window.location.origin}/judge/`;
 }
 

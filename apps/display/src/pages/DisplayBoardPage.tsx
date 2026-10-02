@@ -19,6 +19,8 @@ import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
 
+const PRE_ROUND_LAYOUTS: DisplayLayoutType[] = ['sponsors', 'women', 'teams', 'country'];
+
 const LIVE_ROUND_STATUSES = new Set(['ACTIVE', 'OPEN', 'PAUSED', 'BRIEFING']);
 const CLOSED_LIKE_STATUSES = new Set([
   'CLOSED',
@@ -185,14 +187,26 @@ export function DisplayBoardPage() {
   const teamEntries = useMemo(() => toLeaderboardEntries(teamResults), [teamResults]);
   const countryEntries = useMemo(() => toLeaderboardEntries(countryResults), [countryResults]);
 
+  const beforeFirstRound = Boolean(roundsStatus) && roundPhase.phase === 'idle';
+
   const tabVisibility = useMemo(
     () => ({
+      current: !beforeFirstRound,
+      top10: !beforeFirstRound,
+      next: !beforeFirstRound,
+      auto: !beforeFirstRound,
       women: womenEntries.length > 0,
       teams: teamEntries.length > 0,
       country: countryEntries.length > 0,
       sponsors: sponsors.length > 0,
     }),
-    [womenEntries.length, teamEntries.length, countryEntries.length, sponsors.length],
+    [
+      beforeFirstRound,
+      womenEntries.length,
+      teamEntries.length,
+      countryEntries.length,
+      sponsors.length,
+    ],
   );
 
   const isLayoutAvailable = useCallback(
@@ -211,9 +225,18 @@ export function DisplayBoardPage() {
     [isLayoutAvailable],
   );
 
+  const preRoundLayouts = useMemo(
+    () => PRE_ROUND_LAYOUTS.filter((id) => isLayoutAvailable(id)),
+    [isLayoutAvailable],
+  );
+
   const baseLayout = socketState.layoutOverride ?? layout;
-  const inAuto = !scoreFocusActive && baseLayout === 'auto';
+  const inAuto = !beforeFirstRound && !scoreFocusActive && baseLayout === 'auto';
   const activeLayout: DisplayLayoutType = (() => {
+    if (beforeFirstRound) {
+      if (preRoundLayouts.includes(baseLayout)) return baseLayout;
+      return preRoundLayouts[0] ?? 'sponsors';
+    }
     if (scoreFocusActive) return 'current';
     if (baseLayout === 'auto') {
       if (autoSequence.length === 0) return 'current';
@@ -222,11 +245,13 @@ export function DisplayBoardPage() {
     if (!isLayoutAvailable(baseLayout)) return 'top10';
     return baseLayout;
   })();
-  const controlsLayout: DisplayLayoutType = scoreFocusActive
-    ? 'current'
-    : baseLayout === 'auto'
-      ? 'auto'
-      : activeLayout;
+  const controlsLayout: DisplayLayoutType = beforeFirstRound
+    ? activeLayout
+    : scoreFocusActive
+      ? 'current'
+      : baseLayout === 'auto'
+        ? 'auto'
+        : activeLayout;
 
   useEffect(() => {
     document.body.classList.toggle('kiosk-mode', kioskMode);
@@ -243,15 +268,16 @@ export function DisplayBoardPage() {
   }, [inAuto, autoSequence.length]);
 
   // Leave empty optional layouts if URL/socket still points there.
+  // Before round 1, scoring tabs stay in the URL so they return when flying starts.
   useEffect(() => {
-    if (layout === 'auto') return;
+    if (beforeFirstRound || layout === 'auto') return;
     if (!isLayoutAvailable(layout)) {
       setLayout('top10');
       const url = new URL(window.location.href);
       url.searchParams.set('layout', 'top10');
       window.history.replaceState({}, '', url);
     }
-  }, [layout, isLayoutAvailable]);
+  }, [beforeFirstRound, layout, isLayoutAvailable]);
 
   // Rotate individual ↔ team podium when the competition is finished.
   useEffect(() => {
@@ -402,7 +428,21 @@ export function DisplayBoardPage() {
       );
     }
 
-    const showRoundInterstitial = activeLayout === 'current' || activeLayout === 'next';
+    if (beforeFirstRound && preRoundLayouts.length === 0) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+          <p className="font-display text-4xl uppercase tracking-wide text-white sm:text-6xl">
+            Round 1
+          </p>
+          <p className="mt-4 text-sm uppercase tracking-[0.25em] text-sky-300 sm:text-2xl">
+            Has not started
+          </p>
+        </div>
+      );
+    }
+
+    const showRoundInterstitial =
+      !beforeFirstRound && (activeLayout === 'current' || activeLayout === 'next');
 
     if (showRoundInterstitial && roundPhase.phase === 'closed') {
       return (
@@ -480,11 +520,13 @@ export function DisplayBoardPage() {
           layoutKey={
             competitionCompleted
               ? 'completed-podium'
-              : awaitingFirstScore
-                ? `awaiting-r${roundPhase.activeRoundNumber}`
-                : roundPhase.phase === 'closed'
-                  ? `closed-r${roundPhase.closedRoundNumber}`
-                  : activeLayout
+              : beforeFirstRound
+                ? `pre-round-${activeLayout}`
+                : awaitingFirstScore
+                  ? `awaiting-r${roundPhase.activeRoundNumber}`
+                  : roundPhase.phase === 'closed'
+                    ? `closed-r${roundPhase.closedRoundNumber}`
+                    : activeLayout
           }
         >
           {renderLayout()}

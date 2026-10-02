@@ -517,6 +517,8 @@ export interface PersonDirectoryEntry {
   faiLicenseNumber?: string | null;
   visibility?: string;
   status?: string;
+  /** Set when a competition-scoped directory search finds an existing pilot entry. */
+  alreadyRegistered?: boolean;
 }
 
 export const ROLES: Role[] = [

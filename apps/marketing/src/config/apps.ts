@@ -20,7 +20,8 @@ export type AeroJudgeAppLink = {
  */
 function appHref(productionPath: string, localPort: number): string {
   if (import.meta.env.DEV) {
-    return `http://localhost:${localPort}/`;
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    return `http://${host}:${localPort}/`;
   }
   return productionPath;
 }

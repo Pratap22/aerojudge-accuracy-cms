@@ -113,6 +113,10 @@ function statusLabel(status: PilotStatus): string {
   return status.replace(/_/g, ' ');
 }
 
+function hasText(value: string | null | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
 function toFormValues(pilot: Pilot): CreatePilotInput {
   return {
     pilotNumber: pilot.pilotNumber,
@@ -176,16 +180,27 @@ export function PilotsPage() {
     defaultValues: { gender: 'MALE', pilotNumber: 1, firstName: '', lastName: '' },
   });
 
+  const faiLocked = selectedPerson
+    ? hasText(selectedPerson.faiLicenseNumber)
+    : hasText(editing?.faiLicense);
+  const civlLocked = selectedPerson
+    ? hasText(selectedPerson.civlId)
+    : hasText(editing?.civlId);
+
   const gender = watch('gender');
   const countryId = watch('countryId');
   const nationality = watch('nationality');
   const countrySelectValue = countryId || nationality || undefined;
 
   const { data: directoryHits = [] } = useQuery({
-    queryKey: ['people-directory', directoryQ],
+    queryKey: ['people-directory', activeCompetitionId, directoryQ],
     queryFn: () =>
-      api.get<PersonDirectoryEntry[]>('/people', { q: directoryQ, pageSize: 8 }),
-    enabled: formOpen && !editing && directoryQ.trim().length >= 2,
+      api.get<PersonDirectoryEntry[]>('/people', {
+        q: directoryQ,
+        pageSize: 8,
+        competitionId: activeCompetitionId,
+      }),
+    enabled: formOpen && !editing && !!activeCompetitionId && directoryQ.trim().length >= 2,
   });
 
   const invalidatePilots = () => {
@@ -334,6 +349,7 @@ export function PilotsPage() {
   };
 
   const selectPerson = (person: PersonDirectoryEntry) => {
+    if (person.alreadyRegistered) return;
     setSelectedPerson(person);
     setDirectoryQ('');
     setValue('personId', person.id);
@@ -623,16 +639,22 @@ export function PilotsPage() {
                               <li key={p.id} className="border-b border-border/40 last:border-0">
                                 <button
                                   type="button"
-                                  className="flex w-full flex-col items-start px-3 py-2.5 text-left text-sm hover:bg-muted"
+                                  disabled={p.alreadyRegistered}
+                                  className={cn(
+                                    'flex w-full flex-col items-start px-3 py-2.5 text-left text-sm',
+                                    p.alreadyRegistered
+                                      ? 'cursor-not-allowed opacity-60'
+                                      : 'hover:bg-muted',
+                                  )}
                                   onClick={() => selectPerson(p)}
                                 >
                                   <span className="font-medium">
                                     {p.firstName} {p.lastName}
                                   </span>
                                   <span className="text-xs text-muted-foreground">
-                                    {p.aeroJudgeId}
-                                    {p.civlId ? ` · CIVL ${p.civlId}` : ''}
-                                    {p.nationalityCountry ? ` · ${p.nationalityCountry.name}` : ''}
+                                    {p.alreadyRegistered
+                                      ? 'Already in this competition'
+                                      : `${p.aeroJudgeId}${p.civlId ? ` · CIVL ${p.civlId}` : ''}${p.nationalityCountry ? ` · ${p.nationalityCountry.name}` : ''}`}
                                   </span>
                                 </button>
                               </li>
@@ -688,12 +710,12 @@ export function PilotsPage() {
 
                 <div className="flex flex-col gap-2">
                   <Label>FAI License</Label>
-                  <Input {...register('faiLicense')} disabled={!!selectedPerson} />
+                  <Input {...register('faiLicense')} disabled={faiLocked} />
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <Label>CIVL ID</Label>
-                  <Input {...register('civlId')} disabled={!!selectedPerson} />
+                  <Input {...register('civlId')} disabled={civlLocked} />
                 </div>
 
                 <div className="flex flex-col gap-2">

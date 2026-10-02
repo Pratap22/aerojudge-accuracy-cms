@@ -13,7 +13,7 @@ import * as authService from '../../../services/auth.service.js';
 import * as personService from '../../../services/person.service.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
 import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
-import { env } from '../../../config/env.js';
+import { env, isDevLanOrigin } from '../../../config/env.js';
 
 const refreshSchema = z.object({
   refreshToken: z.string().min(1),
@@ -27,7 +27,12 @@ const claimLookupQuery = z.object({
 
 function resolveAppOrigin(req: Request): string {
   const origin = req.headers.origin?.trim();
-  if (origin && env.corsOrigins.includes(origin)) {
+  const allowed =
+    !!origin &&
+    (env.isProduction || env.isTest
+      ? env.corsOrigins.includes(origin)
+      : isDevLanOrigin(origin));
+  if (allowed && origin) {
     return origin.replace(/\/+$/, '');
   }
   // Prefer first CORS origin (admin in local defaults)

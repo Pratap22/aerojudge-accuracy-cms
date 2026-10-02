@@ -12,8 +12,8 @@ interface DisplayControlsProps {
   onKioskToggle: () => void;
   /** Competition partners label — Sponsors / Supporters */
   partnersLabel?: string;
-  /** When false, the matching tab is hidden (empty list). */
-  tabVisibility?: Partial<Record<OptionalDisplayLayout, boolean>>;
+  /** When false, the matching tab is hidden. */
+  tabVisibility?: Partial<Record<DisplayLayoutType, boolean>>;
 }
 
 export function DisplayControls({
@@ -38,17 +38,7 @@ export function DisplayControls({
     { id: 'auto', label: 'Auto' },
   ];
 
-  const layouts = allLayouts.filter((item) => {
-    if (
-      item.id === 'women' ||
-      item.id === 'teams' ||
-      item.id === 'country' ||
-      item.id === 'sponsors'
-    ) {
-      return tabVisibility[item.id] !== false;
-    }
-    return true;
-  });
+  const layouts = allLayouts.filter((item) => tabVisibility[item.id] !== false);
 
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {

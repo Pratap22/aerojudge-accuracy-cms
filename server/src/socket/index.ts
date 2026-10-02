@@ -1,7 +1,7 @@
 import type { Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
 import { SOCKET_ROOMS, type RankingCategory, type RoundStatus } from '@npha/shared';
-import { env } from '../config/env.js';
+import { env, isDevLanOrigin } from '../config/env.js';
 import { verifyAccessToken } from '../auth/jwt.js';
 
 let io: Server | null = null;
@@ -9,7 +9,12 @@ let io: Server | null = null;
 export function initSocket(httpServer: HttpServer): Server {
   io = new Server(httpServer, {
     cors: {
-      origin: env.corsOrigins,
+      origin:
+        env.isProduction || env.isTest
+          ? env.corsOrigins
+          : (origin, callback) => {
+              callback(null, isDevLanOrigin(origin));
+            },
       credentials: true,
     },
     path: '/socket.io',

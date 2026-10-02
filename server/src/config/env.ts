@@ -73,4 +73,22 @@ export const env = {
   sesEnabled: Boolean(raw.SES_FROM_EMAIL),
 } as const;
 
+/** localhost plus RFC1918 addresses. Development only — never used in production. */
+const PRIVATE_LAN_HOSTNAME =
+  /^(?:localhost|127\.0\.0\.1|::1|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})$/;
+
+/**
+ * Development origin check. Allows the configured CORS list plus phones and
+ * tablets on the same LAN. Production must keep using `env.corsOrigins` directly.
+ */
+export function isDevLanOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+  if (env.corsOrigins.includes(origin)) return true;
+  try {
+    return PRIVATE_LAN_HOSTNAME.test(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export type Env = typeof env;

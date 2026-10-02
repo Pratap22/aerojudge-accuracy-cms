@@ -43,7 +43,8 @@ export function competitionResultsHref(
 ): string {
   const slug = competition.publicSlug || competition.id;
   if (import.meta.env.DEV) {
-    return `http://localhost:3003/competition/${slug}`;
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    return `http://${host}:3003/competition/${slug}`;
   }
   return `/events/competition/${slug}`;
 }

@@ -22,6 +22,8 @@ const searchQuery = paginationSchema.extend({
   q: z.string().optional(),
   civlId: z.string().optional(),
   aeroJudgeId: z.string().optional(),
+  /** When set, results note people who already have a pilot entry in this competition. */
+  competitionId: z.string().min(1).optional(),
 });
 const rejectClaimBody = z.object({
   notes: z.string().max(500).optional(),
@@ -30,7 +32,17 @@ const rejectClaimBody = z.object({
 export const search = [
   validateQuery(searchQuery),
   asyncHandler(async (req: Request, res: Response) => {
-    const result = await personService.searchPeopleDirectory(req.query as never);
+    const result = await personService.searchPeopleDirectory({
+      ...(req.query as {
+        q?: string;
+        page?: number;
+        pageSize?: number;
+        civlId?: string;
+        aeroJudgeId?: string;
+        competitionId?: string;
+      }),
+      organizationId: req.organizationId,
+    });
     sendSuccess(res, result.items, 200, {
       page: result.page,
       pageSize: result.pageSize,

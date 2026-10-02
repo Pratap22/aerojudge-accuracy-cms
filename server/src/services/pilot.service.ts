@@ -18,6 +18,7 @@ import {
   matchPersons,
   personDisplayName,
   resolvePersonPhotoUrl,
+  updatePerson,
   type CreatePersonInput,
 } from './person.service.js';
 
@@ -121,6 +122,24 @@ export type CreatePilotInput = Omit<Prisma.PilotUncheckedCreateInput, 'competiti
   personId?: string;
 };
 
+/**
+ * Store a CIVL ID or FAI license on the person only when that field is still empty.
+ * Existing directory values are left unchanged.
+ */
+async function fillMissingPersonIds(
+  personId: string,
+  person: { civlId?: string | null; faiLicenseNumber?: string | null },
+  civlId: string,
+  faiLicense: string,
+  actorUserId?: string,
+): Promise<void> {
+  const patch: Partial<CreatePersonInput> = {};
+  if (!person.civlId?.trim() && civlId) patch.civlId = civlId;
+  if (!person.faiLicenseNumber?.trim() && faiLicense) patch.faiLicenseNumber = faiLicense;
+  if (Object.keys(patch).length === 0) return;
+  await updatePerson(personId, patch, { actorUserId });
+}
+
 export async function createPilot(
   competitionId: string,
   data: CreatePilotInput,
@@ -180,6 +199,11 @@ export async function createPilot(
 
   // Snapshot identity from Person when reusing directory identity.
   const person = await getPerson(personId);
+  const submittedCivl =
+    typeof pilotFields.civlId === 'string' ? pilotFields.civlId.trim() : '';
+  const submittedFai =
+    typeof pilotFields.faiLicense === 'string' ? pilotFields.faiLicense.trim() : '';
+  await fillMissingPersonIds(personId, person, submittedCivl, submittedFai, opts?.actorUserId);
   const snapshotFirstName =
     typeof pilotFields.firstName === 'string' && pilotFields.firstName.trim()
       ? pilotFields.firstName
@@ -267,11 +291,8 @@ export async function createPilot(
         firstName: snapshotFirstName,
         lastName: snapshotLastName,
         gender: pilotFields.gender ?? person.gender,
-        civlId:
-          (typeof pilotFields.civlId === 'string' ? pilotFields.civlId : null) ?? person.civlId,
-        faiLicense:
-          (typeof pilotFields.faiLicense === 'string' ? pilotFields.faiLicense : null) ??
-          person.faiLicenseNumber,
+        civlId: person.civlId?.trim() || submittedCivl || null,
+        faiLicense: person.faiLicenseNumber?.trim() || submittedFai || null,
         dateOfBirth: pilotFields.dateOfBirth ?? person.dateOfBirth ?? undefined,
         photoUrl: profilePhotoUrl,
         competitionId,
@@ -335,6 +356,20 @@ export async function updatePilot(
 
   if (status !== undefined && status !== null) {
     await setPilotStatus(competitionId, pilotId, status as PilotStatus);
+  }
+
+  const submittedCivl = typeof rest.civlId === 'string' ? rest.civlId.trim() : '';
+  const submittedFai = typeof rest.faiLicense === 'string' ? rest.faiLicense.trim() : '';
+  if (existing.civlId?.trim()) delete rest.civlId;
+  if (existing.faiLicense?.trim()) delete rest.faiLicense;
+  if (existing.personId && (!existing.civlId?.trim() || !existing.faiLicense?.trim())) {
+    const person = await getPerson(existing.personId);
+    await fillMissingPersonIds(
+      existing.personId,
+      person,
+      existing.civlId?.trim() ? '' : submittedCivl,
+      existing.faiLicense?.trim() ? '' : submittedFai,
+    );
   }
 
   const nextPilotNumber =

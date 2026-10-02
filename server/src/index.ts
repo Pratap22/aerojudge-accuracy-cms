@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
-import { env } from './config/env.js';
+import { env, isDevLanOrigin } from './config/env.js';
 import { disconnectPrisma } from './config/prisma.js';
 import apiRoutes from './api/v1/routes/index.js';
 import { openApiSpec } from './api/openapi.js';
@@ -25,7 +25,13 @@ app.use(
 );
 app.use(
   cors({
-    origin: env.corsOrigins,
+    // Live/production keeps the explicit allowlist. LAN hosts are development-only.
+    origin:
+      env.isProduction || env.isTest
+        ? env.corsOrigins
+        : (origin, callback) => {
+            callback(null, isDevLanOrigin(origin));
+          },
     credentials: true,
   }),
 );
@@ -67,11 +73,18 @@ initSocket(httpServer);
 export { app, httpServer };
 
 export function startServer(): void {
-  httpServer.listen(env.PORT, () => {
+  const onListening = () => {
     console.log(`AeroJudge API listening on port ${env.PORT}`);
     console.log(`Swagger docs: http://localhost:${env.PORT}/api/docs`);
     console.log(`API base: http://localhost:${env.PORT}${env.API_PREFIX}`);
-  });
+  };
+  // Production keeps Node's default bind (all interfaces, including IPv6).
+  // Development binds IPv4 0.0.0.0 so other devices on the LAN can reach the API.
+  if (env.isProduction) {
+    httpServer.listen(env.PORT, onListening);
+  } else {
+    httpServer.listen(env.PORT, '0.0.0.0', onListening);
+  }
 }
 
 async function shutdown(signal: string): Promise<void> {

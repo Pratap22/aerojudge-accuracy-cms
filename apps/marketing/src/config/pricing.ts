@@ -31,7 +31,10 @@ export type PricingTier = {
 };
 
 function adminStartHref(): string {
-  if (import.meta.env.DEV) return 'http://localhost:3000/login';
+  if (import.meta.env.DEV) {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    return `http://${host}:3000/login`;
+  }
   return '/admin/login';
 }
 

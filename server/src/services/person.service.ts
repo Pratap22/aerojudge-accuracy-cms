@@ -596,6 +596,9 @@ export async function searchPeopleDirectory(query: {
   pageSize?: number;
   civlId?: string;
   aeroJudgeId?: string;
+  /** Mark people who already have a pilot row in this competition. */
+  competitionId?: string;
+  organizationId?: string;
 }) {
   const page = query.page ?? 1;
   const pageSize = Math.min(query.pageSize ?? 20, 100);
@@ -631,15 +634,51 @@ export async function searchPeopleDirectory(query: {
     items.map((person) => ({ id: person.id, photoUrl: person.photoUrl })),
   );
 
+  const registeredPersonIds = await registeredPilotPersonIds(
+    query.competitionId,
+    query.organizationId,
+    items.map((person) => person.id),
+  );
+
   return {
     items: items.map((person) => ({
       ...toPersonDirectoryView(person),
       photoUrl: photoById.get(person.id) ?? person.photoUrl,
+      ...(registeredPersonIds
+        ? { alreadyRegistered: registeredPersonIds.has(person.id) }
+        : {}),
     })),
     total,
     page,
     pageSize,
   };
+}
+
+/**
+ * Person ids that already have a pilot entry in the competition.
+ * Returns null when the search is not competition-scoped.
+ */
+async function registeredPilotPersonIds(
+  competitionId: string | undefined,
+  organizationId: string | undefined,
+  personIds: string[],
+): Promise<Set<string> | null> {
+  if (!competitionId || personIds.length === 0) return null;
+
+  const competition = await prisma.competition.findUnique({
+    where: { id: competitionId },
+    select: { organizationId: true },
+  });
+  if (!competition) throw AppError.notFound('Competition not found');
+  if (organizationId && competition.organizationId !== organizationId) {
+    throw AppError.forbidden('Competition belongs to another organization');
+  }
+
+  const pilots = await prisma.pilot.findMany({
+    where: { competitionId, personId: { in: personIds } },
+    select: { personId: true },
+  });
+  return new Set(pilots.flatMap((pilot) => (pilot.personId ? [pilot.personId] : [])));
 }
 
 export async function getPersonCompetitionHistory(personId: string) {
