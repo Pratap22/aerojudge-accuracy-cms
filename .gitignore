@@ -48,6 +48,7 @@ uploads/sponsors/*
 uploads/branding/*
 uploads/documents/*
 uploads/certificates/*
+uploads/feed/*
 !uploads/**/.gitkeep
 
 # Docker volumes
