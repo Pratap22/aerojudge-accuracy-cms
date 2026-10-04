@@ -4,8 +4,9 @@ import { isEmptyHtml } from '@npha/shared';
 import { Layout } from '../components/Layout';
 import { Hero } from '../components/Hero';
 import { OrganizingTeamSection } from '../components/OrganizingTeam';
+import { EventFeedPreview } from '../components/EventFeed';
 import { PartnersSection } from '../components/PartnersSection';
-import { useCompetition, useResults } from '../hooks/useCompetition';
+import { useCompetition, useEventFeed, useResults } from '../hooks/useCompetition';
 import { competitionPath, fetchEventInfo, fetchOfficials, fetchSponsors } from '../lib/api';
 import { sanitizePublicHtml } from '../lib/rich-html';
 import { pilotFullName, formatScore } from '../lib/utils';
@@ -14,6 +15,7 @@ export function HomePage() {
   const { competitionId } = useParams<{ competitionId: string }>();
   const { data: competition, isLoading, error } = useCompetition();
   const { data: results } = useResults('OVERALL');
+  const { data: feed = [] } = useEventFeed();
   const {
     data: officials = [],
     isLoading: officialsLoading,
@@ -94,6 +96,7 @@ export function HomePage() {
   return (
     <Layout>
       <Hero competition={competition} competitionId={competitionId} topPilots={topPilots} />
+      <EventFeedPreview competitionId={competitionId} items={feed} />
       {aboutHtml ? (
         <section className="mx-auto max-w-7xl px-6 py-14">
           <div className="flex flex-wrap items-end justify-between gap-4">

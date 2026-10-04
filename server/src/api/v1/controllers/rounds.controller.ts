@@ -102,11 +102,26 @@ export const start = [
   }),
 ];
 
+const pauseBody = z.object({
+  reason: z.string().trim().min(1, 'A pause reason is required').max(500),
+});
+
 export const pause = [
   validateParams(roundParams),
+  validateBody(pauseBody),
   asyncHandler(async (req: Request, res: Response) => {
-    const round = await roundService.pauseRound(req.params.competitionId, req.params.roundId);
-    emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
+    const round = await roundService.pauseRound(
+      req.params.competitionId,
+      req.params.roundId,
+      req.body.reason,
+    );
+    emitRoundStatus(
+      req.params.competitionId,
+      req.params.roundId,
+      round.status,
+      round.number,
+      round.pauseReason,
+    );
     sendSuccess(res, round);
   }),
 ];

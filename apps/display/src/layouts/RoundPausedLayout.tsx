@@ -1,0 +1,53 @@
+import { motion } from 'framer-motion';
+import { SponsorStrip } from '../components/SponsorStrip';
+
+interface RoundPausedLayoutProps {
+  roundNumber: number;
+  reason?: string | null;
+  competitionName?: string;
+}
+
+/** Full-screen hold while a round is paused for weather or another reason. */
+export function RoundPausedLayout({
+  roundNumber,
+  reason,
+  competitionName,
+}: RoundPausedLayoutProps) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex flex-1 flex-col items-center justify-center px-4 text-center sm:px-10">
+        {competitionName ? (
+          <p className="mb-4 line-clamp-2 max-w-xl text-xs uppercase tracking-[0.3em] text-sky-400/60 sm:mb-8 sm:line-clamp-1 sm:text-sm sm:tracking-[0.4em]">
+            {competitionName}
+          </p>
+        ) : null}
+        <motion.p
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="font-display text-4xl uppercase tracking-wide text-white sm:text-7xl md:text-8xl"
+        >
+          Round {roundNumber}
+        </motion.p>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0.55, 1, 0.55] }}
+          transition={{ delay: 0.1, repeat: Infinity, duration: 2.4 }}
+          className="mt-4 text-base uppercase tracking-[0.25em] text-amber-300 sm:mt-8 sm:text-3xl sm:tracking-[0.3em]"
+        >
+          Paused
+        </motion.p>
+        {reason ? (
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mt-6 max-w-4xl whitespace-pre-wrap text-xl leading-snug text-white sm:mt-10 sm:text-4xl"
+          >
+            {reason}
+          </motion.p>
+        ) : null}
+      </div>
+      <SponsorStrip />
+    </div>
+  );
+}

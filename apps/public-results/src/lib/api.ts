@@ -63,8 +63,40 @@ export interface PublicWind {
   recordedAt: string;
 }
 
+export interface PublicRoundStatus {
+  id: string;
+  number: number;
+  status: string;
+  pauseReason?: string | null;
+}
+
+export function fetchRoundsStatus(
+  idOrSlug: string,
+): Promise<{ competitionId: string; rounds: PublicRoundStatus[] }> {
+  return publicFetch(`/${idOrSlug}/rounds-status`);
+}
+
 export function fetchLatestWind(idOrSlug: string): Promise<PublicWind | null> {
   return publicFetch<PublicWind | null>(`/${idOrSlug}/wind`);
+}
+
+export interface PublicFeedItem {
+  id: string;
+  kind: 'SCORE' | 'REFLIGHT' | 'PHOTO' | 'TEXT';
+  pilotNumber: number | null;
+  pilotName: string | null;
+  pilotPhotoUrl: string | null;
+  roundNumber: number | null;
+  scoreText: string | null;
+  reason: string | null;
+  caption: string | null;
+  imageUrl: string | null;
+  body: string;
+  createdAt: string;
+}
+
+export function fetchFeed(idOrSlug: string): Promise<PublicFeedItem[]> {
+  return publicFetch<PublicFeedItem[]>(`/${idOrSlug}/feed`);
 }
 
 export function fetchRoundResults(idOrSlug: string, round: number): Promise<RoundResults> {

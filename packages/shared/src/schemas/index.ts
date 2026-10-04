@@ -236,15 +236,33 @@ export const updateRoundTypeSchema = z.object({
   type: z.enum(['PRACTICE', 'OFFICIAL', 'REFLIGHT', 'RESTART']),
 });
 
-export const enterScoreSchema = z.object({
-  flightId: z.string().min(1),
-  distanceCm: z.number().min(0).max(10000).nullable(),
-  resultType: z
-    .enum(['MEASURED', 'BULLSEYE', 'MAXIMUM', 'DNF', 'ABS', 'DNS', 'DSQ', 'REFLIGHT', 'PENALTY'])
-    .default('MEASURED'),
-  penaltyCm: z.number().min(0).default(0),
-  judgeNotes: z.string().optional(),
-});
+export const enterScoreSchema = z
+  .object({
+    flightId: z.string().min(1),
+    distanceCm: z.number().min(0).max(10000).nullable(),
+    resultType: z
+      .enum(['MEASURED', 'BULLSEYE', 'MAXIMUM', 'DNF', 'ABS', 'DNS', 'DSQ', 'REFLIGHT', 'PENALTY'])
+      .default('MEASURED'),
+    penaltyCm: z.number().min(0).default(0),
+    judgeNotes: z.string().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.resultType !== 'REFLIGHT') return;
+    const reason = value.judgeNotes?.trim() ?? '';
+    if (!reason) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['judgeNotes'],
+        message: 'A reflight reason is required',
+      });
+    } else if (reason.length > 1000) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['judgeNotes'],
+        message: 'Reason must be 1000 characters or fewer',
+      });
+    }
+  });
 
 export const createUserSchema = z.object({
   email: z.string().email(),

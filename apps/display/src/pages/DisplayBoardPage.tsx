@@ -7,6 +7,7 @@ import { LayoutRouter } from '../layouts/LayoutRouter';
 import { CurrentPilotLayout } from '../layouts/CurrentPilotLayout';
 import { RoundClosedLayout } from '../layouts/RoundClosedLayout';
 import { RoundAwaitingLayout } from '../layouts/RoundAwaitingLayout';
+import { RoundPausedLayout } from '../layouts/RoundPausedLayout';
 import { CompletedPodiumLayout, type PodiumCategory } from '../layouts/CompletedPodiumLayout';
 import { Top10Layout } from '../layouts/Top10Layout';
 import { TopWomenLayout } from '../layouts/TopWomenLayout';
@@ -106,6 +107,13 @@ export function DisplayBoardPage() {
 
   const roundPhase = useMemo(
     () => resolveRoundPhase(roundsStatus?.rounds),
+    [roundsStatus?.rounds],
+  );
+  const pausedRound = useMemo(
+    () =>
+      roundsStatus?.rounds
+        .filter((round) => round.status === 'PAUSED')
+        .sort((a, b) => b.number - a.number)[0] ?? null,
     [roundsStatus?.rounds],
   );
 
@@ -426,6 +434,16 @@ export function DisplayBoardPage() {
   }
 
   const renderLayout = () => {
+    if (pausedRound && !competitionCompleted) {
+      return (
+        <RoundPausedLayout
+          roundNumber={pausedRound.number}
+          reason={pausedRound.pauseReason}
+          competitionName={competition.name}
+        />
+      );
+    }
+
     if (competitionCompleted) {
       const entries = podiumCategory === 'team' ? teamEntries : overallEntries;
       return (
@@ -512,7 +530,7 @@ export function DisplayBoardPage() {
             {competition.name}
           </h1>
         </div>
-        {socketState.wind && !competitionCompleted && (
+        {socketState.wind && !competitionCompleted && !pausedRound && (
           <div className="shrink-0 rounded-lg border border-sky-500/30 bg-broadcast-navy-mid/80 px-2.5 py-1 text-right sm:px-4 sm:py-2">
             <p className="text-[10px] uppercase tracking-wider text-sky-400 sm:text-xs">Wind</p>
             <p className="font-mono text-xs text-white sm:text-lg">

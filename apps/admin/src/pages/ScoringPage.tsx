@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enterScoreSchema, type EnterScoreInput, type ScoreResultType, type RuleConfig } from '@npha/shared';
 import { formatScoreCm } from '@npha/utils';
-import { Save, Target, Wind } from 'lucide-react';
+import { Pause, Play, Save, Target, Wind } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -45,6 +45,7 @@ interface RoundOption {
   number: number;
   name: string;
   status: string;
+  pauseReason?: string | null;
 }
 
 interface LatestWind {
@@ -98,6 +99,7 @@ export function ScoringPage() {
   const routeOrganizationId = useRouteOrganizationId();
   const { activeOrganizationId, user } = useAuth();
   const canUpdateWeather = usePermission('weather:update');
+  const canManageRounds = usePermission('round:manage');
   const orgId = routeOrganizationId ?? activeOrganizationId ?? user?.organizationId ?? null;
   const competitionsHref = orgId ? competitionsListPath(orgId) : '/competitions';
   const [selectedRoundId, setSelectedRoundId] = useState<string>('');
@@ -263,6 +265,22 @@ export function ScoringPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rounds'] }),
   });
 
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [pauseReason, setPauseReason] = useState('');
+
+  const roundStateMutation = useMutation({
+    mutationFn: (input: { action: 'pause'; reason: string } | { action: 'resume' }) =>
+      api.post(
+        `/competitions/${activeCompetitionId}/rounds/${selectedRoundId}/${input.action}`,
+        input.action === 'pause' ? { reason: input.reason } : undefined,
+      ),
+    onSuccess: () => {
+      setPauseOpen(false);
+      setPauseReason('');
+      queryClient.invalidateQueries({ queryKey: ['rounds', activeCompetitionId] });
+    },
+  });
+
   const selectedRound = rounds?.find((r) => r.id === selectedRoundId);
   const scoresReadOnly =
     !!selectedRound && ['APPROVED', 'LOCKED'].includes(selectedRound.status);
@@ -350,7 +368,40 @@ export function ScoringPage() {
             )}
           </div>
         </div>
+
+        {canManageRounds && selectedRound?.status === 'ACTIVE' ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={roundStateMutation.isPending}
+            onClick={() => {
+              setPauseReason('');
+              setPauseOpen(true);
+            }}
+          >
+            <Pause className="mr-2 h-4 w-4" />
+            Pause round
+          </Button>
+        ) : null}
+        {canManageRounds && selectedRound?.status === 'PAUSED' ? (
+          <Button
+            type="button"
+            disabled={roundStateMutation.isPending}
+            onClick={() => roundStateMutation.mutate({ action: 'resume' })}
+          >
+            <Play className="mr-2 h-4 w-4" />
+            Resume round
+          </Button>
+        ) : null}
       </div>
+
+      {selectedRound?.status === 'PAUSED' ? (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          {`Round ${selectedRound.number} is paused${
+            selectedRound.pauseReason ? ` — ${selectedRound.pauseReason}` : ''
+          }. Public pages show this until you resume.`}
+        </p>
+      ) : null}
 
       {selectedRoundId && (
         <div className="space-y-4">
@@ -541,8 +592,26 @@ export function ScoringPage() {
                   <input type="hidden" {...register('resultType')} />
 
                   <div className="space-y-2">
-                    <Label>Judge Notes</Label>
-                    <Textarea {...register('judgeNotes')} rows={2} />
+                    <Label>
+                      {resultType === 'REFLIGHT' ? 'Reason' : 'Judge notes'}
+                    </Label>
+                    <Textarea
+                      {...register('judgeNotes')}
+                      rows={2}
+                      maxLength={1000}
+                      required={resultType === 'REFLIGHT'}
+                      placeholder={
+                        resultType === 'REFLIGHT' ? 'Wind above the limit' : undefined
+                      }
+                    />
+                    {errors.judgeNotes ? (
+                      <p className="text-sm text-destructive">{errors.judgeNotes.message}</p>
+                    ) : null}
+                    {resultType === 'REFLIGHT' ? (
+                      <p className="text-xs text-muted-foreground">
+                        Required. This reason is posted to the public feed.
+                      </p>
+                    ) : null}
                   </div>
 
                   <input type="hidden" {...register('flightId')} />
@@ -562,7 +631,14 @@ export function ScoringPage() {
                   )}
 
                   <div className="flex gap-2">
-                    <Button type="submit" className="flex-1" disabled={scoreMutation.isPending}>
+                    <Button
+                      type="submit"
+                      className="flex-1"
+                      disabled={
+                        scoreMutation.isPending ||
+                        (resultType === 'REFLIGHT' && !watch('judgeNotes')?.trim())
+                      }
+                    >
                       <Save className="mr-2 h-4 w-4" />
                       {scoreMutation.isPending ? 'Saving…' : 'Save Score'}
                     </Button>
@@ -638,6 +714,43 @@ export function ScoringPage() {
             </Button>
             <Button type="button" onClick={submitWind} disabled={windMutation.isPending}>
               {windMutation.isPending ? 'Saving…' : 'Save wind'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pauseOpen} onOpenChange={setPauseOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pause round {selectedRound?.number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="pause-reason">Reason</Label>
+            <Textarea
+              id="pause-reason"
+              value={pauseReason}
+              onChange={(event) => setPauseReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Wind above the limit"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown on the public pages and the venue display until the round resumes.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPauseOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={roundStateMutation.isPending || !pauseReason.trim()}
+              onClick={() =>
+                roundStateMutation.mutate({ action: 'pause', reason: pauseReason.trim() })
+              }
+            >
+              {roundStateMutation.isPending ? 'Pausing…' : 'Pause round'}
             </Button>
           </DialogFooter>
         </DialogContent>

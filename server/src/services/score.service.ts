@@ -3,6 +3,7 @@ import type { ComputedScore, RoundScoreEntry, ScoreResultType } from '@npha/shar
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { getCompetition, settingsToRuleOverrides } from './competition.service.js';
+import { publishEnteredScore } from './event-feed.service.js';
 
 export async function enterScore(
   flightId: string,
@@ -19,6 +20,14 @@ export async function enterScore(
     include: { round: true, pilot: true },
   });
   if (!flight) throw AppError.notFound('Flight not found');
+
+  const judgeNotes = data.judgeNotes?.trim() || undefined;
+  if (data.resultType === 'REFLIGHT' && !judgeNotes) {
+    throw AppError.badRequest('A reflight reason is required');
+  }
+  if (judgeNotes && judgeNotes.length > 1000) {
+    throw AppError.badRequest('Reason must be 1000 characters or fewer');
+  }
 
   if (['LOCKED', 'APPROVED'].includes(flight.round.status)) {
     throw AppError.badRequest(
@@ -66,7 +75,7 @@ export async function enterScore(
       finalScoreCm: computed.finalScoreCm,
       isBullseye: computed.isBullseye,
       status: 'ENTERED',
-      judgeNotes: data.judgeNotes,
+      judgeNotes,
       enteredById: data.enteredById,
       enteredAt: new Date(),
     },
@@ -77,7 +86,7 @@ export async function enterScore(
       finalScoreCm: computed.finalScoreCm,
       isBullseye: computed.isBullseye,
       status: 'ENTERED',
-      judgeNotes: data.judgeNotes,
+      judgeNotes,
       enteredById: data.enteredById,
       enteredAt: new Date(),
       version: { increment: 1 },
@@ -89,6 +98,22 @@ export async function enterScore(
     where: { id: flightId },
     data: { status: computed.isCountable ? 'SCORED' : 'REFLIGHT' },
   });
+
+  try {
+    await publishEnteredScore({
+      competitionId: flight.round.competitionId,
+      flightId,
+      roundNumber: flight.round.number,
+      pilotId: flight.pilotId,
+      createdById: data.enteredById,
+      resultType: data.resultType,
+      finalScoreCm: computed.finalScoreCm,
+      isBullseye: computed.isBullseye,
+      judgeNotes,
+    });
+  } catch (error) {
+    console.error('Failed to publish score to the event feed', error);
+  }
 
   return {
     score,

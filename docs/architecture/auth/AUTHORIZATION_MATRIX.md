@@ -40,6 +40,7 @@ Columns: **Owner** = `ORGANIZATION_OWNER` · **MD** = `MEET_DIRECTOR` · **CJ** 
 | Approve print | `print:approve` | ✓ | ✓ | ✓ | | | | | | | |
 | Control venue display | `display:control` | ✓ | ✓ | | | | | ✓ | | | |
 | Announcements | `announce` | ✓ | ✓ | | | | ✓ | | | | |
+| Event feed | `feed:manage` | | | ✓ | | | | | | | |
 | Weather updates | `weather:update` | ✓ | ✓ | ✓ | ✓ | ✓ | | | ✓ | | |
 | View audit logs | `audit:view` | ✓ | ✓ | ✓ | | | | | | | |
 
@@ -49,7 +50,8 @@ Columns: **Owner** = `ORGANIZATION_OWNER` · **MD** = `MEET_DIRECTOR` · **CJ** 
 2. **Judge has no `organization:read`** — may affect org-nav UX that gates on that key.  
 3. **Owners** inherit Meet Director + delete/manage + score enter/confirm.  
 4. **Scorer** includes judge-like scoring entry + pilot/team management.  
-5. **Registration Officer** manages pilots/teams only (plus `organization:read`).
+5. **Registration Officer** manages pilots/teams only (plus `organization:read`).  
+6. **Event feed** (`feed:manage`) is granted to the chief judge org role and to platform super admin. Meet director and organization owner do not receive it from the org bundle.
 
 ---
 

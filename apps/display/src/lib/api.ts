@@ -79,6 +79,7 @@ export interface PublicRoundStatusRow {
   id: string;
   number: number;
   status: string;
+  pauseReason?: string | null;
 }
 
 export function fetchRoundsStatus(idOrSlug: string): Promise<{

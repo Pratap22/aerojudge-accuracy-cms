@@ -116,6 +116,14 @@ export const getLatestScore = [
   }),
 ];
 
+export const getFeed = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const items = await publicService.getPublicFeed(req.params.slug);
+    sendSuccess(res, items);
+  }),
+];
+
 export const getLatestWind = [
   validateParams(slugParams),
   asyncHandler(async (req: Request, res: Response) => {

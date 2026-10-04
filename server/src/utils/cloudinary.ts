@@ -28,7 +28,12 @@ function ensureConfigured() {
  */
 export async function uploadImageToCloudinary(
   file: Express.Multer.File,
-  options: { folder: string; publicId?: string },
+  options: {
+    folder: string;
+    publicId?: string;
+    /** Max edge length. Portraits stay square-limited; event photos can be larger. */
+    maxEdge?: number;
+  },
 ): Promise<{ url: string; publicId: string }> {
   ensureConfigured();
 
@@ -41,6 +46,7 @@ export async function uploadImageToCloudinary(
     /\/{2,}/g,
     '/',
   );
+  const maxEdge = options.maxEdge ?? 800;
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -50,7 +56,7 @@ export async function uploadImageToCloudinary(
         overwrite: true,
         resource_type: 'image',
         transformation: [
-          { width: 800, height: 800, crop: 'limit', quality: 'auto', fetch_format: 'auto' },
+          { width: maxEdge, height: maxEdge, crop: 'limit', quality: 'auto', fetch_format: 'auto' },
         ],
       },
       (err, result) => {
@@ -68,4 +74,32 @@ export async function uploadImageToCloudinary(
     );
     stream.end(file.buffer);
   });
+}
+
+/** Remove a Cloudinary asset when the stored URL points at this account. */
+export async function destroyCloudinaryImage(url: string | null | undefined): Promise<void> {
+  if (!url || !env.cloudinaryEnabled || !url.includes('res.cloudinary.com')) return;
+  const publicId = cloudinaryPublicId(url);
+  if (!publicId) return;
+  ensureConfigured();
+  await cloudinary.uploader.destroy(publicId, { resource_type: 'image' }).catch(() => undefined);
+}
+
+function cloudinaryPublicId(url: string): string | null {
+  try {
+    const pathname = new URL(url).pathname;
+    const marker = '/image/upload/';
+    const index = pathname.indexOf(marker);
+    if (index < 0) return null;
+    const parts = pathname.slice(index + marker.length).split('/').filter(Boolean);
+    const versionIndex = parts.findIndex((part) => /^v\d+$/.test(part));
+    const idParts = (versionIndex >= 0 ? parts.slice(versionIndex + 1) : parts).filter(
+      (part) => !part.includes(','),
+    );
+    if (idParts.length === 0) return null;
+    const last = idParts[idParts.length - 1]!.replace(/\.[a-z0-9]+$/i, '');
+    return [...idParts.slice(0, -1), last].join('/');
+  } catch {
+    return null;
+  }
 }

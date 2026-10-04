@@ -1,8 +1,8 @@
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle2, ClipboardList, Radio } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Pause, Radio } from 'lucide-react';
 import { competitionPath } from '../lib/api';
-import { useCompetition } from '../hooks/useCompetition';
+import { useCompetition, useRoundsStatus } from '../hooks/useCompetition';
 import {
   hasCompetitionStarted,
   isCompetitionCompleted,
@@ -14,6 +14,7 @@ export function Navigation() {
   const { competitionId } = useParams<{ competitionId: string }>();
   const id = competitionId ?? '';
   const { data: competition } = useCompetition();
+  const { pausedRound } = useRoundsStatus();
   const completed = isCompetitionCompleted(competition?.status);
   const started = hasCompetitionStarted(competition?.status);
   const preEvent = isPreEvent(competition?.status);
@@ -22,6 +23,7 @@ export function Navigation() {
   const navItems = preEvent
     ? [
         { path: '', label: 'Home' },
+        { path: 'feed', label: 'Feed' },
         ...(competition?.hasInfo ? [{ path: 'info', label: 'Info' }] : []),
         { path: 'pilots', label: 'Pilots' },
         { path: 'officials', label: 'Officials' },
@@ -29,6 +31,7 @@ export function Navigation() {
       ]
     : [
         { path: '', label: 'Home' },
+        { path: 'feed', label: 'Feed' },
         ...(competition?.hasInfo ? [{ path: 'info', label: 'Info' }] : []),
         { path: 'results', label: completed ? 'Final Results' : 'Live Results' },
         { path: 'pilots', label: 'Pilots' },
@@ -75,6 +78,13 @@ export function Navigation() {
             <CheckCircle2 className="h-3 w-3 text-sky-300" />
             <span className="text-xs font-semibold uppercase tracking-wider text-sky-300">
               Completed
+            </span>
+          </div>
+        ) : pausedRound ? (
+          <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3 py-1.5">
+            <Pause className="h-3 w-3 text-amber-300" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-amber-200">
+              Paused
             </span>
           </div>
         ) : preEvent ? (

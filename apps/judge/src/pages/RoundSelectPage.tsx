@@ -2,8 +2,20 @@ import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronRight, ClipboardList, LogOut, Play, Plus, Target } from 'lucide-react';
-import { Badge, Button, Card, CardContent } from '@npha/ui';
+import { ChevronRight, ClipboardList, LogOut, Pause, Play, Plus, Target } from 'lucide-react';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  Textarea,
+} from '@npha/ui';
 import type { CompetitionStatus, RoundStatus } from '@npha/shared';
 import { api, ApiError, getOrganizationId } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -270,6 +282,22 @@ export function RoundSelectPage() {
     },
   });
 
+  const [pauseTarget, setPauseTarget] = useState<{ id: string; number: number } | null>(null);
+  const [pauseReason, setPauseReason] = useState('');
+
+  const pauseMutation = useMutation({
+    mutationFn: ({ roundId, reason }: { roundId: string; reason: string }) =>
+      api.post(`/competitions/${activeCompId}/rounds/${roundId}/pause`, { reason }),
+    onSuccess: () => {
+      setPauseTarget(null);
+      setPauseReason('');
+      invalidateRounds();
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiError ? err.message : 'Failed to pause round');
+    },
+  });
+
   const selectRound = (roundId: string) => {
     if (activeCompId && routeOrgId) {
       setCompetitionId(activeCompId);
@@ -277,7 +305,7 @@ export function RoundSelectPage() {
     }
   };
 
-  const busy = startMutation.isPending || createAndStartMutation.isPending;
+  const busy = startMutation.isPending || createAndStartMutation.isPending || pauseMutation.isPending;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -443,6 +471,10 @@ export function RoundSelectPage() {
                   onSelect={selectRound}
                   onStart={(id) => setPendingWind({ kind: 'start', roundId: id })}
                   onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
+                  onPause={(id, number) => {
+                    setPauseReason('');
+                    setPauseTarget({ id, number });
+                  }}
                 />
               ))}
             </div>
@@ -457,6 +489,10 @@ export function RoundSelectPage() {
                 onSelect={selectRound}
                 onStart={(id) => setPendingWind({ kind: 'start', roundId: id })}
                 onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
+                onPause={(id, number) => {
+                  setPauseReason('');
+                  setPauseTarget({ id, number });
+                }}
               />
             ))}
           </div>
@@ -483,6 +519,46 @@ export function RoundSelectPage() {
           }
         }}
       />
+      <Dialog
+        open={pauseTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setPauseTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pause round {pauseTarget?.number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="round-select-pause-reason">Reason</Label>
+            <Textarea
+              id="round-select-pause-reason"
+              value={pauseReason}
+              onChange={(event) => setPauseReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Wind above the limit"
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown on the public pages and the venue display until the round resumes.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setPauseTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={pauseMutation.isPending || !pauseReason.trim() || !pauseTarget}
+              onClick={() => {
+                if (!pauseTarget) return;
+                pauseMutation.mutate({ roundId: pauseTarget.id, reason: pauseReason.trim() });
+              }}
+            >
+              {pauseMutation.isPending ? 'Pausing…' : 'Pause round'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -493,16 +569,19 @@ function RoundRow({
   onSelect,
   onStart,
   onResume,
+  onPause,
 }: {
   round: RoundOption;
   busy: boolean;
   onSelect: (id: string) => void;
   onStart: (id: string) => void;
   onResume: (id: string) => void;
+  onPause: (id: string, number: number) => void;
 }) {
   const canScore = SCORABLE_STATUSES.includes(round.status);
   const canStart = STARTABLE_STATUSES.includes(round.status);
   const canResume = round.status === 'PAUSED';
+  const canPause = round.status === 'ACTIVE';
   const scoringBlocked = ['APPROVED', 'LOCKED', 'CANCELLED', 'SCHEDULED'].includes(round.status);
 
   return (
@@ -545,6 +624,20 @@ function RoundRow({
             >
               <Play className="mr-1 h-4 w-4" />
               Start
+            </Button>
+          )}
+          {canPause && (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPause(round.id, round.number);
+              }}
+            >
+              <Pause className="mr-1 h-4 w-4" />
+              Pause
             </Button>
           )}
           {canResume && (

@@ -11,6 +11,7 @@ import { WomenPage, TeamsPage, CountriesPage } from './pages/CategoryPages';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { OfficialsPage } from './pages/OfficialsPage';
 import { InfoPage } from './pages/InfoPage';
+import { FeedPage } from './pages/NewsPage';
 import { competitionPath } from './lib/api';
 
 const DEFAULT_ID = (import.meta.env.VITE_DEFAULT_SLUG || '').trim();
@@ -28,6 +29,12 @@ function LegacySlugRedirect({ suffix = '' }: { suffix?: string }) {
   if (!slug) return <Navigate to="/" replace />;
   const target = suffix ? competitionPath(slug, suffix) : competitionPath(slug);
   return <Navigate to={target} replace />;
+}
+
+function NewsRedirect() {
+  const { competitionId } = useParams<{ competitionId: string }>();
+  if (!competitionId) return <Navigate to="/" replace />;
+  return <Navigate to={competitionPath(competitionId, 'feed')} replace />;
 }
 
 function LegacyPilotRedirect() {
@@ -53,6 +60,8 @@ function App() {
       <Route path="/competition/:competitionId/statistics" element={<StatisticsPage />} />
       <Route path="/competition/:competitionId/officials" element={<OfficialsPage />} />
       <Route path="/competition/:competitionId/info" element={<InfoPage />} />
+      <Route path="/competition/:competitionId/feed" element={<FeedPage />} />
+      <Route path="/competition/:competitionId/news" element={<NewsRedirect />} />
 
       <Route path="/:slug" element={<LegacySlugRedirect />} />
       <Route path="/:slug/results" element={<LegacySlugRedirect suffix="results" />} />
@@ -65,6 +74,8 @@ function App() {
       <Route path="/:slug/statistics" element={<LegacySlugRedirect suffix="statistics" />} />
       <Route path="/:slug/officials" element={<LegacySlugRedirect suffix="officials" />} />
       <Route path="/:slug/info" element={<LegacySlugRedirect suffix="info" />} />
+      <Route path="/:slug/feed" element={<LegacySlugRedirect suffix="feed" />} />
+      <Route path="/:slug/news" element={<LegacySlugRedirect suffix="feed" />} />
     </Routes>
   );
 }

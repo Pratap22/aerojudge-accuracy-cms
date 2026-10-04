@@ -95,12 +95,14 @@ export function emitRoundStatus(
   roundId: string,
   status: RoundStatus,
   number?: number,
+  pauseReason?: string | null,
 ): void {
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))
     .to(SOCKET_ROOMS.round(roundId))
     .to(SOCKET_ROOMS.display(competitionId))
-    .emit('round:status', { competitionId, roundId, status, number });
+    .to(SOCKET_ROOMS.public(competitionId))
+    .emit('round:status', { competitionId, roundId, status, number, pauseReason });
 }
 
 export function emitRankingUpdated(competitionId: string, category: RankingCategory): void {
@@ -128,6 +130,13 @@ export function emitAnnouncement(
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))
     .emit('announcement:new', { competitionId, ...announcement });
+}
+
+export function emitFeedUpdated(competitionId: string): void {
+  getIo()
+    .to(SOCKET_ROOMS.competition(competitionId))
+    .to(SOCKET_ROOMS.public(competitionId))
+    .emit('feed:updated', { competitionId });
 }
 
 export function emitWindUpdated(

@@ -86,6 +86,7 @@ model User {
   roundsApproved     Round[]           @relation("RoundApprovedBy")
   auditLogs          AuditLog[]
   announcements      Announcement[]
+  eventFeedItems    EventFeedItem[]
   printJobs          PrintHistory[] @relation("PrintPrintedBy")
   printApprovals     PrintHistory[] @relation("PrintApprovedBy")
   notifications      Notification[]
@@ -551,6 +552,7 @@ model Competition {
   documents        Document[]
   printHistory     PrintHistory[]
   announcements    Announcement[]
+  eventFeedItems   EventFeedItem[]
   auditLogs        AuditLog[]
   notifications    Notification[]
   competitionUsers CompetitionUser[]
@@ -748,6 +750,7 @@ model Pilot {
   scores               Score[]
   individualRankings   IndividualRanking[]
   penalties            Penalty[]
+  eventFeedItems      EventFeedItem[]
 
   @@unique([competitionId, pilotNumber])
   @@index([competitionId])
@@ -866,6 +869,8 @@ model Round {
   scheduledAt     DateTime?
   startedAt       DateTime?
   pausedAt        DateTime?
+  /// Why the round was paused (weather, wind, or another hold). Cleared on resume.
+  pauseReason     String?
   closedAt        DateTime?
   approvedAt      DateTime?
   /// User who approved the round (Chief Judge / Meet Director path or dual-approval final).
@@ -1282,6 +1287,42 @@ model PrintHistory {
   @@index([reportType])
   @@index([status])
   @@index([approvedById])
+}
+
+model EventFeedItem {
+  id            String         @id @default(cuid())
+  competitionId String
+  competition   Competition    @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  kind          EventFeedKind
+  pilotId       String?
+  pilot         Pilot?         @relation(fields: [pilotId], references: [id], onDelete: SetNull)
+  /// Snapshot so the public line stays readable if the pilot record changes.
+  pilotNumber   Int?
+  pilotName     String?
+  pilotPhotoUrl String?
+  roundNumber   Int?
+  scoreText     String?
+  reason        String?
+  caption       String?
+  imageUrl      String?
+  body          String
+  /// Set for scores entered on a flight so a correction updates the same post.
+  sourceKey     String?
+  createdById   String?
+  createdBy     User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([competitionId, sourceKey])
+  @@index([competitionId, updatedAt])
+  @@index([pilotId])
+}
+
+enum EventFeedKind {
+  SCORE
+  REFLIGHT
+  PHOTO
+  TEXT
 }
 
 model Announcement {

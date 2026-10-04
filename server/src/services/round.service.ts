@@ -194,13 +194,18 @@ export async function startRound(competitionId: string, roundId: string) {
   return updated;
 }
 
-export async function pauseRound(competitionId: string, roundId: string) {
+export async function pauseRound(competitionId: string, roundId: string, reason: string) {
   const round = await getRound(competitionId, roundId);
   if (round.status !== 'ACTIVE') throw AppError.badRequest('Round is not active');
+  const pauseReason = reason.trim();
+  if (!pauseReason) throw AppError.badRequest('A pause reason is required');
+  if (pauseReason.length > 500) {
+    throw AppError.badRequest('Pause reason must be 500 characters or fewer');
+  }
 
   return prisma.round.update({
     where: { id: roundId },
-    data: { status: 'PAUSED', pausedAt: new Date() },
+    data: { status: 'PAUSED', pausedAt: new Date(), pauseReason },
   });
 }
 
@@ -210,7 +215,7 @@ export async function resumeRound(competitionId: string, roundId: string) {
 
   return prisma.round.update({
     where: { id: roundId },
-    data: { status: 'ACTIVE', pausedAt: null },
+    data: { status: 'ACTIVE', pausedAt: null, pauseReason: null },
   });
 }
 

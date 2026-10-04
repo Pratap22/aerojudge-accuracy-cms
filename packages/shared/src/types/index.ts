@@ -403,10 +403,12 @@ export interface SocketEvents {
     roundId: string;
     status: RoundStatus;
     number?: number;
+    pauseReason?: string | null;
   };
   'ranking:updated': { competitionId: string; category: RankingCategory };
   'flight:status': { competitionId: string; flightId: string; status: FlightStatus };
   'announcement:new': { competitionId: string; title: string; body: string; priority: string };
+  'feed:updated': { competitionId: string };
   'wind:updated': { competitionId: string; directionDeg: number; speedMs: number };
   'display:layout': { competitionId: string; layoutType: string; payload: unknown };
   'pilot:current': { competitionId: string; pilotId: string | null; flightId: string | null };

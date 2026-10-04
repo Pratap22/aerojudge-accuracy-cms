@@ -16,6 +16,7 @@ import { PilotsPage } from './pages/PilotsPage';
 import { TeamsPage } from './pages/TeamsPage';
 import { SponsorsPage } from './pages/SponsorsPage';
 import { EventInfoPage } from './pages/EventInfoPage';
+import { EventFeedPage } from './pages/EventFeedPage';
 import { OfficialsPage } from './pages/OfficialsPage';
 import { RoundsPage } from './pages/RoundsPage';
 import { ScoringPage } from './pages/ScoringPage';
@@ -88,6 +89,14 @@ function CompetitionRoutes() {
         element={
           <RequirePermission anyOf={['competition:update']}>
             <EventInfoPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/feed"
+        element={
+          <RequirePermission anyOf={['feed:manage']}>
+            <EventFeedPage />
           </RequirePermission>
         }
       />

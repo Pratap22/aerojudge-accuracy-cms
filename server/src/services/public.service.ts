@@ -848,10 +848,47 @@ export async function getPublicRoundsStatus(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
   const rounds = await prisma.round.findMany({
     where: { competitionId: competition.id },
-    select: { id: true, number: true, status: true },
+    select: { id: true, number: true, status: true, pauseReason: true },
     orderBy: { number: 'asc' },
   });
   return { competitionId: competition.id, rounds };
+}
+
+export async function getPublicFeed(slugOrId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+  const items = await prisma.eventFeedItem.findMany({
+    where: { competitionId: competition.id },
+    orderBy: { updatedAt: 'desc' },
+    take: 100,
+    select: {
+      id: true,
+      kind: true,
+      pilotNumber: true,
+      pilotName: true,
+      pilotPhotoUrl: true,
+      roundNumber: true,
+      scoreText: true,
+      reason: true,
+      caption: true,
+      imageUrl: true,
+      body: true,
+      updatedAt: true,
+    },
+  });
+  return items.map((item) => ({
+    id: item.id,
+    kind: item.kind,
+    pilotNumber: item.pilotNumber,
+    pilotName: item.pilotName,
+    pilotPhotoUrl: item.pilotPhotoUrl,
+    roundNumber: item.roundNumber,
+    scoreText: item.scoreText,
+    reason: item.reason,
+    caption: item.caption,
+    imageUrl: item.imageUrl,
+    body: item.body,
+    createdAt: item.updatedAt.toISOString(),
+  }));
 }
 
 export async function getPublicLatestWind(slugOrId: string) {

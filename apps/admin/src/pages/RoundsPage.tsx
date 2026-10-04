@@ -39,6 +39,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Textarea,
 } from '@npha/ui';
 import type { CompetitionStatus, ReportType, RoundStatus, RoundType } from '@npha/shared';
 import { api, ApiError, apiFetch, apiRequest } from '../lib/api';
@@ -249,10 +250,26 @@ export function RoundsPage() {
     },
   });
 
+  const [pauseTarget, setPauseTarget] = useState<{ id: string; number: number } | null>(null);
+  const [pauseReason, setPauseReason] = useState('');
+
   const actionMutation = useMutation({
-    mutationFn: ({ roundId, action }: { roundId: string; action: RoundAction }) =>
-      api.post(`/competitions/${competitionId}/rounds/${roundId}/${action}`),
+    mutationFn: ({
+      roundId,
+      action,
+      reason,
+    }: {
+      roundId: string;
+      action: RoundAction;
+      reason?: string;
+    }) =>
+      api.post(
+        `/competitions/${competitionId}/rounds/${roundId}/${action}`,
+        action === 'pause' ? { reason } : undefined,
+      ),
     onSuccess: () => {
+      setPauseTarget(null);
+      setPauseReason('');
       queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
       queryClient.invalidateQueries({ queryKey: ['rankings', competitionId] });
     },
@@ -669,7 +686,14 @@ export function RoundsPage() {
                           size="sm"
                           variant={variant ?? (action === 'start' ? 'default' : 'outline')}
                           disabled={actionMutation.isPending}
-                          onClick={() => actionMutation.mutate({ roundId: round.id, action })}
+                          onClick={() => {
+                            if (action === 'pause') {
+                              setPauseReason('');
+                              setPauseTarget({ id: round.id, number: round.number });
+                              return;
+                            }
+                            actionMutation.mutate({ roundId: round.id, action });
+                          }}
                         >
                           {icon}
                           <span className="ml-1">{label}</span>
@@ -766,6 +790,52 @@ export function RoundsPage() {
               onClick={() => createMutation.mutate()}
             >
               {createMutation.isPending ? 'Creating…' : `Create Round ${nextNumber}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pauseTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setPauseTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pause round {pauseTarget?.number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rounds-pause-reason">Reason</Label>
+            <Textarea
+              id="rounds-pause-reason"
+              value={pauseReason}
+              onChange={(event) => setPauseReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Wind above the limit"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown on the public pages and the venue display until the round resumes.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPauseTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={actionMutation.isPending || !pauseReason.trim() || !pauseTarget}
+              onClick={() => {
+                if (!pauseTarget) return;
+                actionMutation.mutate({
+                  roundId: pauseTarget.id,
+                  action: 'pause',
+                  reason: pauseReason.trim(),
+                });
+              }}
+            >
+              {actionMutation.isPending ? 'Pausing…' : 'Pause round'}
             </Button>
           </DialogFooter>
         </DialogContent>

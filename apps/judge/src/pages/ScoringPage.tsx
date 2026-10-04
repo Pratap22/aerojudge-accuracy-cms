@@ -2,8 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, CheckCircle, Square } from 'lucide-react';
-import { Button } from '@npha/ui';
+import { ArrowLeft, CheckCircle, Pause, Play, Square } from 'lucide-react';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  Textarea,
+} from '@npha/ui';
 import type { EnterScoreInput, RuleConfig, ScoreResultType } from '@npha/shared';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -57,6 +66,7 @@ export function ScoringPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [distanceInput, setDistanceInput] = useState('');
   const [resultType, setResultType] = useState<ScoreResultType>('MEASURED');
+  const [reflightReason, setReflightReason] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingCount, setPendingCount] = useState(getPendingCount());
   const [confirmed, setConfirmed] = useState(false);
@@ -73,7 +83,13 @@ export function ScoringPage() {
   const { data: roundMeta } = useQuery({
     queryKey: ['judge-round', competitionId, roundId],
     queryFn: () =>
-      api.get<{ id: string; status: string; number: number; name: string | null }>(
+      api.get<{
+        id: string;
+        status: string;
+        number: number;
+        name: string | null;
+        pauseReason: string | null;
+      }>(
         `/competitions/${competitionId}/rounds/${roundId}`,
       ),
     enabled: !!competitionId && !!roundId,
@@ -159,6 +175,7 @@ export function ScoringPage() {
     if (currentFlight) {
       setDistanceInput(currentFlight.distanceCm?.toString() ?? '');
       setResultType(currentFlight.resultType ?? 'MEASURED');
+      setReflightReason('');
       setConfirmed(false);
     }
   }, [currentFlight?.id]);
@@ -199,6 +216,7 @@ export function ScoringPage() {
           resultType === 'BULLSEYE' ? 0 : resultType === 'MAXIMUM' ? maximumScoreCm : distanceCm,
         resultType,
         penaltyCm: 0,
+        judgeNotes: resultType === 'REFLIGHT' ? reflightReason.trim() : undefined,
       });
     },
   });
@@ -212,6 +230,7 @@ export function ScoringPage() {
     if (resultType === type && type !== 'MEASURED') {
       setResultType('MEASURED');
       setDistanceInput('');
+      setReflightReason('');
       return;
     }
 
@@ -224,6 +243,7 @@ export function ScoringPage() {
     if (scoresReadOnly) return;
     setDistanceInput(v);
     setResultType('MEASURED');
+    setReflightReason('');
     setConfirmed(false);
     confirmMutation.reset();
   };
@@ -249,7 +269,8 @@ export function ScoringPage() {
     !confirmed &&
     !scoresReadOnly &&
     !!currentFlight &&
-    (resultType !== 'MEASURED' || distanceInput !== '');
+    (resultType !== 'MEASURED' || distanceInput !== '') &&
+    (resultType !== 'REFLIGHT' || reflightReason.trim() !== '');
 
   const allScored = useMemo(
     () =>
@@ -260,6 +281,23 @@ export function ScoringPage() {
 
   const canCloseRound =
     !!roundMeta && ['ACTIVE', 'PAUSED', 'OPEN'].includes(roundMeta.status) && allScored;
+
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [pauseReason, setPauseReason] = useState('');
+
+  const roundStateMutation = useMutation({
+    mutationFn: (input: { action: 'pause'; reason: string } | { action: 'resume' }) =>
+      api.post(
+        `/competitions/${competitionId}/rounds/${roundId}/${input.action}`,
+        input.action === 'pause' ? { reason: input.reason } : undefined,
+      ),
+    onSuccess: () => {
+      setPauseOpen(false);
+      setPauseReason('');
+      queryClient.invalidateQueries({ queryKey: ['judge-round', competitionId, roundId] });
+      queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+    },
+  });
 
   const closeMutation = useMutation({
     mutationFn: () => api.post(`/competitions/${competitionId}/rounds/${roundId}/close`),
@@ -293,6 +331,34 @@ export function ScoringPage() {
               <span className="ml-2 text-xs font-normal text-slate-400">{roundMeta.status}</span>
             ) : null}
           </p>
+          {roundMeta?.status === 'ACTIVE' || roundMeta?.status === 'PAUSED' ? (
+            <Button
+              size="sm"
+              variant={roundMeta.status === 'PAUSED' ? 'default' : 'secondary'}
+              className="mt-1 h-7 px-2 text-xs"
+              disabled={roundStateMutation.isPending}
+              onClick={() => {
+                if (roundMeta.status === 'PAUSED') {
+                  roundStateMutation.mutate({ action: 'resume' });
+                  return;
+                }
+                setPauseReason('');
+                setPauseOpen(true);
+              }}
+            >
+              {roundMeta.status === 'PAUSED' ? (
+                <>
+                  <Play className="mr-1 h-3 w-3" />
+                  Resume
+                </>
+              ) : (
+                <>
+                  <Pause className="mr-1 h-3 w-3" />
+                  Pause
+                </>
+              )}
+            </Button>
+          ) : null}
           <p className="text-[10px] text-slate-500">
             Pilot {currentIndex + 1}/{flights?.length ?? 0}
           </p>
@@ -330,6 +396,14 @@ export function ScoringPage() {
 
       <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-1 gap-2 overflow-hidden p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:gap-3 sm:p-3 lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-4 lg:p-4">
         <section className="flex min-h-0 flex-col gap-1.5 overflow-hidden sm:gap-2">
+          {roundMeta?.status === 'PAUSED' && (
+            <div className="shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              {`Round ${roundMeta.number} is paused${
+                roundMeta.pauseReason ? ` — ${roundMeta.pauseReason}` : ''
+              }. Public pages show this until you resume.`}
+            </div>
+          )}
+
           {scoresReadOnly && (
             <div className="shrink-0 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-slate-300">
               Round is <strong>{roundMeta?.status}</strong> — scores are final.
@@ -385,6 +459,25 @@ export function ScoringPage() {
               Tap <strong className="text-slate-200">{resultType}</strong> again to enter a measured
               distance
             </p>
+          )}
+
+          {resultType === 'REFLIGHT' && !scoresReadOnly && (
+            <label className="block shrink-0">
+              <span className="mb-1 block text-center text-xs font-medium uppercase tracking-wide text-sky-300">
+                Reason
+              </span>
+              <textarea
+                value={reflightReason}
+                onChange={(event) => setReflightReason(event.target.value)}
+                maxLength={1000}
+                rows={2}
+                placeholder="Wind above the limit"
+                className="w-full resize-none rounded-lg border border-sky-500/60 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+              <span className="mt-1 block text-center text-[11px] text-slate-400">
+                Required. Posted to the public feed.
+              </span>
+            </label>
           )}
 
           <div className="min-h-0 flex-1">
@@ -526,6 +619,41 @@ export function ScoringPage() {
         }}
         onConfirm={(wind) => windMutation.mutate(wind)}
       />
+      <Dialog open={pauseOpen} onOpenChange={setPauseOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pause round {roundMeta?.number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="judge-pause-reason">Reason</Label>
+            <Textarea
+              id="judge-pause-reason"
+              value={pauseReason}
+              onChange={(event) => setPauseReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Wind above the limit"
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown on the public pages and the venue display until the round resumes.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setPauseOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={roundStateMutation.isPending || !pauseReason.trim()}
+              onClick={() =>
+                roundStateMutation.mutate({ action: 'pause', reason: pauseReason.trim() })
+              }
+            >
+              {roundStateMutation.isPending ? 'Pausing…' : 'Pause round'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

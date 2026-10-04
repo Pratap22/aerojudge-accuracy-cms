@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import type { RankingCategory } from '@npha/shared';
-import { fetchCompetition, fetchLatestWind, fetchResults } from '../lib/api';
+import { fetchCompetition, fetchFeed, fetchLatestWind, fetchResults, fetchRoundsStatus } from '../lib/api';
 import { connectPublicSocket, disconnectSocket, onSocketEvent } from '../lib/socket';
 import type { PublicResults } from '../lib/types';
 
@@ -62,6 +62,61 @@ export function useResults(category: RankingCategory = 'OVERALL') {
       unsubs.forEach((u) => u());
       disconnectSocket();
     };
+  }, [roomKey, slug, queryClient]);
+
+  return query;
+}
+
+export function useRoundsStatus() {
+  const slug = useSlug();
+  const { data: competition } = useCompetition();
+  const queryClient = useQueryClient();
+  const roomKey = competition?.id ?? slug;
+
+  const query = useQuery({
+    queryKey: ['public-rounds', slug],
+    queryFn: () => fetchRoundsStatus(slug),
+    enabled: Boolean(slug),
+    staleTime: 15_000,
+  });
+
+  useEffect(() => {
+    if (!roomKey) return;
+    connectPublicSocket(roomKey);
+    return onSocketEvent('round:status', (payload) => {
+      if (payload.competitionId !== roomKey && payload.competitionId !== slug) return;
+      void queryClient.invalidateQueries({ queryKey: ['public-rounds', slug] });
+    });
+  }, [roomKey, slug, queryClient]);
+
+  const pausedRound =
+    query.data?.rounds
+      .filter((round) => round.status === 'PAUSED')
+      .sort((a, b) => b.number - a.number)[0] ?? null;
+
+  return { ...query, pausedRound };
+}
+
+export function useEventFeed() {
+  const slug = useSlug();
+  const { data: competition } = useCompetition();
+  const queryClient = useQueryClient();
+  const roomKey = competition?.id ?? slug;
+
+  const query = useQuery({
+    queryKey: ['event-feed', slug],
+    queryFn: () => fetchFeed(slug),
+    enabled: Boolean(slug),
+    staleTime: 15_000,
+  });
+
+  useEffect(() => {
+    if (!roomKey) return;
+    connectPublicSocket(roomKey);
+    return onSocketEvent('feed:updated', (payload) => {
+      if (payload.competitionId !== roomKey && payload.competitionId !== slug) return;
+      void queryClient.invalidateQueries({ queryKey: ['event-feed', slug] });
+    });
   }, [roomKey, slug, queryClient]);
 
   return query;

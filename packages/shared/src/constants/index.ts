@@ -62,6 +62,7 @@ export const PERMISSIONS = {
   'platform:analytics': ['SUPER_ADMIN', 'PLATFORM_SUPPORT'],
   'display:control': ['SUPER_ADMIN', 'DISPLAY_OPERATOR', 'COMPETITION_DIRECTOR'],
   'announce': ['SUPER_ADMIN', 'ANNOUNCER', 'COMPETITION_DIRECTOR'],
+  'feed:manage': ['SUPER_ADMIN', 'CHIEF_JUDGE'],
   'weather:update': [
     'SUPER_ADMIN',
     'LAUNCH_MARSHAL',
@@ -139,6 +140,7 @@ const CHIEF_JUDGE_PERMISSIONS: Permission[] = [
   'results:publish',
   'print:approve',
   'weather:update',
+  'feed:manage',
   'audit:view',
 ];
 
@@ -264,12 +266,14 @@ export const ORG_PERMISSIONS: Record<Permission, readonly OrgRole[]> = (() => {
   return inverted;
 })();
 
-/** Platform role → platform-only permissions. */
+/** Platform role grants that apply even when an org membership permission list is present. */
 export const PLATFORM_PERMISSIONS: Partial<Record<Permission, readonly Role[]>> = {
   'platform:organizations': ['SUPER_ADMIN'],
   'platform:licenses': ['SUPER_ADMIN'],
   'platform:analytics': ['SUPER_ADMIN', 'PLATFORM_SUPPORT'],
   'user:manage': ['SUPER_ADMIN'],
+  /** Org chief judges receive this from their role bundle; super admins receive it here. */
+  'feed:manage': ['SUPER_ADMIN', 'CHIEF_JUDGE'],
 };
 
 export function isPlatformRole(role: Role): boolean {
