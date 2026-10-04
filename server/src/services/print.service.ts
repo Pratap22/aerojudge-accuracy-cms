@@ -785,6 +785,24 @@ export async function approvePrint(
   return { ...updated, html, approvalLine };
 }
 
+async function loadCompetitionSheetPilots(competitionId: string) {
+  const pilots = await prisma.pilot.findMany({
+    where: {
+      competitionId,
+      status: { in: ['REGISTERED', 'CONFIRMED', 'ACTIVE', 'CHECKED_IN'] },
+    },
+    include: { country: true },
+    orderBy: { pilotNumber: 'asc' },
+  });
+  return pilots.map((p, i) => ({
+    order: i + 1,
+    pilotNumber: p.pilotNumber,
+    name: formatPilotName(p.firstName, p.lastName),
+    country: p.country?.name ?? p.nationality ?? '',
+    pilotId: p.id,
+  }));
+}
+
 async function buildReportInput(
   competition: Awaited<ReturnType<typeof getCompetition>>,
   reportType: ReportType,
@@ -1075,28 +1093,36 @@ async function buildReportInput(
   if (reportType === 'LAUNCH_ORDER') {
     const round = roundId
       ? await prisma.round.findFirst({ where: { id: roundId, competitionId: competition.id } })
-      : await prisma.round.findFirst({
-          where: { competitionId: competition.id },
-          orderBy: [{ number: 'desc' }, { createdAt: 'desc' }],
-        });
+      : null;
 
     const launchColumns = ['Order', 'No', 'Name', 'Country', 'Signature', 'Remarks'];
     const launchSheetFields = (roundNumber?: number) => [
-      { label: 'Round', value: roundNumber != null ? String(roundNumber) : '', blank: roundNumber == null },
+      roundNumber != null
+        ? { label: 'Round', value: String(roundNumber) }
+        : { label: 'Round', blank: true },
       { label: 'Start Time', blank: true },
       { label: 'End Time', blank: true },
     ];
 
     if (!round) {
+      const sheetPilots = roundId ? [] : await loadCompetitionSheetPilots(competition.id);
       return {
         reportType,
         format,
         branding,
         title: 'Launch Order',
-        subtitle: 'No rounds available',
+        ...(roundId ? { subtitle: 'No rounds available' } : {}),
         sheetFields: launchSheetFields(),
         columns: launchColumns,
-        rows: [],
+        rows: sheetPilots.map((p) => ({
+          rank: p.order,
+          pilotNumber: p.pilotNumber,
+          name: p.name,
+          country: p.country,
+          scores: [],
+          total: '',
+        })),
+        footerNote: 'Fill Start/End Time on site · Remarks for judge notes after printing',
       };
     }
 
@@ -1204,10 +1230,36 @@ async function buildReportInput(
   if (reportType === 'SCORE_SHEETS' || reportType === 'JUDGE_SHEETS') {
     const round = roundId
       ? await prisma.round.findFirst({ where: { id: roundId, competitionId: competition.id } })
-      : await prisma.round.findFirst({
-          where: { competitionId: competition.id },
-          orderBy: [{ number: 'desc' }, { createdAt: 'desc' }],
-        });
+      : reportType === 'JUDGE_SHEETS'
+        ? await prisma.round.findFirst({
+            where: { competitionId: competition.id },
+            orderBy: [{ number: 'desc' }, { createdAt: 'desc' }],
+          })
+        : null;
+
+    if (!round && reportType === 'SCORE_SHEETS' && !roundId) {
+      const sheetPilots = await loadCompetitionSheetPilots(competition.id);
+      return {
+        reportType,
+        format,
+        branding,
+        title: 'Score Sheet',
+        sheetFields: [
+          { label: 'Round', blank: true },
+          { label: 'Start Time', blank: true },
+          { label: 'End Time', blank: true },
+        ],
+        columns: ['Order', 'No', 'Name', 'Country', 'Score (cm)', 'Signature', 'Remarks'],
+        rows: sheetPilots.map((p) => ({
+          rank: p.order,
+          pilotNumber: p.pilotNumber,
+          name: p.name,
+          country: p.country,
+          scores: [],
+          total: '',
+        })),
+      };
+    }
 
     if (!round) {
       return {
@@ -1227,7 +1279,7 @@ async function buildReportInput(
           : {}),
         columns:
           reportType === 'SCORE_SHEETS'
-            ? ['Order', 'No', 'Name', 'Country', 'Score (cm)', 'Result', 'Signature', 'Remarks']
+            ? ['Order', 'No', 'Name', 'Country', 'Score (cm)', 'Signature', 'Remarks']
             : ['Order', 'No', 'Name', 'Country', 'Distance (cm)', 'Result', 'Notes'],
         rows: [],
       };
@@ -1299,12 +1351,7 @@ async function buildReportInput(
         roundId: round.id,
         status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
       },
-      select: {
-        pilotId: true,
-        finalScoreCm: true,
-        resultType: true,
-        isBullseye: true,
-      },
+      select: { pilotId: true, finalScoreCm: true },
     });
     const scoreByPilot = new Map(scores.map((s) => [s.pilotId, s]));
 
@@ -1313,29 +1360,23 @@ async function buildReportInput(
       format,
       branding: { ...branding, roundNumber: round.number },
       title: 'Score Sheet',
-      subtitle: 'Pilots sign to confirm their recorded score for this round',
       sheetFields: [
         { label: 'Round', value: String(round.number) },
         { label: 'Start Time', blank: true },
         { label: 'End Time', blank: true },
       ],
-      columns: ['Order', 'No', 'Name', 'Country', 'Score (cm)', 'Result', 'Signature', 'Remarks'],
+      columns: ['Order', 'No', 'Name', 'Country', 'Score (cm)', 'Signature', 'Remarks'],
       rows: sheetPilots.map((p) => {
         const score = scoreByPilot.get(p.pilotId);
-        const resultLabel = score?.isBullseye
-          ? 'BULLSEYE'
-          : (score?.resultType ?? '');
         return {
           rank: p.order,
           pilotNumber: p.pilotNumber,
           name: p.name,
           country: p.country,
-          scores: [resultLabel],
+          scores: [],
           total: score?.finalScoreCm != null ? formatScoreCm(score.finalScoreCm) : '',
         };
       }),
-      footerNote:
-        'Pilot signature confirms the recorded score · Remarks for judge notes after printing',
     };
   }
 

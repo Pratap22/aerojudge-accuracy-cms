@@ -56,6 +56,15 @@ if [[ -n "${GHCR_TOKEN:-}" ]]; then
 fi
 
 cd "${ROOT_DIR}"
+
+echo "==> Disk before image cleanup"
+df -h / || true
+# Old image tags stay on disk after each deploy and fill the volume during the next pull.
+echo "==> Removing unused Docker images and build cache"
+docker system prune -af
+echo "==> Disk after image cleanup"
+df -h / || true
+
 compose pull
 compose up -d --remove-orphans
 

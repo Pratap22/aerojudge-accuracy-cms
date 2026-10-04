@@ -37,10 +37,12 @@ const formats: { value: PrintFormat; label: string }[] = [
 ];
 
 const needsRoundSelection = (type: ReportType) =>
-  type === 'ROUND_RESULTS' ||
-  type === 'LAUNCH_ORDER' ||
-  type === 'SCORE_SHEETS' ||
-  type === 'JUDGE_SHEETS';
+  type === 'ROUND_RESULTS' || type === 'SCORE_SHEETS' || type === 'JUDGE_SHEETS';
+
+/** Score sheets can be printed before a round number is known. */
+const allowsBlankRound = (type: ReportType) => type === 'SCORE_SHEETS';
+
+const BLANK_ROUND = 'blank';
 
 /** Operational worksheets — print/download without an approve step. */
 const skipsPrintApproval = (type: ReportType) =>
@@ -111,14 +113,14 @@ export function ReportsPage() {
       return;
     }
     if (!sortedRounds.length) {
-      setRoundId('');
+      setRoundId(allowsBlankRound(reportType) ? BLANK_ROUND : '');
       return;
     }
-    setRoundId((current) =>
-      current && sortedRounds.some((r) => r.id === current)
-        ? current
-        : sortedRounds[sortedRounds.length - 1]!.id,
-    );
+    setRoundId((current) => {
+      if (allowsBlankRound(reportType) && current === BLANK_ROUND) return current;
+      if (current && sortedRounds.some((r) => r.id === current)) return current;
+      return sortedRounds[sortedRounds.length - 1]!.id;
+    });
   }, [reportType, rounds]);
 
   const generateMutation = useMutation({
@@ -126,7 +128,9 @@ export function ReportsPage() {
       api.post<ReportPreview>(`/competitions/${activeCompetitionId}/reports/preview`, {
         reportType,
         format,
-        ...(needsRoundSelection(reportType) && roundId ? { roundId } : {}),
+        ...(needsRoundSelection(reportType) && roundId && roundId !== BLANK_ROUND
+          ? { roundId }
+          : {}),
       }),
     onSuccess: (data) => {
       setPreview(data);
@@ -266,14 +270,17 @@ export function ReportsPage() {
                   id="report-round"
                   className={selectClassName}
                   value={roundId}
-                  disabled={sortedRounds.length === 0}
+                  disabled={sortedRounds.length === 0 && !allowsBlankRound(reportType)}
                   onChange={(e) => {
                     setRoundId(e.target.value);
                     setPreview(null);
                   }}
                 >
+                  {allowsBlankRound(reportType) && <option value={BLANK_ROUND}>Blank</option>}
                   {sortedRounds.length === 0 ? (
-                    <option value="">No rounds available</option>
+                    allowsBlankRound(reportType) ? null : (
+                      <option value="">No rounds available</option>
+                    )
                   ) : (
                     sortedRounds.map((r) => (
                       <option key={r.id} value={r.id}>
