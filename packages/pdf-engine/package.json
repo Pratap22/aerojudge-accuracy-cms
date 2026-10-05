@@ -1,5 +1,5 @@
 {
-  "name": "@npha/pdf-engine",
+  "name": "@aero-judge/pdf-engine",
   "version": "1.0.0",
   "private": true,
   "main": "./dist/index.js",
@@ -20,7 +20,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@npha/shared": "*",
+    "@aero-judge/shared": "*",
     "pdfkit": "^0.15.0",
     "qrcode": "^1.5.3"
   },

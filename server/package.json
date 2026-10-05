@@ -1,5 +1,5 @@
 {
-  "name": "@npha/server",
+  "name": "@aero-judge/server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -16,11 +16,11 @@
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.1104.0",
-    "@npha/database": "*",
-    "@npha/pdf-engine": "*",
-    "@npha/scoring-engine": "*",
-    "@npha/shared": "*",
-    "@npha/utils": "*",
+    "@aero-judge/database": "*",
+    "@aero-judge/pdf-engine": "*",
+    "@aero-judge/scoring-engine": "*",
+    "@aero-judge/shared": "*",
+    "@aero-judge/utils": "*",
     "@prisma/client": "^5.12.1",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.10.0",

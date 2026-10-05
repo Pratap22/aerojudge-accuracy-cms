@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasOrgPermission } from '@npha/shared';
+import { hasOrgPermission } from '@aero-judge/shared';
 import { summarizeAuditDetails } from '../services/audit.service.js';
 
 describe('summarizeAuditDetails', () => {

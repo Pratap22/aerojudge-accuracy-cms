@@ -5,7 +5,7 @@ import {
   isPlatformRole,
   mapLegacyRoleToOrgRole,
   hasPermission,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 
 describe('organization-based authorization', () => {
   it('treats SUPER_ADMIN as a platform role', () => {

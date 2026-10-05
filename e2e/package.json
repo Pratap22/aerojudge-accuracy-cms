@@ -1,5 +1,5 @@
 {
-  "name": "@npha/e2e",
+  "name": "@aero-judge/e2e",
   "version": "1.0.0",
   "private": true,
   "description": "End-to-end tests for AeroJudge",

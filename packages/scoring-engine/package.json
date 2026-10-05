@@ -1,5 +1,5 @@
 {
-  "name": "@npha/scoring-engine",
+  "name": "@aero-judge/scoring-engine",
   "version": "1.0.0",
   "private": true,
   "main": "./dist/index.js",
@@ -21,7 +21,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@npha/shared": "*"
+    "@aero-judge/shared": "*"
   },
   "devDependencies": {
     "tsup": "^8.0.2",

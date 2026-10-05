@@ -1,4 +1,4 @@
-import type { EnterScoreInput } from '@npha/shared';
+import type { EnterScoreInput } from '@aero-judge/shared';
 import { api } from './api';
 
 const QUEUE_KEY = 'npha_judge_offline_queue';

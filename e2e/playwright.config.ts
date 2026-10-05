@@ -35,7 +35,7 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: 'npm run dev --workspace=@npha/server',
+          command: 'npm run dev --workspace=@aero-judge/server',
           url: `${API_URL}/api/v1/health`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

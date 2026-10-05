@@ -8,7 +8,7 @@ import {
   type CompetitionOfficial,
   type CreateOfficialInput,
   type PersonDirectoryEntry,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import {
   Eye,
   EyeOff,
@@ -48,7 +48,7 @@ import {
   TableHeader,
   TableRow,
   cn,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 

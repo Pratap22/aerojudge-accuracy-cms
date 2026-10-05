@@ -9,7 +9,7 @@ Workspaces: `apps/*`, `packages/*`, `server`, `database`, `e2e`.
 
 ## Layers
 
-Apps → Express routes/controllers → services → `@npha/scoring-engine` / `@npha/pdf-engine` + Prisma (`@npha/database`).
+Apps → Express routes/controllers → services → `@aero-judge/scoring-engine` / `@aero-judge/pdf-engine` + Prisma (`@aero-judge/database`).
 
 See `docs/architecture/OVERVIEW.md`.
 
@@ -17,22 +17,22 @@ See `docs/architecture/OVERVIEW.md`.
 
 | Package | Path | Boundary |
 |---------|------|----------|
-| `@npha/shared` | `packages/shared` | Types, Zod schemas, permissions, socket rooms — **SSoT** |
-| `@npha/ui` | `packages/ui` | Shared React UI + `globals.css` tokens |
-| `@npha/utils` | `packages/utils` | Pure helpers (CSV, names, QR payload) |
-| `@npha/scoring-engine` | `packages/scoring-engine` | Pure scoring — **no** Express/Prisma/React |
-| `@npha/pdf-engine` | `packages/pdf-engine` | PDF generation — framework-agnostic |
-| `@npha/database` | `database` | Prisma schema, migrations, seed, client |
+| `@aero-judge/shared` | `packages/shared` | Types, Zod schemas, permissions, socket rooms — **SSoT** |
+| `@aero-judge/ui` | `packages/ui` | Shared React UI + `globals.css` tokens |
+| `@aero-judge/utils` | `packages/utils` | Pure helpers (CSV, names, QR payload) |
+| `@aero-judge/scoring-engine` | `packages/scoring-engine` | Pure scoring — **no** Express/Prisma/React |
+| `@aero-judge/pdf-engine` | `packages/pdf-engine` | PDF generation — framework-agnostic |
+| `@aero-judge/database` | `database` | Prisma schema, migrations, seed, client |
 
 ## Integration
 
 - Vite apps proxy `/api` → `http://localhost:4000`.
 - Clients call `/api/v1/...` via each app’s `src/lib/api.ts`.
-- Real-time: Socket.IO rooms from `@npha/shared` `SOCKET_ROOMS` (`server/src/socket/index.ts`).
+- Real-time: Socket.IO rooms from `@aero-judge/shared` `SOCKET_ROOMS` (`server/src/socket/index.ts`).
 
 ## Rules
 
-- Do not duplicate API types or Zod schemas inside apps — extend `@npha/shared`.
+- Do not duplicate API types or Zod schemas inside apps — extend `@aero-judge/shared`.
 - Do not put Prisma or HTTP inside scoring/pdf engines.
 - Keep controllers thin; business logic lives in `server/src/services/`.
 - User-facing branding/org/sponsor/country data must come from configuration or DB — never hardcoded product copy.

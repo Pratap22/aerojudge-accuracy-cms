@@ -1,4 +1,4 @@
-import { getPermissionsForOrgRole, type OrgRole, type Permission } from '@npha/shared';
+import { getPermissionsForOrgRole, type OrgRole, type Permission } from '@aero-judge/shared';
 
 /**
  * Resolves the effective permission list for a membership.

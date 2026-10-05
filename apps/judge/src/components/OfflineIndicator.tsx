@@ -1,6 +1,6 @@
 import { Wifi, WifiOff, CloudOff } from 'lucide-react';
-import { Badge } from '@npha/ui';
-import { cn } from '@npha/ui';
+import { Badge } from '@aero-judge/ui';
+import { cn } from '@aero-judge/ui';
 
 interface OfflineIndicatorProps {
   pendingCount: number;

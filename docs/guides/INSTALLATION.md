@@ -120,12 +120,12 @@ npm run dev
 ### Individual workspaces
 
 ```bash
-npm run dev --workspace=@npha/server      # API :4000
-npm run dev --workspace=@npha/marketing   # Marketing :3004
-npm run dev --workspace=@npha/admin       # Admin :3000
-npm run dev --workspace=@npha/judge       # Judge :3001
-npm run dev --workspace=@npha/display     # Display :3002
-npm run dev --workspace=@npha/public-results  # Public :3003
+npm run dev --workspace=@aero-judge/server      # API :4000
+npm run dev --workspace=@aero-judge/marketing   # Marketing :3004
+npm run dev --workspace=@aero-judge/admin       # Admin :3000
+npm run dev --workspace=@aero-judge/judge       # Judge :3001
+npm run dev --workspace=@aero-judge/display     # Display :3002
+npm run dev --workspace=@aero-judge/public-results  # Public :3003
 ```
 
 ---

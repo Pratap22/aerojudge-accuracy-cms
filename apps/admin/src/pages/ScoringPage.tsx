@@ -2,8 +2,8 @@ import { useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { enterScoreSchema, type EnterScoreInput, type ScoreResultType, type RuleConfig } from '@npha/shared';
-import { formatScoreCm } from '@npha/utils';
+import { enterScoreSchema, type EnterScoreInput, type ScoreResultType, type RuleConfig } from '@aero-judge/shared';
+import { formatScoreCm } from '@aero-judge/utils';
 import { Pause, Play, Save, Target, Wind } from 'lucide-react';
 import {
   Badge,
@@ -32,7 +32,7 @@ import {
   TableRow,
   Textarea,
   toast,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, ApiError } from '../lib/api';
 import { competitionPath, competitionsListPath, useCompetitionId, useRouteOrganizationId } from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';

@@ -6,10 +6,10 @@ import {
   type GenerateReportInput,
   type ReportCardItem,
   type ResultRow,
-} from '@npha/pdf-engine';
-import { applyDiscardRules, resolveCompetitionRules } from '@npha/scoring-engine';
-import type { PrintFormat, ReportType } from '@npha/shared';
-import { formatPilotName, formatScoreCm } from '@npha/utils';
+} from '@aero-judge/pdf-engine';
+import { applyDiscardRules, resolveCompetitionRules } from '@aero-judge/scoring-engine';
+import type { PrintFormat, ReportType } from '@aero-judge/shared';
+import { formatPilotName, formatScoreCm } from '@aero-judge/utils';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { toAbsoluteAssetUrl, resolveLocalUploadPath } from '../utils/assets.js';

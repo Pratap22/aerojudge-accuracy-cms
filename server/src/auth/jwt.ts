@@ -1,6 +1,6 @@
 import type { SignOptions } from 'jsonwebtoken';
 import jwt from 'jsonwebtoken';
-import type { OrgRole, Role } from '@npha/shared';
+import type { OrgRole, Role } from '@aero-judge/shared';
 import { env } from '../config/env.js';
 import { AppError } from '../utils/errors.js';
 

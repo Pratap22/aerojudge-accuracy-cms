@@ -1,4 +1,4 @@
-import '@npha/ui/globals.css';
+import '@aero-judge/ui/globals.css';
 import './index.css';
 
 import { StrictMode } from 'react';

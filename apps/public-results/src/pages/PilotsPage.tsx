@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Search, UserPlus } from 'lucide-react';
-import { Input } from '@npha/ui';
+import { Input } from '@aero-judge/ui';
 import { Layout } from '../components/Layout';
 import { competitionPath, fetchPilots } from '../lib/api';
 import { useCompetition, useSlug } from '../hooks/useCompetition';

@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, Input, Label } from '@npha/ui';
+import { Button, Input, Label } from '@aero-judge/ui';
 import { Layout } from '../components/Layout';
 import { forgotPassword, setPasswordResetReturnTo } from '../lib/auth-api';
 

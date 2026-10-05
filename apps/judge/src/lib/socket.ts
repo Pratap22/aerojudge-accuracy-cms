@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import type { SocketEvents } from '@npha/shared';
+import type { SocketEvents } from '@aero-judge/shared';
 import { getAccessToken } from './api';
 
 type EventMap = SocketEvents;

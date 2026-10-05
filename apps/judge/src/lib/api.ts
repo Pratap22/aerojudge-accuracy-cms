@@ -1,5 +1,5 @@
-import type { ApiResponse, AuthTokens } from '@npha/shared';
-import { API_VERSION, ORGANIZATION_HEADER } from '@npha/shared';
+import type { ApiResponse, AuthTokens } from '@aero-judge/shared';
+import { API_VERSION, ORGANIZATION_HEADER } from '@aero-judge/shared';
 
 /** Shared with Admin so same-origin redirects reuse one staff session. */
 const ACCESS_TOKEN_KEY = 'npha_access_token';

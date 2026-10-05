@@ -13,7 +13,7 @@ import {
   CardTitle,
   Input,
   Label,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, ApiError } from '../lib/api';
 
 const formSchema = z

@@ -11,7 +11,7 @@ import type {
   AuthOrganizationMembership,
   AuthUser,
   LoginResult,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import {
   api,
   clearTokens,

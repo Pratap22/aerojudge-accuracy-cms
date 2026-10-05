@@ -1,5 +1,5 @@
 {
-  "name": "@npha/marketing",
+  "name": "@aero-judge/marketing",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@npha/ui": "*",
+    "@aero-judge/ui": "*",
     "framer-motion": "^11.0.24",
     "lucide-react": "^0.363.0",
     "react": "^18.2.0",

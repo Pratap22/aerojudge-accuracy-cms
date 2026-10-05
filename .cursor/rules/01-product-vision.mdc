@@ -51,4 +51,4 @@ Registration → rounds → live scoring → dual approval → rankings → offi
 | `apps/public-results` | 3003 | Public slug results |
 | `server` | 4000 | REST API + Socket.IO |
 
-> Package names like `@npha/*` may still exist in this repo as legacy workspace IDs — treat them as technical identifiers, not product branding. New user-facing strings must say **AeroJudge** / configurable org data.
+> Workspace packages use the `@aero-judge/*` scope. Those names are technical identifiers, not product branding. New user-facing strings must say **AeroJudge** / configurable org data.

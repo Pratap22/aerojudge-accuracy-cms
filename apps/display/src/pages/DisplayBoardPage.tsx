@@ -19,7 +19,7 @@ import { useCompetition, useLatestScore, useLatestWind, useResults, useRoundsSta
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
-import { isWindReadingCurrent } from '@npha/utils';
+import { isWindReadingCurrent } from '@aero-judge/utils';
 
 const PRE_ROUND_LAYOUTS: DisplayLayoutType[] = ['sponsors', 'women', 'teams', 'country'];
 

@@ -1,5 +1,5 @@
 import { Navigate, useLocation, useParams } from 'react-router-dom';
-import type { Permission } from '@npha/shared';
+import type { Permission } from '@aero-judge/shared';
 import { useAuth } from '../lib/auth';
 import { checkPermission, useAnyPermission } from '../hooks/usePermission';
 import { competitionPath, competitionsListPath } from '../hooks/useCompetitionId';

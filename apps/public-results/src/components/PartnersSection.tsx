@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Building2, ExternalLink } from 'lucide-react';
-import { SPONSOR_TYPES, type SponsorType } from '@npha/shared';
+import { SPONSOR_TYPES, type SponsorType } from '@aero-judge/shared';
 import type { PublicSponsor } from '../lib/api';
 
 const TYPE_LABELS: Record<string, string> = {

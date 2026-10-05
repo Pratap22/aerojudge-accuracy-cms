@@ -4,7 +4,7 @@ import {
   hasEffectivePermission,
   hasOrgPermission,
   type Permission,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { summarizeAuditDetails } from '../services/audit.service.js';
 
 /**

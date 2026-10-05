@@ -7,7 +7,7 @@ export type CompetitionRole = {
 };
 
 /**
- * Role copy aligned with SYSTEM_ORG_ROLE_DEFINITIONS in @npha/shared.
+ * Role copy aligned with SYSTEM_ORG_ROLE_DEFINITIONS in @aero-judge/shared.
  * Written for organizers — not RBAC jargon.
  */
 export const competitionRoles: CompetitionRole[] = [

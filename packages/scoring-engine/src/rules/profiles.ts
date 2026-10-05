@@ -8,7 +8,7 @@ import {
   DEFAULT_FAI_2022_RULES,
   type RuleConfig,
   type RuleSetVersion,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 
 const RULE_PROFILES: Record<RuleSetVersion, RuleConfig> = {
   FAI_2022: { ...DEFAULT_FAI_2022_RULES },

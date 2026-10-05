@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import type { ComputedScore, RankingCategory } from '@npha/shared';
+import type { ComputedScore, RankingCategory } from '@aero-judge/shared';
 import { connectDisplaySocket, leaveDisplayRooms, onSocketEvent } from '../lib/socket';
 import type { DisplayLayoutType, LiveScore, WindData } from '../lib/types';
 

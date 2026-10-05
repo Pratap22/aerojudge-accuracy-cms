@@ -15,7 +15,7 @@ alwaysApply: false
 - Nested under competitions: `/competitions/:competitionId/{pilots,teams,rounds,results,reports,…}`
 - Auth: `Authorization: Bearer <access>`; refresh via `POST /auth/refresh`
 - Guards: `requireAuth`, `requirePermission`, `requireRoles` (`server/src/auth/rbac.ts`)
-- Permissions: `PERMISSIONS` in `@npha/shared` — never invent ad-hoc strings
+- Permissions: `PERMISSIONS` in `@aero-judge/shared` — never invent ad-hoc strings
 
 ## Response envelope
 

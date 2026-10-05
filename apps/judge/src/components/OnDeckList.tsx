@@ -1,6 +1,6 @@
-import type { ScoreResultType } from '@npha/shared';
-import { Badge, cn } from '@npha/ui';
-import { formatScoreCm, padPilotNumber } from '@npha/utils';
+import type { ScoreResultType } from '@aero-judge/shared';
+import { Badge, cn } from '@aero-judge/ui';
+import { formatScoreCm, padPilotNumber } from '@aero-judge/utils';
 
 interface OnDeckPilot {
   id: string;

@@ -6,7 +6,7 @@ import {
   ORGANIZATION_HEADER,
   type Permission,
   type Role,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { verifyAccessToken } from './jwt.js';
 import { AppError } from '../utils/errors.js';
 import { prisma } from '../config/prisma.js';

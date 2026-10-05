@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createSponsorSchema, updateSponsorSchema } from '@npha/shared';
+import { createSponsorSchema, updateSponsorSchema } from '@aero-judge/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';

@@ -34,8 +34,8 @@ import {
   SelectTrigger,
   SelectValue,
   toast,
-} from '@npha/ui';
-import type { CompetitionStatus, RoundStatus } from '@npha/shared';
+} from '@aero-judge/ui';
+import type { CompetitionStatus, RoundStatus } from '@aero-judge/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { onSocketEvent } from '../lib/socket';

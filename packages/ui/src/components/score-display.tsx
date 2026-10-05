@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Target } from 'lucide-react';
-import { formatScoreCm } from '@npha/utils';
+import { formatScoreCm } from '@aero-judge/utils';
 
 import { cn } from '../lib/utils';
 

@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Printing
 
-Routes: `/competitions/:competitionId/reports` (`print.routes.ts`, `print.service.ts`, `@npha/pdf-engine`).
+Routes: `/competitions/:competitionId/reports` (`print.routes.ts`, `print.service.ts`, `@aero-judge/pdf-engine`).
 
 ## Flow (Admin Reports)
 
@@ -20,6 +20,6 @@ Permissions: `print:generate` vs `print:approve`. Statuses: `PENDING|PREVIEW|APP
 
 - Do not enable Print/Download until the report is **approved** (unless product explicitly changes this).
 - Preview HTML must not leak global CSS into the admin shell — render in an **iframe** / `srcDoc`.
-- PDF generation stays in `@npha/pdf-engine`; services pass data + branding only.
+- PDF generation stays in `@aero-judge/pdf-engine`; services pass data + branding only.
 - Round-scoped reports (round results, launch order) require a selected round.
 - Authenticate downloads; never rely on cookie-less `window.open` for PDF/CSV.

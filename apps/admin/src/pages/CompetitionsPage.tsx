@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createCompetitionSchema, type CreateCompetitionInput, type CompetitionStatus, type Organization } from '@npha/shared';
+import { createCompetitionSchema, type CreateCompetitionInput, type CompetitionStatus, type Organization } from '@aero-judge/shared';
 import { Archive, Plus } from 'lucide-react';
 import {
   Badge,
@@ -25,7 +25,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api } from '../lib/api';
 import {
   archivedCompetitionsPath,

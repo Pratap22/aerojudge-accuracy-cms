@@ -1,4 +1,4 @@
-import { formatPilotName } from '@npha/utils';
+import { formatPilotName } from '@aero-judge/utils';
 import { prisma } from '../config/prisma.js';
 import { getCompetition } from './competition.service.js';
 

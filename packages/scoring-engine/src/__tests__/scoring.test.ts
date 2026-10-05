@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_FAI_2022_RULES } from '@npha/shared';
+import { DEFAULT_FAI_2022_RULES } from '@aero-judge/shared';
 import { computeFlightScore } from '../individual/flight-score';
 import {
   applyDiscardRules,

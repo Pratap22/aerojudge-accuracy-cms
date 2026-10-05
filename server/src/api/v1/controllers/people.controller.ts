@@ -7,7 +7,7 @@ import {
   paginationSchema,
   requestProfileClaimSchema,
   updatePersonSchema,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { z } from 'zod';
 import { asyncHandler, AppError } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';

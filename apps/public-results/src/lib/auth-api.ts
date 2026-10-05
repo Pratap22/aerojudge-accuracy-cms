@@ -1,5 +1,5 @@
-import type { ApiResponse, AuthTokens, AuthUser, LoginResult } from '@npha/shared';
-import { API_VERSION } from '@npha/shared';
+import type { ApiResponse, AuthTokens, AuthUser, LoginResult } from '@aero-judge/shared';
+import { API_VERSION } from '@aero-judge/shared';
 
 const ACCESS_TOKEN_KEY = 'npha_access_token';
 const REFRESH_TOKEN_KEY = 'npha_refresh_token';

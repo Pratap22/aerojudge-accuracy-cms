@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import { isEmptyHtml } from '@npha/shared';
+import { isEmptyHtml } from '@aero-judge/shared';
 
 /** Sanitize brochure HTML for safe public rendering. */
 export function sanitizePublicHtml(html: string | null | undefined): string {

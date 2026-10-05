@@ -1,4 +1,4 @@
-import type { Role } from '@npha/shared';
+import type { Role } from '@aero-judge/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { getRound } from './round.service.js';

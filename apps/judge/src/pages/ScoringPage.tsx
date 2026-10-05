@@ -12,8 +12,8 @@ import {
   DialogTitle,
   Label,
   Textarea,
-} from '@npha/ui';
-import type { EnterScoreInput, RuleConfig, ScoreResultType } from '@npha/shared';
+} from '@aero-judge/ui';
+import type { EnterScoreInput, RuleConfig, ScoreResultType } from '@aero-judge/shared';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { roundsPath } from '../lib/paths';

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import {
   hasEffectivePermission,
   type Permission,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { useAuth } from '../lib/auth';
 
 /** True if the signed-in user has the permission in the active org context. */

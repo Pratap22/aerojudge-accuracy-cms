@@ -11,8 +11,8 @@ import {
   CardHeader,
   CardTitle,
   Label,
-} from '@npha/ui';
-import type { PrintFormat, ReportType } from '@npha/shared';
+} from '@aero-judge/ui';
+import type { PrintFormat, ReportType } from '@aero-judge/shared';
 import { api, apiFetch } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 

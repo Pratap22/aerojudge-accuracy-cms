@@ -20,9 +20,9 @@ flowchart TB
     end
 
     subgraph Domain
-        ScoringEngine["@npha/scoring-engine"]
-        Shared["@npha/shared schemas"]
-        PDFEngine["@npha/pdf-engine"]
+        ScoringEngine["@aero-judge/scoring-engine"]
+        Shared["@aero-judge/shared schemas"]
+        PDFEngine["@aero-judge/pdf-engine"]
     end
 
     subgraph Infrastructure
@@ -50,18 +50,18 @@ flowchart TB
 |---------|-------|----------------|
 | `apps/*` | Presentation | Role-specific React UIs |
 | `server` | Application | HTTP API, auth, orchestration |
-| `@npha/shared` | Domain | Zod schemas, shared TypeScript types |
-| `@npha/scoring-engine` | Domain | **Pure** FAI scoring calculations |
-| `@npha/pdf-engine` | Domain | PDF report generation |
-| `@npha/ui` | Presentation | Shared React component library |
-| `@npha/database` | Infrastructure | Prisma schema & client |
-| `@npha/utils` | Domain | Shared utilities |
+| `@aero-judge/shared` | Domain | Zod schemas, shared TypeScript types |
+| `@aero-judge/scoring-engine` | Domain | **Pure** FAI scoring calculations |
+| `@aero-judge/pdf-engine` | Domain | PDF report generation |
+| `@aero-judge/ui` | Presentation | Shared React component library |
+| `@aero-judge/database` | Infrastructure | Prisma schema & client |
+| `@aero-judge/utils` | Domain | Shared utilities |
 
 ---
 
 ## Scoring engine isolation
 
-The `@npha/scoring-engine` package is deliberately **framework-agnostic**:
+The `@aero-judge/scoring-engine` package is deliberately **framework-agnostic**:
 
 - No imports from Express, Prisma, or React
 - Accepts plain JSON rule profiles and score arrays

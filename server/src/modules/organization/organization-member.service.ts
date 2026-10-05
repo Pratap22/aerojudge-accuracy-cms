@@ -3,9 +3,9 @@ import type {
   InviteOrganizationMemberInput,
   OrgRole,
   UpdateOrganizationMemberInput,
-} from '@npha/shared';
-import { mapLegacyRoleToOrgRole } from '@npha/shared';
-import type { Prisma } from '@npha/database';
+} from '@aero-judge/shared';
+import { mapLegacyRoleToOrgRole } from '@aero-judge/shared';
+import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/errors.js';
 import { hashPassword } from '../../services/auth.service.js';

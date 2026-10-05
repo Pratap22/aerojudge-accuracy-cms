@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { formatScoreCm } from '@npha/utils';
+import { formatScoreCm } from '@aero-judge/utils';
 
 import { cn } from '../lib/utils';
 import { PilotChip } from './pilot-chip';

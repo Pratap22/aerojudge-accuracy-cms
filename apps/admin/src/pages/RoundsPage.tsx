@@ -40,8 +40,8 @@ import {
   TableHeader,
   TableRow,
   Textarea,
-} from '@npha/ui';
-import type { CompetitionStatus, ReportType, RoundStatus, RoundType } from '@npha/shared';
+} from '@aero-judge/ui';
+import type { CompetitionStatus, ReportType, RoundStatus, RoundType } from '@aero-judge/shared';
 import { api, ApiError, apiFetch, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';

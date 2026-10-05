@@ -15,8 +15,8 @@ import {
   DialogTitle,
   Label,
   Textarea,
-} from '@npha/ui';
-import type { CompetitionStatus, RoundStatus } from '@npha/shared';
+} from '@aero-judge/ui';
+import type { CompetitionStatus, RoundStatus } from '@aero-judge/shared';
 import { api, ApiError, getOrganizationId } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { SwitchToAdminButton } from '../components/SwitchToAdminButton';

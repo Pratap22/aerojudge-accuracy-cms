@@ -1,4 +1,4 @@
-import type { CompetitionRole, CompetitionParticipationStatus } from '@npha/database';
+import type { CompetitionRole, CompetitionParticipationStatus } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { getCompetition } from './competition.service.js';

@@ -12,7 +12,7 @@ import {
   Label,
   Textarea,
   toast,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { ApiError, api, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { getSocket, onSocketEvent } from '../lib/socket';

@@ -2,7 +2,7 @@
  * Penalty application helpers – FAI Section 7C / local rules
  */
 
-import type { RuleConfig } from '@npha/shared';
+import type { RuleConfig } from '@aero-judge/shared';
 
 export type PenaltyKind =
   | 'WARNING'

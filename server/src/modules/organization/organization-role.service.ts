@@ -1,8 +1,8 @@
 import type {
   CreateOrganizationRoleInput,
   UpdateOrganizationRoleInput,
-} from '@npha/shared';
-import { ALL_PERMISSIONS } from '@npha/shared';
+} from '@aero-judge/shared';
+import { ALL_PERMISSIONS } from '@aero-judge/shared';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/errors.js';
 

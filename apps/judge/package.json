@@ -1,5 +1,5 @@
 {
-  "name": "@npha/judge",
+  "name": "@aero-judge/judge",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
-    "@npha/shared": "*",
-    "@npha/ui": "*",
-    "@npha/utils": "^1.0.0",
+    "@aero-judge/shared": "*",
+    "@aero-judge/ui": "*",
+    "@aero-judge/utils": "^1.0.0",
     "@tanstack/react-query": "^5.28.4",
     "framer-motion": "^11.0.24",
     "lucide-react": "^0.363.0",

@@ -27,6 +27,6 @@ Sample login/slug values may appear in seed/README for local bootstrapping. Pref
 ## Rules
 
 - Prefer `npm run dev` from repo root over starting single workspaces unless debugging one app.
-- After changing `@npha/shared` / `@npha/utils` schemas or exports, ensure the package rebuilds (Turbo `dev` watch or `npm run build --workspace=@npha/shared`).
+- After changing `@aero-judge/shared` / `@aero-judge/utils` schemas or exports, ensure the package rebuilds (Turbo `dev` watch or `npm run build --workspace=@aero-judge/shared`).
 - Do not commit secrets; use `.env` / `.env.example` patterns.
 - DB changes go through Prisma migrations in `database/` — never edit production data ad hoc in agent flows.

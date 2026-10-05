@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { SYSTEM_ORG_ROLE_DEFINITIONS, mapLegacyRoleToOrgRole, type OrgRole } from '@npha/shared';
+import { SYSTEM_ORG_ROLE_DEFINITIONS, mapLegacyRoleToOrgRole, type OrgRole } from '@aero-judge/shared';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as printService from '../../../services/print.service.js';

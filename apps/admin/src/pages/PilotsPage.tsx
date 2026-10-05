@@ -9,7 +9,7 @@ import {
   type Gender,
   type PersonDirectoryEntry,
   type PilotStatus,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { Check, Download, ImagePlus, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
 import {
   Badge,
@@ -33,7 +33,7 @@ import {
   TableHeader,
   TableRow,
   cn,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, apiFetch, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { CountrySelect } from '../components/CountrySelect';

@@ -4,7 +4,7 @@ import type {
   OrganizationSettingsInput,
   UpdateOrganizationInput,
   UpdateOrganizationStatusInput,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 
 /** Default organization id used by the multi-tenant data migration. */
 export const DEFAULT_ORGANIZATION_ID = 'org_npha_default_migration';

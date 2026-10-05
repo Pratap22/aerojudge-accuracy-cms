@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { isWindReadingCurrent } from '@npha/utils';
+import { isWindReadingCurrent } from '@aero-judge/utils';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
-import { Input, LeaderboardTable } from '@npha/ui';
+import { Input, LeaderboardTable } from '@aero-judge/ui';
 import { useCompetition, useLatestWind, useResults, toLeaderboardEntries } from '../hooks/useCompetition';
 import { isCompetitionCompleted } from '../lib/competitionStatus';
 

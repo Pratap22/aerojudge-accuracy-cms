@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Delete } from 'lucide-react';
-import { formatScoreCm } from '@npha/utils';
-import { Button, cn } from '@npha/ui';
+import { formatScoreCm } from '@aero-judge/utils';
+import { Button, cn } from '@aero-judge/ui';
 
 interface NumericKeypadProps {
   value: string;

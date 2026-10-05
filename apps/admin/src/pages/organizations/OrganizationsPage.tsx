@@ -9,7 +9,7 @@ import {
   type CreateOrganizationInput,
   type Organization,
   type OrganizationStatus,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { Building2, ChevronRight, Plus, Search } from 'lucide-react';
 import {
   Badge,
@@ -34,7 +34,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { PageHeader } from '../../components/PageHeader';

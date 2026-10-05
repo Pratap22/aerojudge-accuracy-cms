@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { createCompetitionSchema, paginationSchema, updateCompetitionSchema } from '@npha/shared';
-import { ScoringEngine } from '@npha/scoring-engine';
+import { createCompetitionSchema, paginationSchema, updateCompetitionSchema } from '@aero-judge/shared';
+import { ScoringEngine } from '@aero-judge/scoring-engine';
 import { z } from 'zod';
 import { asyncHandler, AppError } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';

@@ -1,4 +1,4 @@
-import '@npha/ui/globals.css';
+import '@aero-judge/ui/globals.css';
 import './index.css';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,7 +9,7 @@ import App from './App';
 import { AuthProvider } from './lib/auth';
 import { consumeStaffSessionHandoff } from './lib/staff-app';
 import { ThemeProvider } from './lib/theme';
-import { Toaster } from '@npha/ui';
+import { Toaster } from '@aero-judge/ui';
 
 // Legacy key from pre-URL competition selection
 try {

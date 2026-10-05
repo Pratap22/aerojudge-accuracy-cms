@@ -1,4 +1,4 @@
-import type { Prisma } from '@npha/database';
+import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../../config/prisma.js';
 import type {
   CreateOrganizationInput,

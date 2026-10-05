@@ -1,6 +1,6 @@
 import { unlink } from 'node:fs/promises';
-import type { ScoreResultType } from '@npha/shared';
-import { formatScoreCm } from '@npha/utils';
+import type { ScoreResultType } from '@aero-judge/shared';
+import { formatScoreCm } from '@aero-judge/utils';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { resolveLocalUploadPath, toAbsoluteAssetUrl } from '../utils/assets.js';

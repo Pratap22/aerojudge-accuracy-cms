@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import type { RankingCategory } from '@npha/shared';
+import type { RankingCategory } from '@aero-judge/shared';
 import { fetchCompetition, fetchFeed, fetchLatestWind, fetchResults, fetchRoundsStatus } from '../lib/api';
 import { connectPublicSocket, disconnectSocket, onSocketEvent } from '../lib/socket';
 import type { PublicResults } from '../lib/types';

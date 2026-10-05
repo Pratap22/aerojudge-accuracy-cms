@@ -1,5 +1,5 @@
-import { ScoringEngine } from '@npha/scoring-engine';
-import type { RankingCategory, TeamRoundScoreResult } from '@npha/shared';
+import { ScoringEngine } from '@aero-judge/scoring-engine';
+import type { RankingCategory, TeamRoundScoreResult } from '@aero-judge/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { linkPilotsToCountries } from '../utils/country-resolve.js';

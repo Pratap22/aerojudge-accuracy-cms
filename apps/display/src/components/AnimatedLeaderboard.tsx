@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
-import { RankBadge } from '@npha/ui';
-import type { LeaderboardEntry } from '@npha/ui';
+import { RankBadge } from '@aero-judge/ui';
+import type { LeaderboardEntry } from '@aero-judge/ui';
 import { formatScore } from '../lib/utils';
 
 interface AnimatedLeaderboardProps {

@@ -11,10 +11,10 @@ alwaysApply: false
 | Use | Notes |
 |-----|--------|
 | **TypeScript** | Strict mode (`tsconfig.base.json`). Target ES2022. **No `any`.** |
-| **Prisma** | All persistence via `@npha/database` / services — no ad-hoc SQL in apps. |
+| **Prisma** | All persistence via `@aero-judge/database` / services — no ad-hoc SQL in apps. |
 | **React Query** | TanStack Query for server state (admin/judge). |
 | **React Hook Form** | Forms with `zodResolver`. |
-| **Zod** | Shared schemas in `@npha/shared` when possible; route-local only for one-offs. |
+| **Zod** | Shared schemas in `@aero-judge/shared` when possible; route-local only for one-offs. |
 
 Prettier: single quotes, semicolons, trailing commas, printWidth 100. Server ESM: `.js` suffixes on relative imports.
 
@@ -25,7 +25,7 @@ Prettier: single quotes, semicolons, trailing commas, printWidth 100. Server ESM
 - Small functions
 - No duplicated code — extract shared helpers/components/hooks
 - Prefer **composition** over inheritance
-- Prefer **enums** (or shared const unions from `@npha/shared`) over magic strings
+- Prefer **enums** (or shared const unions from `@aero-judge/shared`) over magic strings
 - **Every exported function** should be documented (JSDoc: purpose, params, return)
 
 ## Server shape
@@ -43,7 +43,7 @@ export const create = [
 
 ## React
 
-- Functional components; prefer `@npha/ui` primitives over one-off duplicates.
+- Functional components; prefer `@aero-judge/ui` primitives over one-off duplicates.
 - Authenticated downloads: `fetch` + Bearer + blob — never bare `window.open` on protected routes.
 - Sanitize API nulls before form `reset` (nullish-friendly Zod).
 

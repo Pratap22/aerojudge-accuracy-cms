@@ -1,6 +1,6 @@
 import type { Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
-import { SOCKET_ROOMS, type RankingCategory, type RoundStatus } from '@npha/shared';
+import { SOCKET_ROOMS, type RankingCategory, type RoundStatus } from '@aero-judge/shared';
 import { env, isDevLanOrigin } from '../config/env.js';
 import { verifyAccessToken } from '../auth/jwt.js';
 

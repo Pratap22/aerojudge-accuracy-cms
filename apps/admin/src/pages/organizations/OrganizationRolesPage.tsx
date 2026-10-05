@@ -12,7 +12,7 @@ import {
   type CreateOrganizationRoleInput,
   type OrgRole,
   type Permission,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   Button,
@@ -35,7 +35,7 @@ import {
   TableHeader,
   TableRow,
   Textarea,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 

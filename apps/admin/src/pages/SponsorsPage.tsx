@@ -9,7 +9,7 @@ import {
   type CompetitionSponsor,
   type CreateSponsorInput,
   type SponsorType,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { Handshake, ImagePlus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   Badge,
@@ -31,7 +31,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 

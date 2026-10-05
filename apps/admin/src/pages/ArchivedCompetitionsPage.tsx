@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArchiveRestore, Trophy } from 'lucide-react';
-import type { CompetitionStatus } from '@npha/shared';
+import type { CompetitionStatus } from '@aero-judge/shared';
 import {
   Badge,
   Button,
@@ -10,7 +10,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api } from '../lib/api';
 import { usePermission } from '../hooks/usePermission';
 import {

@@ -1,6 +1,6 @@
 # Authorization Matrix
 
-**Status:** Phase 1–2 — derived from `@npha/shared` system org role permission bundles.  
+**Status:** Phase 1–2 — derived from `@aero-judge/shared` system org role permission bundles.  
 **Source of truth:** `packages/shared/src/constants/index.ts` (`SYSTEM_ORG_ROLE_DEFINITIONS`).  
 **Last reviewed:** 2026-08-03
 

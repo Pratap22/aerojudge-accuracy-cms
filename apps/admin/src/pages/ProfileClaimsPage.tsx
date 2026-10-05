@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link2, Shield, UserCheck, X } from 'lucide-react';
-import type { PersonDirectoryEntry } from '@npha/shared';
+import type { PersonDirectoryEntry } from '@aero-judge/shared';
 import {
   Badge,
   Button,
@@ -16,7 +16,7 @@ import {
   DialogTitle,
   Input,
   Label,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, ApiError } from '../lib/api';
 import { usePermission } from '../hooks/usePermission';
 

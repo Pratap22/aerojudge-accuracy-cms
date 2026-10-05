@@ -1,6 +1,6 @@
-import { generateQrPayload, parseCsvLine, formatPilotName, toCsv } from '@npha/utils';
-import { COMPETING_PILOT_STATUSES, type PilotStatus } from '@npha/shared';
-import type { CompetitionParticipationStatus, Prisma } from '@npha/database';
+import { generateQrPayload, parseCsvLine, formatPilotName, toCsv } from '@aero-judge/utils';
+import { COMPETING_PILOT_STATUSES, type PilotStatus } from '@aero-judge/shared';
+import type { CompetitionParticipationStatus, Prisma } from '@aero-judge/database';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';

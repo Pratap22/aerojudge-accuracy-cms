@@ -1,6 +1,6 @@
 import { AnimatedLeaderboard } from '../components/AnimatedLeaderboard';
 import { SponsorStrip } from '../components/SponsorStrip';
-import type { LeaderboardEntry } from '@npha/ui';
+import type { LeaderboardEntry } from '@aero-judge/ui';
 
 interface TopWomenLayoutProps {
   entries: LeaderboardEntry[];

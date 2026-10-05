@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
-import { Button, Input, Label, toast } from '@npha/ui';
+import { Button, Input, Label, toast } from '@aero-judge/ui';
 import { api } from '../lib/api';
 import { toCompetitionDateInput } from '../lib/competition-dates';
 

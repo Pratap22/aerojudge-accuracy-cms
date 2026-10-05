@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ScoringEngine } from '@npha/scoring-engine';
+import { ScoringEngine } from '@aero-judge/scoring-engine';
 
 vi.mock('../config/prisma.js', () => ({
   prisma: {

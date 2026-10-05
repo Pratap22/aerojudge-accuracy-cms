@@ -28,7 +28,7 @@ Person/User split is **intentionally correct** and must be preserved. The mess i
 | Login account | `User` (optional 1:1 `personId`) |
 | Session | Access JWT (identity) + `RefreshToken` row |
 | Current organization | `X-Organization-Id` re-validated against `OrganizationMember` |
-| Permissions | Membership permission bundle (custom role JSON **or** built-in OrgRole map in `@npha/shared`) |
+| Permissions | Membership permission bundle (custom role JSON **or** built-in OrgRole map in `@aero-judge/shared`) |
 | Competition activity | `CompetitionParticipant` + `CompetitionParticipantRole` (not RBAC) |
 | Audit | Server `AuditLog` only |
 
@@ -215,7 +215,7 @@ Authorization denials: server-side `AUTHZ_DENIED` with resource type + required 
 | Concern | Existing home |
 |---------|---------------|
 | authentication / session | `server/src/auth/*`, `services/auth.service.ts` |
-| authorization | `server/src/auth/rbac.ts`, `permissions.ts`, `@npha/shared` constants |
+| authorization | `server/src/auth/rbac.ts`, `permissions.ts`, `@aero-judge/shared` constants |
 | users / invitations | `user.service`, `organization-member.service` |
 | people | `person.service`, people routes |
 | organizations | `modules/organization` |

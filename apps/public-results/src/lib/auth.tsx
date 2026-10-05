@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { AuthUser, LoginResult } from '@npha/shared';
+import type { AuthUser, LoginResult } from '@aero-judge/shared';
 import {
   clearTokens,
   fetchMe,

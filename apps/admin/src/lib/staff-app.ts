@@ -1,10 +1,10 @@
-import type { AuthUser, StaffAppId } from '@npha/shared';
-import { getPreferredStaffApp, staffAppRedirectTarget } from '@npha/shared';
+import type { AuthUser, StaffAppId } from '@aero-judge/shared';
+import { getPreferredStaffApp, staffAppRedirectTarget } from '@aero-judge/shared';
 import {
   encodeStaffSessionHandoff,
   parseStaffSessionHandoff,
   type StaffSessionHandoff,
-} from '@npha/utils';
+} from '@aero-judge/utils';
 import { getAccessToken, getOrganizationId, getRefreshToken, setOrganizationId, setTokens } from './api';
 
 const CURRENT_APP: StaffAppId = 'admin';

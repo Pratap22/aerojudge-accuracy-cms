@@ -1,6 +1,6 @@
-import type { RuleConfig, RuleSetVersion } from '@npha/shared';
-import { slugify } from '@npha/utils';
-import type { Prisma } from '@npha/database';
+import type { RuleConfig, RuleSetVersion } from '@aero-judge/shared';
+import { slugify } from '@aero-judge/utils';
+import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { organizationService } from '../modules/organization/index.js';

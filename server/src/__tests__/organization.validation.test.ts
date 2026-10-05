@@ -5,7 +5,7 @@ import {
   organizationSettingsSchema,
   listOrganizationsQuerySchema,
   hasPermission,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 
 describe('organization schemas', () => {
   it('accepts a valid create payload', () => {

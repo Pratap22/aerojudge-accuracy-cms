@@ -26,10 +26,10 @@ ENV VITE_BASE_PATH=${BASE_PATH}
 ENV VITE_SITE_URL=${VITE_SITE_URL}
 ENV VITE_CONTACT_EMAIL=${VITE_CONTACT_EMAIL}
 COPY . .
-# shared + utils must be built before apps (@npha/ui and apps import their dist/)
-RUN npm run build --workspace=@npha/shared \
-  && npm run build --workspace=@npha/utils \
-  && npm run build --workspace=@npha/${APP_NAME}
+# shared + utils must be built before apps (@aero-judge/ui and apps import their dist/)
+RUN npm run build --workspace=@aero-judge/shared \
+  && npm run build --workspace=@aero-judge/utils \
+  && npm run build --workspace=@aero-judge/${APP_NAME}
 
 FROM nginx:1.27-alpine AS runner
 ARG APP_NAME

@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { isEmptyHtml } from '@npha/shared';
+import { isEmptyHtml } from '@aero-judge/shared';
 import { Layout } from '../components/Layout';
 import { Hero } from '../components/Hero';
 import { OrganizingTeamSection } from '../components/OrganizingTeam';

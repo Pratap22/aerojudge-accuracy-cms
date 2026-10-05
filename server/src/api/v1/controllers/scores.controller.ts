@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { enterScoreSchema } from '@npha/shared';
+import { enterScoreSchema } from '@aero-judge/shared';
 import { z } from 'zod';
 import { AppError, asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';

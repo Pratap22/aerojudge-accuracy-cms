@@ -6,7 +6,7 @@ import {
   SYSTEM_ORG_ROLE_DEFINITIONS,
   mapLegacyRoleToOrgRole,
   type OrgRole,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';

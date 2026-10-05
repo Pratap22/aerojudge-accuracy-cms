@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { isEmptyHtml, type CompetitionEventInfo } from '@npha/shared';
+import { isEmptyHtml, type CompetitionEventInfo } from '@aero-judge/shared';
 import { ExternalLink, Mail, MapPin, Phone } from 'lucide-react';
 import { osmBrowseUrl, osmEmbedUrl, sanitizePublicHtml } from '../lib/rich-html';
 

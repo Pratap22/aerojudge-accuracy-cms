@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import type { LeaderboardEntry } from '@npha/ui';
+import type { LeaderboardEntry } from '@aero-judge/ui';
 import { CountryFlag } from '../components/CountryFlag';
 import { SponsorStrip } from '../components/SponsorStrip';
 import { formatScore } from '../lib/utils';

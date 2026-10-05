@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import { Button } from '@npha/ui';
+import { Button } from '@aero-judge/ui';
 import { openStaffApp } from '../lib/staff-app';
 
 /** Open Admin with the current staff session (reports, rounds, ops). */

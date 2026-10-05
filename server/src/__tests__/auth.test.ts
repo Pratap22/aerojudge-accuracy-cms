@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { signAccessToken, verifyAccessToken, signRefreshToken, verifyRefreshToken } from '../auth/jwt.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
-import { hasPermission } from '@npha/shared';
+import { hasPermission } from '@aero-judge/shared';
 
 describe('auth jwt', () => {
   it('signs and verifies access token', () => {

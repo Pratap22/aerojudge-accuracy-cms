@@ -1,5 +1,5 @@
-import type { ScoreResultType } from '@npha/shared';
-import { Button, cn } from '@npha/ui';
+import type { ScoreResultType } from '@aero-judge/shared';
+import { Button, cn } from '@aero-judge/ui';
 
 interface QuickScoreButtonsProps {
   selected: ScoreResultType;

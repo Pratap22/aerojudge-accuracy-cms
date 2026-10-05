@@ -1,4 +1,4 @@
-import { compareOfficials, isEmptyHtml } from '@npha/shared';
+import { compareOfficials, isEmptyHtml } from '@aero-judge/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';

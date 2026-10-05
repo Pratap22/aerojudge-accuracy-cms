@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cn } from '@npha/ui';
+import { cn } from '@aero-judge/ui';
 
 /**
  * Shared page chrome for admin screens — stacks cleanly on mobile,

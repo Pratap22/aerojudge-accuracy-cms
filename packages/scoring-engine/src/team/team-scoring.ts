@@ -13,7 +13,7 @@ import type {
   TeamPilotContribution,
   TeamRankingResult,
   TeamRoundScoreResult,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 
 export interface TeamMemberInput {
   pilotId: string;

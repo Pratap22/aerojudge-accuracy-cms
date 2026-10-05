@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { forgotPasswordSchema, type ForgotPasswordInput } from '@npha/shared';
+import { forgotPasswordSchema, type ForgotPasswordInput } from '@aero-judge/shared';
 import { ArrowLeft, Target } from 'lucide-react';
 import {
   Button,
@@ -13,7 +13,7 @@ import {
   CardTitle,
   Input,
   Label,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, ApiError } from '../lib/api';
 
 export function ForgotPasswordPage() {

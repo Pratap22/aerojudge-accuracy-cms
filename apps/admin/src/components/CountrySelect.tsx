@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
-import { Button, Input, cn } from '@npha/ui';
+import { Button, Input, cn } from '@aero-judge/ui';
 import { api } from '../lib/api';
 
 export interface CountryOption {

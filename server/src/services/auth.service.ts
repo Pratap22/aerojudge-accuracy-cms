@@ -6,7 +6,7 @@ import type {
   LoginResult,
   OrgRole,
   Permission,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { prisma } from '../config/prisma.js';
 import { env } from '../config/env.js';
 import {

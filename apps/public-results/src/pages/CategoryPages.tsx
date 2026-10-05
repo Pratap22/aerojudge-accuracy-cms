@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Layout } from '../components/Layout';
-import { LeaderboardTable, TeamLeaderboard, type TeamLeaderboardEntry } from '@npha/ui';
+import { LeaderboardTable, TeamLeaderboard, type TeamLeaderboardEntry } from '@aero-judge/ui';
 import { useResults, toLeaderboardEntries } from '../hooks/useCompetition';
 
 function CategoryPage({

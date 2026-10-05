@@ -21,12 +21,12 @@ FROM deps AS builder
 COPY . .
 # Client generate needs no DB / .env (do not use scripts that load --env-file)
 RUN node node_modules/prisma/build/index.js generate --schema=database/prisma/schema.prisma
-RUN npm run build --workspace=@npha/database \
-  && npm run build --workspace=@npha/shared \
-  && npm run build --workspace=@npha/utils \
-  && npm run build --workspace=@npha/scoring-engine \
-  && npm run build --workspace=@npha/pdf-engine \
-  && npm run build --workspace=@npha/server
+RUN npm run build --workspace=@aero-judge/database \
+  && npm run build --workspace=@aero-judge/shared \
+  && npm run build --workspace=@aero-judge/utils \
+  && npm run build --workspace=@aero-judge/scoring-engine \
+  && npm run build --workspace=@aero-judge/pdf-engine \
+  && npm run build --workspace=@aero-judge/server
 
 FROM node:20-alpine AS runner
 WORKDIR /app

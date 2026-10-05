@@ -5,7 +5,7 @@
 
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
-import type { PrintFormat, ReportType } from '@npha/shared';
+import type { PrintFormat, ReportType } from '@aero-judge/shared';
 
 export interface ReportBranding {
   competitionName: string;

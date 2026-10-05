@@ -10,7 +10,7 @@ import {
   type UpdateCompetitionInfoInput,
   type UpdateCompetitionLinkInput,
   type UpdateGalleryImageInput,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';

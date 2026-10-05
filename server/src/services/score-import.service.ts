@@ -1,6 +1,6 @@
-import { parseCsvLine } from '@npha/utils';
-import { ScoringEngine } from '@npha/scoring-engine';
-import type { ScoreResultType } from '@npha/shared';
+import { parseCsvLine } from '@aero-judge/utils';
+import { ScoringEngine } from '@aero-judge/scoring-engine';
+import type { ScoreResultType } from '@aero-judge/shared';
 import {
   FlightStatus,
   RoundStatus,
@@ -8,7 +8,7 @@ import {
   FlightOrderType,
   ScoreStatus,
   type Prisma,
-} from '@npha/database';
+} from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { getCompetition, settingsToRuleOverrides } from './competition.service.js';

@@ -11,7 +11,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 

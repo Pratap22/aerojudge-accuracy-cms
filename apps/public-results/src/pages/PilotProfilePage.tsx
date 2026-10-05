@@ -2,7 +2,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle2, Target } from 'lucide-react';
-import { RankBadge, ScoreDisplay } from '@npha/ui';
+import { RankBadge, ScoreDisplay } from '@aero-judge/ui';
 import { Layout } from '../components/Layout';
 import { competitionPath, fetchPilots } from '../lib/api';
 import { useResults } from '../hooks/useCompetition';

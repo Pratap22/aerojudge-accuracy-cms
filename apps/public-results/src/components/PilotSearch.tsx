@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
-import { Input } from '@npha/ui';
+import { Input } from '@aero-judge/ui';
 import { competitionPath } from '../lib/api';
 import { useResults, useSlug } from '../hooks/useCompetition';
 import { countryCodeToEmoji, formatScore, pilotFullName } from '../lib/utils';

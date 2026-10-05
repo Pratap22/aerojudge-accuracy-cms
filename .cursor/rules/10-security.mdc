@@ -20,7 +20,7 @@ alwaysApply: false
 
 ## RBAC
 
-- Role → permission matrix lives in `@npha/shared`; middleware uses `hasPermission`
+- Role → permission matrix lives in `@aero-judge/shared`; middleware uses `hasPermission`
 - Sensitive ops (pilot manage, score enter/confirm, print approve, settings) must check permissions
 
 ## Rules

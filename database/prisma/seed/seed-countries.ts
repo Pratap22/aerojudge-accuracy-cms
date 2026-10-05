@@ -1,6 +1,6 @@
 /**
  * Upsert ISO country reference rows only — safe for live.
- * Run: npm run seed:countries --workspace=@npha/database
+ * Run: npm run seed:countries --workspace=@aero-judge/database
  */
 import { PrismaClient } from '@prisma/client';
 import { COUNTRIES } from './countries-data.js';

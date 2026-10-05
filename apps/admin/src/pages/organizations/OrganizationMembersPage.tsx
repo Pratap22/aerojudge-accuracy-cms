@@ -11,7 +11,7 @@ import {
   type InviteOrganizationMemberInput,
   type OrgRole,
   type Permission,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { Plus, UserMinus } from 'lucide-react';
 import {
   Badge,
@@ -34,7 +34,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 

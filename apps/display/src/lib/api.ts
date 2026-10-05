@@ -1,5 +1,5 @@
-import type { ApiResponse, RankingCategory } from '@npha/shared';
-import { API_VERSION } from '@npha/shared';
+import type { ApiResponse, RankingCategory } from '@aero-judge/shared';
+import { API_VERSION } from '@aero-judge/shared';
 import type { PublicCompetition, PublicCompetitionList, PublicResults } from './types';
 
 async function publicFetch<T>(path: string, params?: Record<string, string | number>): Promise<T> {

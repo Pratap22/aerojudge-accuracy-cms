@@ -1,4 +1,4 @@
-import { formatScoreCm } from '@npha/utils';
+import { formatScoreCm } from '@aero-judge/utils';
 
 export function countryCodeToEmoji(code2: string): string {
   const upper = code2.trim().toUpperCase();

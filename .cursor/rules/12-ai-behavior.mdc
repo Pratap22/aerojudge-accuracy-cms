@@ -9,8 +9,8 @@ alwaysApply: true
 
 - Prefer small, targeted diffs that match existing patterns.
 - Read nearby code and shared packages before inventing new abstractions.
-- Use `@npha/shared` schemas/types/permissions instead of duplicating them.
-- Keep scoring math inside `@npha/scoring-engine`; keep Prisma in services.
+- Use `@aero-judge/shared` schemas/types/permissions instead of duplicating them.
+- Keep scoring math inside `@aero-judge/scoring-engine`; keep Prisma in services.
 
 ## When fixing bugs
 

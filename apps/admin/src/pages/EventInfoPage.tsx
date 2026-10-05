@@ -13,7 +13,7 @@ import {
   type CreateCompetitionContactInput,
   type CreateCompetitionLinkInput,
   type UpdateCompetitionInfoInput,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import {
   Eye,
   EyeOff,
@@ -44,7 +44,7 @@ import {
   TabsList,
   TabsTrigger,
   toast,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { PageHeader } from '../components/PageHeader';

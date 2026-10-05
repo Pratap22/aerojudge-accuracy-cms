@@ -10,7 +10,7 @@ import {
   type Organization,
   type OrganizationSettingsInput,
   type UpdateOrganizationInput,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { ArrowLeft, Building2, Upload } from 'lucide-react';
 import {
   Badge,
@@ -24,7 +24,7 @@ import {
   SelectValue,
   Textarea,
   cn,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api, apiFetch } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { competitionPath } from '../../hooks/useCompetitionId';

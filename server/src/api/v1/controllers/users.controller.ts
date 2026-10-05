@@ -4,7 +4,7 @@ import {
   listUsersQuerySchema,
   setUserPasswordSchema,
   updateUserSchema,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DEFAULT_FAI_2022_RULES, type RuleConfig } from '@npha/shared';
+import { DEFAULT_FAI_2022_RULES, type RuleConfig } from '@aero-judge/shared';
 import { Calendar, Save, Settings, Wind } from 'lucide-react';
 import {
   Button,
@@ -13,7 +13,7 @@ import {
   CardTitle,
   Input,
   Label,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { CompetitionDatesForm } from '../components/CompetitionDatesForm';

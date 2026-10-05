@@ -1,4 +1,4 @@
-import type { OrgRole, OrganizationMemberStatus, Permission, Role } from '@npha/shared';
+import type { OrgRole, OrganizationMemberStatus, Permission, Role } from '@aero-judge/shared';
 
 declare global {
   namespace Express {

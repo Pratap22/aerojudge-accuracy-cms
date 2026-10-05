@@ -8,7 +8,7 @@ alwaysApply: false
 
 - Schema: `database/prisma/schema.prisma`
 - Seed: `database/prisma/seed/index.ts`
-- Client consumed as `@npha/database` (see `server/src/config/prisma.ts`)
+- Client consumed as `@aero-judge/database` (see `server/src/config/prisma.ts`)
 
 ## Conventions
 

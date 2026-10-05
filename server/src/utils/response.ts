@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import type { ApiResponse } from '@npha/shared';
+import type { ApiResponse } from '@aero-judge/shared';
 
 function meta(extra?: Partial<NonNullable<ApiResponse<unknown>['meta']>>) {
   return {

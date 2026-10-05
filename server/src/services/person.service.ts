@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import type { Gender, Person, Prisma } from '@npha/database';
+import type { Gender, Person, Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { resolveCountryId } from '../utils/country-resolve.js';

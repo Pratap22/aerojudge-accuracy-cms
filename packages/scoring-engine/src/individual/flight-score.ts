@@ -13,7 +13,7 @@ import type {
   ScoreInput,
   ScoreResultType,
   ScoringAuditEntry,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 
 function audit(step: string, detail: string, data?: Record<string, unknown>): ScoringAuditEntry {
   return { timestamp: new Date().toISOString(), step, detail, data };

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { hasPermission, type Organization } from '@npha/shared';
+import { hasPermission, type Organization } from '@aero-judge/shared';
 import { ArchiveRestore, Building2, Search } from 'lucide-react';
 import {
   Badge,
@@ -13,7 +13,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 

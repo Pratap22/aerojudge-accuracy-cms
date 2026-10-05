@@ -3,8 +3,8 @@ import type {
   AuthenticatedPilotRegistrationInput,
   CompetitionEventInfo,
   RankingCategory,
-} from '@npha/shared';
-import { API_VERSION } from '@npha/shared';
+} from '@aero-judge/shared';
+import { API_VERSION } from '@aero-judge/shared';
 import { getAccessToken } from './auth-api';
 import type { PublicCompetition, PublicCompetitionList, PublicResults, RoundResults } from './types';
 

@@ -13,7 +13,7 @@ import type {
   RuleConfig,
   ScoringAuditEntry,
   TieBreakCriterion,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 
 export interface PilotRankingInput {
   pilotId: string;

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { CreateSponsorInput, UpdateSponsorInput } from '@npha/shared';
+import type { CreateSponsorInput, UpdateSponsorInput } from '@aero-judge/shared';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';

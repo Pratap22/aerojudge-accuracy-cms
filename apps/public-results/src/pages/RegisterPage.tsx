@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   authenticatedPilotRegistrationSchema,
   type AuthenticatedPilotRegistrationInput,
-} from '@npha/shared';
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@npha/ui';
+} from '@aero-judge/shared';
+import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@aero-judge/ui';
 import { Layout } from '../components/Layout';
 import { claimPerson, lookupPersonForClaim } from '../lib/auth-api';
 import { useAuth } from '../lib/auth';

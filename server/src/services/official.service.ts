@@ -1,5 +1,5 @@
-import type { CreateOfficialInput, UpdateOfficialInput } from '@npha/shared';
-import { compareOfficials, officialRoleRank } from '@npha/shared';
+import type { CreateOfficialInput, UpdateOfficialInput } from '@aero-judge/shared';
+import { compareOfficials, officialRoleRank } from '@aero-judge/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { uploadImageToCloudinary } from '../utils/cloudinary.js';

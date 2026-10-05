@@ -14,7 +14,7 @@ import {
   Undo2,
 } from 'lucide-react';
 import { useEffect } from 'react';
-import { Button, cn } from '@npha/ui';
+import { Button, cn } from '@aero-judge/ui';
 
 interface RichTextEditorProps {
   value: string;

@@ -1,7 +1,7 @@
 /**
  * AeroJudge – development seed data
  * Sample tenant uses NPHA as an example organization / early customer.
- * Run: npm run seed --workspace=@npha/database
+ * Run: npm run seed --workspace=@aero-judge/database
  */
 import bcrypt from 'bcryptjs';
 import {

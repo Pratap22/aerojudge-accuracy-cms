@@ -28,8 +28,8 @@ import {
   UserCheck,
   X,
 } from 'lucide-react';
-import { Badge, Button, cn } from '@npha/ui';
-import { hasEffectivePermission, hasPermission, type Permission } from '@npha/shared';
+import { Badge, Button, cn } from '@aero-judge/ui';
+import { hasEffectivePermission, hasPermission, type Permission } from '@aero-judge/shared';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { api } from '../lib/api';

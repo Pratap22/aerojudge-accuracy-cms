@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { loginSchema, type LoginInput } from '@npha/shared';
+import { loginSchema, type LoginInput } from '@aero-judge/shared';
 import { Building2, Target } from 'lucide-react';
 import {
   Button,
@@ -13,7 +13,7 @@ import {
   CardTitle,
   Input,
   Label,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { useAuth } from '../lib/auth';
 import { competitionsListPath } from '../hooks/useCompetitionId';
 import { ApiError } from '../lib/api';

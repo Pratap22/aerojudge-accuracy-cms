@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Search } from 'lucide-react';
-import type { ScoreResultType } from '@npha/shared';
-import { cn, Input } from '@npha/ui';
-import { formatScoreCm, padPilotNumber } from '@npha/utils';
+import type { ScoreResultType } from '@aero-judge/shared';
+import { cn, Input } from '@aero-judge/ui';
+import { formatScoreCm, padPilotNumber } from '@aero-judge/utils';
 
 export interface PilotOption {
   id: string;

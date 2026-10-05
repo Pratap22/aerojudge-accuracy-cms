@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { SPONSOR_TYPES } from '@npha/shared';
+import { SPONSOR_TYPES } from '@aero-judge/shared';
 import { useCompetition, useSponsors } from '../hooks/useCompetition';
 import type { Sponsor } from '../lib/types';
 

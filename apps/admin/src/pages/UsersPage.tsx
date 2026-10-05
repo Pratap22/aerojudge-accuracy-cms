@@ -11,7 +11,7 @@ import {
   type UserStatus,
   ROLES,
   hasPermission,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { z } from 'zod';
 import { KeyRound, Pencil, Plus, RotateCcw, Shield, Trash2 } from 'lucide-react';
 import {
@@ -37,8 +37,8 @@ import {
   TableHeader,
   TableRow,
   cn,
-} from '@npha/ui';
-import type { AuthUser } from '@npha/shared';
+} from '@aero-judge/ui';
+import type { AuthUser } from '@aero-judge/shared';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 

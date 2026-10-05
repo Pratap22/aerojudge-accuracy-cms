@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatScoreCm } from '@npha/utils';
+import { formatScoreCm } from '@aero-judge/utils';
 import { Medal, RefreshCw } from 'lucide-react';
 import {
   Badge,
@@ -20,8 +20,8 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@npha/ui';
-import type { RankingCategory } from '@npha/shared';
+} from '@aero-judge/ui';
+import type { RankingCategory } from '@aero-judge/shared';
 import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { connectSocket, onSocketEvent } from '../lib/socket';

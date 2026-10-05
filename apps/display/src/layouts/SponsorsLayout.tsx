@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { SPONSOR_TYPES } from '@npha/shared';
+import { SPONSOR_TYPES } from '@aero-judge/shared';
 import { useCompetition, useSponsors } from '../hooks/useCompetition';
 import type { Sponsor } from '../lib/types';
 

@@ -445,7 +445,7 @@ model OrganizationMember {
   id             String                    @id @default(cuid())
   organizationId String
   userId         String
-  /// Built-in role key (permission bundle in @npha/shared). Ignored when customRoleId is set.
+  /// Built-in role key (permission bundle in @aero-judge/shared). Ignored when customRoleId is set.
   role           OrgRole                   @default(VIEWER)
   /// Optional custom role with an explicit permission list (federation-defined).
   customRoleId   String?

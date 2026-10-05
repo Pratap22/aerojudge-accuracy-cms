@@ -8,7 +8,7 @@ import {
   type CreateTeamInput,
   type RuleConfig,
   type TeamType,
-} from '@npha/shared';
+} from '@aero-judge/shared';
 import { AlertCircle, CheckCircle2, Pencil, Plus, Users } from 'lucide-react';
 import {
   Badge,
@@ -30,7 +30,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 

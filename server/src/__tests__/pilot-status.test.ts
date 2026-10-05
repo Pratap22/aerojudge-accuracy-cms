@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COMPETING_PILOT_STATUSES, PILOT_STATUSES, pilotStatusSchema } from '@npha/shared';
+import { COMPETING_PILOT_STATUSES, PILOT_STATUSES, pilotStatusSchema } from '@aero-judge/shared';
 
 describe('pilot status workflow', () => {
   it('includes REJECTED in shared pilot statuses', () => {

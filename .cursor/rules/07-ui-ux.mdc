@@ -9,7 +9,7 @@ alwaysApply: false
 ## App split
 
 - **Marketing (`apps/marketing`):** public product site at `/` in production (dev `:3004`); storytelling landing, no auth/API coupling.
-- **Admin / Judge:** full `@npha/ui` + Query + forms; judge has offline queue (`apps/judge/src/lib/offline-queue.ts`).
+- **Admin / Judge:** full `@aero-judge/ui` + Query + forms; judge has offline queue (`apps/judge/src/lib/offline-queue.ts`).
 - **Display / Public:** leaner UIs; often Socket.IO-driven; null-safe country/pilot fields.
 
 ## Design system
@@ -20,8 +20,8 @@ alwaysApply: false
 
 ## Rules
 
-- Prefer existing `@npha/ui` components and tokens over new one-off card/button styles.
-- Pilot names: `formatPilotName` from `@npha/utils` → **FirstName LastName**.
+- Prefer existing `@aero-judge/ui` components and tokens over new one-off card/button styles.
+- Pilot names: `formatPilotName` from `@aero-judge/utils` → **FirstName LastName**.
 - Never inject unscoped HTML (`dangerouslySetInnerHTML` of report previews) into the admin shell — use an iframe/`srcDoc` for print previews.
 - Public/display mappers must tolerate `country: null` and nested vs flat pilot shapes.
 - Keep first-viewport / marketing rules out of ops UIs; these are tools, not landing pages.

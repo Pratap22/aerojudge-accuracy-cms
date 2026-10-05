@@ -43,7 +43,7 @@ Examples:
 - `organization:roles`
 - `organization:manage`
 
-Built-in `OrgRole` values (Owner, Chief Judge, Meet Director, …) are **named bundles** defined in `@npha/shared` (`SYSTEM_ORG_ROLE_DEFINITIONS`).
+Built-in `OrgRole` values (Owner, Chief Judge, Meet Director, …) are **named bundles** defined in `@aero-judge/shared` (`SYSTEM_ORG_ROLE_DEFINITIONS`).
 
 Organizations can also create **custom roles** (`OrganizationRole`) — e.g. “Deputy Chief Judge” — with an explicit permission list. Assign via `OrganizationMember.customRoleId`. Custom roles win over the built-in `role` bundle.
 

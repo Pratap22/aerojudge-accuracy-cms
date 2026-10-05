@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { formatScoreCm } from '@npha/utils';
+import { formatScoreCm } from '@aero-judge/utils';
 import { BarChart3, Target, TrendingUp, Trophy } from 'lucide-react';
 import {
   Card,
@@ -14,7 +14,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@npha/ui';
+} from '@aero-judge/ui';
 import { api } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Input, Label } from '@npha/ui';
+import { Button, Input, Label } from '@aero-judge/ui';
 
 export interface WindDraft {
   speedMs: number;

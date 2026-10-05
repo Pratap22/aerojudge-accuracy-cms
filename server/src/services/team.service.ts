@@ -1,5 +1,5 @@
-import { ScoringEngine } from '@npha/scoring-engine';
-import type { Prisma } from '@npha/database';
+import { ScoringEngine } from '@aero-judge/scoring-engine';
+import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { getCompetition, settingsToRuleOverrides } from './competition.service.js';

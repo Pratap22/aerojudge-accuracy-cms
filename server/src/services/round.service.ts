@@ -1,6 +1,6 @@
-import { shuffleArray } from '@npha/utils';
-import { COMPETING_PILOT_STATUSES, type FlightOrderType, type RoundStatus } from '@npha/shared';
-import type { Prisma } from '@npha/database';
+import { shuffleArray } from '@aero-judge/utils';
+import { COMPETING_PILOT_STATUSES, type FlightOrderType, type RoundStatus } from '@aero-judge/shared';
+import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import {
