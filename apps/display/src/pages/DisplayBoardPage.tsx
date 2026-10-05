@@ -148,13 +148,15 @@ export function DisplayBoardPage() {
     const id = window.setInterval(() => setWindNow(Date.now()), 15_000);
     return () => window.clearInterval(id);
   }, []);
-  const showWind =
-    !!socketState.wind &&
+  const windReading =
+    socketState.wind &&
     isWindReadingCurrent(
       socketState.wind.recordedAt,
       competition?.settings?.windDisplayMaxAgeMinutes ?? 30,
       windNow,
-    );
+    )
+      ? socketState.wind
+      : null;
 
   useEffect(() => {
     if (!persistedLatest) return;
@@ -545,11 +547,11 @@ export function DisplayBoardPage() {
             {competition.name}
           </h1>
         </div>
-        {showWind && !competitionCompleted && !pausedRound && (
+        {windReading && !competitionCompleted && !pausedRound && (
           <div className="shrink-0 rounded-lg border border-sky-500/30 bg-broadcast-navy-mid/80 px-2.5 py-1 text-right sm:px-4 sm:py-2">
             <p className="text-[10px] uppercase tracking-wider text-sky-400 sm:text-xs">Wind</p>
             <p className="font-mono text-xs text-white sm:text-lg">
-              {socketState.wind.speedMs.toFixed(1)} m/s · {Math.round(socketState.wind.directionDeg)}°
+              {windReading.speedMs.toFixed(1)} m/s · {Math.round(windReading.directionDeg)}°
             </p>
           </div>
         )}
