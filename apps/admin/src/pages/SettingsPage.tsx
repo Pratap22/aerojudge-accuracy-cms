@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_FAI_2022_RULES, type RuleConfig } from '@npha/shared';
-import { Calendar, Save, Settings } from 'lucide-react';
+import { Calendar, Save, Settings, Wind } from 'lucide-react';
 import {
   Button,
   Card,
@@ -25,6 +26,31 @@ export function SettingsPage() {
     queryKey: ['settings', activeCompetitionId],
     queryFn: () => api.get<RuleConfig>(`/competitions/${activeCompetitionId}/rules`),
     enabled: !!activeCompetitionId,
+  });
+
+  const { data: competition } = useQuery({
+    queryKey: ['competition', activeCompetitionId],
+    queryFn: () =>
+      api.get<{ settings?: { windDisplayMaxAgeMinutes?: number } | null }>(
+        `/competitions/${activeCompetitionId}`,
+      ),
+    enabled: !!activeCompetitionId,
+  });
+  const [windMaxAgeMinutes, setWindMaxAgeMinutes] = useState('30');
+  useEffect(() => {
+    const minutes = competition?.settings?.windDisplayMaxAgeMinutes;
+    if (minutes == null) return;
+    setWindMaxAgeMinutes(String(minutes));
+  }, [competition?.settings?.windDisplayMaxAgeMinutes]);
+
+  const windMutation = useMutation({
+    mutationFn: (minutes: number) =>
+      api.put(`/competitions/${activeCompetitionId}/rules`, {
+        windDisplayMaxAgeMinutes: minutes,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
+    },
   });
 
   const { register, handleSubmit, reset } = useForm<RuleConfig>({
@@ -64,6 +90,51 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent>
           <CompetitionDatesForm competitionId={activeCompetitionId} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wind className="h-5 w-5" />
+            Wind display
+          </CardTitle>
+          <CardDescription>
+            The venue display and public results hide the wind speed when the last reading is older
+            than this. Set 0 to keep showing the latest reading.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const minutes = Number(windMaxAgeMinutes);
+              if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) return;
+              windMutation.mutate(minutes);
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="wind-max-age">Hide wind after (minutes)</Label>
+              <Input
+                id="wind-max-age"
+                type="number"
+                min={0}
+                max={1440}
+                step={1}
+                value={windMaxAgeMinutes}
+                onChange={(event) => setWindMaxAgeMinutes(event.target.value)}
+                className="w-40"
+              />
+            </div>
+            <Button type="submit" disabled={windMutation.isPending}>
+              <Save className="mr-2 h-4 w-4" />
+              {windMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </form>
+          {windMutation.isError && (
+            <p className="mt-2 text-sm text-destructive">Could not save the wind display setting.</p>
+          )}
         </CardContent>
       </Card>
 

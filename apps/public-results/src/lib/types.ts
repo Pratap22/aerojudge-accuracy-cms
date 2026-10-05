@@ -23,6 +23,8 @@ export interface PublicCompetition {
     livePublicResults: boolean;
     partnersLabel?: string;
     partnerTiersEnabled?: boolean;
+    /** Minutes before a wind reading is hidden. 0 keeps the latest reading visible. */
+    windDisplayMaxAgeMinutes?: number;
   };
   pilotCount?: number;
   teamCount?: number;

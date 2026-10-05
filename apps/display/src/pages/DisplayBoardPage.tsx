@@ -19,6 +19,7 @@ import { useCompetition, useLatestScore, useLatestWind, useResults, useRoundsSta
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
+import { isWindReadingCurrent } from '@npha/utils';
 
 const PRE_ROUND_LAYOUTS: DisplayLayoutType[] = ['sponsors', 'women', 'teams', 'country'];
 
@@ -138,8 +139,22 @@ export function DisplayBoardPage() {
     socketState.seedWind({
       speedMs: latestWind.speedMs,
       directionDeg: latestWind.directionDeg,
+      recordedAt: latestWind.recordedAt,
     });
   }, [latestWind, socketState.seedWind]);
+
+  const [windNow, setWindNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setWindNow(Date.now()), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const showWind =
+    !!socketState.wind &&
+    isWindReadingCurrent(
+      socketState.wind.recordedAt,
+      competition?.settings?.windDisplayMaxAgeMinutes ?? 30,
+      windNow,
+    );
 
   useEffect(() => {
     if (!persistedLatest) return;
@@ -530,7 +545,7 @@ export function DisplayBoardPage() {
             {competition.name}
           </h1>
         </div>
-        {socketState.wind && !competitionCompleted && !pausedRound && (
+        {showWind && !competitionCompleted && !pausedRound && (
           <div className="shrink-0 rounded-lg border border-sky-500/30 bg-broadcast-navy-mid/80 px-2.5 py-1 text-right sm:px-4 sm:py-2">
             <p className="text-[10px] uppercase tracking-wider text-sky-400 sm:text-xs">Wind</p>
             <p className="font-mono text-xs text-white sm:text-lg">

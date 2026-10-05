@@ -147,6 +147,23 @@ export function toCsv(rows: string[][]): string {
     .join('\n');
 }
 
+/**
+ * Whether a wind reading should still be shown.
+ * `maxAgeMinutes` of 0 or less keeps the latest reading visible.
+ * A missing timestamp is treated as current (a live update that just arrived).
+ */
+export function isWindReadingCurrent(
+  recordedAt: string | Date | null | undefined,
+  maxAgeMinutes: number,
+  now = Date.now(),
+): boolean {
+  if (!Number.isFinite(maxAgeMinutes) || maxAgeMinutes <= 0) return true;
+  if (recordedAt == null || recordedAt === '') return true;
+  const at = recordedAt instanceof Date ? recordedAt.getTime() : new Date(recordedAt).getTime();
+  if (Number.isNaN(at)) return false;
+  return now - at <= maxAgeMinutes * 60_000;
+}
+
 export function ageFromDob(dob: Date, reference = new Date()): number {
   let age = reference.getFullYear() - dob.getFullYear();
   const m = reference.getMonth() - dob.getMonth();

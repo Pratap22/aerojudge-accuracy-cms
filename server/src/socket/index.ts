@@ -141,7 +141,7 @@ export function emitFeedUpdated(competitionId: string): void {
 
 export function emitWindUpdated(
   competitionId: string,
-  wind: { directionDeg: number; speedMs: number },
+  wind: { directionDeg: number; speedMs: number; recordedAt?: string },
 ): void {
   getIo()
     .to(SOCKET_ROOMS.competition(competitionId))

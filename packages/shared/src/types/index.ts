@@ -409,7 +409,12 @@ export interface SocketEvents {
   'flight:status': { competitionId: string; flightId: string; status: FlightStatus };
   'announcement:new': { competitionId: string; title: string; body: string; priority: string };
   'feed:updated': { competitionId: string };
-  'wind:updated': { competitionId: string; directionDeg: number; speedMs: number };
+  'wind:updated': {
+    competitionId: string;
+    directionDeg: number;
+    speedMs: number;
+    recordedAt?: string;
+  };
   'display:layout': { competitionId: string; layoutType: string; payload: unknown };
   'pilot:current': { competitionId: string; pilotId: string | null; flightId: string | null };
   'results:published': { competitionId: string; roundId: string; category: string };

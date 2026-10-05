@@ -56,6 +56,7 @@ export const recordWind = [
     emitWindUpdated(req.params.competitionId, {
       directionDeg: reading.directionDeg,
       speedMs: reading.speedMs,
+      recordedAt: reading.recordedAt.toISOString(),
     });
     sendSuccess(res, reading, 201);
   }),

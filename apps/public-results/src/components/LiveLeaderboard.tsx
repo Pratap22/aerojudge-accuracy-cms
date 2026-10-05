@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { isWindReadingCurrent } from '@npha/utils';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { Input, LeaderboardTable } from '@npha/ui';
@@ -17,6 +18,18 @@ export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeade
   const { data: wind } = useLatestWind();
   const [search, setSearch] = useState('');
   const completed = isCompetitionCompleted(competition?.status);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const windVisible =
+    !!wind &&
+    isWindReadingCurrent(
+      wind.recordedAt,
+      competition?.settings?.windDisplayMaxAgeMinutes ?? 30,
+      now,
+    );
   const heading = title ?? (completed ? 'Final Results' : 'Live Leaderboard');
 
   const entries = useMemo(() => {
@@ -83,7 +96,7 @@ export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeade
           : results?.official
             ? 'Official results · Updated live'
             : 'Provisional results · Updated live'}
-        {!completed && wind ? (
+        {!completed && windVisible ? (
           <span className="mt-1 block font-mono text-sky-200/80">
             Wind {wind.speedMs.toFixed(1)} m/s · {Math.round(wind.directionDeg)}°
           </span>

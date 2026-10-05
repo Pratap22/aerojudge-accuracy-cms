@@ -660,6 +660,8 @@ model CompetitionSettings {
   requireDirectorApproval Boolean @default(true)
   livePublicResults       Boolean @default(true)
   offlineModeEnabled      Boolean @default(true)
+  /// Hide venue and public wind when the last reading is older than this. 0 keeps it visible.
+  windDisplayMaxAgeMinutes Int    @default(30)
   // UI/public label for partners, e.g. Sponsors or Supporters
   partnersLabel           String  @default("Sponsors")
   // When false, partner type/tier is unused (govt / supporters-style events)

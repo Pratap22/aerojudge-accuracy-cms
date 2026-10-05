@@ -144,7 +144,7 @@ export function useLatestWind() {
         speedMs: payload.speedMs,
         directionDeg: payload.directionDeg,
         gustMs: null,
-        recordedAt: new Date().toISOString(),
+        recordedAt: payload.recordedAt ?? new Date().toISOString(),
       });
     });
   }, [roomKey, slug, queryClient]);

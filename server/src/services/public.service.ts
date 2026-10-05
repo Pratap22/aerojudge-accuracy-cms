@@ -38,6 +38,7 @@ const publicCompetitionSelect = {
       livePublicResults: true,
       partnersLabel: true,
       partnerTiersEnabled: true,
+      windDisplayMaxAgeMinutes: true,
     },
   },
   info: {
@@ -118,6 +119,7 @@ function mapPublicCompetition(competition: {
     livePublicResults: boolean;
     partnersLabel: string | null;
     partnerTiersEnabled: boolean;
+    windDisplayMaxAgeMinutes: number;
   } | null;
   info?: {
     aboutHtml: string | null;

@@ -203,6 +203,7 @@ export async function updateSettings(
     'requireDirectorApproval',
     'livePublicResults',
     'offlineModeEnabled',
+    'windDisplayMaxAgeMinutes',
     'partnersLabel',
     'partnerTiersEnabled',
   ] as const;

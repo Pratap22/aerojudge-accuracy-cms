@@ -175,7 +175,11 @@ export function useDisplaySocket(
         windFromSocketRef.current = true;
         setState((prev) => ({
           ...prev,
-          wind: { directionDeg: payload.directionDeg, speedMs: payload.speedMs },
+          wind: {
+            directionDeg: payload.directionDeg,
+            speedMs: payload.speedMs,
+            recordedAt: payload.recordedAt ?? new Date().toISOString(),
+          },
         }));
       }),
     ];
