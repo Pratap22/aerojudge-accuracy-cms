@@ -396,6 +396,35 @@ describe('team scoring', () => {
     expect(result.audit.length).toBeGreaterThan(0);
   });
 
+  it('leaves unscored pilots blank on an open round instead of adding maximum', () => {
+    const result = calculateTeamRoundScore(
+      {
+        teamId: 'nepal',
+        type: 'NATIONAL',
+        members: [
+          { pilotId: 'p1', role: 'PILOT', order: 1 },
+          { pilotId: 'p2', role: 'PILOT', order: 2 },
+          { pilotId: 'p3', role: 'PILOT', order: 3 },
+          { pilotId: 'p4', role: 'PILOT', order: 4 },
+        ],
+        scoringPilots: 3,
+      },
+      'r2',
+      [
+        { pilotId: 'p1', scoreCm: 9, resultType: 'MEASURED', isCountable: true },
+        { pilotId: 'p2', scoreCm: 200, resultType: 'DNF', isCountable: false },
+        { pilotId: 'p4', scoreCm: 200, resultType: 'REFLIGHT', isCountable: false },
+      ],
+      { ...rules, maximumScoreCm: 200 },
+      { fillVacantSlots: false },
+    );
+    expect(result.totalScoreCm).toBe(9);
+    expect(result.countedPilots).toHaveLength(1);
+    expect(result.countedPilots[0]?.pilotId).toBe('p1');
+    expect(result.discardedPilots.map((p) => p.pilotId)).not.toContain('p2');
+    expect(result.discardedPilots.map((p) => p.pilotId)).not.toContain('p4');
+  });
+
   it('fills all vacant scoring slots when the roster is empty (not a single max)', () => {
     const result = calculateTeamRoundScore(
       {

@@ -4,7 +4,11 @@ import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { linkPilotsToCountries } from '../utils/country-resolve.js';
 import { getCompetition } from './competition.service.js';
-import { assignMissingScoresAsDnf, buildRoundScoreEntries } from './score.service.js';
+import {
+  assignMissingScoresAsDnf,
+  buildRoundScoreEntries,
+  capStoredScoresToMaximum,
+} from './score.service.js';
 
 export interface RecalculateResult {
   competitionId: string;
@@ -36,6 +40,7 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
   }
 
   const { pilots, rules } = await buildRoundScoreEntries(competitionId);
+  await capStoredScoresToMaximum(competitionId, rules.maximumScoreCm);
 
   const categories: RankingCategory[] = ['OVERALL'];
   if (rules.womenCategoryEnabled) categories.push('WOMEN');
@@ -74,7 +79,9 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
   });
 
   const teamRoundResults: TeamRoundScoreResult[] = [];
+  const finalRoundStatuses = new Set(['CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED']);
   for (const round of rounds) {
+    const fillVacantSlots = finalRoundStatuses.has(round.status);
     for (const team of teams) {
       const scoringPilots = team.scoringPilots || rules.teamScoringPilots;
       const pilotScores = team.members.map((m) => {
@@ -108,7 +115,10 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
         round.id,
         pilotScores,
         rules,
+        { fillVacantSlots },
       );
+      // An open round with no real scores is blank, not a zero and not a maximum.
+      if (!fillVacantSlots && result.countedPilots.length === 0) continue;
       teamRoundResults.push(result);
     }
   }

@@ -14,7 +14,7 @@ import {
   Input,
   Label,
 } from '@aero-judge/ui';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { CompetitionDatesForm } from '../components/CompetitionDatesForm';
 
@@ -52,6 +52,23 @@ export function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
     },
   });
+
+  const { data: rounds = [] } = useQuery({
+    queryKey: ['rounds', activeCompetitionId],
+    queryFn: () =>
+      api.get<Array<{ type: string; status: string; startedAt?: string | null }>>(
+        `/competitions/${activeCompetitionId}/rounds`,
+      ),
+    enabled: !!activeCompetitionId,
+  });
+  const maximumScoreLocked = rounds.some(
+    (round) =>
+      round.type === 'OFFICIAL' &&
+      (round.startedAt != null ||
+        ['ACTIVE', 'PAUSED', 'CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'].includes(
+          round.status,
+        )),
+  );
 
   const { register, handleSubmit, reset } = useForm<RuleConfig>({
     values: rules ?? DEFAULT_FAI_2022_RULES,
@@ -155,9 +172,15 @@ export function SettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Maximum Score (cm)</Label>
-                <Input type="number" {...register('maximumScoreCm', { valueAsNumber: true })} />
+                <Input
+                  type="number"
+                  disabled={maximumScoreLocked}
+                  {...register('maximumScoreCm', { valueAsNumber: true })}
+                />
                 <p className="text-xs text-muted-foreground">
-                  Competition-specific cap for DNF / ABS / DNS / out-of-target
+                  {maximumScoreLocked
+                    ? 'Locked once the first round has started.'
+                    : 'Competition-specific cap for DNF / ABS / DNS / out-of-target'}
                 </p>
               </div>
               <div className="space-y-2">
@@ -228,10 +251,28 @@ export function SettingsPage() {
             <Save className="mr-2 h-4 w-4" />
             Save Settings
           </Button>
-          <Button type="button" variant="outline" onClick={() => reset(DEFAULT_FAI_2022_RULES)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              reset({
+                ...DEFAULT_FAI_2022_RULES,
+                ...(maximumScoreLocked && rules
+                  ? { maximumScoreCm: rules.maximumScoreCm }
+                  : {}),
+              })
+            }
+          >
             Reset to FAI 2022 Defaults
           </Button>
         </div>
+        {saveMutation.isError && (
+          <p className="text-sm text-destructive lg:col-span-2">
+            {saveMutation.error instanceof ApiError
+              ? saveMutation.error.message
+              : 'Could not save settings.'}
+          </p>
+        )}
       </form>
     </div>
   );

@@ -258,6 +258,7 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
     },
   });
 
+  const maximumScoreCm = rules.maximumScoreCm;
   const pilotInputs = pilots.map((p) => ({
     pilotId: p.id,
     pilotNumber: p.pilotNumber,
@@ -273,8 +274,13 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
           pilotId: p.id,
           roundId: s.roundId,
           roundNumber: s.round.number,
-          finalScoreCm: s.finalScoreCm!,
-          resultType: s.resultType as ScoreResultType,
+          finalScoreCm: Math.min(s.finalScoreCm!, maximumScoreCm),
+          // A reflight left unresolved after the round is finished is the maximum score.
+          resultType: (
+            s.resultType === 'REFLIGHT' && FINAL_FOR_FILL.has(s.round.status)
+              ? 'MAXIMUM'
+              : s.resultType
+          ) as ScoreResultType,
           isBullseye: s.isBullseye,
           isDiscarded: s.isDiscarded,
         }),
@@ -288,6 +294,37 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
     pilots: ScoringEngine.fillMissingRoundScoresAsDnf(pilotInputs, roundsForScoreFill, rules),
     rules,
   };
+}
+
+/**
+ * Stored results from an older, higher maximum must not stay above the current cap.
+ */
+export async function capStoredScoresToMaximum(competitionId: string, maximumScoreCm: number) {
+  if (!Number.isFinite(maximumScoreCm) || maximumScoreCm <= 0) return { capped: 0 };
+
+  const over = await prisma.score.findMany({
+    where: {
+      finalScoreCm: { gt: maximumScoreCm },
+      round: { competitionId },
+    },
+    select: { id: true, distanceCm: true },
+  });
+  if (over.length === 0) return { capped: 0 };
+
+  await prisma.$transaction(
+    over.map((score) =>
+      prisma.score.update({
+        where: { id: score.id },
+        data: {
+          finalScoreCm: maximumScoreCm,
+          ...(score.distanceCm != null && score.distanceCm > maximumScoreCm
+            ? { distanceCm: maximumScoreCm }
+            : {}),
+        },
+      }),
+    ),
+  );
+  return { capped: over.length };
 }
 
 /**

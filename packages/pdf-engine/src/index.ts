@@ -19,7 +19,17 @@ export interface ReportBranding {
   organizerLogoPath?: string;
   /** Absolute URL for HTML preview `<img>`. */
   organizerLogoUrl?: string;
-  sponsorLogos?: string[];
+  /** Heading for the closing logo page, e.g. Sponsors or Supporters. */
+  partnersLabel?: string;
+  /**
+   * Active partner logos. Rendered on a final page when at least one entry exists.
+   * `image` is PNG or JPEG bytes for PDF embedding; `url` is used by the HTML preview.
+   */
+  sponsorLogoGroups?: Array<{
+    /** Tier heading. Omitted when the competition does not use tiers. */
+    label?: string;
+    logos: Array<{ name: string; url: string; image?: Buffer }>;
+  }>;
   publicResultsUrl: string;
   chiefJudgeName?: string;
   directorName?: string;
@@ -245,6 +255,63 @@ function measureWrappedHeight(
   doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(fontSize);
   const height = doc.heightOfString(text, { width: Math.max(width, 8), lineGap: 1 });
   return Math.max(fontSize + 4, height + 2);
+}
+
+function sponsorLogosWithImages(input: GenerateReportInput) {
+  return (input.branding.sponsorLogoGroups ?? [])
+    .flatMap((group) => group.logos)
+    .filter((logo) => logo.image && logo.image.length > 0);
+}
+
+/**
+ * Partner logos after the report body. Continues on the current page when the
+ * row fits above the footer; otherwise the overflow starts on the next page.
+ * Logos without image bytes are omitted. No heading or name is printed.
+ */
+function drawSponsorLogos(doc: PDFKit.PDFDocument, input: GenerateReportInput): void {
+  const logos = sponsorLogosWithImages(input);
+  if (logos.length === 0) return;
+
+  const size = pageSize(input.format);
+  const marginL = doc.page.margins.left;
+  const usable = size[0] - marginL - doc.page.margins.right;
+  const bottom = size[1] - doc.page.margins.bottom - 8;
+  const boxW = 120;
+  const imgH = 64;
+  const gapX = 28;
+  const gapY = 16;
+  const cols = Math.max(1, Math.min(4, Math.floor((usable + gapX) / (boxW + gapX))));
+
+  let y = doc.y + 18;
+
+  const nextPage = () => {
+    doc.addPage();
+    y = doc.page.margins.top;
+  };
+
+  for (let i = 0; i < logos.length; i += cols) {
+    if (y + imgH > bottom) nextPage();
+    const row = logos.slice(i, i + cols);
+    const rowW = row.length * boxW + (row.length - 1) * gapX;
+    let x = marginL + Math.max(0, (usable - rowW) / 2);
+    for (const logo of row) {
+      if (!logo.image) continue;
+      try {
+        doc.image(logo.image, x, y, {
+          fit: [boxW, imgH],
+          align: 'center',
+          valign: 'center',
+        });
+      } catch {
+        // Unsupported bytes — leave the slot empty rather than printing a name.
+      }
+      x += boxW + gapX;
+    }
+    y += imgH + gapY;
+  }
+
+  doc.y = y;
+  doc.fillColor('#000');
 }
 
 export async function generateResultsPdf(input: GenerateReportInput): Promise<GeneratedPdf> {
@@ -493,6 +560,9 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
     // QR optional if generation fails
   }
 
+  doc.y = sigY + 72;
+  drawSponsorLogos(doc, input);
+
   // Footers on every page (approval + page #). Disable bottom margin so PDFKit
   // does not auto-insert a blank page when drawing in the footer band.
   const range = doc.bufferedPageRange();
@@ -700,7 +770,13 @@ export async function generatePilotCardsPdf(input: GenerateReportInput): Promise
   if (items.length === 0) {
     drawHeader();
     doc.fontSize(11).fillColor('#666').text('No registered pilots.', { align: 'center' });
+  } else {
+    const lastIndex = (items.length - 1) % perPage;
+    const lastRow = Math.floor(lastIndex / cols);
+    doc.y = margin + 42 + lastRow * (cardH + gap) + cardH;
   }
+
+  drawSponsorLogos(doc, input);
 
   const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i++) {
@@ -930,7 +1006,12 @@ export async function generateCertificatesPdf(input: GenerateReportInput): Promi
         width: size[0] - 96,
         align: 'center',
       });
+  } else {
+    // Each certificate fills its page, so logos follow on the next page.
+    doc.y = size[1];
   }
+
+  drawSponsorLogos(doc, input);
 
   const range = doc.bufferedPageRange();
   doc.end();

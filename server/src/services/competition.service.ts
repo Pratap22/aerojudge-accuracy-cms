@@ -155,6 +155,11 @@ export async function updateCompetition(id: string, data: Record<string, unknown
   if (endDate != null) updateData.endDate = nextEnd;
 
   if (maximumScoreCm != null && Number.isFinite(Number(maximumScoreCm))) {
+    await assertMaximumScoreCanChange(
+      id,
+      Number(maximumScoreCm),
+      existing.settings?.maximumScoreCm,
+    );
     updateData.settings = {
       upsert: {
         create: { maximumScoreCm: Number(maximumScoreCm) },
@@ -175,11 +180,56 @@ export async function deleteCompetition(id: string): Promise<void> {
   await prisma.competition.delete({ where: { id } });
 }
 
+const STARTED_ROUND_STATUSES = [
+  'ACTIVE',
+  'PAUSED',
+  'CLOSED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'LOCKED',
+] as const;
+
+/** True once an official round has been started, including after it is closed or approved. */
+export async function officialRoundHasStarted(competitionId: string): Promise<boolean> {
+  const started = await prisma.round.findFirst({
+    where: {
+      competitionId,
+      type: 'OFFICIAL',
+      OR: [
+        { startedAt: { not: null } },
+        { status: { in: [...STARTED_ROUND_STATUSES] } },
+      ],
+    },
+    select: { id: true },
+  });
+  return started != null;
+}
+
+async function assertMaximumScoreCanChange(
+  competitionId: string,
+  nextMaximum: number,
+  currentMaximum: number | null | undefined,
+) {
+  if (!Number.isFinite(nextMaximum) || nextMaximum === currentMaximum) return;
+  if (await officialRoundHasStarted(competitionId)) {
+    throw AppError.badRequest(
+      'Maximum score cannot be changed after the first round has started',
+    );
+  }
+}
+
 export async function updateSettings(
   competitionId: string,
   data: Partial<RuleConfig> & Record<string, unknown>,
 ) {
-  await getCompetition(competitionId);
+  const competition = await getCompetition(competitionId);
+  if (data.maximumScoreCm != null) {
+    await assertMaximumScoreCanChange(
+      competitionId,
+      Number(data.maximumScoreCm),
+      competition.settings?.maximumScoreCm,
+    );
+  }
   const { version: _v, customRules, tieBreakPriority, ...rest } = data;
 
   const allowedKeys = [

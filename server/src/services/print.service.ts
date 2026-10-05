@@ -13,6 +13,7 @@ import { formatPilotName, formatScoreCm } from '@aero-judge/utils';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { toAbsoluteAssetUrl, resolveLocalUploadPath } from '../utils/assets.js';
+import { cloudinaryPngDeliveryUrl } from '../utils/cloudinary.js';
 import { AppError } from '../utils/errors.js';
 import { getCompetition, settingsToRuleOverrides } from './competition.service.js';
 import { getIndividualRankings, getTeamRankings, recalculateRankings } from './scoring.service.js';
@@ -25,6 +26,9 @@ const RANKING_ROUND_STATUSES = [
   'APPROVED',
   'LOCKED',
 ] as const;
+
+/** A finished round: pilots still without a score are DNF at the maximum. */
+const FINAL_ROUND_STATUSES = new Set(['CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED']);
 
 /** Operational worksheets — printable without official approval stamp. */
 function reportSkipsApproval(reportType: ReportType): boolean {
@@ -150,6 +154,125 @@ function resolveOrganizerLogoSource(competition: {
     competition.logoUrl ||
     null
   );
+}
+
+const SPONSOR_TIER_ORDER = ['TITLE', 'PRESENTING', 'GOLD', 'SILVER', 'BRONZE', 'STANDARD'] as const;
+const SPONSOR_TIER_LABELS: Record<string, string> = {
+  TITLE: 'Title',
+  PRESENTING: 'Presenting',
+  GOLD: 'Gold',
+  SILVER: 'Silver',
+  BRONZE: 'Bronze',
+  STANDARD: 'Standard',
+};
+
+function isPngOrJpeg(buffer: Buffer): boolean {
+  if (buffer.length < 4) return false;
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return true;
+  return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+}
+
+/** PNG/JPEG bytes for PDFKit. HTML preview uses the original URL. */
+async function loadPrintableLogo(url: string): Promise<Buffer | undefined> {
+  const localPath = resolveLocalUploadPath(url);
+  if (localPath) {
+    if (!/\.(png|jpe?g)$/i.test(localPath)) return undefined;
+    try {
+      const buffer = await readFile(localPath);
+      return isPngOrJpeg(buffer) ? buffer : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  if (!/^https?:\/\//i.test(url)) return undefined;
+  const fetchUrl = cloudinaryPngDeliveryUrl(url);
+  try {
+    const response = await fetch(fetchUrl, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return undefined;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > 6_000_000) return undefined;
+    return isPngOrJpeg(buffer) ? buffer : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function loadSponsorLogoGroups(competition: {
+  id: string;
+  settings?: { partnersLabel?: string | null; partnerTiersEnabled?: boolean | null } | null;
+}): Promise<NonNullable<GenerateReportInput['branding']['sponsorLogoGroups']>> {
+  const rows = await prisma.sponsor.findMany({
+    where: { competitionId: competition.id, isActive: true, logoUrl: { not: null } },
+    orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+    select: { name: true, logoUrl: true, tier: true },
+  });
+
+  const logos = (
+    await Promise.all(
+      rows.map(async (row) => {
+        const url = toAbsoluteAssetUrl(row.logoUrl);
+        if (!url) return null;
+        const image = await loadPrintableLogo(url);
+        return { name: row.name, url, image, tier: row.tier };
+      }),
+    )
+  ).filter((logo): logo is NonNullable<typeof logo> => logo != null);
+
+  if (logos.length === 0) return [];
+
+  const tiersEnabled = competition.settings?.partnerTiersEnabled ?? true;
+  if (!tiersEnabled) {
+    return [{ logos: logos.map(({ name, url, image }) => ({ name, url, image })) }];
+  }
+
+  const grouped = new Map<string, Array<{ name: string; url: string; image?: Buffer }>>();
+  for (const logo of logos) {
+    const key = (logo.tier ?? 'STANDARD').toUpperCase();
+    const list = grouped.get(key) ?? [];
+    list.push({ name: logo.name, url: logo.url, image: logo.image });
+    grouped.set(key, list);
+  }
+
+  return [...grouped.entries()]
+    .sort(([a], [b]) => {
+      const ia = SPONSOR_TIER_ORDER.indexOf(a as (typeof SPONSOR_TIER_ORDER)[number]);
+      const ib = SPONSOR_TIER_ORDER.indexOf(b as (typeof SPONSOR_TIER_ORDER)[number]);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    })
+    .map(([tier, items]) => ({
+      label: SPONSOR_TIER_LABELS[tier] ?? tier,
+      logos: items,
+    }));
+}
+
+const SPONSOR_PAGE_CSS = `
+  .sponsor-page {
+    margin-top: 28px;
+  }
+  .sponsor-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 20px 28px;
+  }
+  .sponsor-grid img {
+    max-width: 140px;
+    max-height: 72px;
+    object-fit: contain;
+  }
+`;
+
+function sponsorPageHtml(input: GenerateReportInput): string {
+  const logos = (input.branding.sponsorLogoGroups ?? [])
+    .flatMap((group) => group.logos)
+    .filter((logo) => logo.url);
+  if (logos.length === 0) return '';
+  const images = logos
+    .map((logo) => `<img src="${escapeHtml(logo.url)}" alt="" />`)
+    .join('');
+  return `<section class="sponsor-page"><div class="sponsor-grid">${images}</div></section>`;
 }
 
 async function resolveOrganizerLogoPath(logoSource: string | null): Promise<string | undefined> {
@@ -333,6 +456,7 @@ function reportToHtml(input: GenerateReportInput): string {
     @media screen {
       .print-page-footer { display: none; }
     }
+    ${SPONSOR_PAGE_CSS}
   </style>
 </head>
 <body>
@@ -355,6 +479,7 @@ function reportToHtml(input: GenerateReportInput): string {
       <thead><tr>${headerCells}</tr></thead>
       <tbody>${bodyRows || `<tr><td colspan="${input.columns.length}">No data available</td></tr>`}</tbody>
     </table>
+    ${sponsorPageHtml(input)}
     <div class="footer">
       ${input.approvalLine ? `<div class="approval">${escapeHtml(input.approvalLine)}</div>` : ''}
       ${escapeHtml(input.footerNote ?? 'FAI Sporting Code Section 7C · Preview')}
@@ -419,6 +544,7 @@ function cardsToHtml(input: GenerateReportInput): string {
     }
     .footer { margin-top: 20px; font-size: 11px; color: #666; }
     @media print { .pilot-card { break-inside: avoid; } }
+    ${SPONSOR_PAGE_CSS}
   </style>
 </head>
 <body>
@@ -427,6 +553,7 @@ function cardsToHtml(input: GenerateReportInput): string {
     <h2>${escapeHtml(input.branding.competitionName)}</h2>
     <div class="card-grid">${cards || '<p>No registered pilots.</p>'}</div>
     <div class="footer">${escapeHtml(input.footerNote ?? 'Accreditation cards')} · Generated by AeroJudge</div>
+    ${sponsorPageHtml(input)}
   </div>
 </body>
 </html>`;
@@ -470,7 +597,7 @@ function certificatesToHtml(input: GenerateReportInput): string {
       font-family: Georgia, 'Times New Roman', serif; color: #111;
       padding: 24px; page-break-after: always; box-sizing: border-box;
     }
-    .certificate:last-child { page-break-after: auto; }
+    .certificate:last-of-type { page-break-after: auto; }
     .certificate-inner {
       border: 3px solid #1a365d; border-radius: 10px; padding: 36px 28px;
       min-height: 520px; text-align: center;
@@ -483,10 +610,12 @@ function certificatesToHtml(input: GenerateReportInput): string {
     .placement { font-size: 15px; font-weight: 700; color: #1a365d; margin-top: 16px; }
     .sigs { display: flex; justify-content: space-between; margin-top: 64px; padding: 0 24px; font-size: 12px; }
     .sigs .line { border-top: 1px solid #111; width: 180px; margin: 0 auto 8px; }
+    ${SPONSOR_PAGE_CSS}
   </style>
 </head>
 <body>
   ${pages || '<p style="padding:24px">No pilots available for certificates.</p>'}
+  ${sponsorPageHtml(input)}
 </body>
 </html>`;
 }
@@ -812,6 +941,7 @@ async function buildReportInput(
   const logoSource = resolveOrganizerLogoSource(competition);
   const organizerLogoUrl = toAbsoluteAssetUrl(logoSource) ?? undefined;
   const organizerLogoPath = await resolveOrganizerLogoPath(logoSource);
+  const sponsorLogoGroups = await loadSponsorLogoGroups(competition);
 
   const branding = {
     competitionName: competition.name,
@@ -820,6 +950,8 @@ async function buildReportInput(
     country: competition.country,
     dateLabel: `${competition.startDate.toISOString().slice(0, 10)} – ${competition.endDate.toISOString().slice(0, 10)}`,
     publicResultsUrl: `${env.PUBLIC_RESULTS_URL}/${competition.publicSlug}`,
+    partnersLabel: competition.settings?.partnersLabel?.trim() || 'Sponsors',
+    ...(sponsorLogoGroups.length > 0 ? { sponsorLogoGroups } : {}),
     ...(organizerLogoUrl ? { organizerLogoUrl } : {}),
     ...(organizerLogoPath ? { organizerLogoPath } : {}),
   };
@@ -837,7 +969,7 @@ async function buildReportInput(
         status: { in: [...RANKING_ROUND_STATUSES] },
       },
       orderBy: { number: 'asc' },
-      select: { id: true, number: true },
+      select: { id: true, number: true, status: true },
     });
 
     const scores = await prisma.score.findMany({
@@ -857,8 +989,9 @@ async function buildReportInput(
       settingsToRuleOverrides(competition.settings),
     );
     const maxCm = rules.maximumScoreCm;
+    const completedRoundCount = rounds.filter((round) => FINAL_ROUND_STATUSES.has(round.status)).length;
     const discardActive =
-      rules.discardWorstRounds > 0 && rounds.length >= rules.discardAfterRounds;
+      rules.discardWorstRounds > 0 && completedRoundCount >= rules.discardAfterRounds;
     const roundHeaders = rounds.map((r) => `R${r.number}`);
     const scoredRankings = rankings.filter((r) => r.roundsFlown > 0);
 
@@ -869,27 +1002,35 @@ async function buildReportInput(
       title: category === 'WOMEN' ? "Women's Individual Results" : 'Overall Individual Results',
       columns: ['Rank', 'No', 'Name', 'Country', ...roundHeaders, 'Bullseyes', 'Total'],
       rows: scoredRankings.map((r) => {
-        const roundEntries = rounds.map((round) => {
+        const roundEntries = rounds.flatMap((round) => {
           const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
-          return {
-            pilotId: r.pilotId,
-            roundId: round.id,
-            roundNumber: round.number,
-            finalScoreCm: existing?.finalScoreCm ?? maxCm,
-            resultType: (existing?.resultType ?? 'DNF') as
-              | 'MEASURED'
-              | 'BULLSEYE'
-              | 'MAXIMUM'
-              | 'DNF'
-              | 'ABS'
-              | 'DNS'
-              | 'DSQ'
-              | 'REFLIGHT'
-              | 'PENALTY',
-            isBullseye: existing?.isBullseye ?? false,
-            isDiscarded: false,
-            isProvisional: !existing,
-          };
+          const roundFinal = FINAL_ROUND_STATUSES.has(round.status);
+          // An open-round reflight is not a result yet. A finished round keeps it as the maximum.
+          const openReflight = existing?.resultType === 'REFLIGHT' && !roundFinal;
+          if (!existing || openReflight) {
+            if (!roundFinal) return [];
+          }
+          return [
+            {
+              pilotId: r.pilotId,
+              roundId: round.id,
+              roundNumber: round.number,
+              finalScoreCm: existing?.finalScoreCm ?? maxCm,
+              resultType: (existing?.resultType ?? 'DNF') as
+                | 'MEASURED'
+                | 'BULLSEYE'
+                | 'MAXIMUM'
+                | 'DNF'
+                | 'ABS'
+                | 'DNS'
+                | 'DSQ'
+                | 'REFLIGHT'
+                | 'PENALTY',
+              isBullseye: existing?.isBullseye ?? false,
+              isDiscarded: false,
+              isProvisional: false,
+            },
+          ];
         });
 
         const { discarded } = applyDiscardRules(roundEntries, rules);
@@ -903,7 +1044,12 @@ async function buildReportInput(
           scores: [
             ...rounds.map((round) => {
               const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
-              // Missing round on overall sheet uses competition maximum (e.g. 500).
+              const roundFinal = FINAL_ROUND_STATUSES.has(round.status);
+              const openReflight = existing?.resultType === 'REFLIGHT' && !roundFinal;
+              const pending = !existing || openReflight;
+              // Maximum is only printed once the round is finished and the pilot has no score.
+              // A reflight on an open round is not a score. A finished reflight prints the maximum.
+              if (pending && !roundFinal) return '';
               const value = formatScoreCm(existing?.finalScoreCm ?? maxCm);
               return discardedRoundIds.has(round.id) ? { value, excluded: true } : value;
             }),
@@ -930,7 +1076,7 @@ async function buildReportInput(
         status: { in: [...RANKING_ROUND_STATUSES] },
       },
       orderBy: { number: 'asc' },
-      select: { id: true, number: true },
+        select: { id: true, number: true, status: true },
     });
 
     const teams = await prisma.team.findMany({
@@ -991,13 +1137,21 @@ async function buildReportInput(
       contrib: PilotContrib | undefined,
     ): { value: string; excluded?: boolean } => {
       const raw = rawScoreByPilotRound.get(`${pilotId}:${roundId}`);
-      const cm = contrib?.scoreCm ?? raw?.finalScoreCm ?? null;
       const resultType = raw?.resultType;
+      const roundFinal = FINAL_ROUND_STATUSES.has(
+        rounds.find((round) => round.id === roundId)?.status ?? '',
+      );
+      // An open-round reflight is not a result. A finished reflight is the maximum,
+      // and is struck through when it is the pilot score left out of the team total.
+      if (resultType === 'REFLIGHT' && !roundFinal) return { value: '' };
+      const cm = contrib?.scoreCm ?? raw?.finalScoreCm ?? null;
       let value: string;
-      if (resultType && !['MEASURED', 'BULLSEYE', 'MAXIMUM'].includes(resultType)) {
+      if (resultType === 'REFLIGHT') {
+        value = cm == null ? '' : formatScoreCm(cm);
+      } else if (resultType && !['MEASURED', 'BULLSEYE', 'MAXIMUM'].includes(resultType)) {
         value = resultType;
       } else if (cm == null) {
-        value = '—';
+        value = '';
       } else {
         value = formatScoreCm(cm);
       }
@@ -1045,8 +1199,12 @@ async function buildReportInput(
         team: team.name,
         name: 'Total',
         scores: rounds.map((round) => {
-          const total = roundTotalByTeamRound.get(`${team.id}:${round.id}`);
-          return total != null ? formatScoreCm(total) : '—';
+          const key = `${team.id}:${round.id}`;
+          const counted = [...(contribByTeamRound.get(key)?.values() ?? [])].some(
+            (c) => c.counted,
+          );
+          const total = roundTotalByTeamRound.get(key);
+          return counted && total != null ? formatScoreCm(total) : '';
         }),
         total: teamTotalLabel,
         rowKind: 'team_total',

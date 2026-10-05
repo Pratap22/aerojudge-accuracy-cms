@@ -456,9 +456,10 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
         },
       },
       orderBy: { number: 'asc' },
-      select: { id: true, number: true },
+      select: { id: true, number: true, status: true },
     });
     const roundNumbers = scoringRoundRows.map((r) => r.number);
+    const finalRoundStatuses = new Set(['CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED']);
     const roundIds = scoringRoundRows.map((r) => r.id);
 
     type PilotContrib = {
@@ -529,14 +530,19 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       const summedRoundTotal = totals.reduce((s, t) => s + t.totalScoreCm, 0);
 
       const roundScores = scoringRoundRows.map((round) => {
+        const key = `${r.teamId}:${round.id}`;
+        const counted = [...(contribByTeamRound.get(key)?.values() ?? [])].filter(
+          (c) => c.counted,
+        );
         const total = totalByRoundId.get(round.id);
+        const hasRealScores = counted.length > 0 && total != null;
         return {
           round: round.number,
-          scoreCm: total != null ? total : null,
+          scoreCm: hasRealScores ? total : null,
           // Team round scores are never struck — only pilot cells within a round can be.
           isDiscarded: false,
           isBullseye: false,
-          isProvisional: total == null,
+          isProvisional: !hasRealScores,
         };
       });
 
@@ -547,19 +553,24 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           const pilotRoundScores = scoringRoundRows.map((round) => {
             const contrib = contribByTeamRound.get(`${r.teamId}:${round.id}`)?.get(pilot.id);
             const raw = rawByPilotRound.get(`${pilot.id}:${round.id}`);
-            const scoreCm =
-              contrib?.scoreCm ??
-              (typeof raw?.finalScoreCm === 'number' ? raw.finalScoreCm : null);
-            const counted = contrib ? contrib.counted : true;
+            // An open-round reflight is not a score yet. Once the round is finished,
+            // that result is the maximum and can be the score left out of the team total.
+            const openReflight =
+              raw?.resultType === 'REFLIGHT' && !finalRoundStatuses.has(round.status);
+            const scoreCm = openReflight
+              ? null
+              : (contrib?.scoreCm ??
+                (typeof raw?.finalScoreCm === 'number' ? raw.finalScoreCm : null));
+            const counted = contrib ? contrib.counted : scoreCm != null;
             const empty = scoreCm == null;
             return {
               round: round.number,
               scoreCm: empty ? null : scoreCm,
-              isBullseye: Boolean(raw?.isBullseye) && counted,
+              isBullseye: Boolean(raw?.isBullseye) && counted && !empty,
               // Strike when present but not counted toward the team round total (worst pilot).
               isDiscarded: !empty && contrib ? !contrib.counted : false,
               isProvisional: false,
-              resultType: raw?.resultType,
+              resultType: openReflight ? undefined : raw?.resultType,
             };
           });
 

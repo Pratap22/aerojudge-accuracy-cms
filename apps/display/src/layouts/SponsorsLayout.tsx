@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { SPONSOR_TYPES } from '@aero-judge/shared';
+import { TransparentLogo } from '../components/TransparentLogo';
 import { useCompetition, useSponsors } from '../hooks/useCompetition';
 import type { Sponsor } from '../lib/types';
 
@@ -81,9 +82,7 @@ export function SponsorsLayout() {
   const current = groups[index % groups.length];
   if (!current) return null;
 
-  const heading = tiersEnabled
-    ? `${current.label} ${partnersLabel.toLowerCase()}`
-    : partnersLabel;
+  const heading = partnersLabel;
 
   return (
     <div className="relative flex h-full items-center justify-center bg-gradient-to-br from-broadcast-navy via-broadcast-navy-mid to-broadcast-navy-light p-16">
@@ -100,15 +99,15 @@ export function SponsorsLayout() {
           <div className="flex flex-wrap items-center justify-center gap-10">
             {current.sponsors.map((sponsor) => (
               <div key={sponsor.id} className="flex flex-col items-center gap-3">
-                <div className="flex h-36 w-64 items-center justify-center rounded-2xl border-2 border-sky-500/40 bg-white/95 px-6">
+                <div className="flex h-36 w-64 items-center justify-center px-6">
                   {sponsor.logoUrl ? (
-                    <img
+                    <TransparentLogo
                       src={sponsor.logoUrl}
                       alt={sponsor.name}
-                      className="max-h-28 max-w-full object-contain"
+                      className="max-h-28 max-w-full object-contain drop-shadow-[0_0_1px_rgba(255,255,255,0.9)]"
                     />
                   ) : (
-                    <span className="font-display text-3xl tracking-wider text-broadcast-navy">
+                    <span className="font-display text-3xl tracking-wider text-white">
                       {sponsor.name}
                     </span>
                   )}

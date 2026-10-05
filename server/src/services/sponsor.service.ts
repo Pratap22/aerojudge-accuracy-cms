@@ -1,10 +1,9 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import { unlink } from 'node:fs/promises';
 import type { CreateSponsorInput, UpdateSponsorInput } from '@aero-judge/shared';
-import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
-import { buildUploadUrl, toAbsoluteAssetUrl } from '../utils/assets.js';
+import { resolveLocalUploadPath, toAbsoluteAssetUrl } from '../utils/assets.js';
+import { destroyCloudinaryImage, uploadImageToCloudinary } from '../utils/cloudinary.js';
 import { getCompetition } from './competition.service.js';
 
 function mapSponsor(row: {
@@ -27,6 +26,13 @@ function mapSponsor(row: {
     displayOrder: row.displayOrder,
     isActive: row.isActive,
   };
+}
+
+async function removeStoredLogo(logoUrl: string | null | undefined): Promise<void> {
+  await destroyCloudinaryImage(logoUrl);
+  const localPath = resolveLocalUploadPath(logoUrl);
+  if (!localPath) return;
+  await unlink(localPath).catch(() => undefined);
 }
 
 export async function listSponsors(competitionId: string, opts?: { activeOnly?: boolean }) {
@@ -74,7 +80,7 @@ export async function updateSponsor(
   sponsorId: string,
   input: UpdateSponsorInput,
 ) {
-  await getSponsor(competitionId, sponsorId);
+  const existing = await getSponsor(competitionId, sponsorId);
   const row = await prisma.sponsor.update({
     where: { id: sponsorId },
     data: {
@@ -86,12 +92,16 @@ export async function updateSponsor(
       ...(input.isActive != null ? { isActive: input.isActive } : {}),
     },
   });
+  if (input.logoUrl !== undefined && input.logoUrl !== existing.logoUrl) {
+    await removeStoredLogo(existing.logoUrl);
+  }
   return mapSponsor(row);
 }
 
 export async function deleteSponsor(competitionId: string, sponsorId: string) {
-  await getSponsor(competitionId, sponsorId);
+  const existing = await getSponsor(competitionId, sponsorId);
   await prisma.sponsor.delete({ where: { id: sponsorId } });
+  await removeStoredLogo(existing.logoUrl);
   return { deleted: true };
 }
 
@@ -100,31 +110,20 @@ export async function uploadSponsorLogo(
   sponsorId: string,
   file: Express.Multer.File,
 ) {
-  await getSponsor(competitionId, sponsorId);
+  const existing = await getSponsor(competitionId, sponsorId);
 
-  const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
-  if (!allowed.includes(file.mimetype)) {
-    throw AppError.badRequest('Logo must be PNG, JPEG, WebP, or SVG');
-  }
+  const uploaded = await uploadImageToCloudinary(file, {
+    folder: `sponsors/${competitionId}`,
+    maxEdge: 1600,
+    allowSvg: true,
+  });
 
-  const ext =
-    file.mimetype === 'image/png'
-      ? '.png'
-      : file.mimetype === 'image/webp'
-        ? '.webp'
-        : file.mimetype === 'image/svg+xml'
-          ? '.svg'
-          : '.jpg';
-
-  const dir = path.join(env.uploadDir, 'sponsors', competitionId);
-  await mkdir(dir, { recursive: true });
-  const filename = `${sponsorId}${ext}`;
-  await writeFile(path.join(dir, filename), file.buffer);
-
-  const logoUrl = buildUploadUrl('sponsors', competitionId, filename);
   const row = await prisma.sponsor.update({
     where: { id: sponsorId },
-    data: { logoUrl },
+    data: { logoUrl: uploaded.url },
   });
+  if (existing.logoUrl && existing.logoUrl !== uploaded.url) {
+    await removeStoredLogo(existing.logoUrl);
+  }
   return mapSponsor(row);
 }

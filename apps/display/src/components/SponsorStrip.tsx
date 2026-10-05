@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { SPONSOR_TYPES } from '@aero-judge/shared';
+import { TransparentLogo } from './TransparentLogo';
 import { useCompetition, useSponsors } from '../hooks/useCompetition';
 import type { Sponsor } from '../lib/types';
 
@@ -49,11 +50,11 @@ function groupSponsorsByType(items: Sponsor[]): { type: string; label: string; s
 function SponsorMark({ sponsor }: { sponsor: Sponsor }) {
   if (sponsor.logoUrl) {
     return (
-      <div className="flex h-9 w-28 shrink-0 items-center justify-center overflow-hidden rounded bg-white/95 px-2">
-        <img
+      <div className="flex h-9 w-28 shrink-0 items-center justify-center overflow-hidden px-2">
+        <TransparentLogo
           src={sponsor.logoUrl}
           alt={sponsor.name}
-          className="max-h-7 max-w-full object-contain"
+          className="max-h-7 max-w-full object-contain drop-shadow-[0_0_1px_rgba(255,255,255,0.85)]"
         />
       </div>
     );
@@ -108,35 +109,31 @@ export function SponsorStrip({ sponsors, variant = 'strip' }: SponsorStripProps)
   if (variant === 'full') {
     return (
       <div className="flex flex-col items-center gap-10">
-        {groups.map((group) => (
-          <div key={group.type} className="w-full max-w-5xl">
-            <p className="mb-4 text-center text-sm uppercase tracking-[0.35em] text-sky-400/80">
-              {tiersEnabled ? `${group.label} ${partnersLabel.toLowerCase()}` : partnersLabel}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-8">
-              {group.sponsors.map((sponsor) => (
-                <div key={sponsor.id} className="flex flex-col items-center gap-2">
-                  <div className="flex h-28 w-56 items-center justify-center overflow-hidden rounded-lg border border-sky-500/30 bg-white/95 px-4">
-                    {sponsor.logoUrl ? (
-                      <img
-                        src={sponsor.logoUrl}
-                        alt={sponsor.name}
-                        className="max-h-20 max-w-full object-contain"
-                      />
-                    ) : (
-                      <span className="font-display text-2xl tracking-wider text-broadcast-navy">
-                        {sponsor.name}
-                      </span>
-                    )}
-                  </div>
-                  {!sponsor.logoUrl && (
-                    <span className="text-sm text-white/80">{sponsor.name}</span>
-                  )}
-                </div>
-              ))}
+        <p className="text-center text-sm uppercase tracking-[0.35em] text-sky-400/80">
+          {partnersLabel}
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-8">
+          {items.map((sponsor) => (
+            <div key={sponsor.id} className="flex flex-col items-center gap-2">
+              <div className="flex h-28 w-56 items-center justify-center overflow-hidden px-4">
+                {sponsor.logoUrl ? (
+                  <TransparentLogo
+                    src={sponsor.logoUrl}
+                    alt={sponsor.name}
+                    className="max-h-20 max-w-full object-contain drop-shadow-[0_0_1px_rgba(255,255,255,0.85)]"
+                  />
+                ) : (
+                  <span className="font-display text-2xl tracking-wider text-white">
+                    {sponsor.name}
+                  </span>
+                )}
+              </div>
+              {!sponsor.logoUrl && (
+                <span className="text-sm text-white/80">{sponsor.name}</span>
+              )}
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   }
@@ -160,7 +157,7 @@ export function SponsorStrip({ sponsors, variant = 'strip' }: SponsorStripProps)
             <SponsorTypeGroup
               key={`${group.type}-${i}`}
               group={group}
-              showTypeLabel={tiersEnabled}
+              showTypeLabel={false}
             />
           ))}
         </div>

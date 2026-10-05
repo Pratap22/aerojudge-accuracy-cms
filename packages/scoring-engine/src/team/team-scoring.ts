@@ -41,6 +41,14 @@ function audit(step: string, detail: string, data?: Record<string, unknown>): Sc
   return { timestamp: new Date().toISOString(), step, detail, data };
 }
 
+export interface TeamRoundScoreOptions {
+  /**
+   * Finished rounds pad unscored slots up to the scoring count with the maximum.
+   * An open round leaves those slots blank and does not add the maximum.
+   */
+  fillVacantSlots?: boolean;
+}
+
 /**
  * Calculate a single team's score for one round.
  * Selects the best (lowest) N countable scores from eligible members.
@@ -50,7 +58,9 @@ export function calculateTeamRoundScore(
   roundId: string,
   pilotScores: TeamPilotRoundScore[],
   rules: RuleConfig,
+  options?: TeamRoundScoreOptions,
 ): TeamRoundScoreResult {
+  const fillVacantSlots = options?.fillVacantSlots !== false;
   const audits: ScoringAuditEntry[] = [];
   const scoringCount = team.scoringPilots ?? rules.teamScoringPilots;
 
@@ -71,6 +81,8 @@ export function calculateTeamRoundScore(
     const isReserve = member.role === 'RESERVE';
 
     if (!score) {
+      // Open rounds stay blank. A finished round may later fill this slot with maximum.
+      if (!fillVacantSlots) continue;
       contributions.push({
         pilotId: member.pilotId,
         scoreCm: rules.maximumScoreCm,
@@ -82,6 +94,8 @@ export function calculateTeamRoundScore(
     }
 
     if (!score.isCountable || score.resultType === 'REFLIGHT') {
+      // A reflight or a not-yet-scored pilot is not a team result on an open round.
+      if (!fillVacantSlots) continue;
       contributions.push({
         pilotId: member.pilotId,
         scoreCm: score.scoreCm,
@@ -134,9 +148,9 @@ export function calculateTeamRoundScore(
     }
   }
 
-  // If still short, fill remaining slots with maximum (ABS). Keep filling until
-  // we reach scoringCount — an early `break` left incomplete teams at 1× max.
-  while (selected.length < scoringCount) {
+  // Finished rounds only: pad unscored slots with maximum so a short team
+  // does not rank as if those pilots scored 0. Open rounds leave the slots blank.
+  while (fillVacantSlots && selected.length < scoringCount) {
     const filler = contributions.find(
       (c) => !selected.some((s) => s.pilotId === c.pilotId),
     );

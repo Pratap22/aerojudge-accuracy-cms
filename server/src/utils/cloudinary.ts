@@ -33,13 +33,20 @@ export async function uploadImageToCloudinary(
     publicId?: string;
     /** Max edge length. Portraits stay square-limited; event photos can be larger. */
     maxEdge?: number;
+    /** Sponsor logos may be SVG. Stored without a raster resize. */
+    allowSvg?: boolean;
   },
 ): Promise<{ url: string; publicId: string }> {
   ensureConfigured();
 
   const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+  if (options.allowSvg) allowed.push('image/svg+xml');
   if (!allowed.includes(file.mimetype)) {
-    throw AppError.badRequest('Image must be PNG, JPEG, WebP, or GIF');
+    throw AppError.badRequest(
+      options.allowSvg
+        ? 'Image must be PNG, JPEG, WebP, GIF, or SVG'
+        : 'Image must be PNG, JPEG, WebP, or GIF',
+    );
   }
 
   const folder = `${env.CLOUDINARY_FOLDER.replace(/\/+$/, '')}/${options.folder}`.replace(
@@ -47,6 +54,7 @@ export async function uploadImageToCloudinary(
     '/',
   );
   const maxEdge = options.maxEdge ?? 800;
+  const isSvg = file.mimetype === 'image/svg+xml';
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -55,9 +63,19 @@ export async function uploadImageToCloudinary(
         public_id: options.publicId,
         overwrite: true,
         resource_type: 'image',
-        transformation: [
-          { width: maxEdge, height: maxEdge, crop: 'limit', quality: 'auto', fetch_format: 'auto' },
-        ],
+        ...(isSvg
+          ? {}
+          : {
+              transformation: [
+                {
+                  width: maxEdge,
+                  height: maxEdge,
+                  crop: 'limit',
+                  quality: 'auto',
+                  fetch_format: 'auto',
+                },
+              ],
+            }),
       },
       (err, result) => {
         if (err || !result?.secure_url) {
@@ -83,6 +101,17 @@ export async function destroyCloudinaryImage(url: string | null | undefined): Pr
   if (!publicId) return;
   ensureConfigured();
   await cloudinary.uploader.destroy(publicId, { resource_type: 'image' }).catch(() => undefined);
+}
+
+/** Delivery URL that rasterizes the asset as PNG so PDFKit can embed it. */
+export function cloudinaryPngDeliveryUrl(url: string): string {
+  if (!url.includes('res.cloudinary.com')) return url;
+  const marker = '/image/upload/';
+  const index = url.indexOf(marker);
+  if (index < 0) return url;
+  const rest = url.slice(index + marker.length);
+  if (rest.startsWith('f_png')) return url;
+  return `${url.slice(0, index + marker.length)}f_png/${rest}`;
 }
 
 function cloudinaryPublicId(url: string): string | null {
