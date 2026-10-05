@@ -1,5 +1,5 @@
 import type { CreateOfficialInput, UpdateOfficialInput } from '@aero-judge/shared';
-import { compareOfficials, officialRoleRank } from '@aero-judge/shared';
+import { compareOfficials, officialRoleLabel, officialRoleRank } from '@aero-judge/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { uploadImageToCloudinary } from '../utils/cloudinary.js';
@@ -41,7 +41,7 @@ function mapOfficial(row: {
     id: row.id,
     competitionId: row.competitionId,
     name: row.name,
-    role: row.role,
+    role: officialRoleLabel(row.role),
     imageUrl: row.imageUrl,
     phone: row.phone,
     email: row.email,

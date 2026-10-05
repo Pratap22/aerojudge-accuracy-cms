@@ -534,29 +534,45 @@ export const createSponsorSchema = z.object({
 
 export const updateSponsorSchema = createSponsorSchema.partial();
 
-/** Suggested role labels for public officials (free-form string also allowed). */
+/**
+ * Suggested role labels for public officials, in CIVL organizing-team order.
+ * A free-form string is also allowed.
+ */
 export const OFFICIAL_ROLE_OPTIONS = [
-  'Chief Judge',
   'Meet Director',
+  'Chief Judge',
   'Event Judge',
-  'Judge',
-  'Scorekeeper',
+  'CIVL Steward',
+  'Event Director',
+  'Assistant Event Director',
+  'Assistant Meet Director',
+  'Safety Director',
+  'Target Judge',
   'Launch Marshal',
-  'Goal Marshal',
-  'Announcer',
-  'Safety Officer',
-  'Registration Officer',
+  'Assistant Launch Marshal',
+  'Scorer',
+  'Recorder',
+  'Wind Monitor',
+  'Video Recorder'
 ] as const;
+
+/** Older stored labels that should display as the current role name. */
+const LEGACY_OFFICIAL_ROLE_LABELS: Record<string, (typeof OFFICIAL_ROLE_OPTIONS)[number]> = {
+  judge: 'Target Judge',
+  scorekeeper: 'Scorer',
+  'safety officer': 'Safety Director',
+};
+
+/** Public label. Exact legacy titles are renamed; other text is left as stored. */
+export function officialRoleLabel(role: string): string {
+  const normalized = role.trim().toLowerCase();
+  return LEGACY_OFFICIAL_ROLE_LABELS[normalized] ?? role.trim();
+}
 
 /** Lower number = higher precedence on public/admin lists. Unknown roles sort last. */
 export function officialRoleRank(role: string): number {
-  const normalized = role.trim().toLowerCase();
-  // Legacy label kept in DB for older officials rows
-  if (normalized === 'event director') {
-    const eventJudgeIdx = OFFICIAL_ROLE_OPTIONS.findIndex((r) => r === 'Event Judge');
-    return eventJudgeIdx === -1 ? OFFICIAL_ROLE_OPTIONS.length : eventJudgeIdx;
-  }
-  const idx = OFFICIAL_ROLE_OPTIONS.findIndex((r) => r.toLowerCase() === normalized);
+  const label = officialRoleLabel(role).toLowerCase();
+  const idx = OFFICIAL_ROLE_OPTIONS.findIndex((r) => r.toLowerCase() === label);
   return idx === -1 ? OFFICIAL_ROLE_OPTIONS.length : idx;
 }
 

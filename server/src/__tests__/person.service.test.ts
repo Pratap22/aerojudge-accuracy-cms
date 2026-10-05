@@ -90,10 +90,14 @@ describe('Person identity architecture', () => {
     it('maps official labels to competition roles', () => {
       expect(mapOfficialLabelToRole('Chief Judge')).toBe('CHIEF_JUDGE');
       expect(mapOfficialLabelToRole('Target Judge')).toBe('TARGET_JUDGE');
+      expect(mapOfficialLabelToRole('Judge')).toBe('TARGET_JUDGE');
       expect(mapOfficialLabelToRole('Meet Director')).toBe('MEET_DIRECTOR');
-      expect(mapOfficialLabelToRole('Event Judge')).toBe('MEET_DIRECTOR');
       expect(mapOfficialLabelToRole('Event Director')).toBe('MEET_DIRECTOR');
+      expect(mapOfficialLabelToRole('Event Judge')).toBe('JUDGE');
+      expect(mapOfficialLabelToRole('Assistant Meet Director')).toBe('OTHER');
+      expect(mapOfficialLabelToRole('CIVL Steward')).toBe('TECHNICAL_DELEGATE');
       expect(mapOfficialLabelToRole('Scorekeeper')).toBe('SCORER');
+      expect(mapOfficialLabelToRole('Scorer')).toBe('SCORER');
     });
   });
 });

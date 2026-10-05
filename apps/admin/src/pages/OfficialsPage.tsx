@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   OFFICIAL_ROLE_OPTIONS,
   createOfficialSchema,
+  officialRoleLabel,
   type CompetitionOfficial,
   type CreateOfficialInput,
   type PersonDirectoryEntry,
@@ -114,7 +115,7 @@ export function OfficialsPage() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<CompetitionOfficial | null>(null);
-  const [roleMode, setRoleMode] = useState<string>('Judge');
+  const [roleMode, setRoleMode] = useState<string>('Target Judge');
   const [directoryQ, setDirectoryQ] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<PersonDirectoryEntry | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -146,7 +147,7 @@ export function OfficialsPage() {
     resolver: zodResolver(createOfficialSchema),
     defaultValues: {
       name: '',
-      role: 'Judge',
+      role: 'Target Judge',
       phone: undefined,
       email: undefined,
       isPublic: true,
@@ -180,8 +181,8 @@ export function OfficialsPage() {
     setSelectedPerson(null);
     setDirectoryQ('');
     resetPhoto();
-    reset({ name: '', role: 'Judge', isPublic: true });
-    setRoleMode('Judge');
+    reset({ name: '', role: 'Target Judge', isPublic: true });
+    setRoleMode('Target Judge');
   };
 
   const saveMutation = useMutation({
@@ -232,8 +233,8 @@ export function OfficialsPage() {
     setSelectedPerson(null);
     setDirectoryQ('');
     resetPhoto();
-    reset({ name: '', role: 'Judge', phone: undefined, email: undefined, isPublic: true });
-    setRoleMode('Judge');
+    reset({ name: '', role: 'Target Judge', phone: undefined, email: undefined, isPublic: true });
+    setRoleMode('Target Judge');
     setFormOpen(true);
   };
 
@@ -243,15 +244,16 @@ export function OfficialsPage() {
     setDirectoryQ('');
     resetPhoto();
     setPhotoPreview(official.imageUrl ?? null);
+    const roleLabel = officialRoleLabel(official.role);
     const preset = OFFICIAL_ROLE_OPTIONS.includes(
-      official.role as (typeof OFFICIAL_ROLE_OPTIONS)[number],
+      roleLabel as (typeof OFFICIAL_ROLE_OPTIONS)[number],
     )
-      ? official.role
+      ? roleLabel
       : ROLE_CUSTOM;
     setRoleMode(preset);
     reset({
       name: official.name,
-      role: official.role,
+      role: roleLabel,
       phone: official.phone ?? undefined,
       email: official.email ?? undefined,
       isPublic: official.isPublic,

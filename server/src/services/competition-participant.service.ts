@@ -180,10 +180,15 @@ export async function listCompetitionParticipants(competitionId: string) {
 export function mapOfficialLabelToRole(label: string): CompetitionRole {
   const r = label.trim().toLowerCase();
   if (r.includes('chief') && r.includes('judge')) return 'CHIEF_JUDGE';
-  if (r.includes('target') && r.includes('judge')) return 'TARGET_JUDGE';
+  if ((r.includes('target') && r.includes('judge')) || r === 'judge') return 'TARGET_JUDGE';
+  if (r.includes('event') && r.includes('judge')) return 'JUDGE';
+  // Assistants do not inherit the parent director's classification.
+  if (r.includes('assistant')) {
+    if (r.includes('launch')) return 'LAUNCH_MARSHAL';
+    return 'OTHER';
+  }
   if (r.includes('meet') && r.includes('director')) return 'MEET_DIRECTOR';
-  // Event Judge (current) and legacy "Event Director" label
-  if (r.includes('event') && (r.includes('judge') || r.includes('director'))) return 'MEET_DIRECTOR';
+  if (r.includes('event') && r.includes('director')) return 'MEET_DIRECTOR';
   if (r.includes('score')) return 'SCORER';
   if (r.includes('announce')) return 'ANNOUNCER';
   if (r.includes('display')) return 'DISPLAY_OPERATOR';
@@ -191,8 +196,8 @@ export function mapOfficialLabelToRole(label: string): CompetitionRole {
   if (r.includes('goal')) return 'GOAL_MARSHAL';
   if (r.includes('registration')) return 'REGISTRATION_OFFICER';
   if (r.includes('safety')) return 'SAFETY_DIRECTOR';
-  if (r.includes('technical')) return 'TECHNICAL_DELEGATE';
-  if (r.includes('judge')) return 'JUDGE';
+  if (r.includes('steward') || r.includes('technical')) return 'TECHNICAL_DELEGATE';
+  if (r.includes('judge')) return 'TARGET_JUDGE';
   if (r.includes('viewer')) return 'VIEWER';
   return 'OTHER';
 }
@@ -202,9 +207,9 @@ export function competitionRoleToDisplayLabel(role: CompetitionRole): string {
     PILOT: 'Pilot',
     CHIEF_JUDGE: 'Chief Judge',
     TARGET_JUDGE: 'Target Judge',
-    JUDGE: 'Judge',
+    JUDGE: 'Event Judge',
     MEET_DIRECTOR: 'Meet Director',
-    SCORER: 'Scorekeeper',
+    SCORER: 'Scorer',
     ANNOUNCER: 'Announcer',
     DISPLAY_OPERATOR: 'Display Operator',
     LAUNCH_MARSHAL: 'Launch Marshal',

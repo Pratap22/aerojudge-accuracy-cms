@@ -1,4 +1,4 @@
-import { compareOfficials, isEmptyHtml } from '@aero-judge/shared';
+import { compareOfficials, isEmptyHtml, officialRoleLabel } from '@aero-judge/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
@@ -1007,7 +1007,7 @@ export async function getPublicOfficials(slugOrId: string) {
       id: row.id,
       competitionId: row.competitionId,
       name: row.name,
-      role: row.role,
+      role: officialRoleLabel(row.role),
       imageUrl: row.imageUrl,
       phone: row.phone,
       email: row.email,
