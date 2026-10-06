@@ -85,7 +85,7 @@ Requires `X-Organization-Id` and appropriate permissions (`pilot:manage` unless 
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/people?q=` | Yes | Search directory (AeroJudge ID, CIVL, name, FAI) — public identity fields only |
+| GET | `/people` | Yes | Search directory (AeroJudge ID, CIVL, name, FAI, email). Filters: `gender`, `nationalityCountryId`, `status` (`ACTIVE` default, `ARCHIVED`, `MERGED`, `ALL`), `pilotsOnly=true`. `includeContact=true` adds email and phone. Each row includes `pilotCount`. Paginated. |
 | POST | `/people/match` | Yes | Duplicate detection (`EXACT` / `POSSIBLE`) |
 | POST | `/people` | Yes | Create Person (`forceCreate` to skip exact-match guard) |
 | GET | `/people/:personId` | Yes | Get Person (includes private contact for authorized operators) |

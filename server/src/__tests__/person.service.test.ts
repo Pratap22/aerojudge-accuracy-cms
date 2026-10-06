@@ -5,8 +5,10 @@ import {
   isPilotRole,
   mapOfficialLabelToRole,
 } from '../services/competition-participant.service.js';
+import { listPeopleQuerySchema, updatePersonSchema } from '@aero-judge/shared';
 import {
   generateAeroJudgeId,
+  peopleDirectoryWhere,
   personDisplayName,
   personNameSearchOrClauses,
 } from '../services/person.service.js';
@@ -68,6 +70,80 @@ describe('Person identity architecture', () => {
         }),
       ).toBe('Pat Sharma');
       expect(personDisplayName({ firstName: 'Pratap', lastName: 'Sharma' })).toBe('Pratap Sharma');
+    });
+  });
+
+  describe('peopleDirectoryWhere', () => {
+    it('defaults to active people', () => {
+      expect(peopleDirectoryWhere({})).toEqual({ status: 'ACTIVE' });
+    });
+
+    it('limits to people with pilot rows, gender, and country', () => {
+      expect(
+        peopleDirectoryWhere({
+          pilotsOnly: true,
+          gender: 'FEMALE',
+          nationalityCountryId: 'c1',
+          status: 'ALL',
+        }),
+      ).toEqual({
+        gender: 'FEMALE',
+        nationalityCountryId: 'c1',
+        pilots: { some: {} },
+      });
+    });
+
+    it('searches name, ids, license, and email together', () => {
+      const where = peopleDirectoryWhere({ q: 'Thapa' });
+      expect(where.status).toBe('ACTIVE');
+      expect(where.OR).toEqual(
+        expect.arrayContaining([
+          { email: { contains: 'Thapa', mode: 'insensitive' } },
+          { civlId: { contains: 'Thapa', mode: 'insensitive' } },
+        ]),
+      );
+    });
+
+    it('prefers an exact AeroJudge id over free text', () => {
+      const where = peopleDirectoryWhere({ q: 'Thapa', aeroJudgeId: 'aj-abc123' });
+      expect(where.aeroJudgeId).toEqual({ equals: 'AJ-ABC123', mode: 'insensitive' });
+      expect(where.OR).toBeUndefined();
+    });
+  });
+
+  describe('person update contract', () => {
+    it('clears optional identity fields when blank', () => {
+      const parsed = updatePersonSchema.parse({
+        civlId: ' ',
+        email: '',
+        phone: null,
+        dateOfBirth: '',
+      });
+      expect(parsed.civlId).toBeNull();
+      expect(parsed.email).toBeNull();
+      expect(parsed.phone).toBeNull();
+      expect(parsed.dateOfBirth).toBeNull();
+    });
+
+    it('leaves omitted fields unchanged', () => {
+      const parsed = updatePersonSchema.parse({ firstName: 'Aman' });
+      expect(parsed.firstName).toBe('Aman');
+      expect(parsed.civlId).toBeUndefined();
+      expect(parsed.email).toBeUndefined();
+    });
+
+    it('parses directory filters from query strings', () => {
+      const parsed = listPeopleQuerySchema.parse({
+        q: 'Aman',
+        pilotsOnly: 'true',
+        includeContact: 'false',
+        gender: 'MALE',
+        status: 'ACTIVE',
+      });
+      expect(parsed.pilotsOnly).toBe(true);
+      expect(parsed.includeContact).toBe(false);
+      expect(parsed.page).toBe(1);
+      expect(parsed.pageSize).toBe(20);
     });
   });
 

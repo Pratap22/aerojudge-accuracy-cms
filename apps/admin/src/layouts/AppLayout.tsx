@@ -42,6 +42,7 @@ import { SwitchToScoringButton } from '../components/SwitchToScoringButton';
 const platformNavBase = [
   { key: 'competitions' as const, label: 'Competitions', icon: Trophy, end: true },
   { key: 'organizations' as const, to: '/organizations', label: 'Organizations', icon: Building2, end: true },
+  { key: 'pilots' as const, to: '/pilots', label: 'Pilots', icon: Users, end: false },
   { key: 'profile-claims' as const, to: '/profile-claims', label: 'Profile claims', icon: UserCheck, end: false },
   { key: 'users' as const, to: '/users', label: 'Users', icon: Shield, end: false },
 ] as const;
@@ -242,7 +243,7 @@ export function AppLayout() {
         if (item.key === 'users') {
           return hasPermission(user.role, 'user:manage');
         }
-        if (item.key === 'profile-claims') {
+        if (item.key === 'pilots' || item.key === 'profile-claims') {
           return checkPermission(user, 'pilot:manage');
         }
         if (item.key === 'organizations') {

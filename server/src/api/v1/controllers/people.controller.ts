@@ -2,9 +2,9 @@ import type { Request, Response } from 'express';
 import {
   createPersonSchema,
   linkUserToPersonSchema,
+  listPeopleQuerySchema,
   matchPersonSchema,
   mergePersonSchema,
-  paginationSchema,
   requestProfileClaimSchema,
   updatePersonSchema,
 } from '@aero-judge/shared';
@@ -18,13 +18,7 @@ import { validateBody, validateParams, validateQuery } from '../middleware/valid
 const idParams = z.object({ personId: z.string().min(1) });
 const claimIdParams = z.object({ claimId: z.string().min(1) });
 const ajParams = z.object({ aeroJudgeId: z.string().min(1) });
-const searchQuery = paginationSchema.extend({
-  q: z.string().optional(),
-  civlId: z.string().optional(),
-  aeroJudgeId: z.string().optional(),
-  /** When set, results note people who already have a pilot entry in this competition. */
-  competitionId: z.string().min(1).optional(),
-});
+const searchQuery = listPeopleQuerySchema;
 const rejectClaimBody = z.object({
   notes: z.string().max(500).optional(),
 });
@@ -32,15 +26,9 @@ const rejectClaimBody = z.object({
 export const search = [
   validateQuery(searchQuery),
   asyncHandler(async (req: Request, res: Response) => {
+    const query = req.query as unknown as z.infer<typeof listPeopleQuerySchema>;
     const result = await personService.searchPeopleDirectory({
-      ...(req.query as {
-        q?: string;
-        page?: number;
-        pageSize?: number;
-        civlId?: string;
-        aeroJudgeId?: string;
-        competitionId?: string;
-      }),
+      ...query,
       organizationId: req.organizationId,
     });
     sendSuccess(res, result.items, 200, {
@@ -80,7 +68,12 @@ export const get = [
   validateParams(idParams),
   asyncHandler(async (req: Request, res: Response) => {
     const person = await personService.getPerson(req.params.personId);
-    sendSuccess(res, personService.toPersonPrivateView(person));
+    sendSuccess(res, {
+      ...personService.toPersonPrivateView(person),
+      linkedUser: person.user
+        ? { id: person.user.id, email: person.user.email, status: person.user.status }
+        : null,
+    });
   }),
 ];
 

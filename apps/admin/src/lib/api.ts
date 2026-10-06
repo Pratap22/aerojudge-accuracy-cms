@@ -127,7 +127,12 @@ function buildUrl(path: string, params?: RequestOptions['params']): string {
   return qs ? `${url}?${qs}` : url;
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export interface ApiPage<T> {
+  data: T;
+  meta?: ApiResponse<T>['meta'];
+}
+
+async function requestEnvelope<T>(path: string, options: RequestOptions = {}): Promise<ApiPage<T>> {
   const { body, formData, params, headers, ...rest } = options;
 
   const doFetch = async (token: string | null) => {
@@ -181,12 +186,19 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     );
   }
 
-  return json.data as T;
+  return { data: json.data as T, meta: json.meta };
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const page = await requestEnvelope<T>(path, options);
+  return page.data;
 }
 
 export const api = {
   get: <T>(path: string, params?: RequestOptions['params']) =>
     apiRequest<T>(path, { method: 'GET', params }),
+  getPage: <T>(path: string, params?: RequestOptions['params']) =>
+    requestEnvelope<T>(path, { method: 'GET', params }),
   post: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
   put: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body }),
   patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),

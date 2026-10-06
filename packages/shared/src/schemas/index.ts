@@ -797,7 +797,70 @@ export const createPersonSchema = z.object({
   forceCreate: z.boolean().optional(),
 });
 
-export const updatePersonSchema = createPersonSchema.partial().omit({ forceCreate: true });
+/** Empty string or null clears the stored value; omitted leaves it unchanged. */
+const clearableString = (max = 200) =>
+  z
+    .union([z.string().max(max), z.null()])
+    .optional()
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      if (value === null) return null;
+      const trimmed = value.trim();
+      return trimmed === '' ? null : trimmed;
+    });
+
+const clearableDate = z.preprocess(
+  (value) => (value === '' ? null : value),
+  z.union([z.string().datetime(), z.coerce.date()]).nullable().optional(),
+);
+
+export const updatePersonSchema = z.object({
+  firstName: z.string().trim().min(1).max(100).optional(),
+  lastName: z.string().trim().min(1).max(100).optional(),
+  middleName: clearableString(100),
+  preferredName: clearableString(100),
+  displayName: clearableString(100),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  dateOfBirth: clearableDate,
+  nationalityCountryId: clearableString(),
+  nationality: clearableString(),
+  photoUrl: clearableString(2000),
+  civlId: clearableString(),
+  faiLicenseNumber: clearableString(),
+  faiLicenseExpiry: clearableDate,
+  email: z
+    .union([z.string().email(), z.literal(''), z.null()])
+    .optional()
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      if (value === null || value.trim() === '') return null;
+      return value.trim().toLowerCase();
+    }),
+  phone: clearableString(40),
+  visibility: z.enum(['PRIVATE', 'ORGANIZATIONS_ONLY', 'PUBLIC']).optional(),
+});
+
+const queryFlagSchema = z
+  .enum(['true', 'false'])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value === 'true'));
+
+/** Organiser directory listing. Defaults stay compatible with typeahead search. */
+export const listPeopleQuerySchema = paginationSchema.extend({
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  q: z.string().optional(),
+  civlId: z.string().optional(),
+  aeroJudgeId: z.string().optional(),
+  /** When set, results note people who already have a pilot entry in this competition. */
+  competitionId: z.string().min(1).optional(),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  nationalityCountryId: z.string().optional(),
+  status: z.enum(['ACTIVE', 'ARCHIVED', 'MERGED', 'ALL']).optional(),
+  /** Only people who have at least one competition pilot record. */
+  pilotsOnly: queryFlagSchema,
+  /** Include private contact fields (email, phone) for operators. */
+  includeContact: queryFlagSchema,
+});
 
 export const matchPersonSchema = z.object({
   aeroJudgeId: optionalString,
@@ -830,6 +893,7 @@ export const linkUserToPersonSchema = z
 
 export type CreatePersonInput = z.infer<typeof createPersonSchema>;
 export type UpdatePersonInput = z.infer<typeof updatePersonSchema>;
+export type ListPeopleQuery = z.infer<typeof listPeopleQuerySchema>;
 export type MatchPersonInput = z.infer<typeof matchPersonSchema>;
 export type CompetitionRoleType = z.infer<typeof competitionRoleSchema>;
 export type LinkUserToPersonInput = z.infer<typeof linkUserToPersonSchema>;

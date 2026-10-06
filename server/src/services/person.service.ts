@@ -590,7 +590,7 @@ export async function matchPersons(input: MatchInput): Promise<PersonMatch[]> {
   return results;
 }
 
-export async function searchPeopleDirectory(query: {
+export type PeopleDirectoryQuery = {
   q?: string;
   page?: number;
   pageSize?: number;
@@ -599,10 +599,33 @@ export async function searchPeopleDirectory(query: {
   /** Mark people who already have a pilot row in this competition. */
   competitionId?: string;
   organizationId?: string;
-}) {
-  const page = query.page ?? 1;
-  const pageSize = Math.min(query.pageSize ?? 20, 100);
-  const where: Prisma.PersonWhereInput = { status: 'ACTIVE' };
+  gender?: Gender;
+  nationalityCountryId?: string;
+  status?: 'ACTIVE' | 'ARCHIVED' | 'MERGED' | 'ALL';
+  /** Only people with at least one competition pilot row. */
+  pilotsOnly?: boolean;
+  /** Attach email and phone for operator listings. */
+  includeContact?: boolean;
+};
+
+/**
+ * Prisma filter for the organiser people directory.
+ * Status defaults to ACTIVE. Exact AeroJudge ID wins over CIVL, which wins over free text.
+ */
+export function peopleDirectoryWhere(
+  query: Pick<
+    PeopleDirectoryQuery,
+    'q' | 'civlId' | 'aeroJudgeId' | 'gender' | 'nationalityCountryId' | 'status' | 'pilotsOnly'
+  >,
+): Prisma.PersonWhereInput {
+  const status = query.status ?? 'ACTIVE';
+  const where: Prisma.PersonWhereInput = status === 'ALL' ? {} : { status };
+
+  if (query.gender) where.gender = query.gender;
+  if (query.nationalityCountryId?.trim()) {
+    where.nationalityCountryId = query.nationalityCountryId.trim();
+  }
+  if (query.pilotsOnly) where.pilots = { some: {} };
 
   if (query.aeroJudgeId?.trim()) {
     where.aeroJudgeId = { equals: query.aeroJudgeId.trim().toUpperCase(), mode: 'insensitive' };
@@ -619,13 +642,25 @@ export async function searchPeopleDirectory(query: {
     ];
   }
 
+  return where;
+}
+
+/** Paginated organiser search across the global person directory. */
+export async function searchPeopleDirectory(query: PeopleDirectoryQuery) {
+  const page = query.page ?? 1;
+  const pageSize = Math.min(query.pageSize ?? 20, 100);
+  const where = peopleDirectoryWhere(query);
+
   const [items, total] = await Promise.all([
     prisma.person.findMany({
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-      include: { nationalityCountry: true },
+      include: {
+        nationalityCountry: true,
+        _count: { select: { pilots: true } },
+      },
     }),
     prisma.person.count({ where }),
   ]);
@@ -644,6 +679,8 @@ export async function searchPeopleDirectory(query: {
     items: items.map((person) => ({
       ...toPersonDirectoryView(person),
       photoUrl: photoById.get(person.id) ?? person.photoUrl,
+      pilotCount: person._count.pilots,
+      ...(query.includeContact ? { email: person.email, phone: person.phone } : {}),
       ...(registeredPersonIds
         ? { alreadyRegistered: registeredPersonIds.has(person.id) }
         : {}),
@@ -689,6 +726,7 @@ export async function getPersonCompetitionHistory(personId: string) {
       competition: {
         select: {
           id: true,
+          organizationId: true,
           name: true,
           code: true,
           startDate: true,

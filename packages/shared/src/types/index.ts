@@ -541,6 +541,48 @@ export interface PersonDirectoryEntry {
   status?: string;
   /** Set when a competition-scoped directory search finds an existing pilot entry. */
   alreadyRegistered?: boolean;
+  /** Competition pilot rows linked to this person. */
+  pilotCount?: number;
+  /** Present when the directory query asks for operator contact fields. */
+  email?: string | null;
+  phone?: string | null;
+}
+
+/** Operator view of a person, including private contact and linked login. */
+export interface PersonRecord extends PersonDirectoryEntry {
+  dateOfBirth?: string | null;
+  faiLicenseExpiry?: string | null;
+  emailVerifiedAt?: string | null;
+  linkedUser?: { id: string; email: string; status: string } | null;
+}
+
+/** One competition participation row from the person history API. */
+export interface PersonCompetitionHistoryItem {
+  id: string;
+  status: string;
+  registrationDate: string;
+  roles: string[];
+  verified: boolean;
+  competition: {
+    id: string;
+    organizationId: string;
+    name: string;
+    code: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    country: string;
+    venue: string;
+    isPublished: boolean;
+  };
+  pilotSnapshot: {
+    id: string;
+    pilotNumber: number;
+    status: string;
+    displayName: string;
+    nationality: string | null;
+    glider: string | null;
+  } | null;
 }
 
 export const ROLES: Role[] = [

@@ -23,6 +23,7 @@ import { ScoringPage } from './pages/ScoringPage';
 import { RankingsPage } from './pages/RankingsPage';
 import { UsersPage } from './pages/UsersPage';
 import { ProfileClaimsPage } from './pages/ProfileClaimsPage';
+import { PilotDirectoryPage } from './pages/PilotDirectoryPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { ProtestsPage } from './pages/ProtestsPage';
 import { StatisticsPage } from './pages/StatisticsPage';
@@ -255,6 +256,14 @@ export default function App() {
         </Route>
 
         <Route path="users" element={<UsersPage />} />
+        <Route
+          path="pilots"
+          element={
+            <RequirePermission anyOf={['pilot:manage']}>
+              <PilotDirectoryPage />
+            </RequirePermission>
+          }
+        />
         <Route
           path="profile-claims"
           element={
