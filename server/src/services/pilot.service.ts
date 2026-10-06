@@ -386,9 +386,12 @@ export async function updatePilot(
     );
   }
 
+  const clearingNumber = rest.pilotNumber === null;
   const nextPilotNumber =
     typeof rest.pilotNumber === 'number' ? rest.pilotNumber : undefined;
-  if (nextPilotNumber !== undefined && nextPilotNumber !== existing.pilotNumber) {
+  if (clearingNumber) {
+    rest.qrCode = null;
+  } else if (nextPilotNumber !== undefined && nextPilotNumber !== existing.pilotNumber) {
     const numberTaken = await prisma.pilot.findFirst({
       where: {
         competitionId,

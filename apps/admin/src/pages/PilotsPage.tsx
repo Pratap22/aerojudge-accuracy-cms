@@ -443,14 +443,14 @@ export function PilotsPage() {
                 </Link>
               </Button>
               <Button variant="outline" asChild>
-                <a
-                  href={competitionPath(organizationId, activeCompetitionId, 'pilots/draw/present')}
+                <Link
+                  to={competitionPath(organizationId, activeCompetitionId, 'pilots/draw/present')}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Open in new tab
-                </a>
+                </Link>
               </Button>
             </>
           ) : null}
