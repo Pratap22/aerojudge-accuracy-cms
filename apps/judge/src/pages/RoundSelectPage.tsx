@@ -81,15 +81,6 @@ const SCORABLE_STATUSES: RoundStatus[] = [
 
 const STARTABLE_STATUSES: RoundStatus[] = ['SCHEDULED', 'BRIEFING', 'OPEN'];
 
-/** Previous round must reach one of these before creating the next. */
-const COMPLETED_FOR_NEXT: RoundStatus[] = [
-  'CLOSED',
-  'PENDING_APPROVAL',
-  'APPROVED',
-  'LOCKED',
-  'CANCELLED',
-];
-
 export function RoundSelectPage() {
   const { organizationId: routeOrgId, competitionId: routeCompetitionId } = useParams();
   const {
@@ -188,16 +179,10 @@ export function RoundSelectPage() {
   const maxRounds = competitionDetail?.maxRounds ?? activeCompetition?.maxRounds ?? 12;
   const nextNumber = (roundsNormalized.reduce((m, r) => Math.max(m, r.number), 0) || 0) + 1;
   const atMax = roundsNormalized.length >= maxRounds;
-  const previousRound = useMemo(() => {
-    if (roundsNormalized.length === 0) return null;
-    return [...roundsNormalized].sort((a, b) => b.number - a.number)[0];
-  }, [roundsNormalized]);
-  const previousCompleted =
-    !previousRound || COMPLETED_FOR_NEXT.includes(previousRound.status);
   const competitionAcceptsRounds =
     !!activeCompetition?.status &&
     !['COMPLETED', 'ARCHIVED', 'CANCELLED'].includes(activeCompetition.status);
-  const canCreateNext = !!activeCompId && !atMax && previousCompleted && competitionAcceptsRounds;
+  const canCreateNext = !!activeCompId && !atMax && competitionAcceptsRounds;
 
   const { data: latestWind } = useQuery({
     queryKey: ['wind', activeCompId],
@@ -408,12 +393,6 @@ export function RoundSelectPage() {
                 ? `Creating Round ${nextNumber}…`
                 : `Create & Start Round ${nextNumber}`}
             </Button>
-            {previousRound && COMPLETED_FOR_NEXT.includes(previousRound.status) && (
-              <p className="mt-2 text-center text-xs text-muted-foreground">
-                R{previousRound.number} is {previousRound.status.replace(/_/g, ' ').toLowerCase()} —
-                ready for the next round
-              </p>
-            )}
           </div>
         )}
 
@@ -459,7 +438,7 @@ export function RoundSelectPage() {
             body={
               atMax
                 ? 'All rounds for this competition have been used.'
-                : 'Start a scheduled round below, or close the current round before creating the next one.'
+                : 'Start a scheduled round below.'
             }
           >
             <div className="mt-6 w-full space-y-2 text-left">

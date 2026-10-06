@@ -24,6 +24,7 @@ import { RankingsPage } from './pages/RankingsPage';
 import { UsersPage } from './pages/UsersPage';
 import { ProfileClaimsPage } from './pages/ProfileClaimsPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { ProtestsPage } from './pages/ProtestsPage';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { AuditPage } from './pages/AuditPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -131,6 +132,23 @@ function CompetitionRoutes() {
         element={
           <RequirePermission anyOf={['print:generate']}>
             <ReportsPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/protests"
+        element={
+          <RequirePermission
+            anyOf={[
+              'competition:update',
+              'score:approve_chief',
+              'audit:view',
+              'results:publish',
+              'score:confirm',
+              'print:generate',
+            ]}
+          >
+            <ProtestsPage />
           </RequirePermission>
         }
       />

@@ -454,6 +454,21 @@ export interface CompetitionOfficial {
   person?: { id: string; aeroJudgeId: string; name: string } | null;
 }
 
+/** Logged protest for a competition (Admin → Protests, and Statistics). */
+export interface CompetitionProtest {
+  id: string;
+  competitionId: string;
+  pilotId: string | null;
+  pilotNumber: number;
+  pilotName: string;
+  reason: string;
+  outcome: string;
+  formUrl: string | null;
+  formFileName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Rich-text brochure fields for a competition (About, schedule, etc.). */
 export interface CompetitionInfoContent {
   aboutHtml: string | null;

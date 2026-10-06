@@ -15,6 +15,7 @@ export async function getCompetitionStatistics(competitionId: string) {
     bestScore,
     rankings,
     rounds,
+    protests,
   ] = await Promise.all([
     prisma.flight.count({ where: { round: officialRoundFilter } }),
     prisma.score.count({ where: { ...officialScoreFilter, isBullseye: true } }),
@@ -40,6 +41,18 @@ export async function getCompetitionStatistics(competitionId: string) {
       where: officialRoundFilter,
       orderBy: { number: 'asc' },
       select: { id: true, number: true },
+    }),
+    prisma.protest.findMany({
+      where: { competitionId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        pilotNumber: true,
+        pilotName: true,
+        reason: true,
+        outcome: true,
+        createdAt: true,
+      },
     }),
   ]);
 
@@ -85,6 +98,15 @@ export async function getCompetitionStatistics(competitionId: string) {
       : null,
     topPilots,
     roundAverages,
+    protestCount: protests.length,
+    protests: protests.map((protest) => ({
+      id: protest.id,
+      pilotNumber: protest.pilotNumber,
+      pilotName: protest.pilotName,
+      reason: protest.reason,
+      outcome: protest.outcome,
+      createdAt: protest.createdAt.toISOString(),
+    })),
   };
 }
 

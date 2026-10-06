@@ -97,15 +97,6 @@ const statusColors: Record<
 
 type RoundAction = 'start' | 'pause' | 'resume' | 'close' | 'reopen' | 'approve' | 'lock';
 
-/** Previous round must reach one of these before Create Round is allowed. */
-const COMPLETED_FOR_NEXT: RoundStatus[] = [
-  'CLOSED',
-  'PENDING_APPROVAL',
-  'APPROVED',
-  'LOCKED',
-  'CANCELLED',
-];
-
 function normalizeRound(round: RoundApi) {
   return {
     ...round,
@@ -223,16 +214,7 @@ export function RoundsPage() {
   const maxRounds = competition?.maxRounds ?? 12;
   const nextNumber = (rounds.reduce((m, r) => Math.max(m, r.number), 0) || 0) + 1;
   const atMaxOfficial = officialRounds.length >= maxRounds;
-  const previousRound = useMemo(() => {
-    if (rounds.length === 0) return null;
-    return [...rounds].sort((a, b) => b.number - a.number || a.name.localeCompare(b.name))[0];
-  }, [rounds]);
-  const previousCompleted =
-    !previousRound || COMPLETED_FOR_NEXT.includes(previousRound.status);
-  /** Dialog can open whenever the previous round is done; practice never hits the official max. */
-  const canOpenCreate = previousCompleted;
-  const canSubmitCreate =
-    previousCompleted && (roundType === 'PRACTICE' || !atMaxOfficial);
+  const canSubmitCreate = roundType === 'PRACTICE' || !atMaxOfficial;
 
   const canCloseCompetition =
     canUpdateCompetition &&
@@ -498,7 +480,7 @@ export function RoundsPage() {
               {completeCompetitionMutation.isPending ? 'Closing…' : 'Close competition'}
             </Button>
           )}
-          <Button disabled={!canOpenCreate} onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Create Round
           </Button>
@@ -599,14 +581,6 @@ export function RoundsPage() {
           increase Max Rounds in competition settings.
         </p>
       )}
-      {previousRound && !previousCompleted && (
-        <p className="text-sm text-muted-foreground">
-          Finish Round {previousRound.number} before creating the next one. Close it when scoring is
-          done (then approve / lock as needed). Current status:{' '}
-          <span className="font-medium text-foreground">{previousRound.status}</span>.
-        </p>
-      )}
-
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
@@ -747,8 +721,7 @@ export function RoundsPage() {
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Max {maxRounds} official rounds. Practice rounds do not count toward results or that
-              limit. Create the next round only after the previous one is closed (or approved /
-              locked / cancelled).
+              limit. A new round can be created while an earlier round is still open.
             </p>
             <div className="space-y-2">
               <Label>Name</Label>

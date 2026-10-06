@@ -94,6 +94,62 @@ export async function uploadImageToCloudinary(
   });
 }
 
+/**
+ * Store a signed protest form. PDFs are kept as documents; scans are stored as images.
+ */
+export async function uploadDocumentToCloudinary(
+  file: Express.Multer.File,
+  options: { folder: string; publicId?: string },
+): Promise<{ url: string; publicId: string }> {
+  ensureConfigured();
+
+  const imageTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  const isPdf = file.mimetype === 'application/pdf';
+  if (!isPdf && !imageTypes.includes(file.mimetype)) {
+    throw AppError.badRequest('Signed form must be a PDF, PNG, JPEG, or WebP file');
+  }
+
+  const folder = `${env.CLOUDINARY_FOLDER.replace(/\/+$/, '')}/${options.folder}`.replace(
+    /\/{2,}/g,
+    '/',
+  );
+  const resourceType = isPdf ? 'raw' : 'image';
+  const publicId = isPdf && options.publicId && !options.publicId.endsWith('.pdf')
+    ? `${options.publicId}.pdf`
+    : options.publicId;
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        public_id: publicId,
+        overwrite: true,
+        resource_type: resourceType,
+        ...(isPdf
+          ? {}
+          : {
+              transformation: [
+                { width: 2000, height: 2000, crop: 'limit', quality: 'auto', fetch_format: 'auto' },
+              ],
+            }),
+      },
+      (err, result) => {
+        if (err || !result?.secure_url) {
+          reject(
+            AppError.badRequest(
+              err?.message || 'Cloudinary upload failed',
+              'CLOUDINARY_UPLOAD_FAILED',
+            ),
+          );
+          return;
+        }
+        resolve({ url: result.secure_url, publicId: result.public_id });
+      },
+    );
+    stream.end(file.buffer);
+  });
+}
+
 /** Remove a Cloudinary asset when the stored URL points at this account. */
 export async function destroyCloudinaryImage(url: string | null | undefined): Promise<void> {
   if (!url || !env.cloudinaryEnabled || !url.includes('res.cloudinary.com')) return;
@@ -101,6 +157,17 @@ export async function destroyCloudinaryImage(url: string | null | undefined): Pr
   if (!publicId) return;
   ensureConfigured();
   await cloudinary.uploader.destroy(publicId, { resource_type: 'image' }).catch(() => undefined);
+}
+
+/** Remove an image or raw (PDF) Cloudinary asset. */
+export async function destroyCloudinaryAsset(url: string | null | undefined): Promise<void> {
+  if (!url || !env.cloudinaryEnabled || !url.includes('res.cloudinary.com')) return;
+  const asset = cloudinaryAssetFromUrl(url);
+  if (!asset) return;
+  ensureConfigured();
+  await cloudinary.uploader
+    .destroy(asset.publicId, { resource_type: asset.resourceType })
+    .catch(() => undefined);
 }
 
 /** Delivery URL that rasterizes the asset as PNG so PDFKit can embed it. */
@@ -115,19 +182,28 @@ export function cloudinaryPngDeliveryUrl(url: string): string {
 }
 
 function cloudinaryPublicId(url: string): string | null {
+  return cloudinaryAssetFromUrl(url)?.publicId ?? null;
+}
+
+function cloudinaryAssetFromUrl(
+  url: string,
+): { publicId: string; resourceType: 'image' | 'raw' | 'video' } | null {
   try {
     const pathname = new URL(url).pathname;
-    const marker = '/image/upload/';
+    const match = pathname.match(/\/(image|raw|video)\/upload\//);
+    if (!match) return null;
+    const resourceType = match[1] as 'image' | 'raw' | 'video';
+    const marker = `/${resourceType}/upload/`;
     const index = pathname.indexOf(marker);
-    if (index < 0) return null;
     const parts = pathname.slice(index + marker.length).split('/').filter(Boolean);
     const versionIndex = parts.findIndex((part) => /^v\d+$/.test(part));
     const idParts = (versionIndex >= 0 ? parts.slice(versionIndex + 1) : parts).filter(
       (part) => !part.includes(','),
     );
     if (idParts.length === 0) return null;
-    const last = idParts[idParts.length - 1]!.replace(/\.[a-z0-9]+$/i, '');
-    return [...idParts.slice(0, -1), last].join('/');
+    const lastPart = idParts[idParts.length - 1]!;
+    const last = resourceType === 'raw' ? lastPart : lastPart.replace(/\.[a-z0-9]+$/i, '');
+    return { resourceType, publicId: [...idParts.slice(0, -1), last].join('/') };
   } catch {
     return null;
   }

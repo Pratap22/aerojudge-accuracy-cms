@@ -18,6 +18,7 @@ import {
   Medal,
   Menu,
   Moon,
+  Scale,
   Settings,
   Shield,
   Sun,
@@ -135,6 +136,20 @@ const competitionNavGroups: Array<{
         icon: FileText,
         end: false,
         anyOf: ['print:generate'],
+      },
+      {
+        segment: 'protests',
+        label: 'Protests',
+        icon: Scale,
+        end: false,
+        anyOf: [
+          'competition:update',
+          'score:approve_chief',
+          'audit:view',
+          'results:publish',
+          'score:confirm',
+          'print:generate',
+        ],
       },
       {
         segment: 'statistics',

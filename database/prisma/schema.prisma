@@ -87,6 +87,7 @@ model User {
   auditLogs          AuditLog[]
   announcements      Announcement[]
   eventFeedItems    EventFeedItem[]
+  protests           Protest[]
   printJobs          PrintHistory[] @relation("PrintPrintedBy")
   printApprovals     PrintHistory[] @relation("PrintApprovedBy")
   notifications      Notification[]
@@ -553,6 +554,7 @@ model Competition {
   printHistory     PrintHistory[]
   announcements    Announcement[]
   eventFeedItems   EventFeedItem[]
+  protests         Protest[]
   auditLogs        AuditLog[]
   notifications    Notification[]
   competitionUsers CompetitionUser[]
@@ -753,6 +755,7 @@ model Pilot {
   individualRankings   IndividualRanking[]
   penalties            Penalty[]
   eventFeedItems      EventFeedItem[]
+  protests             Protest[]
 
   @@unique([competitionId, pilotNumber])
   @@index([competitionId])
@@ -1325,6 +1328,31 @@ enum EventFeedKind {
   REFLIGHT
   PHOTO
   TEXT
+}
+
+/// Completed protest log for a competition. Included in competition statistics.
+model Protest {
+  id            String      @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  /// Nullable so the log remains if the pilot record is later removed.
+  pilotId       String?
+  pilot         Pilot?      @relation(fields: [pilotId], references: [id], onDelete: SetNull)
+  /// Competition number at the time of the protest.
+  pilotNumber   Int
+  pilotName     String
+  reason        String      @db.Text
+  outcome       String      @db.Text
+  /// Signed protest form (PDF or image).
+  formUrl       String?
+  formFileName  String?
+  createdById   String?
+  createdBy     User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([competitionId, createdAt])
+  @@index([pilotId])
 }
 
 model Announcement {

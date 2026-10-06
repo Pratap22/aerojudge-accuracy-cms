@@ -18,6 +18,7 @@ import sponsorsRoutes from './sponsors.routes.js';
 import officialsRoutes from './officials.routes.js';
 import competitionInfoRoutes from './competition-info.routes.js';
 import statisticsRoutes from './statistics.routes.js';
+import protestsRoutes from './protests.routes.js';
 import syncRoutes from './sync.routes.js';
 import peopleRoutes from './people.routes.js';
 import publicRoutes from './public.routes.js';
@@ -60,6 +61,7 @@ nested.use('/sponsors', sponsorsRoutes);
 nested.use('/officials', officialsRoutes);
 nested.use('/info', competitionInfoRoutes);
 nested.use('/statistics', statisticsRoutes);
+nested.use('/protests', protestsRoutes);
 nested.use('/audit', auditRoutes);
 
 router.use('/competitions/:competitionId', nested);

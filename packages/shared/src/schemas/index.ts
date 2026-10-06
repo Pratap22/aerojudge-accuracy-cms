@@ -655,6 +655,17 @@ export type PartnersDisplaySettings = z.infer<typeof partnersDisplaySettingsSche
 export type CreateOfficialInput = z.infer<typeof createOfficialSchema>;
 export type UpdateOfficialInput = z.infer<typeof updateOfficialSchema>;
 
+export const createProtestSchema = z.object({
+  pilotNumber: z.coerce.number().int().min(0).max(99999),
+  reason: z.string().trim().min(1, 'Say why the protest was made').max(4000),
+  outcome: z.string().trim().min(1, 'Record the outcome').max(2000),
+});
+
+export const updateProtestSchema = createProtestSchema.partial();
+
+export type CreateProtestInput = z.infer<typeof createProtestSchema>;
+export type UpdateProtestInput = z.infer<typeof updateProtestSchema>;
+
 // ─── Competition event info (public brochure) ───
 
 const richHtml = z
