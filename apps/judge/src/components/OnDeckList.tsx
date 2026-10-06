@@ -18,6 +18,8 @@ interface OnDeckListProps {
   currentId: string | null;
   onSelect?: (flightId: string) => void;
   className?: string;
+  /** Larger rows for touch scoring on a phone or tablet. */
+  comfortable?: boolean;
 }
 
 function formatPilotNo(n: number): string {
@@ -42,7 +44,7 @@ function formatDeckScore(p: OnDeckPilot): string | null {
   return '—';
 }
 
-export function OnDeckList({ pilots, currentId, onSelect, className }: OnDeckListProps) {
+export function OnDeckList({ pilots, currentId, onSelect, className, comfortable }: OnDeckListProps) {
   const current = pilots.find((p) => p.id === currentId);
   const upcoming = pilots
     .filter((p) => p.id !== currentId)
@@ -58,7 +60,10 @@ export function OnDeckList({ pilots, currentId, onSelect, className }: OnDeckLis
         {current ? (
           <button
             type="button"
-            className="flex w-full items-center justify-between rounded-lg bg-sky-600/30 px-3 py-2 ring-1 ring-sky-500"
+            className={cn(
+              'flex w-full items-center justify-between rounded-lg bg-sky-600/30 px-3 py-2 ring-1 ring-sky-500',
+              comfortable && 'min-h-11',
+            )}
             onClick={() => onSelect?.(current.id)}
           >
             <div className="flex min-w-0 items-center gap-2 text-left">
@@ -95,7 +100,10 @@ export function OnDeckList({ pilots, currentId, onSelect, className }: OnDeckLis
               <button
                 key={p.id}
                 type="button"
-                className="grid w-full grid-cols-[2.5rem_1fr_3.5rem] items-center gap-x-3 rounded-lg px-3 py-1.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 active:scale-[0.99]"
+                className={cn(
+                  'grid w-full grid-cols-[2.5rem_1fr_3.5rem] items-center gap-x-3 rounded-lg px-3 py-1.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 active:scale-[0.99]',
+                  comfortable && 'min-h-11 py-2.5',
+                )}
                 onClick={() => onSelect?.(p.id)}
               >
                 <span className="font-mono text-sky-400">{formatPilotNo(p.pilotNumber)}</span>

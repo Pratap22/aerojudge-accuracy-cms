@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,6 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  cn,
   Label,
   Textarea,
 } from '@aero-judge/ui';
@@ -28,9 +29,20 @@ import { PilotDisplay } from '../components/PilotDisplay';
 import { NumericKeypad } from '../components/NumericKeypad';
 import { QuickScoreButtons } from '../components/QuickScoreButtons';
 import { OnDeckList } from '../components/OnDeckList';
+import { TextScoreEntry } from '../components/TextScoreEntry';
 import { OfflineIndicator } from '../components/OfflineIndicator';
 import { SwitchToAdminButton } from '../components/SwitchToAdminButton';
 import { WindSpeedDialog, type WindDraft } from '../components/WindSpeedDialog';
+
+const ENTRY_MODE_KEY = 'aerojudge.judge.entryMode';
+
+function readEntryMode(): 'keypad' | 'type' {
+  try {
+    return localStorage.getItem(ENTRY_MODE_KEY) === 'type' ? 'type' : 'keypad';
+  } catch {
+    return 'keypad';
+  }
+}
 
 interface Flight {
   id: string;
@@ -72,6 +84,18 @@ export function ScoringPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [pilotPickerOpen, setPilotPickerOpen] = useState(false);
   const [windOpen, setWindOpen] = useState(false);
+  const [entryMode, setEntryMode] = useState<'keypad' | 'type'>(readEntryMode);
+  const [pilotSeed, setPilotSeed] = useState<{ token: number; pilotNumber: number } | null>(null);
+  const pilotSeedToken = useRef(0);
+
+  const chooseEntryMode = (mode: 'keypad' | 'type') => {
+    setEntryMode(mode);
+    try {
+      localStorage.setItem(ENTRY_MODE_KEY, mode);
+    } catch {
+      // Private browsing can block storage; the choice still applies for this visit.
+    }
+  };
 
   const { data: flights, refetch } = useQuery({
     queryKey: ['judge-flights', competitionId, roundId],
@@ -181,25 +205,26 @@ export function ScoringPage() {
   }, [currentFlight?.id]);
 
   const submitScore = useCallback(
-    async (score: EnterScoreInput) => {
-      if (!competitionId || !roundId) return;
-      if (scoresReadOnly) return;
+    async (score: EnterScoreInput): Promise<'saved' | 'queued' | 'blocked'> => {
+      if (!competitionId || !roundId || scoresReadOnly) return 'blocked';
 
       if (!isOnline) {
         enqueueScore(competitionId, roundId, score);
         setPendingCount(getPendingCount());
         setConfirmed(true);
-        return;
+        return 'queued';
       }
 
       try {
         await api.post(`/competitions/${competitionId}/rounds/${roundId}/scores`, score);
         setConfirmed(true);
         queryClient.invalidateQueries({ queryKey: ['judge-flights'] });
+        return 'saved';
       } catch {
         enqueueScore(competitionId, roundId, score);
         setPendingCount(getPendingCount());
         setConfirmed(true);
+        return 'queued';
       }
     },
     [competitionId, roundId, isOnline, queryClient, scoresReadOnly],
@@ -255,6 +280,13 @@ export function ScoringPage() {
       setCurrentIndex(idx);
       setConfirmed(false);
       confirmMutation.reset();
+      if (entryMode === 'type') {
+        const flight = flights[idx];
+        if (flight) {
+          pilotSeedToken.current += 1;
+          setPilotSeed({ token: pilotSeedToken.current, pilotNumber: flight.pilotNumber });
+        }
+      }
     }
   };
 
@@ -360,7 +392,9 @@ export function ScoringPage() {
             </Button>
           ) : null}
           <p className="text-[10px] text-slate-500">
-            Pilot {currentIndex + 1}/{flights?.length ?? 0}
+            {entryMode === 'type'
+              ? 'Type a pilot number'
+              : `Pilot ${currentIndex + 1}/${flights?.length ?? 0}`}
           </p>
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
@@ -394,8 +428,42 @@ export function ScoringPage() {
         {canUpdateWind ? <span className="text-xs text-sky-400">Update</span> : <span className="w-10" />}
       </button>
 
-      <div className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-1 gap-2 overflow-hidden p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:gap-3 sm:p-3 lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-4 lg:p-4">
-        <section className="flex min-h-0 flex-col gap-1.5 overflow-hidden sm:gap-2">
+      <div className="flex shrink-0 items-center gap-2 border-b border-slate-800 px-3 py-1.5">
+        <div className="inline-flex rounded-md bg-slate-800 p-0.5" role="group" aria-label="Score entry">
+          {(
+            [
+              ['keypad', 'Keypad'],
+              ['type', 'Type'],
+            ] as const
+          ).map(([mode, label]) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={entryMode === mode}
+              className={cn(
+                'h-8 rounded px-3 text-sm font-medium',
+                entryMode === mode ? 'bg-sky-500 text-white' : 'text-slate-300',
+              )}
+              onClick={() => chooseEntryMode(mode)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          'mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-cols-1 gap-2 overflow-hidden p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:gap-3 sm:p-3 lg:gap-4 lg:p-4',
+          entryMode === 'keypad' && 'lg:grid-cols-[minmax(0,1fr)_220px]',
+        )}
+      >
+        <section
+          className={cn(
+            'flex min-h-0 flex-col gap-1.5 sm:gap-2',
+            entryMode === 'type' ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
+          )}
+        >
           {roundMeta?.status === 'PAUSED' && (
             <div className="shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
               {`Round ${roundMeta.number} is paused${
@@ -410,85 +478,101 @@ export function ScoringPage() {
             </div>
           )}
 
-          <AnimatePresence mode="wait">
-            {currentFlight && (
-              <motion.div
-                key={currentFlight.id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.15 }}
-                className="shrink-0"
-              >
-                <PilotDisplay
-                  pilots={
-                    flights?.map((f) => ({
-                      id: f.id,
-                      pilotNumber: f.pilotNumber,
-                      firstName: f.firstName,
-                      lastName: f.lastName,
-                      status: f.status,
-                      distanceCm: f.distanceCm,
-                      resultType: f.resultType,
-                      finalScoreCm: f.finalScoreCm,
-                    })) ?? []
-                  }
-                  selectedId={currentFlight.id}
-                  onSelect={selectPilot}
-                  firstName={currentFlight.firstName}
-                  lastName={currentFlight.lastName}
-                  country={currentFlight.country}
-                  countryCode={currentFlight.countryCode}
-                  onOpenChange={setPilotPickerOpen}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <div className="shrink-0">
-            <QuickScoreButtons
-              selected={resultType}
-              onSelect={handleQuickSelect}
-              disabled={confirmMutation.isPending || scoresReadOnly}
+          {entryMode === 'type' ? (
+            <TextScoreEntry
+              flights={flights ?? []}
               maximumScoreCm={maximumScoreCm}
+              disabled={scoresReadOnly}
+              pilotSeed={pilotSeed}
+              onSubmit={async (score) => {
+                const outcome = await submitScore(score);
+                setConfirmed(false);
+                return outcome;
+              }}
             />
-          </div>
+          ) : (
+            <>
+              <AnimatePresence mode="wait">
+                {currentFlight && (
+                  <motion.div
+                    key={currentFlight.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15 }}
+                    className="shrink-0"
+                  >
+                    <PilotDisplay
+                      pilots={
+                        flights?.map((f) => ({
+                          id: f.id,
+                          pilotNumber: f.pilotNumber,
+                          firstName: f.firstName,
+                          lastName: f.lastName,
+                          status: f.status,
+                          distanceCm: f.distanceCm,
+                          resultType: f.resultType,
+                          finalScoreCm: f.finalScoreCm,
+                        })) ?? []
+                      }
+                      selectedId={currentFlight.id}
+                      onSelect={selectPilot}
+                      firstName={currentFlight.firstName}
+                      lastName={currentFlight.lastName}
+                      country={currentFlight.country}
+                      countryCode={currentFlight.countryCode}
+                      onOpenChange={setPilotPickerOpen}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-          {resultType !== 'MEASURED' && !scoresReadOnly && (
-            <p className="shrink-0 text-center text-xs text-slate-400">
-              Tap <strong className="text-slate-200">{resultType}</strong> again to enter a measured
-              distance
-            </p>
+              <div className="shrink-0">
+                <QuickScoreButtons
+                  selected={resultType}
+                  onSelect={handleQuickSelect}
+                  disabled={confirmMutation.isPending || scoresReadOnly}
+                  maximumScoreCm={maximumScoreCm}
+                />
+              </div>
+
+              {resultType !== 'MEASURED' && !scoresReadOnly && (
+                <p className="shrink-0 text-center text-xs text-slate-400">
+                  Tap <strong className="text-slate-200">{resultType}</strong> again to enter a measured
+                  distance
+                </p>
+              )}
+
+              {resultType === 'REFLIGHT' && !scoresReadOnly && (
+                <label className="block shrink-0">
+                  <span className="mb-1 block text-center text-xs font-medium uppercase tracking-wide text-sky-300">
+                    Reason
+                  </span>
+                  <textarea
+                    value={reflightReason}
+                    onChange={(event) => setReflightReason(event.target.value)}
+                    maxLength={1000}
+                    rows={2}
+                    placeholder="Wind above the limit"
+                    className="w-full resize-none rounded-lg border border-sky-500/60 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                  <span className="mt-1 block text-center text-[11px] text-slate-400">
+                    Required. Posted to the public feed.
+                  </span>
+                </label>
+              )}
+
+              <div className="min-h-0 flex-1">
+                <NumericKeypad
+                  value={distanceInput}
+                  onChange={handleDistanceChange}
+                  disabled={confirmMutation.isPending || scoresReadOnly || resultType !== 'MEASURED'}
+                  keyboardEnabled={!pilotPickerOpen}
+                  fill
+                />
+              </div>
+            </>
           )}
-
-          {resultType === 'REFLIGHT' && !scoresReadOnly && (
-            <label className="block shrink-0">
-              <span className="mb-1 block text-center text-xs font-medium uppercase tracking-wide text-sky-300">
-                Reason
-              </span>
-              <textarea
-                value={reflightReason}
-                onChange={(event) => setReflightReason(event.target.value)}
-                maxLength={1000}
-                rows={2}
-                placeholder="Wind above the limit"
-                className="w-full resize-none rounded-lg border border-sky-500/60 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
-              />
-              <span className="mt-1 block text-center text-[11px] text-slate-400">
-                Required. Posted to the public feed.
-              </span>
-            </label>
-          )}
-
-          <div className="min-h-0 flex-1">
-            <NumericKeypad
-              value={distanceInput}
-              onChange={handleDistanceChange}
-              disabled={confirmMutation.isPending || scoresReadOnly || resultType !== 'MEASURED'}
-              keyboardEnabled={!pilotPickerOpen}
-              fill
-            />
-          </div>
 
           <div className="flex shrink-0 flex-col gap-1.5">
             {canCloseRound && (
@@ -528,30 +612,33 @@ export function ScoringPage() {
               !canCloseRound && (
                 <Button
                   size="lg"
-                  className="h-11 w-full text-base font-bold sm:h-12"
+                  variant="secondary"
+                  className="h-11 w-full text-base font-semibold"
                   onClick={() => navigate(roundsHref)}
                 >
                   Round closed — start next round
                 </Button>
               )}
 
-            <Button
-              size="lg"
-              className="h-12 w-full text-base font-bold sm:h-14 sm:text-lg"
-              disabled={!canConfirm}
-              onClick={() => confirmMutation.mutate()}
-            >
-              {confirmed ? (
-                <>
-                  <CheckCircle className="mr-2 h-5 w-5" />
-                  Score Saved
-                </>
-              ) : (
-                'Confirm Score'
-              )}
-            </Button>
+            {entryMode === 'keypad' && (
+              <Button
+                size="lg"
+                className="h-12 w-full text-base font-bold sm:h-14 sm:text-lg"
+                disabled={!canConfirm}
+                onClick={() => confirmMutation.mutate()}
+              >
+                {confirmed ? (
+                  <>
+                    <CheckCircle className="mr-2 h-5 w-5" />
+                    Score Saved
+                  </>
+                ) : (
+                  'Confirm Score'
+                )}
+              </Button>
+            )}
 
-            {confirmed && !scoresReadOnly && (
+            {entryMode === 'keypad' && confirmed && !scoresReadOnly && (
               <div className="flex justify-center gap-2">
                 <Button
                   size="sm"
@@ -580,6 +667,7 @@ export function ScoringPage() {
           </div>
         </section>
 
+        {entryMode === 'keypad' && (
         <aside className="hidden min-h-0 overflow-hidden rounded-xl bg-slate-800/50 p-3 lg:flex lg:flex-col">
           <OnDeckList
             pilots={
@@ -605,6 +693,7 @@ export function ScoringPage() {
             onSelect={selectPilot}
           />
         </aside>
+        )}
       </div>
       <WindSpeedDialog
         open={windOpen}
