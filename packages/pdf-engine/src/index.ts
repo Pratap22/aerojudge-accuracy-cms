@@ -540,13 +540,6 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
     doc.fontSize(8).text(input.branding.chiefJudgeName, startX, sigY + 26, { lineBreak: false });
   }
 
-  const midX = startX + usableWidth / 2;
-  doc.fontSize(9).text('________________________', midX, sigY, { lineBreak: false });
-  doc.text('Meet Director', midX, sigY + 14, { lineBreak: false });
-  if (input.branding.directorName) {
-    doc.fontSize(8).text(input.branding.directorName, midX, sigY + 26, { lineBreak: false });
-  }
-
   // QR code
   try {
     const qr = await qrBuffer(input.branding.publicResultsUrl);
@@ -963,14 +956,6 @@ export async function generateCertificatesPdf(input: GenerateReportInput): Promi
       .fontSize(9)
       .font('Helvetica')
       .fillColor('#000')
-      .text('________________________', x + 40, sigY, { lineBreak: false });
-    doc.text('Meet Director', x + 40, sigY + 14, { lineBreak: false });
-    if (input.branding.directorName) {
-      doc.fontSize(8).text(input.branding.directorName, x + 40, sigY + 26, { lineBreak: false });
-    }
-
-    doc
-      .fontSize(9)
       .text('________________________', x + w - 200, sigY, { lineBreak: false });
     doc.text('Chief Judge', x + w - 200, sigY + 14, { lineBreak: false });
     if (input.branding.chiefJudgeName) {

@@ -578,7 +578,6 @@ function certificatesToHtml(input: GenerateReportInput): string {
           ${item.placementLine ? `<p class="placement">${escapeHtml(item.placementLine)}</p>` : ''}
           ${item.totalScore ? `<p class="meta">Total score: ${escapeHtml(item.totalScore)} cm</p>` : ''}
           <div class="sigs">
-            <div><div class="line"></div><div>Meet Director</div></div>
             <div><div class="line"></div><div>Chief Judge</div></div>
           </div>
         </div>
@@ -608,7 +607,7 @@ function certificatesToHtml(input: GenerateReportInput): string {
     .name { font-size: 24px; font-weight: 700; margin: 8px 0 4px; }
     .meta { font-size: 12px; color: #64748b; margin: 6px 0; }
     .placement { font-size: 15px; font-weight: 700; color: #1a365d; margin-top: 16px; }
-    .sigs { display: flex; justify-content: space-between; margin-top: 64px; padding: 0 24px; font-size: 12px; }
+    .sigs { display: flex; justify-content: flex-end; margin-top: 64px; padding: 0 24px; font-size: 12px; }
     .sigs .line { border-top: 1px solid #111; width: 180px; margin: 0 auto 8px; }
     ${SPONSOR_PAGE_CSS}
   </style>
@@ -1000,7 +999,7 @@ async function buildReportInput(
       format,
       branding,
       title: category === 'WOMEN' ? "Women's Individual Results" : 'Overall Individual Results',
-      columns: ['Rank', 'No', 'Name', 'Country', ...roundHeaders, 'Bullseyes', 'Total'],
+      columns: ['Rank', 'No', 'Name', 'Country', ...roundHeaders, 'Total'],
       rows: scoredRankings.map((r) => {
         const roundEntries = rounds.flatMap((round) => {
           const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
@@ -1053,10 +1052,8 @@ async function buildReportInput(
               const value = formatScoreCm(existing?.finalScoreCm ?? maxCm);
               return discardedRoundIds.has(round.id) ? { value, excluded: true } : value;
             }),
-            r.bullseyes,
           ],
           total: formatScoreCm(r.totalScoreCm),
-          notes: `${r.roundsFlown}r / ${r.bullseyes}•`,
         };
       }),
       footerNote: discardActive
