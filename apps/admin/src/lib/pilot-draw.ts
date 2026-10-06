@@ -6,3 +6,8 @@ const started = new Set<RoundStatus>(STARTED_ROUND_STATUSES);
 export function competitionDrawClosed(rounds: { status: RoundStatus }[]): boolean {
   return rounds.some((round) => started.has(round.status));
 }
+
+/** Full-screen draw with no admin navigation, used when the draw opens in a new tab. */
+export function isDrawPresentation(pathname: string): boolean {
+  return pathname.endsWith('/pilots/draw/present');
+}

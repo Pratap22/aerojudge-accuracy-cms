@@ -11,7 +11,7 @@ import {
   type PilotStatus,
   type RoundStatus,
 } from '@aero-judge/shared';
-import { Check, Download, ImagePlus, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
+import { Check, Download, ExternalLink, ImagePlus, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -436,11 +436,23 @@ export function PilotsPage() {
             </Button>
           ) : null}
           {organizationId && rosterOpen ? (
-            <Button variant="outline" asChild>
-              <Link to={competitionPath(organizationId, activeCompetitionId, 'pilots/draw')}>
-                Draw numbers
-              </Link>
-            </Button>
+            <>
+              <Button variant="outline" asChild>
+                <Link to={competitionPath(organizationId, activeCompetitionId, 'pilots/draw')}>
+                  Draw numbers
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <a
+                  href={competitionPath(organizationId, activeCompetitionId, 'pilots/draw/present')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open in new tab
+                </a>
+              </Button>
+            </>
           ) : null}
           <Button variant="outline" onClick={() => void handleExport()}>
             <Download className="mr-2 h-4 w-4" />
@@ -502,6 +514,7 @@ export function PilotsPage() {
             <TableRow>
               <TableHead>#</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>CIVL ID</TableHead>
               <TableHead>Gender</TableHead>
               <TableHead>Country</TableHead>
               <TableHead>Club</TableHead>
@@ -512,13 +525,13 @@ export function PilotsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : !displayedPilots?.length ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   {statusFilter === 'REGISTERED'
                     ? 'No pending registrations.'
                     : 'No pilots match this filter.'}
@@ -556,6 +569,7 @@ export function PilotsPage() {
                         </span>
                       </div>
                     </TableCell>
+                    <TableCell className="font-mono">{pilot.civlId ?? '—'}</TableCell>
                     <TableCell>{pilot.gender}</TableCell>
                     <TableCell>{pilot.nationality ?? '—'}</TableCell>
                     <TableCell>{pilot.club ?? '—'}</TableCell>

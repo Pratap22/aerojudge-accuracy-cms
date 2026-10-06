@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
-import { Button, cn } from '@aero-judge/ui';
+import { ArrowLeft, Search } from 'lucide-react';
+import { Button, cn, Input } from '@aero-judge/ui';
 import type { RoundStatus } from '@aero-judge/shared';
 import { api } from '../lib/api';
-import { competitionDrawClosed } from '../lib/pilot-draw';
+import { competitionDrawClosed, isDrawPresentation } from '../lib/pilot-draw';
 import {
   competitionPath,
   useCompetitionId,
@@ -21,7 +21,13 @@ interface DrawPilot {
   nationality?: string | null;
 }
 
-const SLICE_COLORS = ['#1e3a5f', '#0f766e', '#9a3412', '#1d4ed8'];
+/** Distinct slice color for a bib. Golden-angle hue so neighbours don't match, and the same number keeps its color. */
+function sliceColor(number: number): string {
+  const hue = Math.round((number * 137.508) % 360);
+  const saturation = 58 + ((number * 17) % 28);
+  const lightness = 34 + ((number * 13) % 16);
+  return `hsl(${hue} ${saturation}% ${lightness}%)`;
+}
 
 function freePilotNumbers(pilots: DrawPilot[]): number[] {
   const assigned = new Set(
@@ -46,11 +52,17 @@ export function PilotNumberDrawPage() {
   const organizationId = useRouteOrganizationId();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [nameQuery, setNameQuery] = useState('');
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [pendingNumber, setPendingNumber] = useState<number | null>(null);
   const [assignError, setAssignError] = useState<string | null>(null);
   const landedNumber = useRef<number | null>(null);
+  const rotationRef = useRef(0);
+  const wheelRef = useRef<HTMLDivElement>(null);
+  const spinAnim = useRef<Animation | null>(null);
+  const { pathname } = useLocation();
+  const presentation = isDrawPresentation(pathname);
 
   const { data: rounds = [], isLoading: roundsLoading } = useQuery({
     queryKey: ['rounds', competitionId],
@@ -86,9 +98,25 @@ export function PilotNumberDrawPage() {
     () => pilots.filter((pilot) => pilot.pilotNumber == null).sort((a, b) => pilotName(a).localeCompare(pilotName(b))),
     [pilots],
   );
+  const visibleWaiting = useMemo(() => {
+    const query = nameQuery.trim().toLowerCase();
+    if (!query) return waiting;
+    return waiting.filter((pilot) => pilotName(pilot).toLowerCase().includes(query));
+  }, [waiting, nameQuery]);
   const numbers = useMemo(() => freePilotNumbers(pilots), [pilots]);
   const selected = waiting.find((pilot) => pilot.id === selectedId) ?? null;
   const assignedCount = pilots.length - waiting.length;
+
+  useEffect(() => {
+    if (!presentation) return;
+    const previous = document.title;
+    document.title = 'Pilot number draw';
+    return () => {
+      document.title = previous;
+    };
+  }, [presentation]);
+
+  useEffect(() => () => spinAnim.current?.cancel(), []);
 
   const assignMutation = useMutation({
     mutationFn: async ({ pilotId, pilotNumber }: { pilotId: string; pilotNumber: number }) =>
@@ -105,38 +133,40 @@ export function PilotNumberDrawPage() {
   });
 
   function spin() {
-    if (!selected || spinning || numbers.length === 0 || assignMutation.isPending) return;
+    const wheel = wheelRef.current;
+    if (!selected || spinning || numbers.length === 0 || assignMutation.isPending || !wheel) return;
     const index = Math.floor(Math.random() * numbers.length);
     const slice = 360 / numbers.length;
     const center = index * slice + slice / 2;
     const landing = (360 - center) % 360;
-    landedNumber.current = numbers[index];
+    const start = rotationRef.current;
+    const normalized = ((start % 360) + 360) % 360;
+    const delta = (landing - normalized + 360) % 360;
+    const end = start + 5 * 360 + delta;
+    const duration = 2000 + Math.floor(Math.random() * 4001);
+    landedNumber.current = numbers[index] ?? null;
     setPendingNumber(null);
     setAssignError(null);
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) {
-      setRotation((prev) => {
-        const normalized = ((prev % 360) + 360) % 360;
-        const delta = (landing - normalized + 360) % 360;
-        return prev + delta;
-      });
-      setPendingNumber(numbers[index]);
-      return;
-    }
     setSpinning(true);
-    setRotation((prev) => {
-      const normalized = ((prev % 360) + 360) % 360;
-      const delta = (landing - normalized + 360) % 360;
-      return prev + 6 * 360 + delta;
-    });
-  }
-
-  function onWheelSettled(event: React.TransitionEvent<HTMLDivElement>) {
-    if (event.propertyName !== 'transform' || !spinning) return;
-    setSpinning(false);
-    setPendingNumber(landedNumber.current);
+    spinAnim.current?.cancel();
+    const anim = wheel.animate(
+      [{ transform: `rotate(${start}deg)` }, { transform: `rotate(${end}deg)` }],
+      { duration, easing: 'cubic-bezier(0.12, 0.7, 0.05, 1)', fill: 'forwards' },
+    );
+    spinAnim.current = anim;
+    anim.finished
+      .then(() => {
+        if (spinAnim.current !== anim) return;
+        rotationRef.current = end;
+        wheel.style.transform = `rotate(${end}deg)`;
+        setRotation(end);
+        setSpinning(false);
+        setPendingNumber(landedNumber.current);
+        anim.cancel();
+      })
+      .catch(() => {
+        // A newer spin replaced this one.
+      });
   }
 
   if (!competitionId || !organizationId) {
@@ -150,13 +180,15 @@ export function PilotNumberDrawPage() {
   if (drawClosed) {
     return (
       <div className="space-y-4">
-        <Link
-          to={competitionPath(organizationId, competitionId, 'pilots')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Pilots
-        </Link>
+        {presentation ? null : (
+          <Link
+            to={competitionPath(organizationId, competitionId, 'pilots')}
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Pilots
+          </Link>
+        )}
         <h1 className="text-2xl font-bold">Pilot number draw</h1>
         <p className="text-muted-foreground">
           A round has already started, so pilot numbers are no longer drawn.
@@ -172,13 +204,15 @@ export function PilotNumberDrawPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Link
-            to={competitionPath(organizationId, competitionId, 'pilots')}
-            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Pilots
-          </Link>
+          {presentation ? null : (
+            <Link
+              to={competitionPath(organizationId, competitionId, 'pilots')}
+              className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Pilots
+            </Link>
+          )}
           <h1 className="text-2xl font-bold">Pilot number draw</h1>
           <p className="text-muted-foreground">
             Choose a pilot, spin, then assign the number. Numbers already given out stay off the wheel.
@@ -197,13 +231,29 @@ export function PilotNumberDrawPage() {
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)_minmax(16rem,20rem)]">
           <section className="rounded-lg border">
             <h2 className="border-b px-4 py-3 text-sm font-semibold">Waiting for a number</h2>
+            <div className="border-b px-3 py-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search by name"
+                  value={nameQuery}
+                  onChange={(event) => setNameQuery(event.target.value)}
+                  aria-label="Search pilots by name"
+                />
+              </div>
+            </div>
             <ul className="max-h-[32rem] overflow-y-auto p-2">
               {waiting.length === 0 ? (
                 <li className="px-2 py-6 text-center text-sm text-muted-foreground">
                   Every pilot has a number.
                 </li>
+              ) : visibleWaiting.length === 0 ? (
+                <li className="px-2 py-6 text-center text-sm text-muted-foreground">
+                  No pilots match that name.
+                </li>
               ) : (
-                waiting.map((pilot) => (
+                visibleWaiting.map((pilot) => (
                   <li key={pilot.id}>
                     <button
                       type="button"
@@ -237,24 +287,25 @@ export function PilotNumberDrawPage() {
                 <div className="h-0 w-0 border-x-[10px] border-t-[16px] border-x-transparent border-t-foreground" />
               </div>
               <div
-                className="absolute inset-3 rounded-full shadow-md"
-                onTransitionEnd={onWheelSettled}
+                ref={wheelRef}
+                className="absolute inset-3 rounded-full shadow-md will-change-transform"
                 style={{
                   transform: `rotate(${rotation}deg)`,
-                  transition: spinning
-                    ? 'transform 4.8s cubic-bezier(0.12, 0.55, 0.05, 1)'
-                    : 'none',
                   background:
                     numbers.length > 0
                       ? `conic-gradient(${numbers
                           .map(
-                            (_, index) =>
-                              `${SLICE_COLORS[index % SLICE_COLORS.length]} ${(index / numbers.length) * 100}% ${((index + 1) / numbers.length) * 100}%`,
+                            (number, index) =>
+                              `${sliceColor(number)} ${(index / numbers.length) * 100}% ${((index + 1) / numbers.length) * 100}%`,
                           )
                           .join(', ')})`
                       : '#e2e8f0',
                 }}
               >
+                <span
+                  className="absolute left-1/2 top-3 h-3 w-3 -translate-x-1/2 rounded-full bg-white shadow"
+                  aria-hidden
+                />
                 {showRimNumbers &&
                   numbers.map((number, index) => {
                     const angle = index * slice + slice / 2;

@@ -36,6 +36,7 @@ import { useTheme } from '../lib/theme';
 import { api } from '../lib/api';
 import { connectSocket, disconnectSocket } from '../lib/socket';
 import { competitionPath, competitionsListPath, parseCompetitionLocation } from '../hooks/useCompetitionId';
+import { isDrawPresentation } from '../lib/pilot-draw';
 import { checkPermission } from '../hooks/usePermission';
 import { SwitchToScoringButton } from '../components/SwitchToScoringButton';
 
@@ -581,6 +582,16 @@ export function AppLayout() {
       </div>
     </>
   );
+
+  if (isDrawPresentation(pathname)) {
+    return (
+      <div className="min-h-dvh bg-background">
+        <main className="mx-auto min-h-dvh w-full max-w-7xl p-4 sm:p-6 lg:p-8">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

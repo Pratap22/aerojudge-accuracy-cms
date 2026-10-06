@@ -1026,7 +1026,15 @@ async function buildReportInput(
       format,
       branding,
       title: category === 'WOMEN' ? "Women's Individual Results" : 'Overall Individual Results',
-      columns: ['Rank', 'No', 'Name', 'Country', ...roundHeaders, 'Total'],
+      columns: [
+        'Rank',
+        'No',
+        'Name',
+        ...(category === 'OVERALL' ? ['CIVL ID'] : []),
+        'Country',
+        ...roundHeaders,
+        'Total',
+      ],
       rows: scoredRankings.map((r) => {
         const roundEntries = rounds.flatMap((round) => {
           const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
@@ -1066,6 +1074,7 @@ async function buildReportInput(
           rank: r.rank,
           pilotNumber: r.pilot.pilotNumber ?? 0,
           name: formatPilotName(r.pilot.firstName, r.pilot.lastName),
+          civlId: r.pilot.civlId ?? '',
           country: r.pilot.country?.name ?? r.pilot.nationality ?? '',
           scores: [
             ...rounds.map((round) => {

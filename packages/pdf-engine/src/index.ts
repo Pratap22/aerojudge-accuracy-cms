@@ -53,6 +53,7 @@ export interface ResultRow {
   rank: number;
   pilotNumber?: number;
   name: string;
+  civlId?: string;
   country?: string;
   team?: string;
   scores: ReportScoreValue[];
@@ -116,6 +117,7 @@ export function resolveReportCellValue(
   ) {
     return { text: row.name, bold: row.rowKind === 'team_total' };
   }
+  if (key === 'civl id' || key === 'civl' || key === 'civlid') return { text: row.civlId ?? '' };
   if (key === 'country' || key.startsWith('country')) return { text: row.country ?? '' };
   if (key === 'signature' || key === 'sign' || key.includes('signature')) return { text: '' };
   if (key === 'remarks' || key === 'remark') return { text: '' };
@@ -218,6 +220,7 @@ function columnWeight(column: string): number {
   if (key === 'no' || key === 'number' || key === 'pilot no' || key === 'pilot number') return 0.65;
   if (key === 'name' || key === 'pilot name' || key === 'pilot') return 2.6;
   if (key === 'team') return 2.4;
+  if (key === 'civl id' || key === 'civl' || key === 'civlid') return 0.95;
   if (key === 'country') return 1.35;
   if (key === 'team total') return 1.05;
   if (key === 'total' || key === 'bullseyes' || key === 'value' || key === 'result') return 0.95;

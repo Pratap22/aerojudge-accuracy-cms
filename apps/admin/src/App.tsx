@@ -56,6 +56,14 @@ function CompetitionRoutes() {
         }
       />
       <Route
+        path=":organizationId/competitions/:competitionId/pilots/draw/present"
+        element={
+          <RequirePermission anyOf={['pilot:manage']}>
+            <PilotNumberDrawPage />
+          </RequirePermission>
+        }
+      />
+      <Route
         path=":organizationId/competitions/:competitionId/pilots/draw"
         element={
           <RequirePermission anyOf={['pilot:manage']}>
