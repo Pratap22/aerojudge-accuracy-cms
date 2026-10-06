@@ -193,6 +193,27 @@ export function RoundSelectPage() {
     enabled: !!activeCompId,
   });
 
+  const { data: roster = [] } = useQuery({
+    queryKey: ['pilots', activeCompId, 'number-gate'],
+    queryFn: () =>
+      api.get<{ pilotNumber: number | null; status: string }[]>(
+        `/competitions/${activeCompId}/pilots`,
+        { pageSize: 200 },
+      ),
+    enabled: !!activeCompId,
+  });
+  const pilotsAwaitingNumber = roster.filter(
+    (pilot) =>
+      pilot.pilotNumber == null &&
+      (pilot.status === 'CONFIRMED' || pilot.status === 'CHECKED_IN' || pilot.status === 'ACTIVE'),
+  ).length;
+  const numberGateMessage =
+    pilotsAwaitingNumber === 0
+      ? null
+      : pilotsAwaitingNumber === 1
+        ? '1 competing pilot still needs a pilot number before a round can start.'
+        : `${pilotsAwaitingNumber} competing pilots still need a pilot number before a round can start.`;
+
   const invalidateRounds = () => {
     queryClient.invalidateQueries({ queryKey: ['rounds', activeCompId] });
     queryClient.invalidateQueries({ queryKey: ['competition', activeCompId] });
@@ -381,11 +402,17 @@ export function RoundSelectPage() {
           </p>
         )}
 
+        {numberGateMessage && (
+          <p className="mb-4 rounded-lg bg-amber-500/15 px-4 py-3 text-sm text-amber-100">
+            {numberGateMessage}
+          </p>
+        )}
+
         {canCreateNext && roundsNormalized.length > 0 && (
           <div className="mb-6">
             <Button
               className="h-12 w-full text-base font-semibold"
-              disabled={busy}
+              disabled={busy || pilotsAwaitingNumber > 0}
               onClick={() => setPendingWind({ kind: 'create' })}
             >
               <Plus className="mr-2 h-5 w-5" />
@@ -424,7 +451,7 @@ export function RoundSelectPage() {
             {canCreateNext && (
               <Button
                 className="mt-6"
-                disabled={busy}
+                disabled={busy || pilotsAwaitingNumber > 0}
                 onClick={() => setPendingWind({ kind: 'create' })}
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -447,6 +474,7 @@ export function RoundSelectPage() {
                   key={round.id}
                   round={round}
                   busy={busy}
+                  startBlocked={pilotsAwaitingNumber > 0}
                   onSelect={selectRound}
                   onStart={(id) => setPendingWind({ kind: 'start', roundId: id })}
                   onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
@@ -465,6 +493,7 @@ export function RoundSelectPage() {
                 key={round.id}
                 round={round}
                 busy={busy}
+                startBlocked={pilotsAwaitingNumber > 0}
                 onSelect={selectRound}
                 onStart={(id) => setPendingWind({ kind: 'start', roundId: id })}
                 onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
@@ -545,6 +574,7 @@ export function RoundSelectPage() {
 function RoundRow({
   round,
   busy,
+  startBlocked = false,
   onSelect,
   onStart,
   onResume,
@@ -552,6 +582,7 @@ function RoundRow({
 }: {
   round: RoundOption;
   busy: boolean;
+  startBlocked?: boolean;
   onSelect: (id: string) => void;
   onStart: (id: string) => void;
   onResume: (id: string) => void;
@@ -595,7 +626,7 @@ function RoundRow({
           {canStart && (
             <Button
               size="sm"
-              disabled={busy}
+              disabled={busy || startBlocked}
               onClick={(e) => {
                 e.stopPropagation();
                 onStart(round.id);

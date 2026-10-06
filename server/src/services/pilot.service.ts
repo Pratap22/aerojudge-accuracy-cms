@@ -1,5 +1,5 @@
 import { generateQrPayload, parseCsvLine, formatPilotName, toCsv } from '@aero-judge/utils';
-import { COMPETING_PILOT_STATUSES, type PilotStatus } from '@aero-judge/shared';
+import { COMPETING_PILOT_STATUSES, STARTED_ROUND_STATUSES, type PilotStatus } from '@aero-judge/shared';
 import type { CompetitionParticipationStatus, Prisma } from '@aero-judge/database';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
@@ -81,7 +81,7 @@ export async function listPilots(
       where,
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
-      orderBy: { pilotNumber: 'asc' },
+      orderBy: { pilotNumber: { sort: 'asc', nulls: 'first' } },
       include: {
         country: true,
         person: { select: { id: true, aeroJudgeId: true, civlId: true, photoUrl: true } },
@@ -140,22 +140,39 @@ async function fillMissingPersonIds(
   await updatePerson(personId, patch, { actorUserId });
 }
 
+async function assertCanAddPilots(competitionId: string): Promise<void> {
+  const started = await prisma.round.findFirst({
+    where: { competitionId, status: { in: [...STARTED_ROUND_STATUSES] } },
+    select: { id: true },
+  });
+  if (started) {
+    throw AppError.badRequest('Pilots cannot be added after a round has started.');
+  }
+}
+
 export async function createPilot(
   competitionId: string,
   data: CreatePilotInput,
   opts?: { actorUserId?: string },
 ) {
   await getCompetition(competitionId);
+  await assertCanAddPilots(competitionId);
   const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
-  const pilotNumber = Number(data.pilotNumber);
-  if (!Number.isInteger(pilotNumber) || pilotNumber < 1) {
+  const pilotNumber =
+    data.pilotNumber == null || Number.isNaN(Number(data.pilotNumber))
+      ? null
+      : Number(data.pilotNumber);
+  if (pilotNumber != null && (!Number.isInteger(pilotNumber) || pilotNumber < 1)) {
     throw AppError.badRequest('Pilot number must be a positive integer');
   }
-  const qrCode = generateQrPayload(
-    env.PUBLIC_RESULTS_URL,
-    competition!.publicSlug,
-    `/pilot/${pilotNumber}`,
-  );
+  const qrCode =
+    pilotNumber == null
+      ? null
+      : generateQrPayload(
+          env.PUBLIC_RESULTS_URL,
+          competition!.publicSlug,
+          `/pilot/${pilotNumber}`,
+        );
 
   const countryId =
     (typeof data.countryId === 'string' && data.countryId) ||
@@ -234,44 +251,41 @@ export async function createPilot(
     );
   }
 
-  // Pilot numbers must be unique within the competition.
-  const numberTaken = await prisma.pilot.findFirst({
-    where: { competitionId, pilotNumber },
-    select: { firstName: true, lastName: true, pilotNumber: true },
-  });
-  if (numberTaken) {
-    throw AppError.conflict(
-      `Pilot number ${pilotNumber} is already assigned to ${numberTaken.firstName} ${numberTaken.lastName}`,
-    );
-  }
-
-  // QR payloads are globally unique. A stale QR (e.g. after renumbering without
-  // updating the payload) can collide with a free number — repair it in-place.
-  const qrTaken = await prisma.pilot.findFirst({
-    where: { qrCode },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      pilotNumber: true,
-      competitionId: true,
-    },
-  });
-  if (qrTaken) {
-    if (qrTaken.competitionId === competitionId && qrTaken.pilotNumber !== pilotNumber) {
-      const repairedQr = generateQrPayload(
-        env.PUBLIC_RESULTS_URL,
-        competition!.publicSlug,
-        `/pilot/${qrTaken.pilotNumber}`,
-      );
-      await prisma.pilot.update({
-        where: { id: qrTaken.id },
-        data: { qrCode: repairedQr },
-      });
-    } else {
+  if (pilotNumber != null) {
+    const numberTaken = await prisma.pilot.findFirst({
+      where: { competitionId, pilotNumber },
+      select: { firstName: true, lastName: true, pilotNumber: true },
+    });
+    if (numberTaken) {
       throw AppError.conflict(
-        `Pilot number ${pilotNumber} is already in use`,
+        `Pilot number ${pilotNumber} is already assigned to ${numberTaken.firstName} ${numberTaken.lastName}`,
       );
+    }
+
+    const qrTaken = await prisma.pilot.findFirst({
+      where: { qrCode: qrCode! },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        pilotNumber: true,
+        competitionId: true,
+      },
+    });
+    if (qrTaken) {
+      if (qrTaken.competitionId === competitionId && qrTaken.pilotNumber !== pilotNumber) {
+        const repairedQr = generateQrPayload(
+          env.PUBLIC_RESULTS_URL,
+          competition!.publicSlug,
+          `/pilot/${qrTaken.pilotNumber}`,
+        );
+        await prisma.pilot.update({
+          where: { id: qrTaken.id },
+          data: { qrCode: repairedQr },
+        });
+      } else {
+        throw AppError.conflict(`Pilot number ${pilotNumber} is already in use`);
+      }
     }
   }
 
@@ -287,7 +301,7 @@ export async function createPilot(
     pilot = await prisma.pilot.create({
       data: {
         ...pilotFields,
-        pilotNumber,
+        pilotNumber: pilotNumber ?? null,
         firstName: snapshotFirstName,
         lastName: snapshotLastName,
         gender: pilotFields.gender ?? person.gender,
@@ -599,7 +613,7 @@ export async function exportPilotsCsv(competitionId: string): Promise<string> {
       'status',
     ],
     ...pilots.map((p) => [
-      String(p.pilotNumber),
+      p.pilotNumber == null ? '' : String(p.pilotNumber),
       p.firstName,
       p.lastName,
       p.gender,
@@ -618,6 +632,7 @@ export async function exportPilotsCsv(competitionId: string): Promise<string> {
 
 export async function importPilotsFromCsv(competitionId: string, csvContent: string) {
   await getCompetition(competitionId);
+  await assertCanAddPilots(competitionId);
   const lines = csvContent.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) throw AppError.badRequest('CSV must include header and at least one row');
 
@@ -641,21 +656,35 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
   const skipped: number[] = [];
   const ambiguous: Array<{
     row: number;
-    pilotNumber: number;
+    pilotNumber: number | null;
     matches: Awaited<ReturnType<typeof matchPersons>>;
   }> = [];
   const newPersons = 0;
   let reusedPersons = 0;
   let createdPersons = 0;
+  let alreadyRegistered = 0;
   const seenInFile = new Set<number>();
+  const hasNumberColumn = ['pilotnumber', 'number', 'pilotno'].some((name) => colIndex(name) >= 0);
 
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvLine(lines[i]);
     if (cols.every((c) => !c)) continue;
 
-    const pilotNumber = Number(col(cols, 'pilotnumber', 'number', 'pilotno') ?? cols[0]);
-    const firstName = col(cols, 'firstname') ?? cols[1];
-    const lastName = col(cols, 'lastname') ?? cols[2];
+    const rawNumber = col(cols, 'pilotnumber', 'number', 'pilotno');
+    const parsedNumber = rawNumber
+      ? Number(rawNumber)
+      : !hasNumberColumn && Number.isInteger(Number(cols[0]))
+        ? Number(cols[0])
+        : null;
+    const pilotNumber =
+      parsedNumber != null && Number.isInteger(parsedNumber) && parsedNumber >= 1
+        ? parsedNumber
+        : null;
+    if (rawNumber && pilotNumber == null) {
+      throw AppError.badRequest(`Invalid pilot number at row ${i + 1}`);
+    }
+    const firstName = col(cols, 'firstname') ?? (pilotNumber == null ? cols[0] : cols[1]);
+    const lastName = col(cols, 'lastname') ?? (pilotNumber == null ? cols[1] : cols[2]);
     const genderRaw = (col(cols, 'gender') ?? 'MALE').toUpperCase();
     const gender = (['MALE', 'FEMALE', 'OTHER'].includes(genderRaw) ? genderRaw : 'MALE') as
       | 'MALE'
@@ -684,15 +713,15 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
         : 'CONFIRMED'
     ) as PilotStatus;
 
-    if (!pilotNumber || !firstName || !lastName) {
-      throw AppError.badRequest(`Invalid row ${i + 1}: pilotNumber, firstName, lastName required`);
+    if (!firstName || !lastName) {
+      throw AppError.badRequest(`Invalid row ${i + 1}: firstName and lastName are required`);
     }
 
-    if (existingNumbers.has(pilotNumber) || seenInFile.has(pilotNumber)) {
+    if (pilotNumber != null && (existingNumbers.has(pilotNumber) || seenInFile.has(pilotNumber))) {
       skipped.push(pilotNumber);
       continue;
     }
-    seenInFile.add(pilotNumber);
+    if (pilotNumber != null) seenInFile.add(pilotNumber);
 
     const matches = await matchPersons({
       aeroJudgeId,
@@ -713,7 +742,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
 
     try {
       const pilot = await createPilot(competitionId, {
-        pilotNumber,
+        ...(pilotNumber != null ? { pilotNumber } : {}),
         firstName,
         lastName,
         gender,
@@ -730,8 +759,12 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
       if (personId) reusedPersons += 1;
       else createdPersons += 1;
       created.push(pilot);
-      existingNumbers.add(pilotNumber);
+      if (pilot.pilotNumber != null) existingNumbers.add(pilot.pilotNumber);
     } catch (err) {
+      if (err instanceof AppError && err.statusCode === 409) {
+        alreadyRegistered += 1;
+        continue;
+      }
       if (
         err &&
         typeof err === 'object' &&
@@ -740,9 +773,9 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
       ) {
         const target = (err as { meta?: { target?: string[] } }).meta?.target ?? [];
         throw AppError.conflict(
-          `Duplicate pilot data at row ${i + 1} (pilot #${pilotNumber}${
-            target.length ? `; unique: ${target.join(', ')}` : ''
-          }).`,
+          `Duplicate pilot data at row ${i + 1}${
+            pilotNumber != null ? ` (pilot #${pilotNumber})` : ''
+          }${target.length ? `; unique: ${target.join(', ')}` : ''}.`,
         );
       }
       throw err;
@@ -757,6 +790,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     personMatching: {
       reusedPersons,
       createdPersons,
+      alreadyRegistered,
       ambiguousCount: ambiguous.length,
       ambiguous,
     },

@@ -719,7 +719,8 @@ model Pilot {
   person           Person?     @relation(fields: [personId], references: [id], onDelete: SetNull)
   competitionParticipantId String? @unique
   competitionParticipant   CompetitionParticipant? @relation(fields: [competitionParticipantId], references: [id], onDelete: SetNull)
-  pilotNumber      Int
+  /// Null until the number draw assigns a bib. Multiple unassigned pilots are allowed.
+  pilotNumber      Int?
   faiLicense       String?
   civlId           String?
   /// Competition-time identity snapshot (do not rewrite from profile updates).

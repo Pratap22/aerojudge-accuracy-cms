@@ -168,6 +168,21 @@ export function RoundsPage() {
     enabled: !!competitionId,
   });
 
+  const { data: roster = [] } = useQuery({
+    queryKey: ['pilots', competitionId, 'number-gate'],
+    queryFn: () =>
+      api.get<{ pilotNumber: number | null; status: string }[]>(
+        `/competitions/${competitionId}/pilots`,
+        { pageSize: 200 },
+      ),
+    enabled: !!competitionId,
+  });
+  const pilotsAwaitingNumber = roster.filter(
+    (pilot) =>
+      pilot.pilotNumber == null &&
+      (pilot.status === 'CONFIRMED' || pilot.status === 'CHECKED_IN' || pilot.status === 'ACTIVE'),
+  ).length;
+
   const { data: teams } = useQuery({
     queryKey: ['teams', competitionId],
     queryFn: () =>
@@ -659,7 +674,10 @@ export function RoundsPage() {
                           key={action}
                           size="sm"
                           variant={variant ?? (action === 'start' ? 'default' : 'outline')}
-                          disabled={actionMutation.isPending}
+                          disabled={
+                            actionMutation.isPending ||
+                            (action === 'start' && pilotsAwaitingNumber > 0)
+                          }
                           onClick={() => {
                             if (action === 'pause') {
                               setPauseReason('');
@@ -695,6 +713,14 @@ export function RoundsPage() {
                         </span>
                       )}
                     </div>
+                    {getActions(round.status).some((item) => item.action === 'start') &&
+                      pilotsAwaitingNumber > 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {pilotsAwaitingNumber === 1
+                          ? '1 competing pilot still needs a pilot number before this round can start.'
+                          : `${pilotsAwaitingNumber} competing pilots still need a pilot number before this round can start.`}
+                      </p>
+                    )}
                     {actionMutation.isError && actionMutation.variables?.roundId === round.id && (
                       <p className="mt-1 text-xs text-destructive">
                         {actionMutation.error instanceof ApiError

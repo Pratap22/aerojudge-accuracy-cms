@@ -141,11 +141,31 @@ export async function deleteRound(competitionId: string, roundId: string): Promi
   await prisma.round.delete({ where: { id: roundId } });
 }
 
+/** Competing pilots must have a bib before a round can start or take a flight order. */
+export async function assertCompetingPilotsHaveNumbers(competitionId: string): Promise<void> {
+  const awaitingNumber = await prisma.pilot.count({
+    where: {
+      competitionId,
+      status: { in: [...COMPETING_PILOT_STATUSES] },
+      pilotNumber: null,
+    },
+  });
+  if (awaitingNumber > 0) {
+    throw AppError.badRequest(
+      awaitingNumber === 1
+        ? '1 competing pilot still needs a pilot number before a round can start.'
+        : `${awaitingNumber} competing pilots still need a pilot number before a round can start.`,
+    );
+  }
+}
+
 export async function startRound(competitionId: string, roundId: string) {
   const round = await getRound(competitionId, roundId);
   if (!['SCHEDULED', 'BRIEFING', 'OPEN', 'PAUSED'].includes(round.status)) {
     throw AppError.badRequest(`Cannot start round in status ${round.status}`);
   }
+
+  await assertCompetingPilotsHaveNumbers(competitionId);
 
   const flightCount = await prisma.flight.count({ where: { roundId } });
   if (flightCount === 0) {
@@ -308,10 +328,12 @@ export async function generateFlightOrder(
     );
   }
 
+  await assertCompetingPilotsHaveNumbers(competitionId);
   const pilots = await prisma.pilot.findMany({
     where: {
       competitionId,
       status: { in: [...COMPETING_PILOT_STATUSES] },
+      pilotNumber: { not: null },
     },
     orderBy: { pilotNumber: 'asc' },
   });
@@ -388,6 +410,7 @@ export async function listFlights(competitionId: string, roundId: string) {
     where: {
       competitionId,
       status: { in: [...COMPETING_PILOT_STATUSES] },
+      pilotNumber: { not: null },
     },
     orderBy: { pilotNumber: 'asc' },
   });

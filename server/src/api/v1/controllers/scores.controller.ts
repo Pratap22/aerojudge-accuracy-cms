@@ -65,7 +65,7 @@ export const enter = [
       computed,
       {
         id: score.pilot.id,
-        pilotNumber: score.pilot.pilotNumber,
+        pilotNumber: score.pilot.pilotNumber ?? 0,
         firstName: score.pilot.firstName,
         lastName: score.pilot.lastName,
       },
@@ -104,7 +104,7 @@ export const confirm = [
       computed,
       {
         id: score.pilot.id,
-        pilotNumber: score.pilot.pilotNumber,
+        pilotNumber: score.pilot.pilotNumber ?? 0,
         firstName: score.pilot.firstName,
         lastName: score.pilot.lastName,
       },

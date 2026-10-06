@@ -76,7 +76,7 @@ export async function createProtest(
     data: {
       competitionId,
       pilotId: pilot.id,
-      pilotNumber: pilot.pilotNumber,
+      pilotNumber: input.pilotNumber,
       pilotName: formatPilotName(pilot.firstName, pilot.lastName),
       reason: input.reason.trim(),
       outcome: input.outcome.trim(),
@@ -100,7 +100,7 @@ export async function updateProtest(
       ...(pilot
         ? {
             pilotId: pilot.id,
-            pilotNumber: pilot.pilotNumber,
+            pilotNumber: input.pilotNumber,
             pilotName: formatPilotName(pilot.firstName, pilot.lastName),
           }
         : {}),

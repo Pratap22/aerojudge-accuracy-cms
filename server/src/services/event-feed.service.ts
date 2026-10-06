@@ -75,7 +75,8 @@ function mapItem(row: FeedRow): EventFeedItemDto {
   };
 }
 
-function pilotLabel(pilotNumber: number): string {
+function pilotLabel(pilotNumber: number | null): string {
+  if (pilotNumber == null) return 'Pilot';
   return `Pilot ${String(pilotNumber).padStart(3, '0')}`;
 }
 

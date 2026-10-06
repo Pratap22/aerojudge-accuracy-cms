@@ -13,6 +13,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { CompetitionsPage } from './pages/CompetitionsPage';
 import { ArchivedCompetitionsPage } from './pages/ArchivedCompetitionsPage';
 import { PilotsPage } from './pages/PilotsPage';
+import { PilotNumberDrawPage } from './pages/PilotNumberDrawPage';
 import { TeamsPage } from './pages/TeamsPage';
 import { SponsorsPage } from './pages/SponsorsPage';
 import { EventInfoPage } from './pages/EventInfoPage';
@@ -51,6 +52,14 @@ function CompetitionRoutes() {
         element={
           <RequirePermission anyOf={['competition:update', 'competition:publish', 'round:manage']}>
             <DashboardPage />
+          </RequirePermission>
+        }
+      />
+      <Route
+        path=":organizationId/competitions/:competitionId/pilots/draw"
+        element={
+          <RequirePermission anyOf={['pilot:manage']}>
+            <PilotNumberDrawPage />
           </RequirePermission>
         }
       />

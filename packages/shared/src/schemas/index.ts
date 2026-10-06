@@ -113,7 +113,15 @@ export const pilotStatusSchema = z.enum([
 ]);
 
 export const createPilotBaseSchema = z.object({
-  pilotNumber: z.number().int().positive(),
+  /** Omitted until the number draw assigns a bib. */
+  pilotNumber: z.preprocess(
+    (v) => {
+      if (v == null || v === '') return undefined;
+      if (typeof v === 'number' && !Number.isFinite(v)) return undefined;
+      return v;
+    },
+    z.number().int().positive().optional(),
+  ),
   /** Link to existing Person (returning participant). When set, identity can be omitted. */
   personId: optionalString,
   faiLicense: optionalString,

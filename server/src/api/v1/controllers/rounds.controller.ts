@@ -255,7 +255,7 @@ export const enterScore = [
       computed,
       {
         id: score.pilot.id,
-        pilotNumber: score.pilot.pilotNumber,
+        pilotNumber: score.pilot.pilotNumber ?? 0,
         firstName: score.pilot.firstName,
         lastName: score.pilot.lastName,
       },

@@ -206,6 +206,11 @@ async function qrBuffer(url: string): Promise<Buffer> {
   return QRCode.toBuffer(url, { type: 'png', width: 120, margin: 1 });
 }
 
+/** PNG data URL for the live-results QR shown on result-sheet previews. */
+export async function liveResultsQrDataUrl(url: string): Promise<string> {
+  return QRCode.toDataURL(url, { width: 128, margin: 1 });
+}
+
 /** Relative width weights — name/team get more room than rank/score columns. */
 function columnWeight(column: string): number {
   const key = column.toLowerCase().trim();
@@ -337,34 +342,76 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
     doc.on('end', () => resolve(Buffer.concat(chunks)));
   });
 
-  // Header — organiser logo top-right when available (PNG/JPEG; SVG/WebP skipped)
+  // Header — organiser logo on the left, live-results QR on the right, titles centered between them.
   const headerTop = doc.y;
+  const marginL = doc.page.margins.left;
+  const marginR = doc.page.margins.right;
+  const logoBoxW = 72;
+  const logoBoxH = 56;
+  const qrSize = 58;
+  const sideW = 84;
+
+  let sideBottom = headerTop;
   const logoPath = input.branding.organizerLogoPath;
   if (logoPath && /\.(png|jpe?g)$/i.test(logoPath)) {
     try {
-      const logoBoxW = 80;
-      const logoBoxH = 52;
-      const logoX = size[0] - doc.page.margins.right - logoBoxW;
-      doc.image(logoPath, logoX, headerTop, { fit: [logoBoxW, logoBoxH] });
+      doc.image(logoPath, marginL, headerTop, {
+        fit: [logoBoxW, logoBoxH],
+        align: 'center',
+        valign: 'center',
+      });
+      sideBottom = Math.max(sideBottom, headerTop + logoBoxH);
     } catch {
       // Missing or unsupported image — continue without logo
     }
-    doc.y = headerTop;
   }
 
-  doc.fontSize(16).font('Helvetica-Bold').text(input.branding.competitionName, { align: 'center' });
-  doc.fontSize(10).font('Helvetica').text(input.branding.organizer, { align: 'center' });
-  doc
-    .fontSize(9)
-    .fillColor('#444')
-    .text(`${input.branding.venue}, ${input.branding.country} · ${input.branding.dateLabel}`, {
-      align: 'center',
-    });
-  doc.moveDown(0.5);
-  doc.fillColor('#000').fontSize(13).font('Helvetica-Bold').text(input.title, { align: 'center' });
-  if (input.subtitle) {
-    doc.fontSize(10).font('Helvetica').text(input.subtitle, { align: 'center' });
+  try {
+    const qr = await qrBuffer(input.branding.publicResultsUrl);
+    const qrX = size[0] - marginR - qrSize;
+    doc.image(qr, qrX, headerTop, { width: qrSize });
+    doc
+      .font('Helvetica')
+      .fontSize(7)
+      .fillColor('#444')
+      .text('Live Results', qrX, headerTop + qrSize + 1, {
+        width: qrSize,
+        align: 'center',
+        lineBreak: false,
+      });
+    sideBottom = Math.max(sideBottom, headerTop + qrSize + 12);
+  } catch {
+    // QR optional if generation fails
   }
+
+  const titleX = marginL + sideW;
+  const titleW = size[0] - marginL - marginR - sideW * 2;
+  let titleY = headerTop;
+
+  const centerLine = (text: string, fontSize: number, font: string, color: string, gapAfter = 2) => {
+    doc.font(font).fontSize(fontSize).fillColor(color);
+    const height = doc.heightOfString(text, { width: titleW, align: 'center' });
+    doc.text(text, titleX, titleY, { width: titleW, align: 'center' });
+    titleY += height + gapAfter;
+  };
+
+  centerLine(input.branding.competitionName, 16, 'Helvetica-Bold', '#000', 1);
+  centerLine(input.branding.organizer, 10, 'Helvetica', '#000', 1);
+  centerLine(
+    `${input.branding.venue}, ${input.branding.country} · ${input.branding.dateLabel}`,
+    9,
+    'Helvetica',
+    '#444',
+    8,
+  );
+  centerLine(input.title, 13, 'Helvetica-Bold', '#000', 1);
+  if (input.subtitle) {
+    centerLine(input.subtitle, 10, 'Helvetica', '#000', 1);
+  }
+
+  doc.fillColor('#000');
+  doc.x = marginL;
+  doc.y = Math.max(titleY, sideBottom) + 6;
 
   // Operational sheet fields (Round, Start Time, End Time, …)
   if (input.sheetFields && input.sheetFields.length > 0) {
@@ -540,20 +587,7 @@ export async function generateResultsPdf(input: GenerateReportInput): Promise<Ge
     doc.fontSize(8).text(input.branding.chiefJudgeName, startX, sigY + 26, { lineBreak: false });
   }
 
-  // QR code
-  try {
-    const qr = await qrBuffer(input.branding.publicResultsUrl);
-    doc.image(qr, size[0] - doc.page.margins.right - 70, sigY - 10, { width: 60 });
-    doc.fontSize(7).text('Live Results', size[0] - doc.page.margins.right - 70, sigY + 52, {
-      width: 60,
-      align: 'center',
-      lineBreak: false,
-    });
-  } catch {
-    // QR optional if generation fails
-  }
-
-  doc.y = sigY + 72;
+  doc.y = sigY + 40;
   drawSponsorLogos(doc, input);
 
   // Footers on every page (approval + page #). Disable bottom margin so PDFKit

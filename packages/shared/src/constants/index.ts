@@ -1,4 +1,4 @@
-import type { OrgRole, PilotStatus, Role } from '../types';
+import type { OrgRole, PilotStatus, Role, RoundStatus } from '../types';
 
 /** All competition pilot registration lifecycle states. */
 export const PILOT_STATUSES: readonly PilotStatus[] = [
@@ -24,6 +24,17 @@ export const COMPETING_PILOT_STATUSES: readonly PilotStatus[] = [
 
 /** Awaiting organizer accept / reject. */
 export const PENDING_PILOT_STATUSES: readonly PilotStatus[] = ['REGISTERED'] as const;
+
+/** Round has left the pre-start states. New pilots and bib draws are closed. */
+export const STARTED_ROUND_STATUSES: readonly RoundStatus[] = [
+  'OPEN',
+  'ACTIVE',
+  'PAUSED',
+  'CLOSED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'LOCKED',
+] as const;
 
 /**
  * Legacy global role → permission matrix (backward compatible).

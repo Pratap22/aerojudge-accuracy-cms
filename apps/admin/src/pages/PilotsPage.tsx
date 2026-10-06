@@ -9,6 +9,7 @@ import {
   type Gender,
   type PersonDirectoryEntry,
   type PilotStatus,
+  type RoundStatus,
 } from '@aero-judge/shared';
 import { Check, Download, ImagePlus, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
 import {
@@ -35,13 +36,18 @@ import {
   cn,
 } from '@aero-judge/ui';
 import { api, apiFetch, apiRequest } from '../lib/api';
-import { useCompetitionId } from '../hooks/useCompetitionId';
+import {
+  competitionPath,
+  useCompetitionId,
+  useRouteOrganizationId,
+} from '../hooks/useCompetitionId';
 import { CountrySelect } from '../components/CountrySelect';
+import { competitionDrawClosed } from '../lib/pilot-draw';
 
 interface Pilot {
   id: string;
   status: PilotStatus;
-  pilotNumber: number;
+  pilotNumber: number | null;
   firstName: string;
   lastName: string;
   gender: Gender;
@@ -119,7 +125,7 @@ function hasText(value: string | null | undefined): boolean {
 
 function toFormValues(pilot: Pilot): CreatePilotInput {
   return {
-    pilotNumber: pilot.pilotNumber,
+    pilotNumber: pilot.pilotNumber ?? undefined,
     firstName: pilot.firstName,
     lastName: pilot.lastName,
     gender: pilot.gender,
@@ -133,6 +139,7 @@ function toFormValues(pilot: Pilot): CreatePilotInput {
 
 export function PilotsPage() {
   const activeCompetitionId = useCompetitionId();
+  const organizationId = useRouteOrganizationId();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [formOpen, setFormOpen] = useState(false);
@@ -149,6 +156,14 @@ export function PilotsPage() {
 
   const listStatusParam =
     statusFilter === 'ALL' || statusFilter === 'OTHER' ? undefined : statusFilter;
+
+  const { data: rounds, isSuccess: roundsLoaded } = useQuery({
+    queryKey: ['rounds', activeCompetitionId],
+    queryFn: () =>
+      api.get<{ status: RoundStatus }[]>(`/competitions/${activeCompetitionId}/rounds`),
+    enabled: !!activeCompetitionId,
+  });
+  const rosterOpen = roundsLoaded && !competitionDrawClosed(rounds ?? []);
 
   const { data: pilots, isLoading } = useQuery({
     queryKey: ['pilots', activeCompetitionId, search, listStatusParam],
@@ -177,7 +192,7 @@ export function PilotsPage() {
     formState: { errors },
   } = useForm<CreatePilotInput>({
     resolver: zodResolver(createPilotSchema),
-    defaultValues: { gender: 'MALE', pilotNumber: 1, firstName: '', lastName: '' },
+    defaultValues: { gender: 'MALE', firstName: '', lastName: '' },
   });
 
   const faiLocked = selectedPerson
@@ -267,18 +282,22 @@ export function PilotsPage() {
       }
       return response.json() as Promise<{
         success: boolean;
-        data?: { imported: number; skipped?: number };
+        data?: {
+          imported: number;
+          skipped?: number;
+          personMatching?: { alreadyRegistered?: number };
+        };
       }>;
     },
     onSuccess: (json) => {
       invalidatePilots();
       const imported = json.data?.imported ?? 0;
       const skipped = json.data?.skipped ?? 0;
-      window.alert(
-        skipped > 0
-          ? `Imported ${imported} pilot(s). Skipped ${skipped} existing number(s).`
-          : `Imported ${imported} pilot(s).`,
-      );
+      const already = json.data?.personMatching?.alreadyRegistered ?? 0;
+      const parts = [`Imported ${imported} pilot(s).`];
+      if (skipped > 0) parts.push(`Skipped ${skipped} number(s) already in use.`);
+      if (already > 0) parts.push(`${already} already registered in this competition.`);
+      window.alert(parts.join(' '));
     },
   });
 
@@ -320,7 +339,7 @@ export function PilotsPage() {
     setPhotoPreview(null);
     setPhotoRemoved(false);
     saveMutation.reset();
-    reset({ gender: 'MALE', pilotNumber: (pilots?.length ?? 0) + 1, firstName: '', lastName: '' });
+    reset({ gender: 'MALE', firstName: '', lastName: '' });
     setFormOpen(true);
   };
 
@@ -406,22 +425,33 @@ export function PilotsPage() {
               if (file) importMutation.mutate(file);
             }}
           />
-          <Button
-            variant="outline"
-            disabled={importMutation.isPending}
-            onClick={() => fileRef.current?.click()}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            {importMutation.isPending ? 'Importing…' : 'Import CSV'}
-          </Button>
+          {rosterOpen ? (
+            <Button
+              variant="outline"
+              disabled={importMutation.isPending}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              {importMutation.isPending ? 'Importing…' : 'Import CSV'}
+            </Button>
+          ) : null}
+          {organizationId && rosterOpen ? (
+            <Button variant="outline" asChild>
+              <Link to={competitionPath(organizationId, activeCompetitionId, 'pilots/draw')}>
+                Draw numbers
+              </Link>
+            </Button>
+          ) : null}
           <Button variant="outline" onClick={() => void handleExport()}>
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Pilot
-          </Button>
+          {rosterOpen ? (
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Pilot
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -505,7 +535,9 @@ export function PilotsPage() {
 
                 return (
                   <TableRow key={pilot.id}>
-                    <TableCell className="font-mono font-medium">{pilot.pilotNumber}</TableCell>
+                    <TableCell className="font-mono font-medium">
+                      {pilot.pilotNumber ?? '—'}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {pilot.photoUrl ? (
@@ -516,7 +548,7 @@ export function PilotsPage() {
                           />
                         ) : (
                           <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                            {pilot.pilotNumber}
+                            {(pilot.firstName[0] ?? '').toUpperCase()}
                           </span>
                         )}
                         <span>
@@ -667,8 +699,16 @@ export function PilotsPage() {
                 )}
 
                 <div className="flex flex-col gap-2">
-                  <Label>Pilot Number</Label>
-                  <Input type="number" {...register('pilotNumber', { valueAsNumber: true })} />
+                  <Label>Pilot number</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Assign later in the draw"
+                    {...register('pilotNumber', { valueAsNumber: true })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave blank and assign it with the spinning wheel after everyone is loaded.
+                  </p>
                   {errors.pilotNumber && (
                     <p className="text-sm text-destructive">{errors.pilotNumber.message}</p>
                   )}

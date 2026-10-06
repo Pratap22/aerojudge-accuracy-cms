@@ -2,6 +2,7 @@ import { readFile, unlink, access } from 'node:fs/promises';
 import path from 'node:path';
 import {
   generateReportPdf,
+  liveResultsQrDataUrl,
   resolveReportCellValue,
   type GenerateReportInput,
   type ReportCardItem,
@@ -286,7 +287,16 @@ async function resolveOrganizerLogoPath(logoSource: string | null): Promise<stri
   }
 }
 
-function reportToHtml(input: GenerateReportInput): string {
+/** Live-results QR for the HTML preview. Omitted when generation fails. */
+async function optionalQrDataUrl(url: string): Promise<string | undefined> {
+  try {
+    return await liveResultsQrDataUrl(url);
+  } catch {
+    return undefined;
+  }
+}
+
+function reportToHtml(input: GenerateReportInput, qrDataUrl?: string): string {
   if (input.layout === 'pilot_cards' || input.reportType === 'PILOT_CARDS') {
     return cardsToHtml(input);
   }
@@ -366,24 +376,32 @@ function reportToHtml(input: GenerateReportInput): string {
       box-sizing: border-box;
     }
     .npha-report-preview .report-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
-      margin-bottom: 4px;
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr) 96px;
+      align-items: start;
+      gap: 12px;
+      margin-bottom: 8px;
     }
-    .npha-report-preview .report-header-main { flex: 1; min-width: 0; }
+    .npha-report-preview .report-header-main { min-width: 0; text-align: center; }
+    .npha-report-preview .header-side { min-height: 1px; }
     .npha-report-preview .organiser-logo {
-      flex-shrink: 0;
+      display: block;
       max-height: 64px;
-      max-width: 120px;
+      max-width: 96px;
       width: auto;
       height: auto;
       object-fit: contain;
     }
-    .npha-report-preview h1 { font-size: 22px; margin: 0 0 4px; color: #111; }
-    .npha-report-preview h2 { font-size: 14px; font-weight: normal; color: #444; margin: 0 0 8px; }
-    .npha-report-preview .meta { font-size: 12px; color: #555; margin-bottom: 12px; }
+    .npha-report-preview .header-qr { text-align: center; font-size: 10px; color: #444; }
+    .npha-report-preview .header-qr img {
+      display: block;
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 2px;
+    }
+    .npha-report-preview h1 { font-size: 22px; margin: 0 0 4px; color: #111; text-align: center; }
+    .npha-report-preview h2 { font-size: 14px; font-weight: normal; color: #444; margin: 0 0 8px; text-align: center; }
+    .npha-report-preview .meta { font-size: 12px; color: #555; margin-bottom: 12px; text-align: center; }
     .npha-report-preview table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .npha-report-preview th,
     .npha-report-preview td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; color: #111; vertical-align: middle; }
@@ -462,6 +480,7 @@ function reportToHtml(input: GenerateReportInput): string {
 <body>
   <div class="npha-report-preview">
     <div class="report-header">
+      <div class="header-side">${logoHtml}</div>
       <div class="report-header-main">
         <h1>${escapeHtml(input.title)}</h1>
         ${roundBadge}
@@ -472,7 +491,11 @@ function reportToHtml(input: GenerateReportInput): string {
           ${input.subtitle ? `<br/>${escapeHtml(input.subtitle)}` : ''}
         </div>
       </div>
-      ${logoHtml}
+      <div class="header-side header-qr">${
+        qrDataUrl
+          ? `<img src="${qrDataUrl}" alt="" /><div>Live Results</div>`
+          : ''
+      }</div>
     </div>
     ${sheetFieldsHtml}
     <table>
@@ -638,7 +661,7 @@ export async function previewReport(
   if (roundApproval) {
     reportInput.approvalLine = roundApproval.line;
   }
-  const html = reportToHtml(reportInput);
+  const html = reportToHtml(reportInput, await optionalQrDataUrl(reportInput.branding.publicResultsUrl));
 
   // Operational sheets are ready to print immediately (no approve step / stamp).
   const readyStatus = skipApproval || roundApproval ? 'APPROVED' : 'PREVIEW';
@@ -883,7 +906,10 @@ export async function approvePrint(
     record.roundId ?? undefined,
   );
   reportInput.approvalLine = approvalLine;
-  const html = reportToHtml(reportInput);
+  const html = reportToHtml(
+    reportInput,
+    await optionalQrDataUrl(reportInput.branding.publicResultsUrl),
+  );
 
   const previousMeta =
     record.metadataJson && typeof record.metadataJson === 'object' && !Array.isArray(record.metadataJson)
@@ -918,6 +944,7 @@ async function loadCompetitionSheetPilots(competitionId: string) {
     where: {
       competitionId,
       status: { in: ['REGISTERED', 'CONFIRMED', 'ACTIVE', 'CHECKED_IN'] },
+      pilotNumber: { not: null },
     },
     include: { country: true },
     orderBy: { pilotNumber: 'asc' },
@@ -1037,7 +1064,7 @@ async function buildReportInput(
 
         return {
           rank: r.rank,
-          pilotNumber: r.pilot.pilotNumber,
+          pilotNumber: r.pilot.pilotNumber ?? 0,
           name: formatPilotName(r.pilot.firstName, r.pilot.lastName),
           country: r.pilot.country?.name ?? r.pilot.nationality ?? '',
           scores: [
@@ -1223,7 +1250,7 @@ async function buildReportInput(
 
   if (reportType === 'PILOT_LIST' || reportType === 'REGISTRATION_LIST') {
     const pilots = await prisma.pilot.findMany({
-      where: { competitionId: competition.id },
+      where: { competitionId: competition.id, pilotNumber: { not: null } },
       include: { country: true },
       orderBy: { pilotNumber: 'asc' },
     });
@@ -1235,7 +1262,7 @@ async function buildReportInput(
       columns: ['No', 'Name', 'Country', 'Gender', 'Club', 'Status'],
       rows: pilots.map((p, i) => ({
         rank: i + 1,
-        pilotNumber: p.pilotNumber,
+        pilotNumber: p.pilotNumber ?? 0,
         name: formatPilotName(p.firstName, p.lastName),
         country: p.country?.name ?? p.nationality ?? '',
         scores: [p.gender, p.club ?? '', p.status],
@@ -1271,7 +1298,7 @@ async function buildReportInput(
         columns: launchColumns,
         rows: sheetPilots.map((p) => ({
           rank: p.order,
-          pilotNumber: p.pilotNumber,
+          pilotNumber: p.pilotNumber ?? 0,
           name: p.name,
           country: p.country,
           scores: [],
@@ -1296,7 +1323,7 @@ async function buildReportInput(
       columns: launchColumns,
       rows: flights.map((f) => ({
         rank: f.flightOrder,
-        pilotNumber: f.pilot.pilotNumber,
+        pilotNumber: f.pilot.pilotNumber ?? 0,
         name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
         country: f.pilot.country?.name ?? '',
         scores: [],
@@ -1349,7 +1376,7 @@ async function buildReportInput(
       columns: ['Rank', 'No', 'Name', 'Country', 'Score (cm)'],
       rows: scores.map((s, i) => ({
         rank: i + 1,
-        pilotNumber: s.pilot.pilotNumber,
+        pilotNumber: s.pilot.pilotNumber ?? 0,
         name: formatPilotName(s.pilot.firstName, s.pilot.lastName),
         country: s.pilot.country?.name ?? s.pilot.nationality ?? '',
         scores: [],
@@ -1407,7 +1434,7 @@ async function buildReportInput(
         columns: ['Order', 'No', 'Name', 'Country', 'Score (cm)', 'Signature', 'Remarks'],
         rows: sheetPilots.map((p) => ({
           rank: p.order,
-          pilotNumber: p.pilotNumber,
+          pilotNumber: p.pilotNumber ?? 0,
           name: p.name,
           country: p.country,
           scores: [],
@@ -1458,7 +1485,7 @@ async function buildReportInput(
     if (flights.length > 0) {
       sheetPilots = flights.map((f) => ({
         order: f.flightOrder,
-        pilotNumber: f.pilot.pilotNumber,
+        pilotNumber: f.pilot.pilotNumber ?? 0,
         name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
         country: f.pilot.country?.name ?? f.pilot.nationality ?? '',
         pilotId: f.pilot.id,
@@ -1468,13 +1495,14 @@ async function buildReportInput(
         where: {
           competitionId: competition.id,
           status: { in: ['REGISTERED', 'CONFIRMED', 'ACTIVE', 'CHECKED_IN'] },
+          pilotNumber: { not: null },
         },
         include: { country: true },
         orderBy: { pilotNumber: 'asc' },
       });
       sheetPilots = pilots.map((p, i) => ({
         order: i + 1,
-        pilotNumber: p.pilotNumber,
+        pilotNumber: p.pilotNumber ?? 0,
         name: formatPilotName(p.firstName, p.lastName),
         country: p.country?.name ?? p.nationality ?? '',
         pilotId: p.id,
@@ -1491,7 +1519,7 @@ async function buildReportInput(
         columns: ['Order', 'No', 'Name', 'Country', 'Distance (cm)', 'Result', 'Notes'],
         rows: sheetPilots.map((p) => ({
           rank: p.order,
-          pilotNumber: p.pilotNumber,
+          pilotNumber: p.pilotNumber ?? 0,
           name: p.name,
           country: p.country,
           scores: ['', ''],
@@ -1525,7 +1553,7 @@ async function buildReportInput(
         const score = scoreByPilot.get(p.pilotId);
         return {
           rank: p.order,
-          pilotNumber: p.pilotNumber,
+          pilotNumber: p.pilotNumber ?? 0,
           name: p.name,
           country: p.country,
           scores: [],
@@ -1537,7 +1565,7 @@ async function buildReportInput(
 
   if (reportType === 'PILOT_CARDS') {
     const pilots = await prisma.pilot.findMany({
-      where: { competitionId: competition.id },
+      where: { competitionId: competition.id, pilotNumber: { not: null } },
       include: {
         country: true,
         teamMembers: { include: { team: { select: { name: true } } }, take: 1 },
@@ -1551,7 +1579,7 @@ async function buildReportInput(
           ? p.qrCode
           : `${branding.publicResultsUrl}?pilot=${encodeURIComponent(String(p.pilotNumber))}`;
       return {
-        pilotNumber: p.pilotNumber,
+        pilotNumber: p.pilotNumber ?? 0,
         name: formatPilotName(p.firstName, p.lastName),
         country: p.country?.name ?? p.nationality ?? '',
         team: p.teamMembers[0]?.team?.name,
@@ -1587,7 +1615,7 @@ async function buildReportInput(
     const rankByPilot = new Map(rankings.map((r) => [r.pilotId, r]));
 
     const pilots = await prisma.pilot.findMany({
-      where: { competitionId: competition.id },
+      where: { competitionId: competition.id, pilotNumber: { not: null } },
       include: {
         country: true,
         teamMembers: { include: { team: { select: { name: true } } }, take: 1 },
@@ -1603,7 +1631,7 @@ async function buildReportInput(
           : `Overall rank ${ranking.rank}`
         : 'Certificate of Participation';
       return {
-        pilotNumber: p.pilotNumber,
+        pilotNumber: p.pilotNumber ?? 0,
         name: formatPilotName(p.firstName, p.lastName),
         country: p.country?.name ?? p.nationality ?? '',
         team: p.teamMembers[0]?.team?.name,

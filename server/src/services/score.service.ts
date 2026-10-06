@@ -259,7 +259,10 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
   });
 
   const maximumScoreCm = rules.maximumScoreCm;
-  const pilotInputs = pilots.map((p) => ({
+  const pilotInputs = pilots.flatMap((p) =>
+    p.pilotNumber == null
+      ? []
+      : [{
     pilotId: p.id,
     pilotNumber: p.pilotNumber,
     gender: p.gender,
@@ -285,7 +288,8 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
           isDiscarded: s.isDiscarded,
         }),
       ),
-  }));
+    }],
+  );
 
   // Unscored pilots get maximumScoreCm for every countable round so overall totals
   // are not treated as 0 / best. Live unfilled rounds stay provisional; finished rounds
