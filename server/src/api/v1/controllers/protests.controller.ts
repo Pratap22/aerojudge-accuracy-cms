@@ -80,6 +80,21 @@ export const remove = [
   }),
 ];
 
+export const downloadForm = [
+  validateParams(protestParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const file = await protestService.readProtestForm(
+      req.params.competitionId,
+      req.params.protestId,
+    );
+    const filename = file.filename.replace(/[\r\n"]/g, '');
+    res.setHeader('Content-Type', file.contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Length', file.body.length);
+    res.send(file.body);
+  }),
+];
+
 export const uploadForm = [
   validateParams(protestParams),
   asyncHandler(async (req: Request, res: Response) => {

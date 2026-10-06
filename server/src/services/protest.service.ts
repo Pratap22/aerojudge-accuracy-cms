@@ -2,7 +2,11 @@ import type { CreateProtestInput, UpdateProtestInput } from '@aero-judge/shared'
 import { formatPilotName } from '@aero-judge/utils';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
-import { destroyCloudinaryAsset, uploadDocumentToCloudinary } from '../utils/cloudinary.js';
+import {
+  destroyCloudinaryAsset,
+  fetchStoredCloudinaryFile,
+  uploadDocumentToCloudinary,
+} from '../utils/cloudinary.js';
 import { getCompetition } from './competition.service.js';
 
 function mapProtest(row: {
@@ -138,4 +142,14 @@ export async function uploadProtestForm(
     await destroyCloudinaryAsset(existing.formUrl);
   }
   return mapProtest(row);
+}
+
+export async function readProtestForm(competitionId: string, protestId: string) {
+  const protest = await getProtest(competitionId, protestId);
+  if (!protest.formUrl) throw AppError.notFound('No signed form is attached');
+  const file = await fetchStoredCloudinaryFile(protest.formUrl);
+  return {
+    ...file,
+    filename: protest.formFileName?.trim() || 'signed-form',
+  };
 }

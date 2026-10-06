@@ -49,6 +49,7 @@ router.get('/', requireAnyOf(READ_PERMISSIONS), ...ctrl.list);
 router.post('/', requireAnyOf(WRITE_PERMISSIONS), ...ctrl.create);
 router.patch('/:protestId', requireAnyOf(WRITE_PERMISSIONS), ...ctrl.update);
 router.delete('/:protestId', requireAnyOf(WRITE_PERMISSIONS), ...ctrl.remove);
+router.get('/:protestId/form', requireAnyOf(READ_PERMISSIONS), ...ctrl.downloadForm);
 router.post(
   '/:protestId/form',
   requireAnyOf(WRITE_PERMISSIONS),

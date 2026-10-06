@@ -18,7 +18,7 @@ import {
   TableRow,
   Textarea,
 } from '@aero-judge/ui';
-import { api, apiRequest, ApiError } from '../lib/api';
+import { api, apiFetch, apiRequest, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { useAnyPermission } from '../hooks/usePermission';
 
@@ -57,6 +57,8 @@ export function ProtestsPage() {
   const [outcome, setOutcome] = useState('');
   const [formFile, setFormFile] = useState<File | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [openingFormId, setOpeningFormId] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const { data: protests = [], isLoading } = useQuery({
     queryKey: ['protests', competitionId],
@@ -70,6 +72,38 @@ export function ProtestsPage() {
       api.get<PilotOption[]>(`/competitions/${competitionId}/pilots`, { pageSize: 200 }),
     enabled: !!competitionId && formOpen,
   });
+
+  async function openSignedForm(protest: CompetitionProtest) {
+    if (!competitionId || openingFormId) return;
+    setFileError(null);
+    setOpeningFormId(protest.id);
+    try {
+      const response = await apiFetch(
+        `/competitions/${competitionId}/protests/${protest.id}/form`,
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        throw new Error(body?.error?.message ?? 'Could not open the signed form');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, '_blank', 'noopener');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noreferrer';
+        link.click();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      setFileError(error instanceof Error ? error.message : 'Could not open the signed form');
+    } finally {
+      setOpeningFormId(null);
+    }
+  }
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['protests', competitionId] });
@@ -181,6 +215,12 @@ export function ProtestsPage() {
         )}
       </div>
 
+      {fileError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {fileError}
+        </p>
+      ) : null}
+
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
@@ -225,15 +265,17 @@ export function ProtestsPage() {
                   <TableCell className="max-w-xs whitespace-pre-wrap text-sm">{protest.outcome}</TableCell>
                   <TableCell>
                     {protest.formUrl ? (
-                      <a
-                        href={protest.formUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-primary underline"
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 text-sm text-primary underline disabled:opacity-60"
+                        disabled={openingFormId === protest.id}
+                        onClick={() => void openSignedForm(protest)}
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
-                        {protest.formFileName || 'Signed form'}
-                      </a>
+                        {openingFormId === protest.id
+                          ? 'Opening…'
+                          : protest.formFileName || 'Signed form'}
+                      </button>
                     ) : (
                       <span className="text-sm text-muted-foreground">—</span>
                     )}

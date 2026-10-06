@@ -159,6 +159,43 @@ export async function destroyCloudinaryImage(url: string | null | undefined): Pr
   await cloudinary.uploader.destroy(publicId, { resource_type: 'image' }).catch(() => undefined);
 }
 
+/**
+ * Load a stored file. Public PDF links are blocked by Cloudinary unless the
+ * account allows PDF delivery, so documents are fetched with an API download.
+ */
+export async function fetchStoredCloudinaryFile(
+  url: string,
+): Promise<{ body: Buffer; contentType: string }> {
+  ensureConfigured();
+  const asset = cloudinaryAssetFromUrl(url);
+  if (!asset) throw AppError.badRequest('Stored file is not a Cloudinary asset');
+
+  const downloadUrl =
+    asset.resourceType === 'raw'
+      ? cloudinary.utils.private_download_url(asset.publicId, fileFormat(asset.publicId), {
+          resource_type: 'raw',
+          type: 'upload',
+          expires_at: Math.floor(Date.now() / 1000) + 120,
+        })
+      : url;
+
+  const response = await fetch(downloadUrl);
+  if (!response.ok) {
+    throw AppError.badRequest('Could not load the signed form');
+  }
+  const body = Buffer.from(await response.arrayBuffer());
+  const contentType = response.headers.get('content-type')?.split(';')[0]?.trim();
+  return {
+    body,
+    contentType: contentType || (asset.resourceType === 'raw' ? 'application/pdf' : 'application/octet-stream'),
+  };
+}
+
+function fileFormat(publicId: string): string {
+  const match = publicId.match(/\.([a-z0-9]+)$/i);
+  return match?.[1]?.toLowerCase() || 'pdf';
+}
+
 /** Remove an image or raw (PDF) Cloudinary asset. */
 export async function destroyCloudinaryAsset(url: string | null | undefined): Promise<void> {
   if (!url || !env.cloudinaryEnabled || !url.includes('res.cloudinary.com')) return;
