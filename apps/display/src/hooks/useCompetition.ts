@@ -125,7 +125,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
   return results.rankings
     .filter((row) => {
       if (category === 'TEAM') return Boolean(row?.team);
-      if (category === 'COUNTRY') return Boolean(row?.country);
+      if (category === 'COUNTRY') return Boolean(row?.country) && (row.roundsFlown ?? 0) > 0;
       // Hide pilots who have not scored yet (provisional max-only totals).
       return Boolean(row?.pilot) && (row.roundsFlown ?? 0) > 0;
     })

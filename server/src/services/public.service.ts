@@ -656,7 +656,9 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           countryId: r.countryId,
           rank: r.rank,
           totalScoreCm: r.totalScoreCm,
-          roundsFlown: r.pilotIds?.length ?? 0,
+          // pilotIds is who was counted, not how many rounds they flew. Before any
+          // scoring round, a stored 0 cm row is just the registration list.
+          roundsFlown: scoringRounds > 0 ? (r.pilotIds?.length ?? 0) : 0,
           bullseyes: 0,
           country: country
             ? { name: country.name, code: country.code2 || country.code }

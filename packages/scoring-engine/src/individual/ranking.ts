@@ -307,6 +307,7 @@ export function calculateCountryRankings(
   const byCountry = new Map<string, IndividualRankingResult[]>();
 
   for (const ranking of individualRankings) {
+    if (ranking.roundsFlown <= 0) continue;
     const pilot = pilots.find((p) => p.pilotId === ranking.pilotId);
     if (!pilot?.countryId) continue;
     const list = byCountry.get(pilot.countryId) ?? [];
@@ -314,9 +315,10 @@ export function calculateCountryRankings(
     byCountry.set(pilot.countryId, list);
   }
 
-  const countryResults = [...byCountry.entries()].map(([countryId, rankings]) => {
+  const countryResults = [...byCountry.entries()].flatMap(([countryId, rankings]) => {
     const sorted = [...rankings].sort((a, b) => a.totalScoreCm - b.totalScoreCm);
     const counted = sorted.slice(0, scoringPilotsPerCountry);
+    if (counted.length === 0) return [];
     const totalScoreCm = counted.reduce((s, r) => s + r.totalScoreCm, 0);
     return {
       countryId,

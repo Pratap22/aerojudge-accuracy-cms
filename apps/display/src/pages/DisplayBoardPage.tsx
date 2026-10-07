@@ -21,7 +21,7 @@ import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } f
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
 import { isWindReadingCurrent } from '@aero-judge/utils';
 
-const PRE_ROUND_LAYOUTS: DisplayLayoutType[] = ['sponsors', 'women', 'teams', 'country'];
+const PRE_ROUND_LAYOUTS: DisplayLayoutType[] = ['sponsors', 'women', 'teams'];
 
 const LIVE_ROUND_STATUSES = new Set(['ACTIVE', 'OPEN', 'PAUSED', 'BRIEFING']);
 const CLOSED_LIKE_STATUSES = new Set([
