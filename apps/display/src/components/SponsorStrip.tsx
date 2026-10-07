@@ -138,8 +138,9 @@ export function SponsorStrip({ sponsors, variant = 'strip' }: SponsorStripProps)
     );
   }
 
-  const loop = groups.length <= 1 ? groups : [...groups, ...groups];
-  const durationSec = Math.max(22, groups.length * 10);
+  const scroll = items.length > 5;
+  const loop = scroll ? [...groups, ...groups] : groups;
+  const durationSec = Math.max(22, items.length * 3);
 
   return (
     <div
@@ -150,8 +151,12 @@ export function SponsorStrip({ sponsors, variant = 'strip' }: SponsorStripProps)
       </span>
       <div className="relative h-full min-w-0 flex-1 overflow-hidden">
         <div
-          className="sponsor-marquee flex h-full w-max items-center"
-          style={{ animationDuration: `${durationSec}s` }}
+          className={
+            scroll
+              ? 'sponsor-marquee flex h-full w-max items-center'
+              : 'flex h-full w-full items-center justify-center'
+          }
+          style={scroll ? { animationDuration: `${durationSec}s` } : undefined}
         >
           {loop.map((group, i) => (
             <SponsorTypeGroup

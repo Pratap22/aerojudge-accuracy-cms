@@ -45,6 +45,8 @@ const TYPE_LABELS: Record<SponsorType, string> = {
 };
 
 const LOGO_MAX_BYTES = 5 * 1024 * 1024;
+/** Stay under the 1 MB limit on the TLS proxy in front of the API. */
+const LOGO_UPLOAD_BYTES = 800 * 1024;
 
 interface CompetitionWithPartners {
   id: string;
@@ -61,16 +63,115 @@ function singularLabel(label: string): string {
   return label;
 }
 
+function loadLogoImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not read that logo. Use a PNG or JPEG.'));
+    };
+    image.src = url;
+  });
+}
+
+function drawLogo(image: HTMLImageElement, maxEdge: number): HTMLCanvasElement | null {
+  const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth || 1, image.naturalHeight || 1));
+  const width = Math.max(1, Math.round((image.naturalWidth || 1) * scale));
+  const height = Math.max(1, Math.round((image.naturalHeight || 1) * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(image, 0, 0, width, height);
+  return canvas;
+}
+
+function canvasHasTransparency(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return false;
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] !== 255) return true;
+  }
+  return false;
+}
+
+function canvasBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob(resolve, type, quality);
+  });
+}
+
+/**
+ * Shrink the logo before upload. The public gateway rejects bodies over 1 MB
+ * with an HTML page, which the client used to surface as invalid JSON.
+ */
+function logoMime(file: File): string {
+  if (file.type === 'image/jpg' || file.type === 'image/pjpeg') return 'image/jpeg';
+  if (file.type) return file.type;
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.webp')) return 'image/webp';
+  if (name.endsWith('.gif')) return 'image/gif';
+  if (name.endsWith('.svg')) return 'image/svg+xml';
+  return '';
+}
+
+async function prepareLogoFile(file: File): Promise<File> {
+  const mime = logoMime(file);
+  const isSvg = mime === 'image/svg+xml';
+  const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+  if (!isSvg && !allowed.includes(mime)) {
+    throw new Error('Logo must be a PNG, JPEG, WebP, or SVG.');
+  }
+  if (file.size > LOGO_MAX_BYTES) {
+    throw new Error('Logo is too large. Maximum size is 5 MB.');
+  }
+  if (mime === 'image/jpeg' && file.size <= LOGO_UPLOAD_BYTES) {
+    return file;
+  }
+
+  const image = await loadLogoImage(file);
+  const baseName = file.name.replace(/\.[^.]+$/, '') || 'logo';
+  let maxEdge = 1200;
+  let quality = 0.86;
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const canvas = drawLogo(image, maxEdge);
+    if (!canvas) break;
+    const transparent = canvasHasTransparency(canvas);
+    const type = transparent ? 'image/png' : 'image/jpeg';
+    const blob = await canvasBlob(canvas, type, transparent ? undefined : quality);
+    if (blob && blob.size <= LOGO_UPLOAD_BYTES) {
+      const ext = transparent ? 'png' : 'jpg';
+      return new File([blob], `${baseName}.${ext}`, { type });
+    }
+    if (!transparent && quality > 0.55) {
+      quality = Math.max(0.55, quality - 0.12);
+    } else {
+      maxEdge = Math.round(maxEdge * 0.75);
+      quality = 0.86;
+    }
+  }
+
+  throw new Error('Logo is too large to upload. Try a smaller image.');
+}
+
 async function uploadSponsorLogo(
   competitionId: string,
   sponsorId: string,
   file: File,
 ): Promise<CompetitionSponsor> {
-  if (file.size > LOGO_MAX_BYTES) {
-    throw new Error('Logo is too large. Maximum size is 5 MB.');
-  }
+  const prepared = await prepareLogoFile(file);
   const formData = new FormData();
-  formData.append('logo', file);
+  formData.append('logo', prepared);
   return apiRequest<CompetitionSponsor>(`/competitions/${competitionId}/sponsors/${sponsorId}/logo`, {
     method: 'POST',
     formData,
@@ -288,7 +389,7 @@ export function SponsorsPage() {
                 });
               }}
             />
-            Use sponsor tiers (Title, Gold, Silver…)
+            Show tier names (Title, Gold, Silver…). Standard is not labeled.
           </label>
         </CardContent>
       </Card>
@@ -312,11 +413,9 @@ export function SponsorsPage() {
         <div className="space-y-6">
           {byType.map(([type, items]) => (
             <div key={type} className="space-y-3">
-              {tiersEnabled && (
+              {tiersEnabled && type !== 'STANDARD' && type !== 'UNTITLED' && (
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                  {type === 'UNTITLED'
-                    ? 'No type'
-                    : (TYPE_LABELS[type as SponsorType] ?? type)}
+                  {TYPE_LABELS[type as SponsorType] ?? type}
                 </h2>
               )}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -327,11 +426,13 @@ export function SponsorsPage() {
                         <div className="min-w-0">
                           <CardTitle className="truncate text-base">{sponsor.name}</CardTitle>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {tiersEnabled && sponsor.type && (
-                              <Badge variant="secondary">
-                                {TYPE_LABELS[sponsor.type as SponsorType] ?? sponsor.type}
-                              </Badge>
-                            )}
+                            {tiersEnabled &&
+                              sponsor.type &&
+                              sponsor.type !== 'STANDARD' && (
+                                <Badge variant="secondary">
+                                  {TYPE_LABELS[sponsor.type as SponsorType] ?? sponsor.type}
+                                </Badge>
+                              )}
                             {!sponsor.isActive && <Badge variant="outline">Inactive</Badge>}
                           </div>
                         </div>
@@ -427,7 +528,7 @@ export function SponsorsPage() {
             <div className="space-y-2">
               <Label>Logo (optional)</Label>
               <p className="text-xs text-muted-foreground">
-                PNG, JPEG, WebP, or SVG · max 5 MB · applied when you save
+                PNG, JPEG, WebP, or SVG · max 5 MB · large images are reduced when you save
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 {logoPreview ? (

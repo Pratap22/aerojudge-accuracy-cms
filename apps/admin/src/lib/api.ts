@@ -70,12 +70,18 @@ async function refreshAccessToken(): Promise<string | null> {
     return null;
   }
 
-  const json = (await response.json()) as ApiResponse<{
+  let json: ApiResponse<{
     tokens?: AuthTokens;
     accessToken?: string;
     refreshToken?: string;
     expiresIn?: number;
   }>;
+  try {
+    json = await readApiJson(response);
+  } catch {
+    clearTokens();
+    return null;
+  }
   if (json.success && json.data) {
     const tokens: AuthTokens = json.data.tokens ?? {
       accessToken: json.data.accessToken ?? '',
@@ -132,6 +138,42 @@ export interface ApiPage<T> {
   meta?: ApiResponse<T>['meta'];
 }
 
+/**
+ * The TLS proxy in front of the API returns an HTML error page (often 413)
+ * when a body exceeds its limit. `response.json()` then throws
+ * `Unexpected token '<'... is not valid JSON`.
+ */
+async function readApiJson<T>(response: Response): Promise<ApiResponse<T>> {
+  const text = await response.text();
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new ApiError(`Request failed (${response.status})`, 'EMPTY_RESPONSE', response.status);
+  }
+  try {
+    return JSON.parse(trimmed) as ApiResponse<T>;
+  } catch {
+    if (response.status === 413 || /413 Request Entity Too Large/i.test(trimmed)) {
+      throw new ApiError(
+        'That file is too large for the server. Use an image under 1 MB, or save again so it can be reduced.',
+        'PAYLOAD_TOO_LARGE',
+        413,
+      );
+    }
+    if (response.status === 502 || response.status === 504) {
+      throw new ApiError(
+        'The server did not finish the upload. Try again in a moment.',
+        'BAD_GATEWAY',
+        response.status,
+      );
+    }
+    throw new ApiError(
+      `The server returned an unexpected response (${response.status}).`,
+      'INVALID_RESPONSE',
+      response.status || 500,
+    );
+  }
+}
+
 async function requestEnvelope<T>(path: string, options: RequestOptions = {}): Promise<ApiPage<T>> {
   const { body, formData, params, headers, ...rest } = options;
 
@@ -175,7 +217,7 @@ async function requestEnvelope<T>(path: string, options: RequestOptions = {}): P
     }
   }
 
-  const json = (await response.json()) as ApiResponse<T>;
+  const json = await readApiJson<T>(response);
 
   if (!response.ok || !json.success) {
     throw new ApiError(

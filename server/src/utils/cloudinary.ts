@@ -39,8 +39,11 @@ export async function uploadImageToCloudinary(
 ): Promise<{ url: string; publicId: string }> {
   ensureConfigured();
 
-  const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+  const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/pjpeg', 'image/webp', 'image/gif'];
   if (options.allowSvg) allowed.push('image/svg+xml');
+  if (file.mimetype === 'image/jpg' || file.mimetype === 'image/pjpeg') {
+    file.mimetype = 'image/jpeg';
+  }
   if (!allowed.includes(file.mimetype)) {
     throw AppError.badRequest(
       options.allowSvg
@@ -57,6 +60,18 @@ export async function uploadImageToCloudinary(
   const isSvg = file.mimetype === 'image/svg+xml';
 
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const fail = (message: string) => {
+      if (settled) return;
+      settled = true;
+      const friendly = /not valid json|<\s*html/i.test(message)
+        ? 'The image host rejected the upload. Try a PNG or JPEG.'
+        : message;
+      reject(
+        AppError.badRequest(friendly || 'Cloudinary upload failed', 'CLOUDINARY_UPLOAD_FAILED'),
+      );
+    };
+
     const stream = cloudinary.uploader.upload_stream(
       {
         folder,
@@ -79,17 +94,17 @@ export async function uploadImageToCloudinary(
       },
       (err, result) => {
         if (err || !result?.secure_url) {
-          reject(
-            AppError.badRequest(
-              err?.message || 'Cloudinary upload failed',
-              'CLOUDINARY_UPLOAD_FAILED',
-            ),
-          );
+          fail(err?.message || 'Cloudinary upload failed');
           return;
         }
+        if (settled) return;
+        settled = true;
         resolve({ url: result.secure_url, publicId: result.public_id });
       },
     );
+    stream.on('error', (streamErr: Error) => {
+      fail(streamErr.message || 'Cloudinary upload failed');
+    });
     stream.end(file.buffer);
   });
 }

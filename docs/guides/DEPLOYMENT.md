@@ -180,6 +180,7 @@ Prefer GitHub Actions for CI consistency.
 | CORS / blank API | `CORS_ORIGINS` and `*_URL` match the browser origin (scheme + host) |
 | Wrong IP after start | Attach an Elastic IP |
 | Health timeout | `docker compose -f docker/docker-compose.deploy.yml --env-file docker/.env.deploy logs` |
+| Upload shows `not valid JSON` / `<html>` | The TLS proxy in front of Docker is rejecting the body. Its default limit is 1 MB, while the app allows larger files. Set `client_max_body_size 20m;` on that nginx and reload it. |
 
 ---
 

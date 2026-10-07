@@ -16,6 +16,18 @@ const TYPE_LABELS: Record<string, string> = {
   STANDARD: 'Standard',
 };
 
+/** Landscape grid that stays inside the venue screen as the list grows. */
+function sponsorGrid(count: number): { cols: number; rows: number } {
+  if (count <= 1) return { cols: 1, rows: 1 };
+  let cols: number;
+  if (count <= 3) cols = count;
+  else if (count <= 8) cols = Math.ceil(count / 2);
+  else if (count <= 12) cols = Math.ceil(count / 3);
+  else if (count <= 20) cols = Math.min(5, Math.ceil(count / 4));
+  else cols = Math.min(6, Math.ceil(Math.sqrt(count * 1.6)));
+  return { cols, rows: Math.ceil(count / cols) };
+}
+
 function groupSponsorsByType(items: Sponsor[]) {
   const map = new Map<string, Sponsor[]>();
   for (const s of items) {
@@ -83,9 +95,11 @@ export function SponsorsLayout() {
   if (!current) return null;
 
   const heading = partnersLabel;
+  const { cols, rows } = sponsorGrid(current.sponsors.length);
+  const nameSize = rows <= 2 ? 'text-4xl' : rows === 3 ? 'text-2xl' : 'text-lg';
 
   return (
-    <div className="relative flex h-full items-center justify-center bg-gradient-to-br from-broadcast-navy via-broadcast-navy-mid to-broadcast-navy-light p-16">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-gradient-to-br from-broadcast-navy via-broadcast-navy-mid to-broadcast-navy-light px-4 py-3 sm:px-8 sm:py-5">
       <AnimatePresence mode="wait">
         <motion.div
           key={current.type}
@@ -93,27 +107,35 @@ export function SponsorsLayout() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -24 }}
           transition={{ duration: 0.5 }}
-          className="w-full max-w-6xl text-center"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <p className="mb-10 text-sm uppercase tracking-[0.4em] text-sky-400/80">{heading}</p>
-          <div className="flex flex-wrap items-center justify-center gap-10">
+          <p className="mb-3 shrink-0 text-center text-sm uppercase tracking-[0.4em] text-sky-400/80">
+            {heading}
+          </p>
+          <div
+            className="grid min-h-0 flex-1"
+            style={{
+              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+              columnGap: '1.25rem',
+              rowGap: '0.75rem',
+            }}
+          >
             {current.sponsors.map((sponsor) => (
-              <div key={sponsor.id} className="flex flex-col items-center gap-3">
-                <div className="flex h-36 w-64 items-center justify-center px-6">
-                  {sponsor.logoUrl ? (
-                    <TransparentLogo
-                      src={sponsor.logoUrl}
-                      alt={sponsor.name}
-                      className="max-h-28 max-w-full object-contain drop-shadow-[0_0_1px_rgba(255,255,255,0.9)]"
-                    />
-                  ) : (
-                    <span className="font-display text-3xl tracking-wider text-white">
-                      {sponsor.name}
-                    </span>
-                  )}
-                </div>
-                {!sponsor.logoUrl && (
-                  <p className="font-display text-2xl uppercase tracking-wide text-white">
+              <div
+                key={sponsor.id}
+                className="flex min-h-0 min-w-0 items-center justify-center overflow-hidden px-2"
+              >
+                {sponsor.logoUrl ? (
+                  <TransparentLogo
+                    src={sponsor.logoUrl}
+                    alt={sponsor.name}
+                    className="h-full w-full object-contain drop-shadow-[0_0_1px_rgba(255,255,255,0.9)]"
+                  />
+                ) : (
+                  <p
+                    className={`line-clamp-3 text-center font-display uppercase leading-tight tracking-wide text-white ${nameSize}`}
+                  >
                     {sponsor.name}
                   </p>
                 )}
@@ -123,7 +145,7 @@ export function SponsorsLayout() {
         </motion.div>
       </AnimatePresence>
       {groups.length > 1 && (
-        <div className="absolute bottom-12 flex gap-2">
+        <div className="mt-3 flex shrink-0 justify-center gap-2">
           {groups.map((g, i) => (
             <div
               key={g.type}

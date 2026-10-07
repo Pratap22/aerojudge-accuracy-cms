@@ -14,6 +14,14 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPE_ORDER = [...SPONSOR_TYPES];
 
+/** Standard is the default tier and is not printed on each partner. */
+function visibleTierLabel(type: string | null | undefined): string | null {
+  if (!type) return null;
+  const key = type.toUpperCase();
+  if (key === 'STANDARD') return null;
+  return TYPE_LABELS[key] ?? type;
+}
+
 function typeRank(type: string | null | undefined): number {
   const key = (type ?? 'STANDARD').toUpperCase();
   const idx = TYPE_ORDER.indexOf(key as SponsorType);
@@ -66,10 +74,8 @@ function PartnerCard({
       <h3 className="mt-5 text-base font-semibold leading-snug text-sky-300 sm:text-lg">
         {partner.name}
       </h3>
-      {showType && partner.type ? (
-        <p className="mt-1.5 text-sm text-sky-100/50">
-          {TYPE_LABELS[partner.type] ?? partner.type}
-        </p>
+      {showType && visibleTierLabel(partner.type) ? (
+        <p className="mt-1.5 text-sm text-sky-100/50">{visibleTierLabel(partner.type)}</p>
       ) : null}
       {partner.websiteUrl ? (
         <span className="mt-3 inline-flex items-center gap-1 text-xs text-sky-400/70">
@@ -151,9 +157,9 @@ export function PartnersSection({
       <div className="space-y-10">
         {groups.map((group) => (
           <div key={group.type} className="space-y-4">
-            {tiersEnabled && group.label ? (
+            {tiersEnabled && visibleTierLabel(group.type) ? (
               <h3 className="text-sm font-semibold uppercase tracking-wider text-sky-300/60">
-                {group.label}
+                {visibleTierLabel(group.type)}
               </h3>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
