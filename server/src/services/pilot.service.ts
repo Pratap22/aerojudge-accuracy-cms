@@ -480,7 +480,132 @@ export async function acceptPilot(competitionId: string, pilotId: string) {
 }
 
 export async function rejectPilot(competitionId: string, pilotId: string) {
-  return setPilotStatus(competitionId, pilotId, 'REJECTED');
+  const updated = await setPilotStatus(competitionId, pilotId, 'REJECTED');
+  await dropUnscoredFlights(competitionId, [pilotId]);
+  return updated;
+}
+
+const ACCEPTABLE_STATUSES = new Set<PilotStatus>(['REGISTERED', 'REJECTED']);
+const REJECTABLE_STATUSES = new Set<PilotStatus>(['REGISTERED', 'CONFIRMED']);
+
+/**
+ * Drop a pilot from flight orders that are still editable when they have no score.
+ * Approved and locked rounds keep their flights.
+ */
+async function dropUnscoredFlights(competitionId: string, pilotIds: string[]): Promise<void> {
+  if (!pilotIds.length) return;
+  await prisma.flight.deleteMany({
+    where: {
+      pilotId: { in: pilotIds },
+      scores: { none: {} },
+      round: { competitionId, status: { notIn: ['APPROVED', 'LOCKED'] } },
+    },
+  });
+}
+
+export interface BulkPilotSkip {
+  pilotId: string;
+  name: string;
+  reason: string;
+}
+
+/**
+ * Accept, reject, or remove many pilots in one competition.
+ * Reject also removes unscored flights so they leave an open flight order.
+ * Remove refuses pilots who already have scores.
+ */
+export async function bulkPilotAction(
+  competitionId: string,
+  action: 'accept' | 'reject' | 'remove',
+  pilotIds: string[],
+  opts?: { actorUserId?: string },
+): Promise<{
+  action: 'accept' | 'reject' | 'remove';
+  succeeded: string[];
+  skipped: BulkPilotSkip[];
+}> {
+  await getCompetition(competitionId);
+  const uniqueIds = [...new Set(pilotIds)];
+  const pilots = await prisma.pilot.findMany({
+    where: { competitionId, id: { in: uniqueIds } },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      status: true,
+      personId: true,
+      _count: { select: { scores: true } },
+    },
+  });
+  const byId = new Map(pilots.map((pilot) => [pilot.id, pilot]));
+  const succeeded: string[] = [];
+  const skipped: BulkPilotSkip[] = [];
+  const eligible: typeof pilots = [];
+
+  for (const id of uniqueIds) {
+    const pilot = byId.get(id);
+    const name = pilot ? `${pilot.firstName} ${pilot.lastName}` : 'Unknown pilot';
+    if (!pilot) {
+      skipped.push({ pilotId: id, name, reason: 'Not in this competition' });
+      continue;
+    }
+    if (action === 'accept' && !ACCEPTABLE_STATUSES.has(pilot.status)) {
+      skipped.push({
+        pilotId: id,
+        name,
+        reason:
+          pilot.status === 'CONFIRMED' || pilot.status === 'CHECKED_IN' || pilot.status === 'ACTIVE'
+            ? 'Already accepted'
+            : 'Cannot accept this status',
+      });
+      continue;
+    }
+    if (action === 'reject' && !REJECTABLE_STATUSES.has(pilot.status)) {
+      skipped.push({
+        pilotId: id,
+        name,
+        reason: pilot.status === 'REJECTED' ? 'Already rejected' : 'Cannot reject this status',
+      });
+      continue;
+    }
+    if (action === 'remove' && pilot._count.scores > 0) {
+      skipped.push({
+        pilotId: id,
+        name,
+        reason: 'Already has scores — reject them instead of removing',
+      });
+      continue;
+    }
+    eligible.push(pilot);
+  }
+
+  if (action === 'remove') {
+    for (const pilot of eligible) {
+      await deletePilot(competitionId, pilot.id, opts);
+      succeeded.push(pilot.id);
+    }
+    return { action, succeeded, skipped };
+  }
+
+  if (!eligible.length) return { action, succeeded, skipped };
+
+  const nextStatus: PilotStatus = action === 'accept' ? 'CONFIRMED' : 'REJECTED';
+  await prisma.pilot.updateMany({
+    where: { id: { in: eligible.map((pilot) => pilot.id) } },
+    data: { status: nextStatus },
+  });
+  for (const pilot of eligible) {
+    await syncParticipantStatus(competitionId, pilot.personId, nextStatus);
+    succeeded.push(pilot.id);
+  }
+  if (action === 'reject') {
+    await dropUnscoredFlights(
+      competitionId,
+      eligible.map((pilot) => pilot.id),
+    );
+  }
+
+  return { action, succeeded, skipped };
 }
 
 /**
@@ -657,6 +782,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
 
   const created = [];
   const skipped: number[] = [];
+  let pending = 0;
   const ambiguous: Array<{
     row: number;
     pilotNumber: number | null;
@@ -700,7 +826,8 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     const club = col(cols, 'club', 'team');
     const glider = col(cols, 'glider');
     const notes = col(cols, 'notes', 'serialno', 'serial');
-    const statusRaw = (col(cols, 'status') ?? 'CONFIRMED').toUpperCase();
+    // Spreadsheet imports (CIVL entry lists) stay pending unless the file sets a status.
+    const statusRaw = (col(cols, 'status') ?? 'REGISTERED').toUpperCase();
     const status = (
       [
         'REGISTERED',
@@ -713,7 +840,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
         'DNS',
       ].includes(statusRaw)
         ? statusRaw
-        : 'CONFIRMED'
+        : 'REGISTERED'
     ) as PilotStatus;
 
     if (!firstName || !lastName) {
@@ -761,6 +888,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
       });
       if (personId) reusedPersons += 1;
       else createdPersons += 1;
+      if (pilot.status === 'REGISTERED') pending += 1;
       created.push(pilot);
       if (pilot.pilotNumber != null) existingNumbers.add(pilot.pilotNumber);
     } catch (err) {
@@ -787,6 +915,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
 
   return {
     imported: created.length,
+    pending,
     skipped: skipped.length,
     skippedNumbers: skipped,
     pilots: created,

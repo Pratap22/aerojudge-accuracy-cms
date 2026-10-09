@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -113,6 +113,14 @@ function statusBadgeVariant(
   }
 }
 
+function canAcceptStatus(status: PilotStatus): boolean {
+  return status === 'REGISTERED' || status === 'REJECTED';
+}
+
+function canRejectStatus(status: PilotStatus): boolean {
+  return status === 'REGISTERED' || status === 'CONFIRMED';
+}
+
 function statusLabel(status: PilotStatus): string {
   if (status === 'REGISTERED') return 'PENDING';
   if (status === 'CONFIRMED') return 'ACCEPTED';
@@ -142,6 +150,8 @@ export function PilotsPage() {
   const organizationId = useRouteOrganizationId();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Pilot | null>(null);
   const [directoryQ, setDirectoryQ] = useState('');
@@ -182,6 +192,56 @@ export function PilotsPage() {
           ['CHECKED_IN', 'WITHDRAWN', 'DISQUALIFIED', 'DNS'].includes(p.status),
         )
       : pilots;
+
+  const selectedPilots = useMemo(
+    () => (displayedPilots ?? []).filter((pilot) => selectedIds.has(pilot.id)),
+    [displayedPilots, selectedIds],
+  );
+  const acceptIds = selectedPilots.filter((pilot) => canAcceptStatus(pilot.status)).map((p) => p.id);
+  const rejectIds = selectedPilots.filter((pilot) => canRejectStatus(pilot.status)).map((p) => p.id);
+  const allVisibleSelected =
+    (displayedPilots?.length ?? 0) > 0 &&
+    displayedPilots!.every((pilot) => selectedIds.has(pilot.id));
+  const someVisibleSelected = displayedPilots?.some((pilot) => selectedIds.has(pilot.id)) ?? false;
+
+  const toggleAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const pilot of displayedPilots ?? []) next.delete(pilot.id);
+      } else {
+        for (const pilot of displayedPilots ?? []) next.add(pilot.id);
+      }
+      return next;
+    });
+  };
+
+  const togglePilot = (pilotId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(pilotId)) next.delete(pilotId);
+      else next.add(pilotId);
+      return next;
+    });
+  };
+
+  const runBulk = (action: 'accept' | 'reject' | 'remove', pilotIds: string[]) => {
+    if (!pilotIds.length || bulkMutation.isPending) return;
+    if (action === 'reject') {
+      const ok = window.confirm(
+        `Reject ${pilotIds.length} pilot(s)? They stay on this list as Rejected and are left out of the flight order, public roster, and rankings.`,
+      );
+      if (!ok) return;
+    }
+    if (action === 'remove') {
+      const ok = window.confirm(
+        `Remove ${pilotIds.length} pilot(s) from this competition? Pilots who already have scores are left in place — reject those instead.`,
+      );
+      if (!ok) return;
+    }
+    setBulkNotice(null);
+    bulkMutation.mutate({ action, pilotIds });
+  };
 
   const {
     register,
@@ -285,6 +345,7 @@ export function PilotsPage() {
         data?: {
           imported: number;
           skipped?: number;
+          pending?: number;
           personMatching?: { alreadyRegistered?: number };
         };
       }>;
@@ -293,11 +354,43 @@ export function PilotsPage() {
       invalidatePilots();
       const imported = json.data?.imported ?? 0;
       const skipped = json.data?.skipped ?? 0;
+      const pending = json.data?.pending ?? 0;
       const already = json.data?.personMatching?.alreadyRegistered ?? 0;
       const parts = [`Imported ${imported} pilot(s).`];
+      if (pending > 0) {
+        parts.push(`${pending} are pending until you accept them.`);
+      }
       if (skipped > 0) parts.push(`Skipped ${skipped} number(s) already in use.`);
       if (already > 0) parts.push(`${already} already registered in this competition.`);
       window.alert(parts.join(' '));
+    },
+  });
+
+  const bulkMutation = useMutation({
+    mutationFn: (body: { action: 'accept' | 'reject' | 'remove'; pilotIds: string[] }) =>
+      api.post<{
+        action: 'accept' | 'reject' | 'remove';
+        succeeded: string[];
+        skipped: { pilotId: string; name: string; reason: string }[];
+      }>(`/competitions/${activeCompetitionId}/pilots/bulk`, body),
+    onSuccess: (result) => {
+      invalidatePilots();
+      queryClient.invalidateQueries({ queryKey: ['rankings'] });
+      queryClient.invalidateQueries({ queryKey: ['rounds'] });
+      const done = new Set(result.succeeded);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of done) next.delete(id);
+        return next;
+      });
+      const verb =
+        result.action === 'accept' ? 'Accepted' : result.action === 'reject' ? 'Rejected' : 'Removed';
+      const parts = [`${verb} ${result.succeeded.length} pilot(s).`];
+      if (result.skipped.length > 0) {
+        const reasons = [...new Set(result.skipped.map((row) => row.reason))];
+        parts.push(`${result.skipped.length} skipped (${reasons.join('; ')}).`);
+      }
+      setBulkNotice(parts.join(' '));
     },
   });
 
@@ -411,7 +504,7 @@ export function PilotsPage() {
         <div>
           <h1 className="text-2xl font-bold">Pilots</h1>
           <p className="text-muted-foreground">
-            Review registrations — accept to seat pilots, or reject applications
+            Review registrations — select pilots to accept, reject, or remove them
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -478,6 +571,12 @@ export function PilotsPage() {
           {(statusMutation.error as Error)?.message ?? 'Status update failed'}
         </p>
       )}
+      {bulkMutation.isError && (
+        <p className="text-sm text-destructive">
+          {(bulkMutation.error as Error)?.message ?? 'Bulk action failed'}
+        </p>
+      )}
+      {bulkNotice && <p className="text-sm text-muted-foreground">{bulkNotice}</p>}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative max-w-md flex-1">
@@ -486,7 +585,10 @@ export function PilotsPage() {
             className="pl-9"
             placeholder="Search by name, number, country…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setSelectedIds(new Set());
+            }}
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -494,7 +596,10 @@ export function PilotsPage() {
             <button
               key={f.id}
               type="button"
-              onClick={() => setStatusFilter(f.id)}
+              onClick={() => {
+                setStatusFilter(f.id);
+                setSelectedIds(new Set());
+              }}
               className={cn(
                 'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
                 statusFilter === f.id
@@ -508,10 +613,63 @@ export function PilotsPage() {
         </div>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={acceptIds.length === 0 || bulkMutation.isPending}
+            onClick={() => runBulk('accept', acceptIds)}
+          >
+            <Check className="mr-1.5 h-4 w-4" />
+            Accept{acceptIds.length > 0 ? ` (${acceptIds.length})` : ''}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={rejectIds.length === 0 || bulkMutation.isPending}
+            onClick={() => runBulk('reject', rejectIds)}
+          >
+            <X className="mr-1.5 h-4 w-4" />
+            Reject{rejectIds.length > 0 ? ` (${rejectIds.length})` : ''}
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={selectedPilots.length === 0 || bulkMutation.isPending}
+            onClick={() => runBulk('remove', selectedPilots.map((pilot) => pilot.id))}
+          >
+            Remove{selectedPilots.length > 0 ? ` (${selectedPilots.length})` : ''}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={bulkMutation.isPending}
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear
+          </Button>
+        </div>
+      )}
+
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10 pr-0">
+                <input
+                  ref={(el) => {
+                    if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected;
+                  }}
+                  type="checkbox"
+                  className="h-4 w-4 cursor-pointer accent-primary"
+                  checked={allVisibleSelected}
+                  onChange={toggleAllVisible}
+                  aria-label="Select all pilots"
+                  disabled={!displayedPilots?.length}
+                />
+              </TableHead>
               <TableHead>#</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>CIVL ID</TableHead>
@@ -525,13 +683,13 @@ export function PilotsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : !displayedPilots?.length ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   {statusFilter === 'REGISTERED'
                     ? 'No pending registrations.'
                     : 'No pilots match this filter.'}
@@ -539,15 +697,23 @@ export function PilotsPage() {
               </TableRow>
             ) : (
               displayedPilots.map((pilot) => {
-                const canAccept =
-                  pilot.status === 'REGISTERED' || pilot.status === 'REJECTED';
-                const canReject =
-                  pilot.status === 'REGISTERED' || pilot.status === 'CONFIRMED';
+                const canAccept = canAcceptStatus(pilot.status);
+                const canReject = canRejectStatus(pilot.status);
                 const busy =
                   statusMutation.isPending && statusMutation.variables?.pilotId === pilot.id;
+                const selected = selectedIds.has(pilot.id);
 
                 return (
-                  <TableRow key={pilot.id}>
+                  <TableRow key={pilot.id} data-state={selected ? 'selected' : undefined}>
+                    <TableCell className="pr-0">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 cursor-pointer accent-primary"
+                        checked={selected}
+                        onChange={() => togglePilot(pilot.id)}
+                        aria-label={`Select ${pilot.firstName} ${pilot.lastName}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono font-medium">
                       {pilot.pilotNumber ?? '—'}
                     </TableCell>
@@ -602,7 +768,7 @@ export function PilotsPage() {
                             onClick={() => {
                               if (
                                 window.confirm(
-                                  `Reject ${pilot.firstName} ${pilot.lastName}? They will not appear on the public pilot list or flight order.`,
+                                  `Reject ${pilot.firstName} ${pilot.lastName}? They stay on this list as Rejected and are left out of the flight order, public roster, and rankings.`,
                                 )
                               ) {
                                 statusMutation.mutate({ pilotId: pilot.id, action: 'reject' });

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import {
+  bulkPilotActionSchema,
   createPilotSchema,
   paginationSchema,
   pilotStatusSchema,
@@ -10,6 +11,8 @@ import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as pilotService from '../../../services/pilot.service.js';
+import * as scoringService from '../../../services/scoring.service.js';
+import { emitRankingUpdated } from '../../../socket/index.js';
 import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
 
@@ -108,6 +111,35 @@ export const updateStatus = [
       after: { status: pilot.status },
     });
     sendSuccess(res, pilot);
+  }),
+];
+
+export const bulk = [
+  validateParams(competitionParams),
+  validateBody(bulkPilotActionSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const result = await pilotService.bulkPilotAction(
+      req.params.competitionId,
+      req.body.action,
+      req.body.pilotIds,
+      { actorUserId: req.user?.id },
+    );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: req.body.action === 'remove' ? 'DELETE' : 'UPDATE',
+      entityType: 'Pilot',
+      entityId: req.params.competitionId,
+      after: result,
+    });
+    if (result.succeeded.length > 0) {
+      const recalc = await scoringService.recalculateRankings(req.params.competitionId);
+      for (const category of recalc.categories) {
+        emitRankingUpdated(req.params.competitionId, category);
+      }
+      emitRankingUpdated(req.params.competitionId, 'TEAM');
+    }
+    sendSuccess(res, result);
   }),
 ];
 

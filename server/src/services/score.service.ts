@@ -1,5 +1,10 @@
 import { ScoringEngine } from '@aero-judge/scoring-engine';
-import type { ComputedScore, RoundScoreEntry, ScoreResultType } from '@aero-judge/shared';
+import {
+  COMPETING_PILOT_STATUSES,
+  type ComputedScore,
+  type RoundScoreEntry,
+  type ScoreResultType,
+} from '@aero-judge/shared';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { getCompetition, settingsToRuleOverrides } from './competition.service.js';
@@ -216,6 +221,9 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
     settingsToRuleOverrides(competition.settings ?? undefined),
   );
 
+  // Pending and rejected pilots are not in the field. Disqualified pilots still rank.
+  const rankedStatuses = new Set<string>([...COMPETING_PILOT_STATUSES, 'DISQUALIFIED']);
+
   // Official rounds that contribute to live + official standings.
   // In-progress rounds count entered scores; DNF fill is final after close/approve/lock.
   const LIVE_OR_FINAL = [
@@ -260,7 +268,7 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
 
   const maximumScoreCm = rules.maximumScoreCm;
   const pilotInputs = pilots.flatMap((p) =>
-    p.pilotNumber == null
+    p.pilotNumber == null || !rankedStatuses.has(p.status)
       ? []
       : [{
     pilotId: p.id,

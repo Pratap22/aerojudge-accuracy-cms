@@ -187,6 +187,12 @@ export const updatePilotStatusSchema = z.object({
   status: pilotStatusSchema,
 });
 
+/** Apply one registration action to many pilots in a competition. */
+export const bulkPilotActionSchema = z.object({
+  action: z.enum(['accept', 'reject', 'remove']),
+  pilotIds: z.array(z.string().min(1)).min(1).max(500),
+});
+
 /** Public self-registration — pilot number is assigned by the server. */
 export const publicPilotRegistrationSchema = z.object({
   firstName: z.string().min(1).max(100),
@@ -454,6 +460,7 @@ export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
 export type CreatePilotInput = z.infer<typeof createPilotSchema>;
 export type UpdatePilotInput = z.infer<typeof updatePilotSchema>;
 export type UpdatePilotStatusInput = z.infer<typeof updatePilotStatusSchema>;
+export type BulkPilotActionInput = z.infer<typeof bulkPilotActionSchema>;
 export type PublicPilotRegistrationInput = z.infer<typeof publicPilotRegistrationSchema>;
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
 export type CreateRoundInput = z.infer<typeof createRoundSchema>;

@@ -12,6 +12,7 @@ router.get('/', ...ctrl.list);
 router.get('/search', ...ctrl.search);
 router.get('/qr/:code', ...ctrl.qrLookup);
 router.post('/', requirePermission('pilot:manage'), ...ctrl.create);
+router.post('/bulk', requirePermission('pilot:manage'), ...ctrl.bulk);
 router.post(
   '/import',
   requirePermission('pilot:manage'),
