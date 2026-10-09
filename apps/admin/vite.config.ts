@@ -5,6 +5,10 @@ import path from 'node:path';
 export default defineConfig({
   base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
+  optimizeDeps: {
+    // heic2any ships a worker blob and breaks when Vite prebundles it.
+    exclude: ['heic2any'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

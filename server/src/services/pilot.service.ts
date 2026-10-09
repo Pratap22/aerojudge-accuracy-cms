@@ -140,12 +140,16 @@ async function fillMissingPersonIds(
   await updatePerson(personId, patch, { actorUserId });
 }
 
-async function assertCanAddPilots(competitionId: string): Promise<void> {
+async function roundHasStarted(competitionId: string): Promise<boolean> {
   const started = await prisma.round.findFirst({
     where: { competitionId, status: { in: [...STARTED_ROUND_STATUSES] } },
     select: { id: true },
   });
-  if (started) {
+  return started != null;
+}
+
+async function assertCanAddPilots(competitionId: string): Promise<void> {
+  if (await roundHasStarted(competitionId)) {
     throw AppError.badRequest('Pilots cannot be added after a round has started.');
   }
 }
@@ -389,6 +393,12 @@ export async function updatePilot(
   const clearingNumber = rest.pilotNumber === null;
   const nextPilotNumber =
     typeof rest.pilotNumber === 'number' ? rest.pilotNumber : undefined;
+  const numberChanged =
+    clearingNumber ||
+    (nextPilotNumber !== undefined && nextPilotNumber !== existing.pilotNumber);
+  if (numberChanged && (await roundHasStarted(competitionId))) {
+    throw AppError.badRequest('Pilot numbers cannot be changed after a round has started.');
+  }
   if (clearingNumber) {
     rest.qrCode = null;
   } else if (nextPilotNumber !== undefined && nextPilotNumber !== existing.pilotNumber) {

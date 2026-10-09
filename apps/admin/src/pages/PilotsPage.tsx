@@ -11,7 +11,19 @@ import {
   type PilotStatus,
   type RoundStatus,
 } from '@aero-judge/shared';
-import { Check, Download, ExternalLink, ImagePlus, Pencil, Plus, Search, Upload, UserCheck, X } from 'lucide-react';
+import {
+  Check,
+  Download,
+  ExternalLink,
+  ImagePlus,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  Upload,
+  UserCheck,
+  X,
+} from 'lucide-react';
 import {
   Badge,
   Button,
@@ -43,6 +55,7 @@ import {
 } from '../hooks/useCompetitionId';
 import { CountrySelect } from '../components/CountrySelect';
 import { competitionDrawClosed } from '../lib/pilot-draw';
+import { createPhotoPreviewUrl, isHeicPhoto } from '../lib/photo-preview';
 
 interface Pilot {
   id: string;
@@ -160,9 +173,71 @@ export function PilotsPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPreviewBusy, setPhotoPreviewBusy] = useState(false);
+  const [photoPreviewError, setPhotoPreviewError] = useState<string | null>(null);
   /** When true, drop the stored photo on save (edit only). */
   const [photoRemoved, setPhotoRemoved] = useState(false);
+  const previewRequestRef = useRef(0);
+  const previewUrlRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
+
+  const assignPreview = (url: string | null) => {
+    const previous = previewUrlRef.current;
+    if (previous && previous !== url && previous.startsWith('blob:')) {
+      URL.revokeObjectURL(previous);
+    }
+    previewUrlRef.current = url;
+    setPhotoPreview(url);
+  };
+
+  const replaceStoredPreview = (url: string | null) => {
+    previewRequestRef.current += 1;
+    setPhotoPreviewBusy(false);
+    setPhotoPreviewError(null);
+    assignPreview(url);
+  };
+
+  const onPhotoSelected = (file: File | null) => {
+    if (file && file.size > PHOTO_MAX_BYTES) {
+      window.alert('Photo is too large. Maximum size is 2 MB.');
+      if (photoInputRef.current) photoInputRef.current.value = '';
+      return;
+    }
+    const requestId = ++previewRequestRef.current;
+    setPhotoPreviewError(null);
+    if (!file) {
+      setPhotoFile(null);
+      setPhotoPreviewBusy(false);
+      assignPreview(
+        photoRemoved ? null : (editing?.photoUrl ?? selectedPerson?.photoUrl ?? null),
+      );
+      return;
+    }
+    setPhotoRemoved(false);
+    setPhotoFile(file);
+    if (!isHeicPhoto(file)) {
+      setPhotoPreviewBusy(false);
+      assignPreview(URL.createObjectURL(file));
+      return;
+    }
+    setPhotoPreviewBusy(true);
+    assignPreview(null);
+    void createPhotoPreviewUrl(file).then(
+      (url) => {
+        if (previewRequestRef.current !== requestId) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        assignPreview(url);
+        setPhotoPreviewBusy(false);
+      },
+      () => {
+        if (previewRequestRef.current !== requestId) return;
+        setPhotoPreviewBusy(false);
+        setPhotoPreviewError('Could not preview this photo. It will still upload when you save.');
+      },
+    );
+  };
 
   const listStatusParam =
     statusFilter === 'ALL' || statusFilter === 'OTHER' ? undefined : statusFilter;
@@ -174,6 +249,7 @@ export function PilotsPage() {
     enabled: !!activeCompetitionId,
   });
   const rosterOpen = roundsLoaded && !competitionDrawClosed(rounds ?? []);
+  const pilotNumberLocked = Boolean(editing) && roundsLoaded && !rosterOpen;
 
   const { data: pilots, isLoading } = useQuery({
     queryKey: ['pilots', activeCompetitionId, search, listStatusParam],
@@ -285,8 +361,10 @@ export function PilotsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: CreatePilotInput) => {
+      const payload = { ...data };
+      if (pilotNumberLocked) delete payload.pilotNumber;
       let pilot = editing
-        ? await api.put<Pilot>(`/competitions/${activeCompetitionId}/pilots/${editing.id}`, data)
+        ? await api.put<Pilot>(`/competitions/${activeCompetitionId}/pilots/${editing.id}`, payload)
         : await api.post<Pilot>(`/competitions/${activeCompetitionId}/pilots`, {
             ...data,
             personId: selectedPerson?.id ?? data.personId,
@@ -314,7 +392,7 @@ export function PilotsPage() {
       setSelectedPerson(null);
       setDirectoryQ('');
       setPhotoFile(null);
-      setPhotoPreview(null);
+      replaceStoredPreview(null);
       setPhotoRemoved(false);
       reset();
     },
@@ -429,7 +507,7 @@ export function PilotsPage() {
     setSelectedPerson(null);
     setDirectoryQ('');
     setPhotoFile(null);
-    setPhotoPreview(null);
+    replaceStoredPreview(null);
     setPhotoRemoved(false);
     saveMutation.reset();
     reset({ gender: 'MALE', firstName: '', lastName: '' });
@@ -441,7 +519,7 @@ export function PilotsPage() {
     setSelectedPerson(null);
     setDirectoryQ('');
     setPhotoFile(null);
-    setPhotoPreview(pilot.photoUrl ?? null);
+    replaceStoredPreview(pilot.photoUrl ?? null);
     setPhotoRemoved(false);
     saveMutation.reset();
     reset(toFormValues(pilot));
@@ -449,15 +527,16 @@ export function PilotsPage() {
   };
 
   const clearPhotoSelection = () => {
-    if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoFile(null);
     if (photoInputRef.current) photoInputRef.current.value = '';
     if (photoFile) {
-      setPhotoPreview(photoRemoved ? null : editing?.photoUrl ?? selectedPerson?.photoUrl ?? null);
+      replaceStoredPreview(
+        photoRemoved ? null : (editing?.photoUrl ?? selectedPerson?.photoUrl ?? null),
+      );
       return;
     }
-    setPhotoPreview(null);
     setPhotoRemoved(Boolean(editing?.photoUrl));
+    replaceStoredPreview(null);
   };
 
   const selectPerson = (person: PersonDirectoryEntry) => {
@@ -473,7 +552,7 @@ export function PilotsPage() {
     setValue('nationality', person.nationalityCountry?.code ?? undefined);
     setValue('countryId', person.nationalityCountryId ?? undefined);
     if (!photoFile) {
-      setPhotoPreview(person.photoUrl ?? null);
+      replaceStoredPreview(person.photoUrl ?? null);
       setPhotoRemoved(false);
     }
   };
@@ -482,7 +561,7 @@ export function PilotsPage() {
     setSelectedPerson(null);
     setValue('personId', undefined);
     if (!photoFile) {
-      setPhotoPreview(null);
+      replaceStoredPreview(null);
       setPhotoRemoved(false);
     }
   };
@@ -885,9 +964,12 @@ export function PilotsPage() {
                     min={1}
                     placeholder="Assign later in the draw"
                     {...register('pilotNumber', { valueAsNumber: true })}
+                    disabled={pilotNumberLocked}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Leave blank and assign it with the spinning wheel after everyone is loaded.
+                    {pilotNumberLocked
+                      ? 'Pilot numbers cannot be changed after a round has started.'
+                      : 'Leave blank and assign it with the spinning wheel after everyone is loaded.'}
                   </p>
                   {errors.pilotNumber && (
                     <p className="text-sm text-destructive">{errors.pilotNumber.message}</p>
@@ -978,7 +1060,11 @@ export function PilotsPage() {
                       />
                     ) : (
                       <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                        <ImagePlus className="h-5 w-5" />
+                        {photoPreviewBusy ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <ImagePlus className="h-5 w-5" />
+                        )}
                       </span>
                     )}
                     <input
@@ -987,29 +1073,7 @@ export function PilotsPage() {
                       accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                       className="hidden"
                       onChange={(e) => {
-                        const file = e.target.files?.[0] ?? null;
-                        if (photoFile && photoPreview) URL.revokeObjectURL(photoPreview);
-                        if (!file) {
-                          setPhotoFile(null);
-                          setPhotoPreview(
-                            photoRemoved
-                              ? null
-                              : editing?.photoUrl ?? selectedPerson?.photoUrl ?? null,
-                          );
-                          return;
-                        }
-                        if (file.size > PHOTO_MAX_BYTES) {
-                          window.alert('Photo is too large. Maximum size is 2 MB.');
-                          return;
-                        }
-                        setPhotoRemoved(false);
-                        setPhotoFile(file);
-                        const type = file.type.toLowerCase();
-                        const heic =
-                          type.startsWith('image/heic') ||
-                          type.startsWith('image/heif') ||
-                          /\.hei[cf]$/i.test(file.name);
-                        setPhotoPreview(heic ? null : URL.createObjectURL(file));
+                        onPhotoSelected(e.target.files?.[0] ?? null);
                       }}
                     />
                     <Button
@@ -1039,6 +1103,9 @@ export function PilotsPage() {
                       </Button>
                     )}
                   </div>
+                  {photoPreviewError ? (
+                    <p className="text-xs text-muted-foreground">{photoPreviewError}</p>
+                  ) : null}
                 </div>
 
                 {saveMutation.isError && (
