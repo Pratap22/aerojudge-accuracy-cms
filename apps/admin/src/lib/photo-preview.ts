@@ -2,6 +2,8 @@
  * Object URL that an `<img>` can paint.
  * HEIC/HEIF is decoded to JPEG for the preview only — the original file is still uploaded.
  */
+import heic2anyUrl from 'heic2any/dist/heic2any.js?url';
+
 export async function createPhotoPreviewUrl(file: File): Promise<string> {
   if (!isHeicPhoto(file)) return URL.createObjectURL(file);
 
@@ -40,21 +42,40 @@ function imageDecodes(url: string): Promise<boolean> {
   });
 }
 
-interface Heic2AnyWindow {
-  heic2any?: (options: {
-    blob: Blob;
-    toType?: string;
-    quality?: number;
-  }) => Promise<Blob | Blob[]>;
+type Heic2Any = (options: {
+  blob: Blob;
+  toType?: string;
+  quality?: number;
+}) => Promise<Blob | Blob[]>;
+
+let loadingConverter: Promise<Heic2Any> | null = null;
+
+/**
+ * heic2any is a UMD bundle. Vite's module import does not expose the function,
+ * so load it as a classic script and use the global it assigns.
+ */
+function loadHeic2Any(): Promise<Heic2Any> {
+  const existing = (window as Window & { heic2any?: Heic2Any }).heic2any;
+  if (typeof existing === 'function') return Promise.resolve(existing);
+  if (!loadingConverter) {
+    loadingConverter = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = heic2anyUrl;
+      script.async = true;
+      script.onload = () => {
+        const loaded = (window as Window & { heic2any?: Heic2Any }).heic2any;
+        if (typeof loaded === 'function') resolve(loaded);
+        else reject(new Error('Could not preview that HEIC photo.'));
+      };
+      script.onerror = () => reject(new Error('Could not preview that HEIC photo.'));
+      document.head.appendChild(script);
+    });
+  }
+  return loadingConverter;
 }
 
 async function convertHeicToJpeg(file: File): Promise<Blob> {
-  // UMD build: Vite serves the script, which assigns `window.heic2any`.
-  await import('heic2any');
-  const heic2any = (window as Window & Heic2AnyWindow).heic2any;
-  if (!heic2any) {
-    throw new Error('Could not preview that HEIC photo.');
-  }
+  const heic2any = await loadHeic2Any();
   const converted = await heic2any({
     blob: file,
     toType: 'image/jpeg',
