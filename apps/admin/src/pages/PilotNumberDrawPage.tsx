@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Search } from 'lucide-react';
 import { Button, cn, Input } from '@aero-judge/ui';
-import type { RoundStatus } from '@aero-judge/shared';
+import { COMPETING_PILOT_STATUSES, type PilotStatus, type RoundStatus } from '@aero-judge/shared';
 import { api } from '../lib/api';
 import { competitionDrawClosed, isDrawPresentation } from '../lib/pilot-draw';
 import {
@@ -14,12 +14,15 @@ import {
 
 interface DrawPilot {
   id: string;
+  status: PilotStatus;
   pilotNumber: number | null;
   firstName: string;
   lastName: string;
   civlId?: string | null;
   nationality?: string | null;
 }
+
+const ACCEPTED_STATUSES = new Set<PilotStatus>(COMPETING_PILOT_STATUSES);
 
 /** Distinct slice color for a bib. Golden-angle hue so neighbours don't match, and the same number keeps its color. */
 function sliceColor(number: number): string {
@@ -29,11 +32,13 @@ function sliceColor(number: number): string {
   return `hsl(${hue} ${saturation}% ${lightness}%)`;
 }
 
-function freePilotNumbers(pilots: DrawPilot[]): number[] {
+function freePilotNumbers(allPilots: DrawPilot[], eligible: DrawPilot[]): number[] {
   const assigned = new Set(
-    pilots.map((pilot) => pilot.pilotNumber).filter((number): number is number => number != null),
+    allPilots
+      .map((pilot) => pilot.pilotNumber)
+      .filter((number): number is number => number != null),
   );
-  const needed = pilots.filter((pilot) => pilot.pilotNumber == null).length;
+  const needed = eligible.filter((pilot) => pilot.pilotNumber == null).length;
   const numbers: number[] = [];
   let candidate = 1;
   while (numbers.length < needed) {
@@ -94,18 +99,25 @@ export function PilotNumberDrawPage() {
     enabled: !!competitionId,
   });
 
-  const waiting = useMemo(
-    () => pilots.filter((pilot) => pilot.pilotNumber == null).sort((a, b) => pilotName(a).localeCompare(pilotName(b))),
+  const accepted = useMemo(
+    () => pilots.filter((pilot) => ACCEPTED_STATUSES.has(pilot.status)),
     [pilots],
+  );
+  const waiting = useMemo(
+    () =>
+      accepted
+        .filter((pilot) => pilot.pilotNumber == null)
+        .sort((a, b) => pilotName(a).localeCompare(pilotName(b))),
+    [accepted],
   );
   const visibleWaiting = useMemo(() => {
     const query = nameQuery.trim().toLowerCase();
     if (!query) return waiting;
     return waiting.filter((pilot) => pilotName(pilot).toLowerCase().includes(query));
   }, [waiting, nameQuery]);
-  const numbers = useMemo(() => freePilotNumbers(pilots), [pilots]);
+  const numbers = useMemo(() => freePilotNumbers(pilots, accepted), [pilots, accepted]);
   const selected = waiting.find((pilot) => pilot.id === selectedId) ?? null;
-  const assignedCount = pilots.length - waiting.length;
+  const assignedCount = accepted.length - waiting.length;
 
   useEffect(() => {
     if (!presentation) return;
@@ -215,7 +227,7 @@ export function PilotNumberDrawPage() {
           )}
           <h1 className="text-2xl font-bold">Pilot number draw</h1>
           <p className="text-muted-foreground">
-            Choose a pilot, spin, then assign the number. Numbers already given out stay off the wheel.
+            Choose an accepted pilot, spin, then assign the number. Pending and rejected pilots stay off the draw.
           </p>
         </div>
         <p className="text-sm text-muted-foreground">
@@ -225,8 +237,12 @@ export function PilotNumberDrawPage() {
 
       {isLoading ? (
         <p className="text-muted-foreground">Loading pilots…</p>
-      ) : pilots.length === 0 ? (
-        <p className="text-muted-foreground">Import or add pilots before the draw.</p>
+      ) : accepted.length === 0 ? (
+        <p className="text-muted-foreground">
+          {pilots.length === 0
+            ? 'Import or add pilots before the draw.'
+            : 'No accepted pilots yet. Accept them on the Pilots page before the draw.'}
+        </p>
       ) : (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)_minmax(16rem,20rem)]">
           <section className="rounded-lg border">
@@ -246,7 +262,7 @@ export function PilotNumberDrawPage() {
             <ul className="max-h-[32rem] overflow-y-auto p-2">
               {waiting.length === 0 ? (
                 <li className="px-2 py-6 text-center text-sm text-muted-foreground">
-                  Every pilot has a number.
+                  Every accepted pilot has a number.
                 </li>
               ) : visibleWaiting.length === 0 ? (
                 <li className="px-2 py-6 text-center text-sm text-muted-foreground">

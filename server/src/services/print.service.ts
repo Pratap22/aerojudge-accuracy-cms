@@ -9,7 +9,7 @@ import {
   type ResultRow,
 } from '@aero-judge/pdf-engine';
 import { applyDiscardRules, resolveCompetitionRules } from '@aero-judge/scoring-engine';
-import type { PrintFormat, ReportType } from '@aero-judge/shared';
+import { COMPETING_PILOT_STATUSES, type PrintFormat, type ReportType } from '@aero-judge/shared';
 import { formatPilotName, formatScoreCm } from '@aero-judge/utils';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
@@ -939,15 +939,30 @@ export async function approvePrint(
   return { ...updated, html, approvalLine };
 }
 
+/** Accepted pilots, numbered first. Unassigned bibs stay on the sheet so they are not dropped. */
+function acceptedPilotOrder() {
+  return [
+    { pilotNumber: { sort: 'asc' as const, nulls: 'last' as const } },
+    { lastName: 'asc' as const },
+    { firstName: 'asc' as const },
+  ];
+}
+
+function pilotStatusLabel(status: string): string {
+  if (status === 'CONFIRMED') return 'Accepted';
+  if (status === 'REGISTERED') return 'Pending';
+  if (status === 'CHECKED_IN') return 'Checked in';
+  return status.charAt(0) + status.slice(1).toLowerCase().replace(/_/g, ' ');
+}
+
 async function loadCompetitionSheetPilots(competitionId: string) {
   const pilots = await prisma.pilot.findMany({
     where: {
       competitionId,
-      status: { in: ['REGISTERED', 'CONFIRMED', 'ACTIVE', 'CHECKED_IN'] },
-      pilotNumber: { not: null },
+      status: { in: [...COMPETING_PILOT_STATUSES] },
     },
     include: { country: true },
-    orderBy: { pilotNumber: 'asc' },
+    orderBy: acceptedPilotOrder(),
   });
   return pilots.map((p, i) => ({
     order: i + 1,
@@ -1259,9 +1274,12 @@ async function buildReportInput(
 
   if (reportType === 'PILOT_LIST' || reportType === 'REGISTRATION_LIST') {
     const pilots = await prisma.pilot.findMany({
-      where: { competitionId: competition.id, pilotNumber: { not: null } },
+      where:
+        reportType === 'PILOT_LIST'
+          ? { competitionId: competition.id, status: { in: [...COMPETING_PILOT_STATUSES] } }
+          : { competitionId: competition.id },
       include: { country: true },
-      orderBy: { pilotNumber: 'asc' },
+      orderBy: acceptedPilotOrder(),
     });
     return {
       reportType,
@@ -1271,12 +1289,12 @@ async function buildReportInput(
       columns: ['No', 'Name', 'Country', 'Gender', 'Club', 'Status'],
       rows: pilots.map((p, i) => ({
         rank: i + 1,
-        pilotNumber: p.pilotNumber ?? 0,
+        pilotNumber: p.pilotNumber ?? undefined,
         name: formatPilotName(p.firstName, p.lastName),
         country: p.country?.name ?? p.nationality ?? '',
-        scores: [p.gender, p.club ?? '', p.status],
+        scores: [p.gender, p.club ?? '', pilotStatusLabel(p.status)],
         total: '',
-        notes: p.status,
+        notes: pilotStatusLabel(p.status),
       })),
     };
   }
@@ -1307,7 +1325,7 @@ async function buildReportInput(
         columns: launchColumns,
         rows: sheetPilots.map((p) => ({
           rank: p.order,
-          pilotNumber: p.pilotNumber ?? 0,
+          pilotNumber: p.pilotNumber ?? undefined,
           name: p.name,
           country: p.country,
           scores: [],
@@ -1318,10 +1336,31 @@ async function buildReportInput(
     }
 
     const flights = await prisma.flight.findMany({
-      where: { roundId: round.id },
+      where: {
+        roundId: round.id,
+        pilot: { status: { in: [...COMPETING_PILOT_STATUSES] } },
+      },
       include: { pilot: { include: { country: true } } },
       orderBy: { flightOrder: 'asc' },
     });
+    const launchRows =
+      flights.length > 0
+        ? flights.map((f) => ({
+            rank: f.flightOrder,
+            pilotNumber: f.pilot.pilotNumber ?? undefined,
+            name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
+            country: f.pilot.country?.name ?? f.pilot.nationality ?? '',
+            scores: [] as string[],
+            total: '',
+          }))
+        : (await loadCompetitionSheetPilots(competition.id)).map((p) => ({
+            rank: p.order,
+            pilotNumber: p.pilotNumber ?? undefined,
+            name: p.name,
+            country: p.country,
+            scores: [] as string[],
+            total: '',
+          }));
 
     return {
       reportType,
@@ -1330,14 +1369,7 @@ async function buildReportInput(
       title: 'Launch Order',
       sheetFields: launchSheetFields(round.number),
       columns: launchColumns,
-      rows: flights.map((f) => ({
-        rank: f.flightOrder,
-        pilotNumber: f.pilot.pilotNumber ?? 0,
-        name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
-        country: f.pilot.country?.name ?? '',
-        scores: [],
-        total: '',
-      })),
+      rows: launchRows,
       footerNote: 'Fill Start/End Time on site · Remarks for judge notes after printing',
     };
   }
@@ -1443,7 +1475,7 @@ async function buildReportInput(
         columns: ['Order', 'No', 'Name', 'Country', 'Score (cm)', 'Signature', 'Remarks'],
         rows: sheetPilots.map((p) => ({
           rank: p.order,
-          pilotNumber: p.pilotNumber ?? 0,
+          pilotNumber: p.pilotNumber ?? undefined,
           name: p.name,
           country: p.country,
           scores: [],
@@ -1482,41 +1514,19 @@ async function buildReportInput(
       orderBy: { flightOrder: 'asc' },
     });
 
-    type SheetPilot = {
-      order: number;
-      pilotNumber: number;
-      name: string;
-      country: string;
-      pilotId: string;
-    };
-
-    let sheetPilots: SheetPilot[];
-    if (flights.length > 0) {
-      sheetPilots = flights.map((f) => ({
-        order: f.flightOrder,
-        pilotNumber: f.pilot.pilotNumber ?? 0,
-        name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
-        country: f.pilot.country?.name ?? f.pilot.nationality ?? '',
-        pilotId: f.pilot.id,
-      }));
-    } else {
-      const pilots = await prisma.pilot.findMany({
-        where: {
-          competitionId: competition.id,
-          status: { in: ['REGISTERED', 'CONFIRMED', 'ACTIVE', 'CHECKED_IN'] },
-          pilotNumber: { not: null },
-        },
-        include: { country: true },
-        orderBy: { pilotNumber: 'asc' },
-      });
-      sheetPilots = pilots.map((p, i) => ({
-        order: i + 1,
-        pilotNumber: p.pilotNumber ?? 0,
-        name: formatPilotName(p.firstName, p.lastName),
-        country: p.country?.name ?? p.nationality ?? '',
-        pilotId: p.id,
-      }));
-    }
+    const acceptedFlights = flights.filter((f) =>
+      (COMPETING_PILOT_STATUSES as readonly string[]).includes(f.pilot.status),
+    );
+    const sheetPilots =
+      acceptedFlights.length > 0
+        ? acceptedFlights.map((f) => ({
+            order: f.flightOrder,
+            pilotNumber: f.pilot.pilotNumber,
+            name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
+            country: f.pilot.country?.name ?? f.pilot.nationality ?? '',
+            pilotId: f.pilot.id,
+          }))
+        : await loadCompetitionSheetPilots(competition.id);
 
     if (reportType === 'JUDGE_SHEETS') {
       return {
@@ -1528,7 +1538,7 @@ async function buildReportInput(
         columns: ['Order', 'No', 'Name', 'Country', 'Distance (cm)', 'Result', 'Notes'],
         rows: sheetPilots.map((p) => ({
           rank: p.order,
-          pilotNumber: p.pilotNumber ?? 0,
+          pilotNumber: p.pilotNumber ?? undefined,
           name: p.name,
           country: p.country,
           scores: ['', ''],
@@ -1562,7 +1572,7 @@ async function buildReportInput(
         const score = scoreByPilot.get(p.pilotId);
         return {
           rank: p.order,
-          pilotNumber: p.pilotNumber ?? 0,
+          pilotNumber: p.pilotNumber ?? undefined,
           name: p.name,
           country: p.country,
           scores: [],
