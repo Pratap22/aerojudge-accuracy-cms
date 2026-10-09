@@ -5,6 +5,7 @@ import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { resolveLocalUploadPath, toAbsoluteAssetUrl } from '../utils/assets.js';
 import { destroyCloudinaryImage, uploadImageToCloudinary } from '../utils/cloudinary.js';
+import { prepareFeedPhoto } from '../utils/feed-photo.js';
 import { displayedPilotPhotoUrl } from './person.service.js';
 import { emitFeedUpdated } from '../socket/index.js';
 
@@ -192,12 +193,9 @@ export async function createPhotoPost(
   if (!text) throw AppError.badRequest('Caption is required');
   if (text.length > TEXT_MAX) throw AppError.badRequest(`Caption must be ${TEXT_MAX} characters or fewer`);
 
-  const allowed = ['image/png', 'image/jpeg', 'image/webp'];
-  if (!allowed.includes(file.mimetype)) {
-    throw AppError.badRequest('Photo must be PNG, JPEG, or WebP');
-  }
+  const photo = await prepareFeedPhoto(file);
 
-  const uploaded = await uploadImageToCloudinary(file, {
+  const uploaded = await uploadImageToCloudinary(photo, {
     folder: `feed/${competitionId}`,
     maxEdge: 2000,
   });

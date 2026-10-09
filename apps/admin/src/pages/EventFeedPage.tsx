@@ -242,10 +242,13 @@ export function EventFeedPage() {
                     id="feed-photo"
                     ref={photoInputRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/webp"
+                    accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
                     onChange={(event) => setPhoto(event.target.files?.[0] ?? null)}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    PNG, JPEG, WebP, or iPhone HEIC. HEIC photos are converted before they are stored.
+                  </p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="feed-caption">Caption</Label>
