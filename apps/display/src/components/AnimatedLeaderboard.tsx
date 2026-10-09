@@ -1,13 +1,54 @@
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { RankBadge } from '@aero-judge/ui';
 import type { LeaderboardEntry } from '@aero-judge/ui';
-import { formatScore } from '../lib/utils';
+import { formatScore, getAutoInterval } from '../lib/utils';
 
 interface AnimatedLeaderboardProps {
   entries: LeaderboardEntry[];
   title: string;
   maxRows?: number;
   highlightPilotNumber?: number;
+  /** In auto rotation, finish one scroll through an overflowing list before the next screen. */
+  autoAdvance?: boolean;
+  onAutoAdvance?: () => void;
+}
+
+function wait(ms: number, isCancelled: () => boolean): Promise<void> {
+  return new Promise((resolve) => {
+    const id = window.setTimeout(() => resolve(), ms);
+    const poll = window.setInterval(() => {
+      if (!isCancelled()) return;
+      window.clearTimeout(id);
+      window.clearInterval(poll);
+      resolve();
+    }, 40);
+    window.setTimeout(() => window.clearInterval(poll), ms + 50);
+  });
+}
+
+function animateScroll(
+  el: HTMLElement,
+  to: number,
+  duration: number,
+  isCancelled: () => boolean,
+): Promise<void> {
+  return new Promise((resolve) => {
+    const from = el.scrollTop;
+    const start = performance.now();
+    const step = (now: number) => {
+      if (isCancelled()) {
+        resolve();
+        return;
+      }
+      const t = Math.min(1, (now - start) / duration);
+      const eased = t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2;
+      el.scrollTop = from + (to - from) * eased;
+      if (t < 1) requestAnimationFrame(step);
+      else resolve();
+    };
+    requestAnimationFrame(step);
+  });
 }
 
 export function AnimatedLeaderboard({
@@ -15,20 +56,71 @@ export function AnimatedLeaderboard({
   title,
   maxRows = 10,
   highlightPilotNumber,
+  autoAdvance = false,
+  onAutoAdvance,
 }: AnimatedLeaderboardProps) {
   const rows = entries.slice(0, maxRows);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const onAutoAdvanceRef = useRef(onAutoAdvance);
+  onAutoAdvanceRef.current = onAutoAdvance;
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    let cancelled = false;
+    const isCancelled = () => cancelled;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const run = async (loop: boolean) => {
+      el.scrollTop = 0;
+      await wait(2200, isCancelled);
+      if (isCancelled()) return;
+      const overflow = el.scrollHeight - el.clientHeight;
+      if (overflow <= 8) {
+        if (!autoAdvance) return;
+        await wait(Math.max(0, getAutoInterval() * 1000 - 2200), isCancelled);
+        if (!isCancelled()) onAutoAdvanceRef.current?.();
+        return;
+      }
+
+      const scrollMs = Math.min(14000, Math.max(5000, overflow * 28));
+      if (reduceMotion) el.scrollTop = overflow;
+      else await animateScroll(el, overflow, scrollMs, isCancelled);
+      if (isCancelled()) return;
+      await wait(1800, isCancelled);
+      if (isCancelled()) return;
+
+      if (autoAdvance) {
+        onAutoAdvanceRef.current?.();
+        return;
+      }
+
+      if (!loop) return;
+      if (reduceMotion) el.scrollTop = 0;
+      else await animateScroll(el, 0, Math.min(4000, scrollMs * 0.45), isCancelled);
+      if (!isCancelled()) void run(true);
+    };
+
+    void run(!autoAdvance);
+    return () => {
+      cancelled = true;
+    };
+  }, [autoAdvance, rows.length, title]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <motion.h2
         initial={{ x: -40, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className="mb-8 font-display text-5xl uppercase tracking-[0.15em] text-sky-400"
+        className="mb-6 shrink-0 font-display text-4xl uppercase tracking-[0.15em] text-sky-400 sm:mb-8 sm:text-5xl"
       >
         {title}
       </motion.h2>
 
-      <div className="flex-1 space-y-2">
+      <div
+        ref={scrollerRef}
+        className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {rows.length === 0 ? (
           <p className="text-xl text-sky-400/50">No rankings yet</p>
         ) : (

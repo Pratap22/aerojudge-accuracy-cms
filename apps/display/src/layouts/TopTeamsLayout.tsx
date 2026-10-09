@@ -4,13 +4,21 @@ import type { LeaderboardEntry } from '@aero-judge/ui';
 
 interface TopTeamsLayoutProps {
   entries: LeaderboardEntry[];
+  autoAdvance?: boolean;
+  onAutoAdvance?: () => void;
 }
 
-export function TopTeamsLayout({ entries }: TopTeamsLayoutProps) {
+export function TopTeamsLayout({ entries, autoAdvance, onAutoAdvance }: TopTeamsLayoutProps) {
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex-1 p-10">
-        <AnimatedLeaderboard entries={entries} title="Team Ranking" maxRows={10} />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-hidden p-6 sm:p-10">
+        <AnimatedLeaderboard
+          entries={entries}
+          title="Team Ranking"
+          maxRows={10}
+          autoAdvance={autoAdvance}
+          onAutoAdvance={onAutoAdvance}
+        />
       </div>
       <SponsorStrip />
     </div>

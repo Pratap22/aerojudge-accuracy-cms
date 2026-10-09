@@ -292,14 +292,25 @@ export function DisplayBoardPage() {
     return () => document.body.classList.remove('kiosk-mode');
   }, [kioskMode]);
 
+  const rankingDrivesAuto =
+    inAuto &&
+    (activeLayout === 'top10' ||
+      activeLayout === 'women' ||
+      activeLayout === 'teams' ||
+      activeLayout === 'country');
+
+  const advanceAuto = useCallback(() => {
+    setAutoIndex((i) => (i + 1) % Math.max(autoSequence.length, 1));
+  }, [autoSequence.length]);
+
   useEffect(() => {
-    if (!inAuto || autoSequence.length === 0) return;
-    const interval = getAutoInterval();
-    const timer = setInterval(() => {
+    // Ranking screens that overflow scroll first, then advance themselves.
+    if (!inAuto || autoSequence.length === 0 || rankingDrivesAuto) return;
+    const timer = window.setTimeout(() => {
       setAutoIndex((i) => (i + 1) % autoSequence.length);
-    }, interval * 1000);
-    return () => clearInterval(timer);
-  }, [inAuto, autoSequence.length]);
+    }, getAutoInterval() * 1000);
+    return () => window.clearTimeout(timer);
+  }, [inAuto, autoSequence.length, autoIndex, rankingDrivesAuto]);
 
   // Leave empty optional layouts if URL/socket still points there.
   // Before round 1, scoring tabs stay in the URL so they return when flying starts.
@@ -515,14 +526,30 @@ export function DisplayBoardPage() {
           <Top10Layout
             entries={overallEntries}
             highlightPilotNumber={currentPilot?.pilot?.pilotNumber}
+            autoAdvance={inAuto}
+            onAutoAdvance={advanceAuto}
           />
         );
       case 'women':
-        return <TopWomenLayout entries={womenEntries} />;
+        return (
+          <TopWomenLayout
+            entries={womenEntries}
+            autoAdvance={inAuto}
+            onAutoAdvance={advanceAuto}
+          />
+        );
       case 'teams':
-        return <TopTeamsLayout entries={teamEntries} />;
+        return (
+          <TopTeamsLayout entries={teamEntries} autoAdvance={inAuto} onAutoAdvance={advanceAuto} />
+        );
       case 'country':
-        return <CountryLayout entries={countryEntries} />;
+        return (
+          <CountryLayout
+            entries={countryEntries}
+            autoAdvance={inAuto}
+            onAutoAdvance={advanceAuto}
+          />
+        );
       case 'next':
         return <NextPilotsLayout current={currentPilot} queue={onDeckQueue} />;
       case 'sponsors':

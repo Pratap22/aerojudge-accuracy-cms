@@ -15,7 +15,7 @@ export function LayoutRouter({ layoutKey, children }: LayoutRouterProps) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.5 }}
-        className="h-full w-full"
+        className="h-full min-h-0 w-full"
       >
         {children}
       </motion.div>
