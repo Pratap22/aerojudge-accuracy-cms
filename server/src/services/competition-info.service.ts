@@ -15,6 +15,7 @@ import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { buildUploadUrl, toAbsoluteAssetUrl } from '../utils/assets.js';
+import { convertHeicUpload } from '../utils/feed-photo.js';
 import { sanitizeRichHtml } from '../utils/sanitize-html.js';
 import { getCompetition } from './competition.service.js';
 
@@ -227,13 +228,14 @@ export async function createGalleryImage(
 ) {
   await getCompetition(competitionId);
 
+  const image = await convertHeicUpload(file);
   const allowed = ['image/png', 'image/jpeg', 'image/webp'];
-  if (!allowed.includes(file.mimetype)) {
-    throw AppError.badRequest('Image must be PNG, JPEG, or WebP');
+  if (!allowed.includes(image.mimetype)) {
+    throw AppError.badRequest('Image must be PNG, JPEG, WebP, or HEIC');
   }
 
   const ext =
-    file.mimetype === 'image/png' ? '.png' : file.mimetype === 'image/webp' ? '.webp' : '.jpg';
+    image.mimetype === 'image/png' ? '.png' : image.mimetype === 'image/webp' ? '.webp' : '.jpg';
 
   const maxOrder = await prisma.competitionGalleryImage.aggregate({
     where: { competitionId },
@@ -244,7 +246,7 @@ export async function createGalleryImage(
   const dir = path.join(env.uploadDir, 'gallery', competitionId);
   await mkdir(dir, { recursive: true });
   const filename = `${imageId}${ext}`;
-  await writeFile(path.join(dir, filename), file.buffer);
+  await writeFile(path.join(dir, filename), image.buffer);
 
   const url = buildUploadUrl('gallery', competitionId, filename);
   const row = await prisma.competitionGalleryImage.create({

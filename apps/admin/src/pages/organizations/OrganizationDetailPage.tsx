@@ -413,7 +413,7 @@ export function OrganizationDetailPage() {
                   <input
                     ref={fileRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml,image/heic,image/heif,.heic,.heif"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
@@ -432,7 +432,7 @@ export function OrganizationDetailPage() {
                       {logoMutation.isPending ? 'Uploading…' : 'Upload logo'}
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      PNG, JPEG, WebP, or SVG · max 2 MB
+                      PNG, JPEG, WebP, SVG, or HEIC · max 2 MB
                     </p>
                     {logoMutation.isError && (
                       <p className="text-sm text-destructive">

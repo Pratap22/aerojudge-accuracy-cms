@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { env } from '../config/env.js';
+import { convertHeicUpload } from './feed-photo.js';
 import { AppError } from './errors.js';
 
 let configured = false;
@@ -39,16 +40,18 @@ export async function uploadImageToCloudinary(
 ): Promise<{ url: string; publicId: string }> {
   ensureConfigured();
 
+  const prepared = await convertHeicUpload(file);
+
   const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/pjpeg', 'image/webp', 'image/gif'];
   if (options.allowSvg) allowed.push('image/svg+xml');
-  if (file.mimetype === 'image/jpg' || file.mimetype === 'image/pjpeg') {
-    file.mimetype = 'image/jpeg';
+  if (prepared.mimetype === 'image/jpg' || prepared.mimetype === 'image/pjpeg') {
+    prepared.mimetype = 'image/jpeg';
   }
-  if (!allowed.includes(file.mimetype)) {
+  if (!allowed.includes(prepared.mimetype)) {
     throw AppError.badRequest(
       options.allowSvg
-        ? 'Image must be PNG, JPEG, WebP, GIF, or SVG'
-        : 'Image must be PNG, JPEG, WebP, or GIF',
+        ? 'Image must be PNG, JPEG, WebP, GIF, SVG, or HEIC'
+        : 'Image must be PNG, JPEG, WebP, GIF, or HEIC',
     );
   }
 
@@ -57,7 +60,7 @@ export async function uploadImageToCloudinary(
     '/',
   );
   const maxEdge = options.maxEdge ?? 800;
-  const isSvg = file.mimetype === 'image/svg+xml';
+  const isSvg = prepared.mimetype === 'image/svg+xml';
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -105,7 +108,7 @@ export async function uploadImageToCloudinary(
     stream.on('error', (streamErr: Error) => {
       fail(streamErr.message || 'Cloudinary upload failed');
     });
-    stream.end(file.buffer);
+    stream.end(prepared.buffer);
   });
 }
 
@@ -118,10 +121,11 @@ export async function uploadDocumentToCloudinary(
 ): Promise<{ url: string; publicId: string }> {
   ensureConfigured();
 
+  const prepared = await convertHeicUpload(file);
   const imageTypes = ['image/png', 'image/jpeg', 'image/webp'];
-  const isPdf = file.mimetype === 'application/pdf';
-  if (!isPdf && !imageTypes.includes(file.mimetype)) {
-    throw AppError.badRequest('Signed form must be a PDF, PNG, JPEG, or WebP file');
+  const isPdf = prepared.mimetype === 'application/pdf';
+  if (!isPdf && !imageTypes.includes(prepared.mimetype)) {
+    throw AppError.badRequest('Signed form must be a PDF, PNG, JPEG, WebP, or HEIC file');
   }
 
   const folder = `${env.CLOUDINARY_FOLDER.replace(/\/+$/, '')}/${options.folder}`.replace(
@@ -161,7 +165,7 @@ export async function uploadDocumentToCloudinary(
         resolve({ url: result.secure_url, publicId: result.public_id });
       },
     );
-    stream.end(file.buffer);
+    stream.end(prepared.buffer);
   });
 }
 

@@ -88,7 +88,11 @@ export function RegisterPage() {
   const person = user?.person;
   const hasPerson = !!person;
   const profilePhotoUrl = person?.photoUrl ?? null;
-  const displayPhotoUrl = photoPreview ?? profilePhotoUrl;
+  const displayPhotoUrl =
+    photoFile &&
+    (photoFile.type.toLowerCase().startsWith('image/hei') || /\.hei[cf]$/i.test(photoFile.name))
+      ? null
+      : (photoPreview ?? profilePhotoUrl);
 
   const mutation = useMutation({
     mutationFn: async (body: AuthenticatedPilotRegistrationInput) => {
@@ -124,7 +128,10 @@ export function RegisterPage() {
     }
     setFieldError(null);
     setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    const type = file.type.toLowerCase();
+    const heic =
+      type.startsWith('image/heic') || type.startsWith('image/heif') || /\.hei[cf]$/i.test(file.name);
+    setPhotoPreview(heic ? null : URL.createObjectURL(file));
   };
   const onAuthSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -547,10 +554,10 @@ export function RegisterPage() {
                 <Label className="text-sky-200">Photo (optional)</Label>
                 <p className="text-xs text-sky-400/60">
                   {photoFile
-                    ? 'New photo will be used for leaderboards and venue display · PNG/JPEG/WebP · max 2 MB'
+                    ? 'New photo will be used for leaderboards and venue display · PNG, JPEG, WebP, GIF, or HEIC · max 2 MB'
                     : profilePhotoUrl
                       ? 'Using your AeroJudge profile photo · choose a file to replace'
-                      : 'Headshot for leaderboards and venue display · PNG/JPEG/WebP · max 2 MB'}
+                      : 'Headshot for leaderboards and venue display · PNG, JPEG, WebP, GIF, or HEIC · max 2 MB'}
                 </p>
                 <div className="flex items-center gap-4">
                   {displayPhotoUrl ? (
@@ -561,12 +568,12 @@ export function RegisterPage() {
                     />
                   ) : (
                     <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-xs text-sky-400/60">
-                      None
+                      {photoFile ? 'Added' : 'None'}
                     </span>
                   )}
                   <Input
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                     className="border-white/10 bg-white/5 text-white file:mr-3 file:rounded-md file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#050d1a]"
                     onChange={(e) => onPhotoChange(e.target.files?.[0] ?? null)}
                   />

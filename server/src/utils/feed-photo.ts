@@ -51,12 +51,18 @@ export function isHeicPhoto(file: {
   return /\.hei[cf]$/i.test(file.originalname);
 }
 
+/** Decode an iPhone HEIC/HEIF upload to JPEG. Other files are returned unchanged. */
+export async function convertHeicUpload(file: Express.Multer.File): Promise<Express.Multer.File> {
+  if (!isHeicPhoto(file)) return file;
+  return convertHeicToJpeg(file);
+}
+
 /**
  * Turn an event-feed upload into a raster Cloudinary accepts.
  * HEIC/HEIF is decoded and re-encoded as JPEG before the upload.
  */
 export async function prepareFeedPhoto(file: Express.Multer.File): Promise<Express.Multer.File> {
-  if (isHeicPhoto(file)) return convertHeicToJpeg(file);
+  if (isHeicPhoto(file)) return convertHeicUpload(file);
 
   const mimetype = mediaType(file.mimetype);
   const normalized = mimetype === 'image/jpg' || mimetype === 'image/pjpeg' ? 'image/jpeg' : mimetype;

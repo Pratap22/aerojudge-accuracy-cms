@@ -964,10 +964,10 @@ export function PilotsPage() {
                   <Label>Photo</Label>
                   <p className="text-xs text-muted-foreground">
                     {photoFile
-                      ? 'Optional headshot for public rankings and venue display (max 2 MB)'
+                      ? 'Optional headshot for public rankings and venue display (PNG, JPEG, WebP, GIF, or HEIC · max 2 MB)'
                       : selectedPerson?.photoUrl && photoPreview
                         ? 'Using profile photo from returning person · upload to replace'
-                        : 'Optional headshot for public rankings and venue display (max 2 MB)'}
+                        : 'Optional headshot for public rankings and venue display (PNG, JPEG, WebP, GIF, or HEIC · max 2 MB)'}
                   </p>
                   <div className="flex flex-wrap items-center gap-3">
                     {photoPreview ? (
@@ -984,7 +984,7 @@ export function PilotsPage() {
                     <input
                       ref={photoInputRef}
                       type="file"
-                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0] ?? null;
@@ -1004,7 +1004,12 @@ export function PilotsPage() {
                         }
                         setPhotoRemoved(false);
                         setPhotoFile(file);
-                        setPhotoPreview(URL.createObjectURL(file));
+                        const type = file.type.toLowerCase();
+                        const heic =
+                          type.startsWith('image/heic') ||
+                          type.startsWith('image/heif') ||
+                          /\.hei[cf]$/i.test(file.name);
+                        setPhotoPreview(heic ? null : URL.createObjectURL(file));
                       }}
                     />
                     <Button
@@ -1014,9 +1019,14 @@ export function PilotsPage() {
                       onClick={() => photoInputRef.current?.click()}
                     >
                       <ImagePlus className="mr-2 h-4 w-4" />
-                      {photoPreview ? 'Change photo' : 'Add photo'}
+                      {photoPreview || photoFile ? 'Change photo' : 'Add photo'}
                     </Button>
-                    {photoPreview && (photoFile || editing) && (
+                    {photoFile && !photoPreview ? (
+                      <span className="max-w-[12rem] truncate text-xs text-muted-foreground">
+                        {photoFile.name}
+                      </span>
+                    ) : null}
+                    {(photoPreview || photoFile) && (photoFile || editing) && (
                       <Button
                         type="button"
                         variant="ghost"

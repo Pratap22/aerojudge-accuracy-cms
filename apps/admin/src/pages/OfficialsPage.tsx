@@ -159,6 +159,15 @@ export function OfficialsPage() {
 
   useEffect(() => {
     if (!photoFile) return undefined;
+    const type = photoFile.type.toLowerCase();
+    const heic =
+      type.startsWith('image/heic') ||
+      type.startsWith('image/heif') ||
+      /\.hei[cf]$/i.test(photoFile.name);
+    if (heic) {
+      setPhotoPreview(null);
+      return undefined;
+    }
     const url = URL.createObjectURL(photoFile);
     setPhotoPreview(url);
     return () => URL.revokeObjectURL(url);
@@ -282,8 +291,9 @@ export function OfficialsPage() {
   const onPhotoSelected = (file: File | undefined) => {
     setPhotoError(null);
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setPhotoError('Choose an image file (PNG, JPEG, WebP, or GIF).');
+    const heic = /\.hei[cf]$/i.test(file.name) || file.type.toLowerCase().startsWith('image/hei');
+    if (!file.type.startsWith('image/') && !heic) {
+      setPhotoError('Choose an image file (PNG, JPEG, WebP, GIF, or HEIC).');
       return;
     }
     if (file.size > PHOTO_MAX_BYTES) {
@@ -461,7 +471,7 @@ export function OfficialsPage() {
               <input
                 ref={photoInputRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                 className="hidden"
                 onChange={(e) => {
                   onPhotoSelected(e.target.files?.[0]);
@@ -481,14 +491,14 @@ export function OfficialsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 text-sm font-medium">
                     <ImagePlus className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    {formPreviewUrl ? 'Change photo' : 'Upload photo'}
+                    {formPreviewUrl || photoFile ? 'Change photo' : 'Upload photo'}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {photoFile
-                      ? 'PNG, JPEG, WebP, or GIF · max 5 MB · applied when you save'
+                      ? 'PNG, JPEG, WebP, GIF, or HEIC · max 5 MB · applied when you save'
                       : selectedPerson?.photoUrl && formPreviewUrl
                         ? 'Using profile photo from returning person · upload to replace'
-                        : 'PNG, JPEG, WebP, or GIF · max 5 MB · applied when you save'}
+                        : 'PNG, JPEG, WebP, GIF, or HEIC · max 5 MB · applied when you save'}
                   </p>
                   {photoFile ? (
                     <p className="mt-1 truncate text-xs text-primary">{photoFile.name}</p>

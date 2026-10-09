@@ -112,6 +112,11 @@ function canvasBlob(canvas: HTMLCanvasElement, type: string, quality?: number): 
  * Shrink the logo before upload. The public gateway rejects bodies over 1 MB
  * with an HTML page, which the client used to surface as invalid JSON.
  */
+function isHeicFile(file: File): boolean {
+  const type = file.type.toLowerCase();
+  return type.startsWith('image/heic') || type.startsWith('image/heif') || /\.hei[cf]$/i.test(file.name);
+}
+
 function logoMime(file: File): string {
   if (file.type === 'image/jpg' || file.type === 'image/pjpeg') return 'image/jpeg';
   if (file.type) return file.type;
@@ -125,11 +130,18 @@ function logoMime(file: File): string {
 }
 
 async function prepareLogoFile(file: File): Promise<File> {
+  // Browsers usually cannot decode HEIC into a canvas. The server converts it to JPEG.
+  if (isHeicFile(file)) {
+    if (file.size > LOGO_MAX_BYTES) {
+      throw new Error('Logo is too large. Maximum size is 5 MB.');
+    }
+    return file;
+  }
   const mime = logoMime(file);
   const isSvg = mime === 'image/svg+xml';
   const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
   if (!isSvg && !allowed.includes(mime)) {
-    throw new Error('Logo must be a PNG, JPEG, WebP, or SVG.');
+    throw new Error('Logo must be a PNG, JPEG, WebP, SVG, or HEIC.');
   }
   if (file.size > LOGO_MAX_BYTES) {
     throw new Error('Logo is too large. Maximum size is 5 MB.');
@@ -528,7 +540,7 @@ export function SponsorsPage() {
             <div className="space-y-2">
               <Label>Logo (optional)</Label>
               <p className="text-xs text-muted-foreground">
-                PNG, JPEG, WebP, or SVG · max 5 MB · large images are reduced when you save
+                PNG, JPEG, WebP, SVG, or HEIC · max 5 MB · large images are reduced when you save
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 {logoPreview ? (
@@ -545,7 +557,7 @@ export function SponsorsPage() {
                 <input
                   ref={fileRef}
                   type="file"
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml,image/heic,image/heif,.heic,.heif"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0] ?? null;
@@ -564,7 +576,12 @@ export function SponsorsPage() {
                       return;
                     }
                     setLogoFile(file);
-                    setLogoPreview(URL.createObjectURL(file));
+                    const type = file.type.toLowerCase();
+                    const heic =
+                      type.startsWith('image/heic') ||
+                      type.startsWith('image/heif') ||
+                      /\.hei[cf]$/i.test(file.name);
+                    setLogoPreview(heic ? null : URL.createObjectURL(file));
                   }}
                 />
                 <Button
@@ -574,8 +591,13 @@ export function SponsorsPage() {
                   onClick={() => fileRef.current?.click()}
                 >
                   <ImagePlus className="mr-2 h-4 w-4" />
-                  {logoPreview ? 'Change logo' : 'Add logo'}
+                  {logoPreview || logoFile ? 'Change logo' : 'Add logo'}
                 </Button>
+                {logoFile && !logoPreview ? (
+                  <span className="max-w-[12rem] truncate text-xs text-muted-foreground">
+                    {logoFile.name}
+                  </span>
+                ) : null}
                 {logoFile && (
                   <Button
                     type="button"

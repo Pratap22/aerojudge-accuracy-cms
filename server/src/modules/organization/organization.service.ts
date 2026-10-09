@@ -4,6 +4,7 @@ import { env } from '../../config/env.js';
 import { prisma } from '../../config/prisma.js';
 import { AppError } from '../../utils/errors.js';
 import { buildUploadUrl, toAbsoluteAssetUrl } from '../../utils/assets.js';
+import { convertHeicUpload } from '../../utils/feed-photo.js';
 import {
   OrganizationRepository,
   organizationRepository,
@@ -169,17 +170,18 @@ export class OrganizationService {
   async uploadLogo(id: string, file: Express.Multer.File) {
     await this.getById(id);
 
+    const image = await convertHeicUpload(file);
     const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
-    if (!allowed.includes(file.mimetype)) {
-      throw AppError.badRequest('Logo must be PNG, JPEG, WebP, or SVG');
+    if (!allowed.includes(image.mimetype)) {
+      throw AppError.badRequest('Logo must be PNG, JPEG, WebP, SVG, or HEIC');
     }
 
     const ext =
-      file.mimetype === 'image/png'
+      image.mimetype === 'image/png'
         ? '.png'
-        : file.mimetype === 'image/webp'
+        : image.mimetype === 'image/webp'
           ? '.webp'
-          : file.mimetype === 'image/svg+xml'
+          : image.mimetype === 'image/svg+xml'
             ? '.svg'
             : '.jpg';
 
@@ -187,7 +189,7 @@ export class OrganizationService {
     await mkdir(dir, { recursive: true });
     const filename = `logo${ext}`;
     const filePath = path.join(dir, filename);
-    await writeFile(filePath, file.buffer);
+    await writeFile(filePath, image.buffer);
 
     const logoUrl = buildUploadUrl('organizations', id, filename);
     const updated = await this.repo.updateLogo(id, logoUrl);

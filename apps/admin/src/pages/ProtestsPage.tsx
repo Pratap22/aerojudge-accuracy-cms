@@ -23,7 +23,8 @@ import { useCompetitionId } from '../hooks/useCompetitionId';
 import { useAnyPermission } from '../hooks/usePermission';
 
 const FORM_MAX_BYTES = 10 * 1024 * 1024;
-const FORM_ACCEPT = 'application/pdf,image/png,image/jpeg,image/webp';
+const FORM_ACCEPT =
+  'application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif';
 const WRITE_PERMISSIONS: Permission[] = ['competition:update', 'score:approve_chief'];
 
 interface PilotOption {
@@ -154,9 +155,14 @@ export function ProtestsPage() {
         if (formFile.size > FORM_MAX_BYTES) {
           throw new Error('Signed form is too large. Maximum size is 10 MB.');
         }
+        const type = formFile.type.toLowerCase();
+        const heic =
+          type.startsWith('image/heic') ||
+          type.startsWith('image/heif') ||
+          /\.hei[cf]$/i.test(formFile.name);
         const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
-        if (formFile.type && !allowed.includes(formFile.type)) {
-          throw new Error('Signed form must be a PDF, PNG, JPEG, or WebP file');
+        if (type && type !== 'application/octet-stream' && !heic && !allowed.includes(type)) {
+          throw new Error('Signed form must be a PDF, PNG, JPEG, WebP, or HEIC file');
         }
       }
 
@@ -370,7 +376,7 @@ export function ProtestsPage() {
                 onChange={(event) => setFormFile(event.target.files?.[0] ?? null)}
               />
               <p className="text-xs text-muted-foreground">
-                PDF, PNG, JPEG, or WebP · max 10 MB
+                PDF, PNG, JPEG, WebP, or HEIC · max 10 MB
                 {editing?.formFileName ? ` · current file: ${editing.formFileName}` : ''}
               </p>
             </div>
