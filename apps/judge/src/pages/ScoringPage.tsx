@@ -18,7 +18,7 @@ import type { EnterScoreInput, RuleConfig, ScoreResultType } from '@aero-judge/s
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { roundsPath } from '../lib/paths';
-import { connectSocket, onSocketEvent } from '../lib/socket';
+import { connectSocket, onSocketEvent, onSocketReconnect } from '../lib/socket';
 import {
   enqueueScore,
   getPendingCount,
@@ -167,6 +167,7 @@ export function ScoringPage() {
     const unsubFlight = onSocketEvent('flight:status', () => refetch());
     const unsubPilot = onSocketEvent('pilot:current', () => refetch());
     const unsubScore = onSocketEvent('score:updated', () => refetch());
+    const unsubReconnect = onSocketReconnect(() => refetch());
     const unsubWind = onSocketEvent('wind:updated', (payload) => {
       if (payload.competitionId !== competitionId) return;
       queryClient.setQueryData(['wind', competitionId], {
@@ -179,6 +180,7 @@ export function ScoringPage() {
       unsubPilot();
       unsubScore();
       unsubWind();
+      unsubReconnect();
     };
   }, [competitionId, queryClient, refetch]);
 

@@ -4,7 +4,7 @@ import type { RankingCategory } from '@aero-judge/shared';
 import { fetchCompetition, fetchLatestScore, fetchLatestWind, fetchResults, fetchRoundsStatus, fetchSponsors } from '../lib/api';
 import type { PublicResults, Sponsor } from '../lib/types';
 import { useEffect } from 'react';
-import { connectDisplaySocket, onSocketEvent } from '../lib/socket';
+import { connectDisplaySocket, onSocketEvent, onSocketReconnect } from '../lib/socket';
 
 export function useCompetitionId(): string {
   const { competitionId } = useParams<{ competitionId: string }>();
@@ -51,7 +51,13 @@ export function useSponsors() {
       if (payload.competitionId !== roomKey && payload.competitionId !== competitionId) return;
       queryClient.invalidateQueries({ queryKey: ['sponsors', competitionId] });
     });
-    return () => unsub();
+    const unsubReconnect = onSocketReconnect(() => {
+      void queryClient.invalidateQueries({ queryKey: ['sponsors', competitionId] });
+    });
+    return () => {
+      unsub();
+      unsubReconnect();
+    };
   }, [roomKey, competitionId, queryClient]);
 
   return query;
@@ -59,12 +65,22 @@ export function useSponsors() {
 
 export function useLatestWind() {
   const competitionId = useCompetitionId();
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['wind', competitionId],
     queryFn: () => fetchLatestWind(competitionId),
     enabled: Boolean(competitionId),
     staleTime: 15_000,
   });
+
+  useEffect(() => {
+    if (!competitionId) return;
+    return onSocketReconnect(() => {
+      void queryClient.invalidateQueries({ queryKey: ['wind', competitionId] });
+    });
+  }, [competitionId, queryClient]);
+
+  return query;
 }
 
 export function useLatestScore() {

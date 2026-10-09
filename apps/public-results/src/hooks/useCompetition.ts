@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import type { RankingCategory } from '@aero-judge/shared';
 import { fetchCompetition, fetchFeed, fetchLatestWind, fetchResults, fetchRoundsStatus } from '../lib/api';
-import { connectPublicSocket, disconnectSocket, onSocketEvent } from '../lib/socket';
+import { connectPublicSocket, disconnectSocket, onSocketEvent, onSocketReconnect } from '../lib/socket';
 import type { PublicResults } from '../lib/types';
 
 export function useSlug(): string {
@@ -56,6 +56,10 @@ export function useResults(category: RankingCategory = 'OVERALL') {
         queryClient.invalidateQueries({ queryKey: ['competition', slug] });
         queryClient.invalidateQueries({ queryKey: ['results', slug] });
       }),
+      onSocketReconnect(() => {
+        void queryClient.invalidateQueries({ queryKey: ['competition', slug] });
+        void queryClient.invalidateQueries({ queryKey: ['results', slug] });
+      }),
     ];
 
     return () => {
@@ -83,10 +87,17 @@ export function useRoundsStatus() {
   useEffect(() => {
     if (!roomKey) return;
     connectPublicSocket(roomKey);
-    return onSocketEvent('round:status', (payload) => {
+    const unsub = onSocketEvent('round:status', (payload) => {
       if (payload.competitionId !== roomKey && payload.competitionId !== slug) return;
       void queryClient.invalidateQueries({ queryKey: ['public-rounds', slug] });
     });
+    const unsubReconnect = onSocketReconnect(() => {
+      void queryClient.invalidateQueries({ queryKey: ['public-rounds', slug] });
+    });
+    return () => {
+      unsub();
+      unsubReconnect();
+    };
   }, [roomKey, slug, queryClient]);
 
   const pausedRound =
@@ -113,10 +124,17 @@ export function useEventFeed() {
   useEffect(() => {
     if (!roomKey) return;
     connectPublicSocket(roomKey);
-    return onSocketEvent('feed:updated', (payload) => {
+    const unsub = onSocketEvent('feed:updated', (payload) => {
       if (payload.competitionId !== roomKey && payload.competitionId !== slug) return;
       void queryClient.invalidateQueries({ queryKey: ['event-feed', slug] });
     });
+    const unsubReconnect = onSocketReconnect(() => {
+      void queryClient.invalidateQueries({ queryKey: ['event-feed', slug] });
+    });
+    return () => {
+      unsub();
+      unsubReconnect();
+    };
   }, [roomKey, slug, queryClient]);
 
   return query;
@@ -138,7 +156,10 @@ export function useLatestWind() {
   useEffect(() => {
     if (!roomKey) return;
     connectPublicSocket(roomKey);
-    return onSocketEvent('wind:updated', (payload) => {
+    const unsubReconnect = onSocketReconnect(() => {
+      void queryClient.invalidateQueries({ queryKey: ['wind', slug] });
+    });
+    const unsub = onSocketEvent('wind:updated', (payload) => {
       if (payload.competitionId !== roomKey && payload.competitionId !== slug) return;
       queryClient.setQueryData(['wind', slug], {
         speedMs: payload.speedMs,
@@ -147,6 +168,10 @@ export function useLatestWind() {
         recordedAt: payload.recordedAt ?? new Date().toISOString(),
       });
     });
+    return () => {
+      unsub();
+      unsubReconnect();
+    };
   }, [roomKey, slug, queryClient]);
 
   return query;

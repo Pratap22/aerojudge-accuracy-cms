@@ -38,7 +38,7 @@ import {
 import type { CompetitionStatus, RoundStatus } from '@aero-judge/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { onSocketEvent } from '../lib/socket';
+import { onSocketEvent, onSocketReconnect } from '../lib/socket';
 import {
   archivedCompetitionsPath,
   competitionPath,
@@ -212,11 +212,16 @@ export function DashboardPage() {
       refetch();
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
     });
+    const unsubReconnect = onSocketReconnect(() => {
+      refetch();
+      void queryClient.invalidateQueries({ queryKey: ['competitions'] });
+    });
     return () => {
       unsubRound();
       unsubWind();
       unsubScore();
       unsubComp();
+      unsubReconnect();
     };
   }, [competitionId, refetch, queryClient]);
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { ComputedScore, RankingCategory } from '@aero-judge/shared';
-import { connectDisplaySocket, leaveDisplayRooms, onSocketEvent } from '../lib/socket';
+import { connectDisplaySocket, leaveDisplayRooms, onSocketEvent, onSocketReconnect } from '../lib/socket';
 import type { DisplayLayoutType, LiveScore, WindData } from '../lib/types';
 
 interface DisplaySocketState {
@@ -169,6 +169,10 @@ export function useDisplaySocket(
           ...prev,
           layoutOverride: payload.layoutType as DisplayLayoutType,
         }));
+      }),
+      onSocketReconnect(() => {
+        onRankingUpdateRef.current?.();
+        onRoundStatusRef.current?.();
       }),
       onSocketEvent('wind:updated', (payload) => {
         if (payload.competitionId !== competitionId) return;

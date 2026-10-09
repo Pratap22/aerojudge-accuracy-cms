@@ -59,6 +59,11 @@ export function initSocket(httpServer: HttpServer): Server {
     socket.on('leave:display', (competitionId: string) => {
       socket.leave(SOCKET_ROOMS.display(competitionId));
     });
+
+    // Live pages probe this once a minute. No ack means the link is dead.
+    socket.on('connection:check', (ack?: (status: string) => void) => {
+      if (typeof ack === 'function') ack('ok');
+    });
   });
 
   return io;

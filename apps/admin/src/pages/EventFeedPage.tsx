@@ -15,7 +15,7 @@ import {
 } from '@aero-judge/ui';
 import { ApiError, api, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
-import { getSocket, onSocketEvent } from '../lib/socket';
+import { connectSocket, onSocketEvent, onSocketReconnect } from '../lib/socket';
 
 type FeedKind = 'TEXT' | 'SCORE' | 'PHOTO' | 'REFLIGHT';
 type ComposerKind = 'TEXT' | 'SCORE' | 'PHOTO';
@@ -82,13 +82,18 @@ export function EventFeedPage() {
 
   useEffect(() => {
     if (!competitionId) return;
-    const socket = getSocket();
-    if (!socket.connected) socket.connect();
-    socket.emit('join:competition', competitionId);
-    return onSocketEvent('feed:updated', (payload) => {
+    connectSocket(competitionId);
+    const unsub = onSocketEvent('feed:updated', (payload) => {
       if (payload.competitionId !== competitionId) return;
       void queryClient.invalidateQueries({ queryKey: ['event-feed', competitionId] });
     });
+    const unsubReconnect = onSocketReconnect(() => {
+      void queryClient.invalidateQueries({ queryKey: ['event-feed', competitionId] });
+    });
+    return () => {
+      unsub();
+      unsubReconnect();
+    };
   }, [competitionId, queryClient]);
 
   const refresh = async () => {

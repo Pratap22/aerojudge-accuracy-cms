@@ -24,7 +24,7 @@ import {
 import type { RankingCategory } from '@aero-judge/shared';
 import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
-import { connectSocket, onSocketEvent } from '../lib/socket';
+import { connectSocket, onSocketEvent, onSocketReconnect } from '../lib/socket';
 
 const allCategories: { value: RankingCategory; label: string }[] = [
   { value: 'OVERALL', label: 'Overall' },
@@ -148,7 +148,14 @@ export function RankingsPage() {
       setLiveUpdate(new Date());
       void queryClient.invalidateQueries({ queryKey: ['rankings', activeCompetitionId] });
     });
-    return unsub;
+    const unsubReconnect = onSocketReconnect(() => {
+      setLiveUpdate(new Date());
+      void queryClient.invalidateQueries({ queryKey: ['rankings', activeCompetitionId] });
+    });
+    return () => {
+      unsub();
+      unsubReconnect();
+    };
   }, [activeCompetitionId, queryClient]);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
