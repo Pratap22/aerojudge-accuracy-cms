@@ -94,14 +94,24 @@ export function DisplayBoardPage() {
   const lastHandledScoreAt = useRef<number | null>(null);
 
   const { data: competition, isLoading: compLoading, error: compError, refetch: refetchCompetition } = useCompetition();
-  const { data: overallResults, invalidate: refreshOverall } = useResults('OVERALL');
-  const { data: womenResults } = useResults('WOMEN');
-  const { data: teamResults } = useResults('TEAM');
-  const { data: countryResults } = useResults('COUNTRY');
-  const { data: sponsors = [] } = useSponsors();
-  const { data: persistedLatest } = useLatestScore();
+  const { data: overallResults, isLoading: overallLoading, invalidate: refreshOverall } = useResults('OVERALL');
+  const { data: womenResults, isLoading: womenLoading } = useResults('WOMEN');
+  const { data: teamResults, isLoading: teamsLoading } = useResults('TEAM');
+  const { data: countryResults, isLoading: countryLoading } = useResults('COUNTRY');
+  const { data: sponsors = [], isLoading: sponsorsLoading } = useSponsors();
+  const { data: persistedLatest, isLoading: latestScoreLoading } = useLatestScore();
   const { data: latestWind } = useLatestWind();
-  const { data: roundsStatus, invalidate: refreshRoundsStatus } = useRoundsStatus();
+  const { data: roundsStatus, isLoading: roundsLoading, invalidate: refreshRoundsStatus } = useRoundsStatus();
+  // Tab set depends on rounds, rankings, and sponsors. Hold the board until that first fetch settles.
+  const boardLoading =
+    compLoading ||
+    overallLoading ||
+    womenLoading ||
+    teamsLoading ||
+    countryLoading ||
+    sponsorsLoading ||
+    roundsLoading ||
+    latestScoreLoading;
 
   const competitionCompleted = competition?.status === 'COMPLETED';
   const [podiumCategory, setPodiumCategory] = useState<PodiumCategory>('individual');
@@ -440,7 +450,7 @@ export function DisplayBoardPage() {
     hasLastScore,
   };
 
-  if (compLoading) {
+  if (boardLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-broadcast-navy">
         <Loader2 className="h-12 w-12 animate-spin text-sky-400" />
