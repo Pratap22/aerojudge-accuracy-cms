@@ -7,7 +7,7 @@ Deploy AeroJudge by building images in **GitHub Actions**, pushing them to **GHC
 ```
 GitHub Actions (linux/amd64)
   → ghcr.io/<owner>/<repo>/{api,admin,judge,display,public-results}:<sha>
-  → SSH to EC2 → docker compose pull + up
+  → SSH to EC2 → pull images while the current stack keeps serving, then replace only containers whose image changed
 ```
 
 This host may also run other apps (e.g. nepse-api). Do **not** stop the whole EC2 instance to save AeroJudge cost — that takes those services down too. To idle AeroJudge only:
@@ -94,7 +94,7 @@ Merging a PR into **`main`** (or pushing to `main`) runs **Build and deploy**:
 
 1. Diff against the previous `main` tip (or last successful deploy)
 2. Build/push only changed services; retag unchanged ones from `:latest`
-3. Deploy the new image tag to EC2
+3. Deploy that tag to EC2. The host pulls first, migrates while the current API is still up, then replaces only containers with a new image. Nginx reloads instead of restarting, so port 80 stays open.
 
 | Path change | Rebuilds |
 |-------------|----------|

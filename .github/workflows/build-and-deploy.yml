@@ -24,9 +24,11 @@ on:
         required: false
         type: string
 
+# Do not cancel a run that is already rolling containers. A killed deploy
+# leaves the live stack half-replaced. A newer push waits, then rolls once.
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -370,7 +372,7 @@ jobs:
           target: ${{ secrets.EC2_DEPLOY_PATH }}
           overwrite: true
 
-      - name: Pull and restart stack
+      - name: Pull and roll changed containers
         uses: appleboy/ssh-action@v1.2.0
         env:
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}
