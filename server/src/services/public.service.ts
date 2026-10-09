@@ -630,12 +630,30 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
   }
 
   if (category === 'COUNTRY') {
-    const payload = Array.isArray(result?.payloadJson) ? (result.payloadJson as Array<{
+    let countryResult = result;
+    let payload = Array.isArray(countryResult?.payloadJson) ? (countryResult.payloadJson as Array<{
       countryId: string;
       rank: number;
       totalScoreCm: number;
       pilotIds?: string[];
+      roundsScored?: number;
     }>) : [];
+
+    // Older payloads stored the counted-pilot list and had no per-round total.
+    const staleCountryRanking =
+      scoringRounds > 0 &&
+      payload.length > 0 &&
+      payload.some((row) => typeof row.roundsScored !== 'number');
+    if (staleCountryRanking) {
+      await recalculateRankings(competition.id);
+      countryResult = await prisma.result.findFirst({
+        where: { competitionId: competition.id, category, roundId: null },
+        orderBy: [{ isOfficial: 'desc' }, { updatedAt: 'desc' }],
+      });
+      payload = Array.isArray(countryResult?.payloadJson)
+        ? (countryResult.payloadJson as typeof payload)
+        : [];
+    }
 
     const countryIds = payload.map((r) => r.countryId).filter(Boolean);
     const countries = countryIds.length
@@ -656,9 +674,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           countryId: r.countryId,
           rank: r.rank,
           totalScoreCm: r.totalScoreCm,
-          // pilotIds is who was counted, not how many rounds they flew. Before any
-          // scoring round, a stored 0 cm row is just the registration list.
-          roundsFlown: scoringRounds > 0 ? (r.pilotIds?.length ?? 0) : 0,
+          roundsFlown: r.roundsScored ?? 0,
           bullseyes: 0,
           country: country
             ? { name: country.name, code: country.code2 || country.code }
@@ -671,11 +687,11 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
     return {
       competition,
       category,
-      official: !!result?.isOfficial,
-      publishedAt: result?.publishedAt,
+      official: !!countryResult?.isOfficial,
+      publishedAt: countryResult?.publishedAt,
       rankings,
       scoringRounds,
-      payload: result?.payloadJson ?? null,
+      payload: countryResult?.payloadJson ?? null,
     };
   }
 

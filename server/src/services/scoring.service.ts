@@ -56,11 +56,7 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
   }
 
   const countryRankings = competition.settings?.countryRankingEnabled
-    ? ScoringEngine.calculateCountryRankings(
-        pilots,
-        allIndividual.filter((r) => r.category === 'OVERALL'),
-        rules.teamScoringPilots,
-      )
+    ? ScoringEngine.calculateCountryRankings(pilots, rules, rules.teamScoringPilots)
     : [];
 
   const teams = await prisma.team.findMany({

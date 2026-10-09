@@ -3,6 +3,7 @@ import { DEFAULT_FAI_2022_RULES } from '@aero-judge/shared';
 import { computeFlightScore } from '../individual/flight-score';
 import {
   applyDiscardRules,
+  calculateCountryRankings,
   calculateIndividualRankings,
   fillMissingRoundScoresAsDnf,
 } from '../individual/ranking';
@@ -484,5 +485,108 @@ describe('team scoring', () => {
     );
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
+  });
+});
+
+describe('calculateCountryRankings', () => {
+  const rules = { ...DEFAULT_FAI_2022_RULES, maximumScoreCm: 1000, teamScoringPilots: 3 };
+
+  function pilot(
+    pilotId: string,
+    countryId: string | null,
+    scores: Array<{ roundId: string; roundNumber: number; finalScoreCm: number; isProvisional?: boolean }>,
+  ) {
+    return {
+      pilotId,
+      pilotNumber: Number(pilotId.replace(/\D/g, '')) || 1,
+      countryId,
+      status: 'ACTIVE',
+      roundScores: scores.map((score) => ({
+        pilotId,
+        roundId: score.roundId,
+        roundNumber: score.roundNumber,
+        finalScoreCm: score.finalScoreCm,
+        resultType: 'MEASURED' as const,
+        isBullseye: score.finalScoreCm === 0,
+        isDiscarded: false,
+        isProvisional: score.isProvisional,
+      })),
+    };
+  }
+
+  it('sums the best three scores in a finished round and drops the rest', () => {
+    const rankings = calculateCountryRankings(
+      [
+        pilot('in1', 'IND', [{ roundId: 'r1', roundNumber: 1, finalScoreCm: 0 }]),
+        pilot('in2', 'IND', [{ roundId: 'r1', roundNumber: 1, finalScoreCm: 4 }]),
+        pilot('in3', 'IND', [{ roundId: 'r1', roundNumber: 1, finalScoreCm: 2 }]),
+        pilot('in4', 'IND', [{ roundId: 'r1', roundNumber: 1, finalScoreCm: 100 }]),
+        pilot('np1', 'NPL', [{ roundId: 'r1', roundNumber: 1, finalScoreCm: 20 }]),
+        pilot('np2', 'NPL', [{ roundId: 'r1', roundNumber: 1, finalScoreCm: 21 }]),
+        pilot('np3', 'NPL', [{ roundId: 'r1', roundNumber: 1, finalScoreCm: 22 }]),
+      ],
+      rules,
+    );
+
+    expect(rankings.map((row) => [row.countryId, row.rank, row.totalScoreCm, row.roundsScored])).toEqual([
+      ['IND', 1, 6, 1],
+      ['NPL', 2, 63, 1],
+    ]);
+    expect(rankings[0].pilotIds.sort()).toEqual(['in1', 'in2', 'in3']);
+  });
+
+  it('picks the best scores again each round instead of locking the same pilots', () => {
+    const rankings = calculateCountryRankings(
+      [
+        pilot('a', 'IND', [
+          { roundId: 'r1', roundNumber: 1, finalScoreCm: 0 },
+          { roundId: 'r2', roundNumber: 2, finalScoreCm: 100 },
+        ]),
+        pilot('b', 'IND', [
+          { roundId: 'r1', roundNumber: 1, finalScoreCm: 5 },
+          { roundId: 'r2', roundNumber: 2, finalScoreCm: 5 },
+        ]),
+        pilot('c', 'IND', [
+          { roundId: 'r1', roundNumber: 1, finalScoreCm: 100 },
+          { roundId: 'r2', roundNumber: 2, finalScoreCm: 0 },
+        ]),
+        pilot('d', 'IND', [
+          { roundId: 'r1', roundNumber: 1, finalScoreCm: 2 },
+          { roundId: 'r2', roundNumber: 2, finalScoreCm: 2 },
+        ]),
+      ],
+      rules,
+    );
+
+    expect(rankings).toHaveLength(1);
+    expect(rankings[0].totalScoreCm).toBe(14);
+    expect(rankings[0].roundsScored).toBe(2);
+    expect(rankings[0].pilotIds.sort()).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('pads a finished country that has fewer than the scoring count', () => {
+    const rankings = calculateCountryRankings(
+      [pilot('solo', 'IND', [{ roundId: 'r1', roundNumber: 1, finalScoreCm: 6 }])],
+      rules,
+    );
+
+    expect(rankings[0].totalScoreCm).toBe(6 + 1000 + 1000);
+    expect(rankings[0].roundsScored).toBe(1);
+  });
+
+  it('does not pad an open round', () => {
+    const rankings = calculateCountryRankings(
+      [
+        pilot('solo', 'IND', [{ roundId: 'r1', roundNumber: 1, finalScoreCm: 6 }]),
+        pilot('waiting', 'NPL', [
+          { roundId: 'r1', roundNumber: 1, finalScoreCm: 1000, isProvisional: true },
+        ]),
+      ],
+      rules,
+    );
+
+    expect(rankings).toEqual([
+      expect.objectContaining({ countryId: 'IND', totalScoreCm: 6, roundsScored: 1 }),
+    ]);
   });
 });

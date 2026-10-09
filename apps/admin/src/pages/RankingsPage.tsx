@@ -72,6 +72,7 @@ interface CountryRankingApi {
   countryId: string;
   totalScoreCm: number;
   pilotIds?: string[];
+  roundsScored?: number;
 }
 
 function mapIndividual(rows: IndividualRankingApi[]): RankingRow[] {
@@ -112,7 +113,7 @@ function mapCountry(
     name: countryNames[r.countryId] ?? r.countryId,
     country: countryNames[r.countryId] ?? r.countryId,
     totalScoreCm: r.totalScoreCm,
-    roundsFlown: r.pilotIds?.length ?? 0,
+    roundsFlown: r.roundsScored ?? 0,
     bullseyes: 0,
   }));
 }
@@ -280,7 +281,7 @@ export function RankingsPage() {
                       <TableHead>{category === 'TEAM' ? 'Team' : category === 'COUNTRY' ? 'Country' : 'Pilot'}</TableHead>
                       <TableHead className="text-right">Total (cm)</TableHead>
                       <TableHead className="text-right">
-                        {category === 'COUNTRY' ? 'Pilots' : 'Rounds'}
+                        Rounds
                       </TableHead>
                       {category !== 'TEAM' && category !== 'COUNTRY' && (
                         <TableHead className="text-right">Bullseyes</TableHead>

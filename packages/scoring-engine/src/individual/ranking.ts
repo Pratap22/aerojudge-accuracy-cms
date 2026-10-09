@@ -293,51 +293,123 @@ export function calculateIndividualRankings(
   return results;
 }
 
+/**
+ * Country ranking — same method as FAI team scoring.
+ *
+ * Each official round, a country scores the sum of its best N pilot scores
+ * (N = team scoring-pilot count). The pilots can change from round to round.
+ * A finished round with fewer than N pilots pads the empty slots with the
+ * maximum score, so a short country does not rank as if those slots were 0.
+ * An open round counts only scores already flown and does not add the maximum.
+ * Individual worst-round discards are not applied again on top of this.
+ */
 export function calculateCountryRankings(
   pilots: PilotRankingInput[],
-  individualRankings: IndividualRankingResult[],
-  scoringPilotsPerCountry = 3,
+  rules: RuleConfig,
+  scoringPilotsPerCountry = rules.teamScoringPilots,
 ): Array<{
   countryId: string;
   rank: number;
   totalScoreCm: number;
   pilotIds: string[];
+  roundsScored: number;
   audit: ScoringAuditEntry[];
 }> {
-  const byCountry = new Map<string, IndividualRankingResult[]>();
+  const scoringCount = Math.max(1, scoringPilotsPerCountry);
+  const excluded = new Set(rules.excludeFromRankingTypes);
+  const roundMeta = new Map<string, { number: number; provisional: boolean; seen: boolean }>();
 
-  for (const ranking of individualRankings) {
-    if (ranking.roundsFlown <= 0) continue;
-    const pilot = pilots.find((p) => p.pilotId === ranking.pilotId);
-    if (!pilot?.countryId) continue;
+  for (const pilot of pilots) {
+    for (const score of pilot.roundScores) {
+      const meta = roundMeta.get(score.roundId) ?? {
+        number: score.roundNumber,
+        provisional: false,
+        seen: false,
+      };
+      meta.seen = true;
+      meta.number = score.roundNumber;
+      if (score.isProvisional) meta.provisional = true;
+      roundMeta.set(score.roundId, meta);
+    }
+  }
+
+  const orderedRounds = [...roundMeta.entries()]
+    .filter(([, meta]) => meta.seen)
+    .sort((a, b) => a[1].number - b[1].number);
+
+  const byCountry = new Map<string, PilotRankingInput[]>();
+  for (const pilot of pilots) {
+    if (!pilot.countryId || pilot.status === 'WITHDRAWN') continue;
     const list = byCountry.get(pilot.countryId) ?? [];
-    list.push(ranking);
+    list.push(pilot);
     byCountry.set(pilot.countryId, list);
   }
 
-  const countryResults = [...byCountry.entries()].flatMap(([countryId, rankings]) => {
-    const sorted = [...rankings].sort((a, b) => a.totalScoreCm - b.totalScoreCm);
-    const counted = sorted.slice(0, scoringPilotsPerCountry);
-    if (counted.length === 0) return [];
-    const totalScoreCm = counted.reduce((s, r) => s + r.totalScoreCm, 0);
+  const countryResults = [...byCountry.entries()].flatMap(([countryId, members]) => {
+    const countedPilotIds = new Set<string>();
+    let totalScoreCm = 0;
+    let roundsScored = 0;
+    const rounds: Array<{ roundId: string; totalScoreCm: number; pilotIds: string[]; padded: number }> = [];
+
+    for (const [roundId, meta] of orderedRounds) {
+      const eligible = members
+        .flatMap((member) => member.roundScores.filter((score) => score.roundId === roundId))
+        .filter((score) => !score.isProvisional && !excluded.has(score.resultType))
+        .sort(
+          (a, b) => a.finalScoreCm - b.finalScoreCm || a.pilotId.localeCompare(b.pilotId),
+        );
+
+      const roundFinal = !meta.provisional;
+      if (eligible.length === 0 && !roundFinal) continue;
+
+      const selected = eligible.slice(0, scoringCount);
+      const padded = roundFinal ? Math.max(0, scoringCount - selected.length) : 0;
+      if (selected.length === 0 && padded === 0) continue;
+
+      const roundTotal =
+        selected.reduce((sum, score) => sum + score.finalScoreCm, 0) +
+        padded * rules.maximumScoreCm;
+      for (const score of selected) countedPilotIds.add(score.pilotId);
+      totalScoreCm += roundTotal;
+      roundsScored += 1;
+      rounds.push({
+        roundId,
+        totalScoreCm: roundTotal,
+        pilotIds: selected.map((score) => score.pilotId),
+        padded,
+      });
+    }
+
+    if (roundsScored === 0) return [];
+
     return {
       countryId,
       rank: 0,
       totalScoreCm,
-      pilotIds: counted.map((c) => c.pilotId),
+      pilotIds: [...countedPilotIds],
+      roundsScored,
       audit: [
-        audit('country', `Counted top ${counted.length} of ${sorted.length} pilots`, {
-          countryId,
-          totalScoreCm,
-          pilotIds: counted.map((c) => c.pilotId),
-        }),
+        audit(
+          'country',
+          `Summed the best ${scoringCount} scores in each of ${roundsScored} round(s)`,
+          { countryId, totalScoreCm, scoringCount, roundsScored, rounds },
+        ),
       ],
     };
   });
 
-  countryResults.sort((a, b) => a.totalScoreCm - b.totalScoreCm);
-  countryResults.forEach((r, i) => {
-    r.rank = i + 1;
+  countryResults.sort((a, b) => {
+    if (a.totalScoreCm !== b.totalScoreCm) return a.totalScoreCm - b.totalScoreCm;
+    if (a.roundsScored !== b.roundsScored) return b.roundsScored - a.roundsScored;
+    return a.countryId.localeCompare(b.countryId);
+  });
+
+  let rank = 1;
+  countryResults.forEach((result, index) => {
+    if (index > 0 && result.totalScoreCm !== countryResults[index - 1].totalScoreCm) {
+      rank = index + 1;
+    }
+    result.rank = rank;
   });
 
   return countryResults;
