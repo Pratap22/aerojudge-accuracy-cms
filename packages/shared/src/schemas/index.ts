@@ -240,6 +240,11 @@ export const createTeamSchema = z.object({
   viceCaptainId: z.string().optional(),
 });
 
+export const updateTeamSchema = z.object({
+  name: z.string().trim().min(2, 'Team name must be at least 2 characters'),
+  type: z.enum(['NATIONAL', 'CLUB', 'WOMEN', 'MIXED', 'OPEN', 'CUSTOM']).optional(),
+});
+
 export const createRoundSchema = z.object({
   number: z.number().int().positive(),
   name: z.string().optional(),
@@ -463,6 +468,7 @@ export type UpdatePilotStatusInput = z.infer<typeof updatePilotStatusSchema>;
 export type BulkPilotActionInput = z.infer<typeof bulkPilotActionSchema>;
 export type PublicPilotRegistrationInput = z.infer<typeof publicPilotRegistrationSchema>;
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
+export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;
 export type CreateRoundInput = z.infer<typeof createRoundSchema>;
 export type UpdateRoundTypeInput = z.infer<typeof updateRoundTypeSchema>;
 export type EnterScoreInput = z.infer<typeof enterScoreSchema>;

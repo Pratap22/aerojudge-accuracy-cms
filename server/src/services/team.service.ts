@@ -81,21 +81,22 @@ export async function createTeam(
 export async function updateTeam(
   competitionId: string,
   teamId: string,
-  data: Prisma.TeamUpdateInput,
+  data: { name: string; type?: string },
 ) {
   await getTeam(competitionId, teamId);
-  // Team size / scoring / reserves are competition settings — ignore per-team overrides
-  const {
-    maxSize: _maxSize,
-    scoringPilots: _scoringPilots,
-    maxReserves: _maxReserves,
-    ...safeData
-  } = data as Prisma.TeamUpdateInput & {
-    maxSize?: unknown;
-    scoringPilots?: unknown;
-    maxReserves?: unknown;
-  };
-  await prisma.team.update({ where: { id: teamId }, data: safeData });
+  const name = data.name.trim();
+  const clash = await prisma.team.findFirst({
+    where: { competitionId, name, NOT: { id: teamId } },
+  });
+  if (clash) throw AppError.conflict('A team with this name already exists');
+
+  await prisma.team.update({
+    where: { id: teamId },
+    data: {
+      name,
+      ...(data.type ? { type: data.type as Prisma.TeamUpdateInput['type'] } : {}),
+    },
+  });
   return getTeam(competitionId, teamId);
 }
 

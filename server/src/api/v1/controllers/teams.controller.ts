@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createTeamSchema, paginationSchema } from '@aero-judge/shared';
+import { createTeamSchema, paginationSchema, updateTeamSchema } from '@aero-judge/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
@@ -45,6 +45,7 @@ export const create = [
 
 export const update = [
   validateParams(teamParams),
+  validateBody(updateTeamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const team = await teamService.updateTeam(req.params.competitionId, req.params.teamId, req.body);
     sendSuccess(res, team);

@@ -68,6 +68,7 @@ function pilotLabel(p: Pick<PilotOption, 'pilotNumber' | 'firstName' | 'lastName
 export function TeamsPage() {
   const activeCompetitionId = useCompetitionId();
   const [formOpen, setFormOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<TeamApi | null>(null);
   const [managingTeam, setManagingTeam] = useState<TeamApi | null>(null);
   const [selectedPilotIds, setSelectedPilotIds] = useState<string[]>([]);
   const [reserveIds, setReserveIds] = useState<Set<string>>(new Set());
@@ -137,12 +138,21 @@ export function TeamsPage() {
     return map;
   }, [pilots, teams]);
 
-  const createMutation = useMutation({
-    mutationFn: (data: CreateTeamInput) =>
-      api.post<TeamApi>(`/competitions/${activeCompetitionId}/teams`, data),
+  const saveMutation = useMutation({
+    mutationFn: (data: CreateTeamInput) => {
+      const body = { name: data.name.trim(), type: data.type };
+      if (editingTeam) {
+        return api.patch<TeamApi>(
+          `/competitions/${activeCompetitionId}/teams/${editingTeam.id}`,
+          body,
+        );
+      }
+      return api.post<TeamApi>(`/competitions/${activeCompetitionId}/teams`, body);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] });
       setFormOpen(false);
+      setEditingTeam(null);
       reset({ type: 'NATIONAL', name: '' });
     },
   });
@@ -190,6 +200,20 @@ export function TeamsPage() {
       );
     });
   }, [managingTeam, pilotById, memberSearch, pilotTeamMap]);
+
+  function openCreate() {
+    setEditingTeam(null);
+    saveMutation.reset();
+    reset({ type: 'NATIONAL', name: '' });
+    setFormOpen(true);
+  }
+
+  function openRename(team: TeamApi) {
+    setEditingTeam(team);
+    saveMutation.reset();
+    reset({ type: team.type, name: team.name });
+    setFormOpen(true);
+  }
 
   function openManageMembers(team: TeamApi) {
     const ordered = [...team.members].sort((a, b) => a.order - b.order);
@@ -266,7 +290,7 @@ export function TeamsPage() {
             (from competition settings)
           </p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>
+        <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Add Team
         </Button>
@@ -336,15 +360,26 @@ export function TeamsPage() {
                     </p>
                   )}
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => openManageMembers(team)}
-                  >
-                    <Pencil className="mr-2 h-3.5 w-3.5" />
-                    Manage Members
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => openRename(team)}
+                    >
+                      <Pencil className="mr-2 h-3.5 w-3.5" />
+                      Rename
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => openManageMembers(team)}
+                    >
+                      <Pencil className="mr-2 h-3.5 w-3.5" />
+                      Manage Members
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -352,12 +387,21 @@ export function TeamsPage() {
         </div>
       )}
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) {
+            setEditingTeam(null);
+            saveMutation.reset();
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Team</DialogTitle>
+            <DialogTitle>{editingTeam ? 'Rename Team' : 'Create Team'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
+          <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="space-y-4">
             <div className="space-y-2">
               <Label>Team Name</Label>
               <Input {...register('name')} />
@@ -382,12 +426,17 @@ export function TeamsPage() {
               Team size ({teamSize}), scoring pilots ({scoringPilots}), and reserves ({maxReserves}){' '}
               are set in Competition Settings.
             </p>
+            {saveMutation.isError && (
+              <p className="text-sm text-destructive">
+                {(saveMutation.error as Error)?.message ?? 'Failed to save team'}
+              </p>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setFormOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                Create
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? 'Saving…' : editingTeam ? 'Save' : 'Create'}
               </Button>
             </DialogFooter>
           </form>
