@@ -36,7 +36,7 @@ import { useCompetitionId } from '../hooks/useCompetitionId';
 
 interface PilotOption {
   id: string;
-  pilotNumber: number;
+  pilotNumber: number | null;
   firstName: string;
   lastName: string;
 }
@@ -61,7 +61,8 @@ interface TeamApi {
 type MemberRole = 'PILOT' | 'RESERVE';
 
 function pilotLabel(p: Pick<PilotOption, 'pilotNumber' | 'firstName' | 'lastName'>) {
-  return `#${p.pilotNumber} ${p.firstName} ${p.lastName}`;
+  const number = p.pilotNumber != null ? `#${p.pilotNumber} ` : '';
+  return `${number}${p.firstName} ${p.lastName}`;
 }
 
 export function TeamsPage() {
@@ -173,7 +174,9 @@ export function TeamsPage() {
   const availablePilots = useMemo(() => {
     if (!managingTeam) return [];
     const q = memberSearch.trim().toLowerCase();
-    const list = [...pilotById.values()].sort((a, b) => a.pilotNumber - b.pilotNumber);
+    const list = [...pilotById.values()]
+      .filter((p) => p.pilotNumber != null)
+      .sort((a, b) => (a.pilotNumber ?? 0) - (b.pilotNumber ?? 0));
 
     return list.filter((p) => {
       if (!q) return true;

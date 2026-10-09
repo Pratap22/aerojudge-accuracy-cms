@@ -1230,6 +1230,7 @@ async function buildReportInput(
         rows.push({
           rank: ranking.rank,
           team: team.name,
+          pilotNumber: pilot.pilotNumber ?? undefined,
           name: formatPilotName(pilot.firstName, pilot.lastName),
           scores: roundCells,
           // Team total belongs on the summary row only — not repeated per pilot.
@@ -1266,7 +1267,7 @@ async function buildReportInput(
       format,
       branding,
       title: 'Team Results',
-      columns: ['Rank', 'Team', 'Pilot Name', 'Team Total', ...roundHeaders],
+      columns: ['Rank', 'Team', 'Pilot No', 'Pilot Name', 'Team Total', ...roundHeaders],
       rows,
       footerNote: 'FAI Sporting Code Section 7C · Worst pilot score per team round excluded',
     };
