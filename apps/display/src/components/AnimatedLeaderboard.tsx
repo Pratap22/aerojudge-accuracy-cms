@@ -27,6 +27,11 @@ function wait(ms: number, isCancelled: () => boolean): Promise<void> {
   });
 }
 
+/** Gentle ease so the list starts and stops softly without speeding through the middle. */
+function easeInOutSine(t: number): number {
+  return -(Math.cos(Math.PI * t) - 1) / 2;
+}
+
 function animateScroll(
   el: HTMLElement,
   to: number,
@@ -42,13 +47,18 @@ function animateScroll(
         return;
       }
       const t = Math.min(1, (now - start) / duration);
-      const eased = t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2;
-      el.scrollTop = from + (to - from) * eased;
+      el.scrollTop = from + (to - from) * easeInOutSine(t);
       if (t < 1) requestAnimationFrame(step);
       else resolve();
     };
     requestAnimationFrame(step);
   });
+}
+
+/** About one row every few seconds, long enough to read names on a venue screen. */
+function scrollDurationMs(distancePx: number): number {
+  const pixelsPerSecond = 14;
+  return Math.min(50000, Math.max(12000, (distancePx / pixelsPerSecond) * 1000));
 }
 
 export function AnimatedLeaderboard({
@@ -69,25 +79,22 @@ export function AnimatedLeaderboard({
     if (!el) return;
     let cancelled = false;
     const isCancelled = () => cancelled;
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
     const run = async (loop: boolean) => {
       el.scrollTop = 0;
-      await wait(2200, isCancelled);
+      await wait(2800, isCancelled);
       if (isCancelled()) return;
       const overflow = el.scrollHeight - el.clientHeight;
       if (overflow <= 8) {
         if (!autoAdvance) return;
-        await wait(Math.max(0, getAutoInterval() * 1000 - 2200), isCancelled);
+        await wait(Math.max(0, getAutoInterval() * 1000 - 2800), isCancelled);
         if (!isCancelled()) onAutoAdvanceRef.current?.();
         return;
       }
 
-      const scrollMs = Math.min(14000, Math.max(5000, overflow * 28));
-      if (reduceMotion) el.scrollTop = overflow;
-      else await animateScroll(el, overflow, scrollMs, isCancelled);
+      const scrollMs = scrollDurationMs(overflow);
+      await animateScroll(el, overflow, scrollMs, isCancelled);
       if (isCancelled()) return;
-      await wait(1800, isCancelled);
+      await wait(3200, isCancelled);
       if (isCancelled()) return;
 
       if (autoAdvance) {
@@ -96,8 +103,7 @@ export function AnimatedLeaderboard({
       }
 
       if (!loop) return;
-      if (reduceMotion) el.scrollTop = 0;
-      else await animateScroll(el, 0, Math.min(4000, scrollMs * 0.45), isCancelled);
+      await animateScroll(el, 0, scrollMs, isCancelled);
       if (!isCancelled()) void run(true);
     };
 
