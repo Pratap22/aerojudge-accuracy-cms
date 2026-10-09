@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { AeroJudgeLogo } from '@aero-judge/ui';
 import { Loader2 } from 'lucide-react';
 import { DisplayControls } from '../components/DisplayControls';
 import { LayoutRouter } from '../layouts/LayoutRouter';
@@ -577,9 +578,7 @@ export function DisplayBoardPage() {
         className="absolute left-0 right-0 top-0 z-10 flex items-start justify-between gap-3 px-3 py-2.5 sm:items-center sm:gap-4 sm:px-8 sm:py-4"
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-[0.35em] text-sky-400/60 sm:text-xs sm:tracking-[0.4em]">
-            AeroJudge
-          </p>
+          <AeroJudgeLogo className="h-8 w-auto sm:h-10" />
           <h1 className="line-clamp-2 font-display text-sm uppercase leading-snug tracking-wide text-white sm:line-clamp-1 sm:text-xl sm:tracking-wider md:text-2xl">
             {competition.name}
           </h1>

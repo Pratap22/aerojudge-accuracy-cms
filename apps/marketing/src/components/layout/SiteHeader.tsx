@@ -3,9 +3,9 @@ import { Menu, X } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getApp } from '@/config/apps';
-import { mailtoContact, siteConfig } from '@/config/site';
+import { mailtoContact } from '@/config/site';
 import { easeOut } from '@/lib/motion';
-import { AeroJudgeMark } from '../ui/AeroJudgeMark';
+import { AeroJudgeLogo } from '@aero-judge/ui';
 import { MarketingButton } from '../ui/MarketingButton';
 
 const navLinks = [
@@ -47,10 +47,9 @@ export function SiteHeader() {
       <div className="content-width flex h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           to="/"
-          className="flex items-center gap-2.5 text-lg font-semibold tracking-tight text-primary"
+          className="flex items-center"
         >
-          <AeroJudgeMark className="h-8 w-8" />
-          <span>{siteConfig.productName}</span>
+          <AeroJudgeLogo className="h-12 w-auto" />
         </Link>
 
         <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Primary">

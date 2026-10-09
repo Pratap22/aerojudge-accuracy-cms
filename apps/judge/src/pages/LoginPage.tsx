@@ -3,8 +3,17 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, type LoginInput } from '@aero-judge/shared';
-import { Building2, Flag, Target } from 'lucide-react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@aero-judge/ui';
+import { Building2, Flag } from 'lucide-react';
+import {
+  AeroJudgeLogo,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+} from '@aero-judge/ui';
 import { useAuth } from '../lib/auth';
 import { api, ApiError, getOrganizationId } from '../lib/api';
 import { parseJudgeLocation, roundsPath } from '../lib/paths';
@@ -120,14 +129,9 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-sky-500">
-          <Target className="h-8 w-8 text-white" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">AeroJudge</h1>
-          <p className="text-muted-foreground">Judge scoring terminal</p>
-        </div>
+      <div className="mb-8 flex flex-col items-center gap-3">
+        <AeroJudgeLogo className="h-24 w-auto" />
+        <p className="text-muted-foreground">Judge scoring terminal</p>
       </div>
 
       <Card className="w-full max-w-md border-border bg-card">

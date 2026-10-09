@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { AeroJudgeLogo } from '@aero-judge/ui';
 import { Navigation } from './Navigation';
 import { CompetitionSeo } from './Seo';
 import { useRoundsStatus } from '../hooks/useCompetition';
@@ -28,10 +29,8 @@ export function Layout({ children, seo = 'competition' }: LayoutProps) {
         ) : null}
         {children}
       </main>
-      <footer className="border-t border-white/10 py-8 text-center text-sm text-slate-500">
-        <p>
-          Powered by <span className="font-medium tracking-wide text-slate-400">AeroJudge</span>
-        </p>
+      <footer className="flex justify-center border-t border-white/10 py-8">
+        <AeroJudgeLogo className="h-12 w-auto" />
       </footer>
     </div>
   );

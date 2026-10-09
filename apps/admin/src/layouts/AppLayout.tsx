@@ -29,7 +29,7 @@ import {
   UserCheck,
   X,
 } from 'lucide-react';
-import { Badge, Button, cn } from '@aero-judge/ui';
+import { AeroJudgeLogo, Badge, Button, cn } from '@aero-judge/ui';
 import { hasEffectivePermission, hasPermission, type Permission } from '@aero-judge/shared';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
@@ -419,15 +419,10 @@ export function AppLayout() {
     <>
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5 lg:px-5 lg:py-4">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent">
-            <Target className="h-4 w-4 text-sidebar-foreground" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold tracking-wide">AeroJudge</p>
-            <p className="truncate text-xs text-sidebar-foreground/65">
-              {currentOrganization?.shortName ?? 'Admin'}
-            </p>
-          </div>
+          <AeroJudgeLogo className="h-11 w-auto shrink-0" />
+          <p className="truncate text-xs text-sidebar-foreground/65">
+            {currentOrganization?.shortName ?? 'Admin'}
+          </p>
         </div>
         <Button
           type="button"

@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button, Input, Label } from '@aero-judge/ui';
+import { AeroJudgeLogo, Button, Input, Label } from '@aero-judge/ui';
 import { Layout } from '../components/Layout';
 import { forgotPassword, setPasswordResetReturnTo } from '../lib/auth-api';
 
@@ -42,7 +42,7 @@ export function ForgotPasswordPage() {
   return (
     <Layout seo="none">
       <div className="mx-auto max-w-md px-6 py-12">
-        <p className="text-sm uppercase tracking-[0.3em] text-sky-400/70">AeroJudge</p>
+        <AeroJudgeLogo className="h-14 w-auto" />
         <h1 className="mt-2 font-display text-3xl font-bold text-white">Forgot password</h1>
         <p className="mt-3 text-sky-300/70">
           {sent

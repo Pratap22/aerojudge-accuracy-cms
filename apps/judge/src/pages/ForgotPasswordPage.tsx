@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { forgotPasswordSchema, type ForgotPasswordInput } from '@aero-judge/shared';
-import { ArrowLeft, Target } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import {
+  AeroJudgeLogo,
   Button,
   Card,
   CardContent,
@@ -43,9 +44,7 @@ export function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-sky-900 p-4">
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-            <Target className="h-7 w-7 text-primary-foreground" />
-          </div>
+          <AeroJudgeLogo className="mx-auto h-20 w-auto" />
           <div>
             <CardTitle className="text-2xl">Forgot password</CardTitle>
             <CardDescription>

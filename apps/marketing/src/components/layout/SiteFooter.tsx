@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { aeroJudgeApps, getApp } from '@/config/apps';
 import { siteConfig } from '@/config/site';
-import { AeroJudgeMark } from '../ui/AeroJudgeMark';
+import { AeroJudgeLogo } from '@aero-judge/ui';
 
 const productLinks = [
   { href: '/#features', label: 'Features' },
@@ -24,10 +24,7 @@ export function SiteFooter() {
       <div className="content-width section-pad !py-12 sm:!py-14">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-              <AeroJudgeMark className="h-8 w-8" variant="onDark" />
-              {siteConfig.productName}
-            </div>
+            <AeroJudgeLogo className="h-14 w-auto" />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/70">
               Developed by {siteConfig.companyName}. {siteConfig.tagline}.
             </p>

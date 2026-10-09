@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { AeroJudgeLogo } from '@aero-judge/ui';
 import { CheckCircle2, ClipboardList, Menu, Pause, Radio, X } from 'lucide-react';
 import { competitionPath } from '../lib/api';
 import { useCompetition, useRoundsStatus } from '../hooks/useCompetition';
@@ -90,11 +91,8 @@ export function Navigation() {
     <nav className="fixed top-0 z-50 w-full border-b border-white/10 bg-[#050d1a]/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-3">
-          <Link
-            to="/"
-            className="font-display text-2xl font-bold tracking-tight text-white transition-colors hover:text-sky-100"
-          >
-            AeroJudge
+          <Link to="/" className="inline-flex" aria-label="AeroJudge">
+            <AeroJudgeLogo className="h-10 w-auto" />
           </Link>
           <Link
             to={competitionPath(id)}

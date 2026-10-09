@@ -2,8 +2,9 @@ import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronRight, ClipboardList, LogOut, Pause, Play, Plus, Target } from 'lucide-react';
+import { ChevronRight, ClipboardList, LogOut, Pause, Play, Plus } from 'lucide-react';
 import {
+  AeroJudgeLogo,
   Badge,
   Button,
   Card,
@@ -317,7 +318,7 @@ export function RoundSelectPage() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
         <div className="flex min-w-0 items-center gap-3">
-          <Target className="h-6 w-6 shrink-0 text-sky-400" />
+          <AeroJudgeLogo className="h-10 w-auto shrink-0" />
           <div className="min-w-0">
             <p className="font-semibold">Select Round</p>
             <p className="truncate text-sm text-muted-foreground">

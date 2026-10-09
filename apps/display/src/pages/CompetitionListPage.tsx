@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { AeroJudgeLogo } from '@aero-judge/ui';
 import { ArrowRight, Loader2, MonitorPlay, Radio, Trophy, Users } from 'lucide-react';
 import { competitionPath, fetchCompetitions } from '../lib/api';
 import type { PublicCompetitionSummary } from '../lib/types';
@@ -184,7 +185,7 @@ export function CompetitionListPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
         >
-          <p className="text-xs uppercase tracking-[0.4em] text-sky-400/70">AeroJudge</p>
+          <AeroJudgeLogo className="h-16 w-auto" />
           <h1 className="mt-2 font-display text-4xl uppercase tracking-wider text-white md:text-5xl">
             Venue display
           </h1>
@@ -234,8 +235,9 @@ export function CompetitionListPage() {
           </div>
         </motion.section>
 
-        <footer className="mt-16 border-t border-sky-500/20 pt-8 text-center text-xs uppercase tracking-[0.3em] text-sky-500/50">
-          AeroJudge · Venue display
+        <footer className="mt-16 flex flex-col items-center gap-3 border-t border-sky-500/20 pt-8">
+          <AeroJudgeLogo className="h-12 w-auto" />
+          <p className="text-xs uppercase tracking-[0.3em] text-sky-500/50">Venue display</p>
         </footer>
       </div>
     </div>
