@@ -125,7 +125,7 @@ export function RankingsPage() {
   const queryClient = useQueryClient();
 
   const { data: teams } = useQuery({
-    queryKey: ['teams', activeCompetitionId],
+    queryKey: ['teams', activeCompetitionId, 'exists'],
     queryFn: () =>
       api.get<{ id: string }[]>(`/competitions/${activeCompetitionId}/teams`, { pageSize: 1 }),
     enabled: !!activeCompetitionId,

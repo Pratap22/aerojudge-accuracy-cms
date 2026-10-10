@@ -88,7 +88,7 @@ export function ReportsPage() {
   });
 
   const { data: teams } = useQuery({
-    queryKey: ['teams', activeCompetitionId],
+    queryKey: ['teams', activeCompetitionId, 'exists'],
     queryFn: () =>
       api.get<TeamOption[]>(`/competitions/${activeCompetitionId}/teams`, { pageSize: 1 }),
     enabled: !!activeCompetitionId,

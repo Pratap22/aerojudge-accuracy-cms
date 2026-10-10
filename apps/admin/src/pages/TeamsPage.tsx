@@ -78,7 +78,8 @@ export function TeamsPage() {
 
   const { data: teams, isLoading } = useQuery({
     queryKey: ['teams', activeCompetitionId],
-    queryFn: () => api.get<TeamApi[]>(`/competitions/${activeCompetitionId}/teams`),
+    queryFn: () =>
+      api.get<TeamApi[]>(`/competitions/${activeCompetitionId}/teams`, { pageSize: 200 }),
     enabled: !!activeCompetitionId,
   });
 
