@@ -1135,15 +1135,17 @@ async function buildReportInput(
     await recalculateRankings(competition.id);
     const rankings = await getTeamRankings(competition.id);
 
-    const rounds = await prisma.round.findMany({
+    const rankingRounds = await prisma.round.findMany({
       where: {
         competitionId: competition.id,
         type: 'OFFICIAL',
         status: { in: [...RANKING_ROUND_STATUSES] },
       },
       orderBy: { number: 'asc' },
-        select: { id: true, number: true, status: true },
+      select: { id: true, number: true, status: true },
     });
+    // A round still being flown is not a result yet, so it gets no column.
+    const rounds = rankingRounds.filter((round) => FINAL_ROUND_STATUSES.has(round.status));
 
     const teams = await prisma.team.findMany({
       where: { competitionId: competition.id },
@@ -1224,17 +1226,48 @@ async function buildReportInput(
       return { value, excluded: contrib ? !contrib.counted : false };
     };
 
-    const roundHeaders = rounds.map((_, index) => `R${index + 1}`);
-    const rows: ResultRow[] = [];
+    const roundHeaders = rounds.map((round) => {
+      const announced = rankingRounds.findIndex((row) => row.id === round.id) + 1;
+      return `R${announced}`;
+    });
 
-    for (const ranking of rankings) {
+    const closedRoundTotal = (teamId: string, roundId: string): number | null => {
+      const key = `${teamId}:${roundId}`;
+      const counted = [...(contribByTeamRound.get(key)?.values() ?? [])].some((c) => c.counted);
+      const total = roundTotalByTeamRound.get(key);
+      return counted && total != null ? total : null;
+    };
+
+    const rankedTeams = rankings
+      .map((ranking) => {
+        const scored = rounds
+          .map((round) => closedRoundTotal(ranking.teamId, round.id))
+          .filter((total): total is number => total != null);
+        return {
+          ranking,
+          totalScoreCm: scored.reduce((sum, total) => sum + total, 0),
+          roundsScored: scored.length,
+        };
+      })
+      .sort((a, b) => {
+        if (a.totalScoreCm !== b.totalScoreCm) return a.totalScoreCm - b.totalScoreCm;
+        if (a.roundsScored !== b.roundsScored) return b.roundsScored - a.roundsScored;
+        return a.ranking.teamId.localeCompare(b.ranking.teamId);
+      });
+
+    const rows: ResultRow[] = [];
+    let rank = 0;
+
+    for (const entry of rankedTeams) {
+      const ranking = entry.ranking;
       const team = teamById.get(ranking.teamId);
       if (!team) continue;
       const members = team.members.filter((m) => m.pilot);
       if (members.length === 0) continue;
 
+      rank += 1;
       const span = members.length + 1; // pilots + Total row
-      const teamTotalLabel = formatScoreCm(ranking.totalScoreCm);
+      const teamTotalLabel = entry.roundsScored > 0 ? formatScoreCm(entry.totalScoreCm) : '';
 
       members.forEach((member, idx) => {
         const pilot = member.pilot;
@@ -1246,7 +1279,7 @@ async function buildReportInput(
         });
 
         rows.push({
-          rank: ranking.rank,
+          rank,
           team: team.name,
           pilotNumber: pilot.pilotNumber ?? undefined,
           name: formatPilotName(pilot.firstName, pilot.lastName),
@@ -1262,7 +1295,7 @@ async function buildReportInput(
       });
 
       rows.push({
-        rank: ranking.rank,
+        rank,
         team: team.name,
         name: 'Total',
         scores: rounds.map((round) => {
