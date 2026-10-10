@@ -9,7 +9,7 @@ import {
   type RuleConfig,
   type TeamType,
 } from '@aero-judge/shared';
-import { AlertCircle, CheckCircle2, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle2, MoreHorizontal, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -23,6 +23,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Input,
   Label,
   Select,
@@ -322,11 +327,46 @@ export function TeamsPage() {
             return (
               <Card key={team.id} className={team.isValid ? '' : 'border-amber-500/50'}>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <Users className="h-5 w-5 text-primary" />
-                    <Badge variant={team.isValid ? 'success' : 'warning'}>
-                      {team.isValid ? 'Valid' : 'Issues'}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant={team.isValid ? 'success' : 'warning'}>
+                        {team.isValid ? 'Valid' : 'Issues'}
+                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label={`Actions for ${team.name}`}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => openRename(team)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openManageMembers(team)}>
+                            <Users className="mr-2 h-4 w-4" />
+                            Manage Members
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onSelect={() => {
+                              deleteMutation.reset();
+                              setDeletingTeam(team);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                   <CardTitle>{team.name}</CardTitle>
                   <CardDescription>
@@ -370,39 +410,6 @@ export function TeamsPage() {
                       <CheckCircle2 className="h-3 w-3" /> Ready for team scoring
                     </p>
                   )}
-
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => openRename(team)}
-                    >
-                      <Pencil className="mr-2 h-3.5 w-3.5" />
-                      Rename
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => openManageMembers(team)}
-                    >
-                      <Pencil className="mr-2 h-3.5 w-3.5" />
-                      Manage Members
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-destructive hover:text-destructive"
-                      onClick={() => {
-                        deleteMutation.reset();
-                        setDeletingTeam(team);
-                      }}
-                    >
-                      <Trash2 className="mr-2 h-3.5 w-3.5" />
-                      Delete
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             );
