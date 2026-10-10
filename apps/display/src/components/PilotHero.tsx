@@ -44,42 +44,47 @@ export function PilotHero({
   const showScore = hasLastScore || liveScoreCm != null || Boolean(resultLabel);
   const bullseye = isBullseye || liveScoreCm === 0;
   const countryLabel = pilot.pilot.country?.name ?? pilot.pilot.nationality ?? '—';
-  const flagCode = pilot.pilot.country?.code2 ?? pilot.pilot.country?.code ?? 'XX';
+  const flagCode = pilot.pilot.country?.code2 ?? pilot.pilot.country?.code ?? '';
+  const showFlag = /^[A-Za-z]{2}$/.test(flagCode) && flagCode.toUpperCase() !== 'XX';
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain md:grid md:grid-cols-12 md:gap-6 md:overflow-hidden xl:gap-10">
-      {/* Photo / number — horizontal strip on mobile, tall panel on desktop */}
+      {/* Photo fills the panel. Number and flag sit on the image. */}
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="flex shrink-0 flex-row items-center gap-3 rounded-xl border border-sky-500/20 bg-gradient-to-br from-broadcast-navy-light to-broadcast-navy-mid p-3 sm:gap-4 sm:rounded-2xl sm:p-4 md:col-span-5 md:h-full md:min-h-0 md:flex-col md:items-center md:justify-center md:overflow-hidden md:p-6 xl:p-8"
+        className="relative aspect-square w-full shrink-0 overflow-hidden rounded-xl border border-sky-500/20 bg-broadcast-navy sm:rounded-2xl md:col-span-5 md:aspect-auto md:h-full md:min-h-0"
       >
-        <div className="flex aspect-square w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-sky-500/30 bg-broadcast-navy sm:w-20 sm:border-4 md:mb-4 md:w-[min(12rem,42%)] md:max-h-48 md:border-4 xl:mb-6 xl:max-h-56 xl:w-[min(14rem,48%)]">
-          {pilot.pilot.photoUrl ? (
-            <img
-              src={pilot.pilot.photoUrl}
-              alt=""
-              className="h-full w-full object-cover object-top"
-            />
-          ) : (
-            <span className="font-display text-3xl text-sky-400 sm:text-4xl md:text-6xl xl:text-8xl">
+        {pilot.pilot.photoUrl ? (
+          <img
+            src={pilot.pilot.photoUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover object-top"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-broadcast-navy-light to-broadcast-navy-mid">
+            <span className="font-display text-6xl text-sky-400 sm:text-7xl md:text-8xl xl:text-9xl">
               {pilot.pilot.pilotNumber}
             </span>
-          )}
+          </div>
+        )}
+        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-3 pb-3 pt-12 sm:px-4 sm:pb-4 md:px-5 md:pb-5">
+          <div className="min-w-0 rounded-xl bg-black/65 px-3 py-2 backdrop-blur-sm sm:px-4 sm:py-2.5">
+            <p className="truncate font-display text-lg uppercase leading-tight tracking-wide text-white sm:text-xl md:hidden">
+              {name}
+            </p>
+            <p className="mt-0.5 truncate text-sm text-sky-200 md:hidden">{countryLabel}</p>
+            <p className="font-display text-2xl leading-none text-white sm:text-3xl md:text-4xl xl:text-5xl">
+              #{pilot.pilot.pilotNumber}
+            </p>
+          </div>
+          {showFlag ? (
+            <span className="inline-flex shrink-0 items-center rounded-xl bg-black/65 px-2.5 py-2 backdrop-blur-sm sm:px-3 sm:py-2.5">
+              <CountryFlag code={flagCode} size="md" className="md:hidden" />
+              <CountryFlag code={flagCode} size="lg" className="hidden md:block" />
+            </span>
+          ) : null}
         </div>
-        {pilot.pilot.photoUrl ? (
-          <p className="font-display text-lg text-sky-400 md:mb-3 md:text-xl xl:mb-4 xl:text-2xl">
-            #{pilot.pilot.pilotNumber}
-          </p>
-        ) : null}
-        <div className="min-w-0 flex-1 md:hidden">
-          <p className="truncate font-display text-xl uppercase leading-tight tracking-wide text-white sm:text-2xl">
-            {name}
-          </p>
-          <p className="mt-0.5 truncate text-sm text-sky-300">{countryLabel}</p>
-        </div>
-        <CountryFlag code={flagCode} size="md" className="shrink-0 md:hidden" />
-        <CountryFlag code={flagCode} size="lg" className="mt-2 hidden md:block" />
       </motion.div>
 
       {/* Stats — full width under media on mobile */}
