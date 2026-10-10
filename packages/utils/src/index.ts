@@ -233,6 +233,28 @@ export function nextOfficialDisplayNumber(rounds: RoundNumberSource[]): number {
   return rounds.filter(isOfficialRound).length + 1;
 }
 
+/** Label for a round picker. Practice is never shown as Round 1. */
+export function announcedRoundLabel(
+  round: { number: number; name?: string | null; type?: string | null },
+  rounds: RoundNumberSource[],
+): string {
+  const name = round.name?.trim() ?? '';
+  const genericNumber = !name || /^round \d+$/i.test(name);
+  if (round.type === 'PRACTICE') {
+    return genericNumber ? 'Practice round' : name;
+  }
+  if (round.type && round.type !== 'OFFICIAL') {
+    const kind = round.type.charAt(0) + round.type.slice(1).toLowerCase();
+    return genericNumber ? kind : `${kind} — ${name}`;
+  }
+  const display = officialDisplayNumber(rounds, round.number) ?? round.number;
+  const generic =
+    genericNumber ||
+    name.toLowerCase() === `round ${round.number}` ||
+    name.toLowerCase() === `round ${display}`;
+  return generic ? `Round ${display}` : name;
+}
+
 export function parseStaffSessionHandoff(hash: string): StaffSessionHandoff | null {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
   if (!raw.startsWith(STAFF_SESSION_HANDOFF_PREFIX)) return null;

@@ -13,6 +13,7 @@ import {
   Label,
 } from '@aero-judge/ui';
 import type { PrintFormat, ReportType } from '@aero-judge/shared';
+import { announcedRoundLabel, isOfficialRound } from '@aero-judge/utils';
 import { api, apiFetch } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 
@@ -282,12 +283,27 @@ export function ReportsPage() {
                       <option value="">No rounds available</option>
                     )
                   ) : (
-                    sortedRounds.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        Round {r.number}
-                        {r.name ? ` — ${r.name}` : ''} ({r.status})
-                      </option>
-                    ))
+                    <>
+                      {(['PRACTICE', 'OFFICIAL', 'OTHER'] as const).map((group) => {
+                        const groupRounds = sortedRounds.filter((round) => {
+                          if (group === 'PRACTICE') return round.type === 'PRACTICE';
+                          if (group === 'OFFICIAL') return isOfficialRound(round);
+                          return round.type !== 'PRACTICE' && !isOfficialRound(round);
+                        });
+                        if (groupRounds.length === 0) return null;
+                        const label =
+                          group === 'PRACTICE' ? 'Practice' : group === 'OFFICIAL' ? 'Official' : 'Other';
+                        return (
+                          <optgroup key={group} label={label}>
+                            {groupRounds.map((round) => (
+                              <option key={round.id} value={round.id}>
+                                {announcedRoundLabel(round, sortedRounds)} ({round.status})
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
+                    </>
                   )}
                 </select>
               </div>

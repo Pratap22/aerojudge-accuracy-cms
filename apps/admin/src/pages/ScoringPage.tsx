@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enterScoreSchema, type EnterScoreInput, type ScoreResultType, type RuleConfig } from '@aero-judge/shared';
-import { formatScoreCm, officialDisplayNumber } from '@aero-judge/utils';
+import { announcedRoundLabel, formatScoreCm, isOfficialRound, officialDisplayNumber } from '@aero-judge/utils';
 import { Pause, Play, Save, Target, Wind } from 'lucide-react';
 import {
   Badge,
@@ -21,7 +21,9 @@ import {
   Label,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
   Table,
@@ -344,11 +346,28 @@ export function ScoringPage() {
               <SelectValue placeholder="Choose round…" />
             </SelectTrigger>
             <SelectContent>
-              {rounds?.map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  R{r.number} {r.name} ({r.status})
-                </SelectItem>
-              ))}
+              {(['PRACTICE', 'OFFICIAL', 'OTHER'] as const).map((group) => {
+                const groupRounds = (rounds ?? [])
+                  .filter((round) => {
+                    if (group === 'PRACTICE') return round.type === 'PRACTICE';
+                    if (group === 'OFFICIAL') return isOfficialRound(round);
+                    return round.type !== 'PRACTICE' && !isOfficialRound(round);
+                  })
+                  .sort((a, b) => a.number - b.number);
+                if (groupRounds.length === 0) return null;
+                const label =
+                  group === 'PRACTICE' ? 'Practice' : group === 'OFFICIAL' ? 'Official' : 'Other';
+                return (
+                  <SelectGroup key={group}>
+                    <SelectLabel>{label}</SelectLabel>
+                    {groupRounds.map((round) => (
+                      <SelectItem key={round.id} value={round.id}>
+                        {announcedRoundLabel(round, rounds ?? [])} ({round.status})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
