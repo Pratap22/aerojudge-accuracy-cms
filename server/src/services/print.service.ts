@@ -1426,8 +1426,20 @@ async function buildReportInput(
         finalScoreCm: { not: null },
       },
       include: { pilot: { include: { country: true } } },
-      orderBy: [{ finalScoreCm: 'asc' }, { pilot: { pilotNumber: 'asc' } }],
     });
+
+    const rankByScoreId = new Map(
+      [...scores]
+        .sort((a, b) => {
+          const scoreDiff = (a.finalScoreCm ?? 0) - (b.finalScoreCm ?? 0);
+          if (scoreDiff !== 0) return scoreDiff;
+          return (a.pilot.pilotNumber ?? 0) - (b.pilot.pilotNumber ?? 0);
+        })
+        .map((score, index) => [score.id, index + 1]),
+    );
+    const byPilotNumber = [...scores].sort(
+      (a, b) => (a.pilot.pilotNumber ?? Number.MAX_SAFE_INTEGER) - (b.pilot.pilotNumber ?? Number.MAX_SAFE_INTEGER),
+    );
 
     const announcedRound = await announcedOfficialNumber(competition.id, round);
     return {
@@ -1436,8 +1448,8 @@ async function buildReportInput(
       branding: { ...branding, roundNumber: announcedRound },
       title: `Round ${announcedRound} Results`,
       columns: ['Rank', 'No', 'Name', 'Country', 'Score (cm)'],
-      rows: scores.map((s, i) => ({
-        rank: i + 1,
+      rows: byPilotNumber.map((s) => ({
+        rank: rankByScoreId.get(s.id) ?? 0,
         pilotNumber: s.pilot.pilotNumber ?? 0,
         name: formatPilotName(s.pilot.firstName, s.pilot.lastName),
         country: s.pilot.country?.name ?? s.pilot.nationality ?? '',
