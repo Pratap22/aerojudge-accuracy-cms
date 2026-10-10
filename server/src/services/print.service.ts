@@ -1017,11 +1017,10 @@ async function buildReportInput(
 
   if (reportType === 'OVERALL_RESULTS' || reportType === 'WOMEN_RESULTS') {
     const category = reportType === 'WOMEN_RESULTS' ? 'WOMEN' : 'OVERALL';
-    // Refresh standings so live ACTIVE-round scores appear in the report.
     await recalculateRankings(competition.id);
     const rankings = await getIndividualRankings(competition.id, category);
 
-    const rounds = await prisma.round.findMany({
+    const rankingRounds = await prisma.round.findMany({
       where: {
         competitionId: competition.id,
         type: 'OFFICIAL',
@@ -1030,6 +1029,8 @@ async function buildReportInput(
       orderBy: { number: 'asc' },
       select: { id: true, number: true, status: true },
     });
+    // A round still being flown is not a result yet, so it gets no column.
+    const rounds = rankingRounds.filter((round) => FINAL_ROUND_STATUSES.has(round.status));
 
     const scores = await prisma.score.findMany({
       where: {
@@ -1048,10 +1049,12 @@ async function buildReportInput(
       settingsToRuleOverrides(competition.settings),
     );
     const maxCm = rules.maximumScoreCm;
-    const completedRoundCount = rounds.filter((round) => FINAL_ROUND_STATUSES.has(round.status)).length;
     const discardActive =
-      rules.discardWorstRounds > 0 && completedRoundCount >= rules.discardAfterRounds;
-    const roundHeaders = rounds.map((_, index) => `R${index + 1}`);
+      rules.discardWorstRounds > 0 && rounds.length >= rules.discardAfterRounds;
+    const roundHeaders = rounds.map((round) => {
+      const announced = rankingRounds.findIndex((row) => row.id === round.id) + 1;
+      return `R${announced}`;
+    });
     const scoredRankings = rankings.filter((r) => r.roundsFlown > 0);
 
     return {
@@ -1068,63 +1071,66 @@ async function buildReportInput(
         ...roundHeaders,
         'Total',
       ],
-      rows: scoredRankings.map((r) => {
-        const roundEntries = rounds.flatMap((round) => {
-          const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
-          const roundFinal = FINAL_ROUND_STATUSES.has(round.status);
-          // An open-round reflight is not a result yet. A finished round keeps it as the maximum.
-          const openReflight = existing?.resultType === 'REFLIGHT' && !roundFinal;
-          if (!existing || openReflight) {
-            if (!roundFinal) return [];
-          }
+      rows: scoredRankings
+        .flatMap((r) => {
+          const roundEntries = rounds.flatMap((round) => {
+            const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
+            // A finished round with no score is the maximum.
+            return [
+              {
+                pilotId: r.pilotId,
+                roundId: round.id,
+                roundNumber: round.number,
+                finalScoreCm: existing?.finalScoreCm ?? maxCm,
+                resultType: (existing?.resultType ?? 'DNF') as
+                  | 'MEASURED'
+                  | 'BULLSEYE'
+                  | 'MAXIMUM'
+                  | 'DNF'
+                  | 'ABS'
+                  | 'DNS'
+                  | 'DSQ'
+                  | 'REFLIGHT'
+                  | 'PENALTY',
+                isBullseye: existing?.isBullseye ?? false,
+                isDiscarded: false,
+                isProvisional: false,
+              },
+            ];
+          });
+
+          const { kept, discarded } = applyDiscardRules(roundEntries, rules);
+          if (kept.length === 0 && discarded.length === 0) return [];
+          const discardedRoundIds = new Set(discarded.map((d) => d.roundId));
+          const totalCm = kept.reduce((sum, score) => sum + score.finalScoreCm, 0);
+
           return [
             {
-              pilotId: r.pilotId,
-              roundId: round.id,
-              roundNumber: round.number,
-              finalScoreCm: existing?.finalScoreCm ?? maxCm,
-              resultType: (existing?.resultType ?? 'DNF') as
-                | 'MEASURED'
-                | 'BULLSEYE'
-                | 'MAXIMUM'
-                | 'DNF'
-                | 'ABS'
-                | 'DNS'
-                | 'DSQ'
-                | 'REFLIGHT'
-                | 'PENALTY',
-              isBullseye: existing?.isBullseye ?? false,
-              isDiscarded: false,
-              isProvisional: false,
+              rank: r.rank,
+              pilotNumber: r.pilot.pilotNumber ?? 0,
+              name: formatPilotName(r.pilot.firstName, r.pilot.lastName),
+              civlId: r.pilot.civlId ?? '',
+              country: r.pilot.country?.name ?? r.pilot.nationality ?? '',
+              scores: rounds.map((round) => {
+                const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
+                const value = formatScoreCm(existing?.finalScoreCm ?? maxCm);
+                return discardedRoundIds.has(round.id) ? { value, excluded: true } : value;
+              }),
+              totalCm,
+              total: formatScoreCm(totalCm),
             },
           ];
-        });
-
-        const { discarded } = applyDiscardRules(roundEntries, rules);
-        const discardedRoundIds = new Set(discarded.map((d) => d.roundId));
-
-        return {
-          rank: r.rank,
-          pilotNumber: r.pilot.pilotNumber ?? 0,
-          name: formatPilotName(r.pilot.firstName, r.pilot.lastName),
-          civlId: r.pilot.civlId ?? '',
-          country: r.pilot.country?.name ?? r.pilot.nationality ?? '',
-          scores: [
-            ...rounds.map((round) => {
-              const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
-              const roundFinal = FINAL_ROUND_STATUSES.has(round.status);
-              const openReflight = existing?.resultType === 'REFLIGHT' && !roundFinal;
-              const pending = !existing || openReflight;
-              // Maximum is only printed once the round is finished and the pilot has no score.
-              // A reflight on an open round is not a score. A finished reflight prints the maximum.
-              if (pending && !roundFinal) return '';
-              const value = formatScoreCm(existing?.finalScoreCm ?? maxCm);
-              return discardedRoundIds.has(round.id) ? { value, excluded: true } : value;
-            }),
-          ],
-          total: formatScoreCm(r.totalScoreCm),
-        };
-      }),
+        })
+        .sort((a, b) => a.totalCm - b.totalCm || a.pilotNumber - b.pilotNumber)
+        .map((row, index) => ({
+          rank: index + 1,
+          pilotNumber: row.pilotNumber,
+          name: row.name,
+          civlId: row.civlId,
+          country: row.country,
+          scores: row.scores,
+          total: row.total,
+        })),
       footerNote: discardActive
         ? 'FAI Sporting Code Section 7C · Worst round score excluded from total'
         : undefined,
