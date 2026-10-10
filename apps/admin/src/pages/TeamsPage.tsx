@@ -9,7 +9,7 @@ import {
   type RuleConfig,
   type TeamType,
 } from '@aero-judge/shared';
-import { AlertCircle, CheckCircle2, Pencil, Plus, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -70,6 +70,7 @@ export function TeamsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<TeamApi | null>(null);
   const [managingTeam, setManagingTeam] = useState<TeamApi | null>(null);
+  const [deletingTeam, setDeletingTeam] = useState<TeamApi | null>(null);
   const [selectedPilotIds, setSelectedPilotIds] = useState<string[]>([]);
   const [reserveIds, setReserveIds] = useState<Set<string>>(new Set());
   const [memberSearch, setMemberSearch] = useState('');
@@ -154,6 +155,15 @@ export function TeamsPage() {
       setFormOpen(false);
       setEditingTeam(null);
       reset({ type: 'NATIONAL', name: '' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (teamId: string) =>
+      api.delete(`/competitions/${activeCompetitionId}/teams/${teamId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      setDeletingTeam(null);
     },
   });
 
@@ -379,6 +389,18 @@ export function TeamsPage() {
                       <Pencil className="mr-2 h-3.5 w-3.5" />
                       Manage Members
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-destructive hover:text-destructive"
+                      onClick={() => {
+                        deleteMutation.reset();
+                        setDeletingTeam(team);
+                      }}
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      Delete
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -440,6 +462,45 @@ export function TeamsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!deletingTeam}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) setDeletingTeam(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {deletingTeam?.name}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This removes the team from the competition. It will no longer appear in team results.
+          </p>
+          {deleteMutation.isError && (
+            <p className="text-sm text-destructive">
+              {(deleteMutation.error as Error)?.message ?? 'Could not delete the team'}
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteMutation.isPending}
+              onClick={() => setDeletingTeam(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMutation.isPending || !deletingTeam}
+              onClick={() => deletingTeam && deleteMutation.mutate(deletingTeam.id)}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete team'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
