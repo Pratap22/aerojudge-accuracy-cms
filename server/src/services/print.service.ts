@@ -361,12 +361,19 @@ function reportToHtml(input: GenerateReportInput, qrDataUrl?: string): string {
     : '';
 
   const roundField = input.sheetFields?.find((f) => f.label.toLowerCase() === 'round');
-  const roundBadge =
+  const roundLabel =
     roundField?.value != null && roundField.value !== ''
-      ? `<div class="round-badge">Round ${escapeHtml(roundField.value)}</div>`
+      ? String(roundField.value)
       : input.branding.roundNumber != null
-        ? `<div class="round-badge">Round ${escapeHtml(String(input.branding.roundNumber))}</div>`
+        ? String(input.branding.roundNumber)
         : '';
+  const titleAlreadyNamesRound =
+    roundLabel !== '' && input.title.toLowerCase().includes(`round ${roundLabel.toLowerCase()}`);
+  const roundBadge = titleAlreadyNamesRound
+    ? ''
+    : roundLabel
+      ? `<div class="round-badge">Round ${escapeHtml(roundLabel)}</div>`
+      : '';
 
   const sheetFieldsHtml =
     input.sheetFields && input.sheetFields.length > 0
@@ -418,7 +425,7 @@ function reportToHtml(input: GenerateReportInput, qrDataUrl?: string): string {
       margin: 0 auto 2px;
     }
     .npha-report-preview h1 { font-size: 22px; margin: 0 0 4px; color: #111; text-align: center; }
-    .npha-report-preview h2 { font-size: 14px; font-weight: normal; color: #444; margin: 0 0 8px; text-align: center; }
+    .npha-report-preview h2 { font-size: 14px; font-weight: 700; color: #111; margin: 0 0 8px; text-align: center; }
     .npha-report-preview .meta { font-size: 12px; color: #555; margin-bottom: 12px; text-align: center; }
     .npha-report-preview table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .npha-report-preview th,
