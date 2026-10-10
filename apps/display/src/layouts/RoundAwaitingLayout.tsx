@@ -2,12 +2,12 @@ import { motion } from 'framer-motion';
 import { SponsorStrip } from '../components/SponsorStrip';
 
 interface RoundAwaitingLayoutProps {
-  roundNumber: number;
+  title: string;
   competitionName?: string;
 }
 
 /** Full-screen interstitial when a round is live but no scores yet. */
-export function RoundAwaitingLayout({ roundNumber, competitionName }: RoundAwaitingLayoutProps) {
+export function RoundAwaitingLayout({ title, competitionName }: RoundAwaitingLayoutProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-1 flex-col items-center justify-center px-4 text-center sm:px-10">
@@ -21,7 +21,7 @@ export function RoundAwaitingLayout({ roundNumber, competitionName }: RoundAwait
           animate={{ opacity: 1, y: 0 }}
           className="font-display text-4xl uppercase tracking-wide text-white sm:text-7xl md:text-8xl"
         >
-          Round {roundNumber}
+          {title}
         </motion.p>
         <motion.p
           initial={{ opacity: 0 }}

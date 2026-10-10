@@ -18,6 +18,7 @@ import {
   Textarea,
 } from '@aero-judge/ui';
 import type { CompetitionStatus, RoundStatus } from '@aero-judge/shared';
+import { nextOfficialDisplayNumber, nextOfficialStoredNumber, officialDisplayNumber } from '@aero-judge/utils';
 import { api, ApiError, getOrganizationId } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { SwitchToAdminButton } from '../components/SwitchToAdminButton';
@@ -28,6 +29,7 @@ interface RoundOption {
   id: string;
   number: number;
   name: string;
+  type?: string;
   status: RoundStatus;
   flightsScored: number;
   flightsTotal: number;
@@ -178,8 +180,10 @@ export function RoundSelectPage() {
   const isLoading = compsLoading || (!!activeCompId && roundsLoading);
 
   const maxRounds = competitionDetail?.maxRounds ?? activeCompetition?.maxRounds ?? 12;
-  const nextNumber = (roundsNormalized.reduce((m, r) => Math.max(m, r.number), 0) || 0) + 1;
-  const atMax = roundsNormalized.length >= maxRounds;
+  const officialRounds = roundsNormalized.filter((round) => round.type === 'OFFICIAL');
+  const nextStoredNumber = nextOfficialStoredNumber(officialRounds);
+  const nextNumber = nextOfficialDisplayNumber(officialRounds);
+  const atMax = officialRounds.length >= maxRounds;
   const competitionAcceptsRounds =
     !!activeCompetition?.status &&
     !['COMPLETED', 'ARCHIVED', 'CANCELLED'].includes(activeCompetition.status);
@@ -262,7 +266,7 @@ export function RoundSelectPage() {
       const created = await api.post<{ id: string; number: number }>(
         `/competitions/${activeCompId}/rounds`,
         {
-          number: nextNumber,
+          number: nextStoredNumber,
           name: `Round ${nextNumber}`,
           type: 'OFFICIAL',
           orderType: 'RANDOM',
@@ -474,6 +478,7 @@ export function RoundSelectPage() {
                 <RoundRow
                   key={round.id}
                   round={round}
+                  rounds={roundsNormalized}
                   busy={busy}
                   startBlocked={pilotsAwaitingNumber > 0}
                   onSelect={selectRound}
@@ -481,7 +486,10 @@ export function RoundSelectPage() {
                   onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
                   onPause={(id, number) => {
                     setPauseReason('');
-                    setPauseTarget({ id, number });
+                    setPauseTarget({
+                      id,
+                      number: officialDisplayNumber(roundsNormalized, number) ?? number,
+                    });
                   }}
                 />
               ))}
@@ -493,6 +501,7 @@ export function RoundSelectPage() {
               <RoundRow
                 key={round.id}
                 round={round}
+                rounds={roundsNormalized}
                 busy={busy}
                 startBlocked={pilotsAwaitingNumber > 0}
                 onSelect={selectRound}
@@ -500,7 +509,10 @@ export function RoundSelectPage() {
                 onResume={(id) => startMutation.mutate({ roundId: id, resume: true })}
                 onPause={(id, number) => {
                   setPauseReason('');
-                  setPauseTarget({ id, number });
+                  setPauseTarget({
+                    id,
+                    number: officialDisplayNumber(roundsNormalized, number) ?? number,
+                  });
                 }}
               />
             ))}
@@ -574,6 +586,7 @@ export function RoundSelectPage() {
 
 function RoundRow({
   round,
+  rounds,
   busy,
   startBlocked = false,
   onSelect,
@@ -582,6 +595,7 @@ function RoundRow({
   onPause,
 }: {
   round: RoundOption;
+  rounds: RoundOption[];
   busy: boolean;
   startBlocked?: boolean;
   onSelect: (id: string) => void;
@@ -611,8 +625,22 @@ function RoundRow({
           disabled={!canScore}
         >
           <div className="flex flex-wrap items-center gap-3">
-            <span className="font-mono text-2xl font-bold text-sky-400">R{round.number}</span>
-            <span className="text-lg font-medium">{round.name || `Round ${round.number}`}</span>
+            <span className="font-mono text-2xl font-bold text-sky-400">
+              {round.type === 'PRACTICE'
+                ? 'P'
+                : `R${officialDisplayNumber(rounds, round.number) ?? round.number}`}
+            </span>
+            <span className="text-lg font-medium">
+              {round.type === 'PRACTICE'
+                ? round.name && !/^Round \d+$/i.test(round.name)
+                  ? round.name
+                  : 'Practice round'
+                : round.name &&
+                    round.name !== `Round ${round.number}` &&
+                    round.name !== `Round ${officialDisplayNumber(rounds, round.number) ?? round.number}`
+                  ? round.name
+                  : `Round ${officialDisplayNumber(rounds, round.number) ?? round.number}`}
+            </span>
             <Badge variant={statusVariant[round.status]}>{round.status}</Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">

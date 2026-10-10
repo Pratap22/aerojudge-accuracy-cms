@@ -253,10 +253,15 @@ export const createRoundSchema = z.object({
   scheduledAt: z.string().datetime().or(z.coerce.date()).optional(),
 });
 
-/** Only round type may be edited after creation */
-export const updateRoundTypeSchema = z.object({
-  type: z.enum(['PRACTICE', 'OFFICIAL', 'REFLIGHT', 'RESTART']),
-});
+/** Name is a label. Type stays optional so a rename does not require a type change. */
+export const updateRoundTypeSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Round name is required').max(80).optional(),
+    type: z.enum(['PRACTICE', 'OFFICIAL', 'REFLIGHT', 'RESTART']).optional(),
+  })
+  .refine((value) => value.name !== undefined || value.type !== undefined, {
+    message: 'Provide a round name or type',
+  });
 
 export const enterScoreSchema = z
   .object({

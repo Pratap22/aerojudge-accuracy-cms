@@ -66,6 +66,8 @@ export interface PublicWind {
 export interface PublicRoundStatus {
   id: string;
   number: number;
+  name?: string | null;
+  type?: string;
   status: string;
   pauseReason?: string | null;
 }

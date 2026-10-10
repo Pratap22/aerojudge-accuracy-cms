@@ -2,15 +2,15 @@ import { motion } from 'framer-motion';
 import { SponsorStrip } from '../components/SponsorStrip';
 
 interface RoundClosedLayoutProps {
-  closedRoundNumber: number;
-  nextRoundNumber: number;
+  closedTitle: string;
+  nextCode: string;
   competitionName?: string;
 }
 
 /** Full-screen interstitial — not mixed with pilot scoring UI. */
 export function RoundClosedLayout({
-  closedRoundNumber,
-  nextRoundNumber,
+  closedTitle,
+  nextCode,
   competitionName,
 }: RoundClosedLayoutProps) {
   return (
@@ -26,7 +26,7 @@ export function RoundClosedLayout({
           animate={{ opacity: 1, y: 0 }}
           className="font-display text-3xl uppercase tracking-wide text-white sm:text-7xl md:text-8xl"
         >
-          Round {closedRoundNumber} closed
+          {closedTitle}
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -36,7 +36,7 @@ export function RoundClosedLayout({
         >
           <p className="text-xs uppercase tracking-[0.35em] text-sky-400/70 sm:text-sm">Up next</p>
           <p className="mt-2 font-display text-3xl uppercase tracking-wide text-sky-300 sm:mt-3 sm:text-6xl">
-            R{nextRoundNumber}
+            {nextCode}
           </p>
           <motion.p
             animate={{ opacity: [0.55, 1, 0.55] }}

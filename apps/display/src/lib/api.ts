@@ -78,6 +78,8 @@ export function fetchLatestWind(idOrSlug: string): Promise<PublicWind | null> {
 export interface PublicRoundStatusRow {
   id: string;
   number: number;
+  name?: string | null;
+  type?: string;
   status: string;
   pauseReason?: string | null;
 }

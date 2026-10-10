@@ -10,13 +10,31 @@ import {
 } from '@aero-judge/pdf-engine';
 import { applyDiscardRules, resolveCompetitionRules } from '@aero-judge/scoring-engine';
 import { COMPETING_PILOT_STATUSES, type PrintFormat, type ReportType } from '@aero-judge/shared';
-import { formatPilotName, formatScoreCm } from '@aero-judge/utils';
+import { formatPilotName, formatScoreCm, officialDisplayNumber } from '@aero-judge/utils';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { toAbsoluteAssetUrl, resolveLocalUploadPath } from '../utils/assets.js';
 import { cloudinaryPngDeliveryUrl } from '../utils/cloudinary.js';
 import { AppError } from '../utils/errors.js';
 import { getCompetition, settingsToRuleOverrides } from './competition.service.js';
+
+/** Number announced for an official round. Practice rounds do not take R1, R2, … */
+async function announcedOfficialNumber(
+  competitionId: string,
+  round: { number: number; type: string },
+): Promise<number> {
+  if (round.type !== 'OFFICIAL') return round.number;
+  const official = await prisma.round.findMany({
+    where: { competitionId, type: 'OFFICIAL' },
+    select: { number: true },
+  });
+  return (
+    officialDisplayNumber(
+      official.map((row) => ({ number: row.number, type: 'OFFICIAL' })),
+      round.number,
+    ) ?? round.number
+  );
+}
 import { getIndividualRankings, getTeamRankings, recalculateRankings } from './scoring.service.js';
 
 const RANKING_ROUND_STATUSES = [
@@ -1033,7 +1051,7 @@ async function buildReportInput(
     const completedRoundCount = rounds.filter((round) => FINAL_ROUND_STATUSES.has(round.status)).length;
     const discardActive =
       rules.discardWorstRounds > 0 && completedRoundCount >= rules.discardAfterRounds;
-    const roundHeaders = rounds.map((r) => `R${r.number}`);
+    const roundHeaders = rounds.map((_, index) => `R${index + 1}`);
     const scoredRankings = rankings.filter((r) => r.roundsFlown > 0);
 
     return {
@@ -1206,7 +1224,7 @@ async function buildReportInput(
       return { value, excluded: contrib ? !contrib.counted : false };
     };
 
-    const roundHeaders = rounds.map((r) => `R${r.number}`);
+    const roundHeaders = rounds.map((_, index) => `R${index + 1}`);
     const rows: ResultRow[] = [];
 
     for (const ranking of rankings) {
@@ -1363,12 +1381,13 @@ async function buildReportInput(
             total: '',
           }));
 
+    const announcedRound = await announcedOfficialNumber(competition.id, round);
     return {
       reportType,
       format,
-      branding: { ...branding, roundNumber: round.number },
+      branding: { ...branding, roundNumber: announcedRound },
       title: 'Launch Order',
-      sheetFields: launchSheetFields(round.number),
+      sheetFields: launchSheetFields(announcedRound),
       columns: launchColumns,
       rows: launchRows,
       footerNote: 'Fill Start/End Time on site · Remarks for judge notes after printing',
@@ -1410,11 +1429,12 @@ async function buildReportInput(
       orderBy: [{ finalScoreCm: 'asc' }, { pilot: { pilotNumber: 'asc' } }],
     });
 
+    const announcedRound = await announcedOfficialNumber(competition.id, round);
     return {
       reportType,
       format,
-      branding: { ...branding, roundNumber: round.number },
-      title: `Round ${round.number} Results`,
+      branding: { ...branding, roundNumber: announcedRound },
+      title: `Round ${announcedRound} Results`,
       columns: ['Rank', 'No', 'Name', 'Country', 'Score (cm)'],
       rows: scores.map((s, i) => ({
         rank: i + 1,
@@ -1529,12 +1549,14 @@ async function buildReportInput(
           }))
         : await loadCompetitionSheetPilots(competition.id);
 
+    const announcedRound = await announcedOfficialNumber(competition.id, round);
+
     if (reportType === 'JUDGE_SHEETS') {
       return {
         reportType,
         format,
-        branding: { ...branding, roundNumber: round.number },
-        title: `Judge Sheets — Round ${round.number}`,
+        branding: { ...branding, roundNumber: announcedRound },
+        title: `Judge Sheets — Round ${announcedRound}`,
         subtitle: 'Blank scoring form — record measured distance from target centre (cm)',
         columns: ['Order', 'No', 'Name', 'Country', 'Distance (cm)', 'Result', 'Notes'],
         rows: sheetPilots.map((p) => ({
@@ -1561,10 +1583,10 @@ async function buildReportInput(
     return {
       reportType,
       format,
-      branding: { ...branding, roundNumber: round.number },
+      branding: { ...branding, roundNumber: announcedRound },
       title: 'Score Sheet',
       sheetFields: [
-        { label: 'Round', value: String(round.number) },
+        { label: 'Round', value: String(announcedRound) },
         { label: 'Start Time', blank: true },
         { label: 'End Time', blank: true },
       ],

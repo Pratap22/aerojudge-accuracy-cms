@@ -1,4 +1,5 @@
 import { compareOfficials, isEmptyHtml, officialRoleLabel } from '@aero-judge/shared';
+import { officialDisplayNumber } from '@aero-judge/utils';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
@@ -9,6 +10,15 @@ import {
   displayedPilotPhotoUrl,
   pilotPhotoWithPersonSelect,
 } from './person.service.js';
+
+function displayedOfficialNumber(rows: { number: number }[], storedNumber: number): number {
+  return (
+    officialDisplayNumber(
+      rows.map((row) => ({ number: row.number, type: 'OFFICIAL' })),
+      storedNumber,
+    ) ?? storedNumber
+  );
+}
 
 const ACTIVE_STATUSES = new Set(['REGISTRATION', 'PRACTICE', 'OFFICIAL', 'PAUSED']);
 const PAST_STATUSES = new Set(['COMPLETED', 'CANCELLED']);
@@ -458,7 +468,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       orderBy: { number: 'asc' },
       select: { id: true, number: true, status: true },
     });
-    const roundNumbers = scoringRoundRows.map((r) => r.number);
+    const roundNumbers = scoringRoundRows.map((row) => displayedOfficialNumber(scoringRoundRows, row.number));
     const finalRoundStatuses = new Set(['CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED']);
     const roundIds = scoringRoundRows.map((r) => r.id);
 
@@ -537,7 +547,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
         const total = totalByRoundId.get(round.id);
         const hasRealScores = counted.length > 0 && total != null;
         return {
-          round: round.number,
+          round: displayedOfficialNumber(scoringRoundRows, round.number),
           scoreCm: hasRealScores ? total : null,
           // Team round scores are never struck — only pilot cells within a round can be.
           isDiscarded: false,
@@ -564,7 +574,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
             const counted = contrib ? contrib.counted : scoreCm != null;
             const empty = scoreCm == null;
             return {
-              round: round.number,
+              round: displayedOfficialNumber(scoringRoundRows, round.number),
               scoreCm: empty ? null : scoreCm,
               isBullseye: Boolean(raw?.isBullseye) && counted && !empty,
               // Strike when present but not counted toward the team round total (worst pilot).
@@ -725,7 +735,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
     orderBy: { number: 'asc' },
     select: { id: true, number: true },
   });
-  const roundNumbers = scoringRoundRows.map((r) => r.number);
+  const roundNumbers = scoringRoundRows.map((row) => displayedOfficialNumber(scoringRoundRows, row.number));
 
   type PayloadRoundScore = {
     pilotId?: string;
@@ -769,7 +779,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           const scoreCm =
             provisional || typeof rs.finalScoreCm !== 'number' ? null : rs.finalScoreCm;
           return {
-            round: rs.roundNumber as number,
+            round: displayedOfficialNumber(scoringRoundRows, rs.roundNumber as number),
             scoreCm,
             isBullseye: Boolean(rs.isBullseye) && !provisional,
             isDiscarded: Boolean(rs.isDiscarded) && !provisional,
@@ -800,7 +810,9 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
         resultType: true,
       },
     });
-    const roundNumberById = new Map(scoringRoundRows.map((r) => [r.id, r.number]));
+    const roundNumberById = new Map(
+      scoringRoundRows.map((row) => [row.id, displayedOfficialNumber(scoringRoundRows, row.number)]),
+    );
     for (const s of scoreRows) {
       const round = roundNumberById.get(s.roundId);
       if (round == null) continue;
@@ -879,7 +891,7 @@ export async function getPublicRoundsStatus(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
   const rounds = await prisma.round.findMany({
     where: { competitionId: competition.id },
-    select: { id: true, number: true, status: true, pauseReason: true },
+    select: { id: true, number: true, name: true, type: true, status: true, pauseReason: true },
     orderBy: { number: 'asc' },
   });
   return { competitionId: competition.id, rounds };

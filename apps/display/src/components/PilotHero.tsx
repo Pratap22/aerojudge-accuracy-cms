@@ -6,6 +6,8 @@ import type { PublicRankingRow } from '../lib/types';
 interface PilotHeroProps {
   pilot: PublicRankingRow | null;
   roundNumber?: number;
+  /** Announced round. Official rounds are 1, 2, 3… Practice is not a numbered round. */
+  roundLabel?: string;
   liveScoreCm?: number | null;
   isBullseye?: boolean;
   resultLabel?: string;
@@ -17,6 +19,7 @@ interface PilotHeroProps {
 export function PilotHero({
   pilot,
   roundNumber = 1,
+  roundLabel,
   liveScoreCm,
   isBullseye = false,
   resultLabel,
@@ -103,7 +106,7 @@ export function PilotHero({
               Round
             </p>
             <p className="font-display text-2xl leading-none text-white sm:text-3xl md:text-5xl xl:text-6xl">
-              {roundNumber}
+              {roundLabel ?? roundNumber}
             </p>
           </div>
           <div className="min-w-0 rounded-lg bg-broadcast-navy-light/40 px-2 py-2 text-center sm:px-3 md:rounded-none md:bg-transparent md:px-0 md:py-0 md:text-left">

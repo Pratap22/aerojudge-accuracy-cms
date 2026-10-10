@@ -20,7 +20,7 @@ import { useCompetition, useLatestScore, useLatestWind, useResults, useRoundsSta
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
-import { isWindReadingCurrent } from '@aero-judge/utils';
+import { isOfficialRound, isWindReadingCurrent, officialDisplayNumber, type RoundNumberSource } from '@aero-judge/utils';
 
 const PRE_ROUND_LAYOUTS: DisplayLayoutType[] = ['sponsors', 'women', 'teams'];
 
@@ -32,54 +32,68 @@ const CLOSED_LIKE_STATUSES = new Set([
   'LOCKED',
 ]);
 
-function resolveRoundPhase(rounds: { number: number; status: string }[] | undefined): {
-  phase: 'live' | 'closed' | 'idle';
-  activeRoundNumber: number | null;
-  closedRoundNumber: number | null;
-  nextRoundNumber: number | null;
-} {
-  if (!rounds?.length) {
-    return {
-      phase: 'idle',
-      activeRoundNumber: null,
-      closedRoundNumber: null,
-      nextRoundNumber: null,
-    };
-  }
+type BoardRound = RoundNumberSource & { status: string };
 
-  const active = [...rounds]
-    .filter((r) => LIVE_ROUND_STATUSES.has(r.status))
-    .sort((a, b) => b.number - a.number)[0];
+function shownRoundLabel(rounds: BoardRound[], round: BoardRound): string {
+  if (round.type === 'PRACTICE') return 'Practice';
+  return String(officialDisplayNumber(rounds, round.number) ?? round.number);
+}
+
+function resolveRoundPhase(rounds: BoardRound[] | undefined): {
+  phase: 'live' | 'closed' | 'idle';
+  /** Stored number, used to match scores. Not the number announced on the board. */
+  activeRoundNumber: number | null;
+  activeRound: BoardRound | null;
+  closedRound: BoardRound | null;
+  nextDisplayNumber: number | null;
+} {
+  const idle = {
+    phase: 'idle' as const,
+    activeRoundNumber: null,
+    activeRound: null,
+    closedRound: null,
+    nextDisplayNumber: null,
+  };
+  if (!rounds?.length) return idle;
+
+  const newest = (a: BoardRound, b: BoardRound) => b.number - a.number;
+  const live = rounds.filter((round) => LIVE_ROUND_STATUSES.has(round.status));
+  const active =
+    live.filter(isOfficialRound).sort(newest)[0] ?? live.sort(newest)[0] ?? null;
   if (active) {
     return {
       phase: 'live',
       activeRoundNumber: active.number,
-      closedRoundNumber: null,
-      nextRoundNumber: null,
+      activeRound: active,
+      closedRound: null,
+      nextDisplayNumber: null,
     };
   }
 
-  const closed = [...rounds]
-    .filter((r) => CLOSED_LIKE_STATUSES.has(r.status))
-    .sort((a, b) => b.number - a.number)[0];
-  if (!closed) {
-    return {
-      phase: 'idle',
-      activeRoundNumber: null,
-      closedRoundNumber: null,
-      nextRoundNumber: null,
-    };
-  }
+  const closedRows = rounds.filter((round) => CLOSED_LIKE_STATUSES.has(round.status));
+  const closed =
+    closedRows.filter(isOfficialRound).sort(newest)[0] ?? closedRows.sort(newest)[0] ?? null;
+  if (!closed) return idle;
 
-  const scheduledNext = rounds
-    .filter((r) => r.status === 'SCHEDULED' && r.number > closed.number)
+  const scheduledOfficial = rounds
+    .filter((round) => round.status === 'SCHEDULED' && isOfficialRound(round))
+    .filter((round) => closed.type === 'PRACTICE' || round.number > closed.number)
     .sort((a, b) => a.number - b.number)[0];
+
+  const closedDisplay =
+    closed.type === 'PRACTICE' ? null : officialDisplayNumber(rounds, closed.number);
+  const nextDisplayNumber = scheduledOfficial
+    ? (officialDisplayNumber(rounds, scheduledOfficial.number) ?? scheduledOfficial.number)
+    : closed.type === 'PRACTICE'
+      ? rounds.filter(isOfficialRound).length + 1
+      : (closedDisplay ?? closed.number) + 1;
 
   return {
     phase: 'closed',
     activeRoundNumber: null,
-    closedRoundNumber: closed.number,
-    nextRoundNumber: scheduledNext?.number ?? closed.number + 1,
+    activeRound: null,
+    closedRound: closed,
+    nextDisplayNumber,
   };
 }
 
@@ -441,10 +455,16 @@ export function DisplayBoardPage() {
   const lastResultLabel = scoreForActiveRound ? latestScore?.resultLabel : undefined;
   const hasLastScore = scoreForActiveRound;
 
+  const boardRounds = roundsStatus?.rounds ?? [];
+  const roundLabel = roundPhase.activeRound
+    ? shownRoundLabel(boardRounds, roundPhase.activeRound)
+    : String(officialDisplayNumber(boardRounds, lastScoreRound) ?? lastScoreRound);
+
   const currentLayoutProps = {
     pilot: currentPilot,
     competitionName: competition?.name,
     roundNumber: roundPhase.activeRoundNumber ?? lastScoreRound,
+    roundLabel,
     liveScoreCm: lastScoreCm,
     isBullseye: lastIsBullseye,
     resultLabel: lastResultLabel,
@@ -476,7 +496,11 @@ export function DisplayBoardPage() {
     if (pausedRound && !competitionCompleted) {
       return (
         <RoundPausedLayout
-          roundNumber={pausedRound.number}
+          title={
+            pausedRound.type === 'PRACTICE'
+              ? 'Practice round'
+              : `Round ${officialDisplayNumber(boardRounds, pausedRound.number) ?? pausedRound.number}`
+          }
           reason={pausedRound.pauseReason}
           competitionName={competition.name}
         />
@@ -513,8 +537,17 @@ export function DisplayBoardPage() {
     if (showRoundInterstitial && roundPhase.phase === 'closed') {
       return (
         <RoundClosedLayout
-          closedRoundNumber={roundPhase.closedRoundNumber!}
-          nextRoundNumber={roundPhase.nextRoundNumber!}
+          closedTitle={
+            roundPhase.closedRound?.type === 'PRACTICE'
+              ? 'Practice round closed'
+              : `Round ${
+                  roundPhase.closedRound
+                    ? (officialDisplayNumber(boardRounds, roundPhase.closedRound.number) ??
+                      roundPhase.closedRound.number)
+                    : 1
+                } closed`
+          }
+          nextCode={`R${roundPhase.nextDisplayNumber ?? 1}`}
           competitionName={competition.name}
         />
       );
@@ -523,7 +556,11 @@ export function DisplayBoardPage() {
     if (showRoundInterstitial && awaitingFirstScore) {
       return (
         <RoundAwaitingLayout
-          roundNumber={roundPhase.activeRoundNumber!}
+          title={
+            roundPhase.activeRound?.type === 'PRACTICE'
+              ? 'Practice round'
+              : `Round ${roundLabel}`
+          }
           competitionName={competition.name}
         />
       );
@@ -605,7 +642,7 @@ export function DisplayBoardPage() {
                 : awaitingFirstScore
                   ? `awaiting-r${roundPhase.activeRoundNumber}`
                   : roundPhase.phase === 'closed'
-                    ? `closed-r${roundPhase.closedRoundNumber}`
+                    ? `closed-r${roundPhase.closedRound?.number ?? 0}`
                     : activeLayout
           }
         >

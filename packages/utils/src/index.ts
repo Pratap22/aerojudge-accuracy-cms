@@ -201,6 +201,38 @@ export function encodeStaffSessionHandoff(payload: StaffSessionHandoff): string 
   return `${STAFF_SESSION_HANDOFF_PREFIX}${toBase64Url(JSON.stringify(payload))}`;
 }
 
+export type RoundNumberSource = {
+  number: number;
+  type?: string | null;
+};
+
+export function isOfficialRound(round: RoundNumberSource): boolean {
+  return (round.type ?? 'OFFICIAL') === 'OFFICIAL';
+}
+
+/**
+ * Official rounds are announced as 1, 2, 3… in stored-number order.
+ * A practice round does not take one of those places.
+ */
+export function officialDisplayNumber(
+  rounds: RoundNumberSource[],
+  storedNumber: number,
+): number | null {
+  const official = rounds.filter(isOfficialRound).sort((a, b) => a.number - b.number);
+  const index = official.findIndex((round) => round.number === storedNumber);
+  return index >= 0 ? index + 1 : null;
+}
+
+/** Next stored number that is free for an official round. */
+export function nextOfficialStoredNumber(rounds: RoundNumberSource[]): number {
+  return rounds.filter(isOfficialRound).reduce((max, round) => Math.max(max, round.number), 0) + 1;
+}
+
+/** What the next official round should be called: Round 1, Round 2, … */
+export function nextOfficialDisplayNumber(rounds: RoundNumberSource[]): number {
+  return rounds.filter(isOfficialRound).length + 1;
+}
+
 export function parseStaffSessionHandoff(hash: string): StaffSessionHandoff | null {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
   if (!raw.startsWith(STAFF_SESSION_HANDOFF_PREFIX)) return null;

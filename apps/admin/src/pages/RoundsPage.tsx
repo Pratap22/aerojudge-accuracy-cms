@@ -42,6 +42,7 @@ import {
   Textarea,
 } from '@aero-judge/ui';
 import type { CompetitionStatus, ReportType, RoundStatus, RoundType } from '@aero-judge/shared';
+import { officialDisplayNumber } from '@aero-judge/utils';
 import { api, ApiError, apiFetch, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';
@@ -96,6 +97,28 @@ const statusColors: Record<
 };
 
 type RoundAction = 'start' | 'pause' | 'resume' | 'close' | 'reopen' | 'approve' | 'lock';
+
+function roundRowLabel(
+  round: { number: number; name: string; type: RoundType },
+  rounds: { number: number; type: RoundType }[],
+): string {
+  if (round.type === 'PRACTICE') {
+    const name = round.name.trim();
+    if (!name || /^Round \d+$/i.test(name)) return 'Practice round';
+    return name;
+  }
+  if (round.type !== 'OFFICIAL') {
+    const name = round.name.trim();
+    return name ? `${round.type} – ${name}` : round.type;
+  }
+  const display = officialDisplayNumber(rounds, round.number) ?? round.number;
+  const name = round.name.trim();
+  const generic =
+    !name ||
+    name.toLowerCase() === `round ${round.number}` ||
+    name.toLowerCase() === `round ${display}`;
+  return generic ? `R${display} – Round ${display}` : `R${display} – ${name}`;
+}
 
 function normalizeRound(round: RoundApi) {
   return {
@@ -227,7 +250,11 @@ export function RoundsPage() {
     [rounds],
   );
   const maxRounds = competition?.maxRounds ?? 12;
-  const nextNumber = (rounds.reduce((m, r) => Math.max(m, r.number), 0) || 0) + 1;
+  /** Practice and official rounds each keep their own number sequence. */
+  const nextNumber = useMemo(() => {
+    const sameType = rounds.filter((round) => round.type === roundType);
+    return sameType.reduce((max, round) => Math.max(max, round.number), 0) + 1;
+  }, [rounds, roundType]);
   const atMaxOfficial = officialRounds.length >= maxRounds;
   const canSubmitCreate = roundType === 'PRACTICE' || !atMaxOfficial;
 
@@ -249,6 +276,8 @@ export function RoundsPage() {
 
   const [pauseTarget, setPauseTarget] = useState<{ id: string; number: number } | null>(null);
   const [pauseReason, setPauseReason] = useState('');
+  const [renameTarget, setRenameTarget] = useState<{ id: string; number: number } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const actionMutation = useMutation({
     mutationFn: ({
@@ -281,11 +310,31 @@ export function RoundsPage() {
     },
   });
 
+  const nextAnnouncedNumber = roundType === 'OFFICIAL' ? officialRounds.length + 1 : nextNumber;
+  const defaultRoundName =
+    roundType === 'PRACTICE'
+      ? nextNumber === 1
+        ? 'Practice Round'
+        : `Practice Round ${nextNumber}`
+      : `Round ${nextAnnouncedNumber}`;
+
+  const renameMutation = useMutation({
+    mutationFn: () =>
+      api.patch(`/competitions/${competitionId}/rounds/${renameTarget?.id}`, {
+        name: renameValue.trim(),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+      setRenameTarget(null);
+      setRenameValue('');
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: () =>
       api.post(`/competitions/${competitionId}/rounds`, {
         number: nextNumber,
-        name: roundName || `Round ${nextNumber}`,
+        name: roundName.trim() || defaultRoundName,
         type: roundType,
         orderType: 'RANDOM',
       }),
@@ -625,8 +674,21 @@ export function RoundsPage() {
               rounds.map((round) => (
                 <TableRow key={round.id}>
                   <TableCell className="font-medium">
-                    R{round.number}
-                    {round.name ? ` – ${round.name}` : ''}
+                    <div className="flex items-center gap-2">
+                      <span>{roundRowLabel(round, rounds)}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          setRenameValue(round.name);
+                          setRenameTarget({ id: round.id, number: round.number });
+                          renameMutation.reset();
+                        }}
+                      >
+                        Rename
+                      </Button>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Select
@@ -742,7 +804,11 @@ export function RoundsPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Round {nextNumber}</DialogTitle>
+            <DialogTitle>
+              {roundType === 'PRACTICE'
+                ? `Create practice round ${nextNumber}`
+                : `Create Round ${nextAnnouncedNumber}`}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -752,7 +818,7 @@ export function RoundsPage() {
             <div className="space-y-2">
               <Label>Name</Label>
               <Input
-                placeholder={`Round ${nextNumber}`}
+                placeholder={defaultRoundName}
                 value={roundName}
                 onChange={(e) => setRoundName(e.target.value)}
               />
@@ -788,7 +854,55 @@ export function RoundsPage() {
               disabled={createMutation.isPending || !canSubmitCreate}
               onClick={() => createMutation.mutate()}
             >
-              {createMutation.isPending ? 'Creating…' : `Create Round ${nextNumber}`}
+              {createMutation.isPending
+                ? 'Creating…'
+                : roundType === 'PRACTICE'
+                  ? `Create practice round ${nextNumber}`
+                  : `Create Round ${nextAnnouncedNumber}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={renameTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename round {renameTarget?.number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="round-name">Name</Label>
+            <Input
+              id="round-name"
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              maxLength={80}
+              placeholder="Practice Round"
+            />
+            <p className="text-xs text-muted-foreground">
+              The name is a label. Official rounds keep their own Round 1, Round 2 sequence.
+            </p>
+            {renameMutation.isError && (
+              <p className="text-sm text-destructive">
+                {renameMutation.error instanceof ApiError
+                  ? renameMutation.error.message
+                  : 'Failed to rename round'}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={renameMutation.isPending || renameValue.trim().length === 0}
+              onClick={() => renameMutation.mutate()}
+            >
+              {renameMutation.isPending ? 'Saving…' : 'Save name'}
             </Button>
           </DialogFooter>
         </DialogContent>

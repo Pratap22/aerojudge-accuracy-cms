@@ -6,6 +6,7 @@ interface CurrentPilotLayoutProps {
   pilot: PublicRankingRow | null;
   competitionName?: string;
   roundNumber?: number;
+  roundLabel?: string;
   liveScoreCm?: number | null;
   isBullseye?: boolean;
   resultLabel?: string;
@@ -16,6 +17,7 @@ export function CurrentPilotLayout({
   pilot,
   competitionName,
   roundNumber = 1,
+  roundLabel,
   liveScoreCm,
   isBullseye,
   resultLabel,
@@ -28,6 +30,7 @@ export function CurrentPilotLayout({
           pilot={pilot}
           competitionName={competitionName}
           roundNumber={roundNumber}
+          roundLabel={roundLabel}
           liveScoreCm={liveScoreCm}
           isBullseye={isBullseye}
           resultLabel={resultLabel}

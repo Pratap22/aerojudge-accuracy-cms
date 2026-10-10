@@ -15,6 +15,7 @@ import {
   Textarea,
 } from '@aero-judge/ui';
 import type { EnterScoreInput, RuleConfig, ScoreResultType } from '@aero-judge/shared';
+import { officialDisplayNumber } from '@aero-judge/utils';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { roundsPath } from '../lib/paths';
@@ -111,6 +112,7 @@ export function ScoringPage() {
         id: string;
         status: string;
         number: number;
+        type?: string;
         name: string | null;
         pauseReason: string | null;
       }>(
@@ -118,6 +120,19 @@ export function ScoringPage() {
       ),
     enabled: !!competitionId && !!roundId,
   });
+
+  const { data: competitionRounds = [] } = useQuery({
+    queryKey: ['rounds', competitionId, 'labels'],
+    queryFn: () =>
+      api.get<{ number: number; type?: string }[]>(`/competitions/${competitionId}/rounds`),
+    enabled: !!competitionId,
+  });
+  const announcedRoundNumber =
+    roundMeta == null
+      ? null
+      : roundMeta.type === 'PRACTICE'
+        ? null
+        : (officialDisplayNumber(competitionRounds, roundMeta.number) ?? roundMeta.number);
 
   const scoresReadOnly =
     !!roundMeta && ['APPROVED', 'LOCKED'].includes(roundMeta.status);
@@ -360,7 +375,7 @@ export function ScoringPage() {
         </Button>
         <div className="text-center">
           <p className="font-mono text-base font-bold text-sky-400">
-            R{roundMeta?.number ?? '—'}
+            {roundMeta?.type === 'PRACTICE' ? 'Practice' : `R${announcedRoundNumber ?? '—'}`}
             {roundMeta?.status ? (
               <span className="ml-2 text-xs font-normal text-slate-400">{roundMeta.status}</span>
             ) : null}
@@ -468,7 +483,7 @@ export function ScoringPage() {
         >
           {roundMeta?.status === 'PAUSED' && (
             <div className="shrink-0 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-              {`Round ${roundMeta.number} is paused${
+              {`${roundMeta.type === 'PRACTICE' ? 'Practice round' : `Round ${announcedRoundNumber ?? roundMeta.number}`} is paused${
                 roundMeta.pauseReason ? ` — ${roundMeta.pauseReason}` : ''
               }. Public pages show this until you resume.`}
             </div>
@@ -713,7 +728,9 @@ export function ScoringPage() {
       <Dialog open={pauseOpen} onOpenChange={setPauseOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Pause round {roundMeta?.number}</DialogTitle>
+            <DialogTitle>
+              Pause {roundMeta?.type === 'PRACTICE' ? 'practice round' : `round ${announcedRoundNumber ?? roundMeta?.number}`}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="judge-pause-reason">Reason</Label>

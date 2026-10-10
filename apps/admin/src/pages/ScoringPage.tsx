@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enterScoreSchema, type EnterScoreInput, type ScoreResultType, type RuleConfig } from '@aero-judge/shared';
-import { formatScoreCm } from '@aero-judge/utils';
+import { formatScoreCm, officialDisplayNumber } from '@aero-judge/utils';
 import { Pause, Play, Save, Target, Wind } from 'lucide-react';
 import {
   Badge,
@@ -44,6 +44,7 @@ interface RoundOption {
   id: string;
   number: number;
   name: string;
+  type?: string;
   status: string;
   pauseReason?: string | null;
 }
@@ -397,7 +398,11 @@ export function ScoringPage() {
 
       {selectedRound?.status === 'PAUSED' ? (
         <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-          {`Round ${selectedRound.number} is paused${
+          {`${
+            selectedRound.type === 'PRACTICE'
+              ? 'Practice round'
+              : `Round ${officialDisplayNumber(rounds ?? [], selectedRound.number) ?? selectedRound.number}`
+          } is paused${
             selectedRound.pauseReason ? ` — ${selectedRound.pauseReason}` : ''
           }. Public pages show this until you resume.`}
         </p>

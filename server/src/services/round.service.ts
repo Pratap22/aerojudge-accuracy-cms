@@ -82,51 +82,62 @@ export async function createRound(
 export async function updateRound(
   competitionId: string,
   roundId: string,
-  data: { type: 'PRACTICE' | 'OFFICIAL' | 'REFLIGHT' | 'RESTART' },
+  data: {
+    name?: string;
+    type?: 'PRACTICE' | 'OFFICIAL' | 'REFLIGHT' | 'RESTART';
+  },
 ) {
   const round = await getRound(competitionId, roundId);
+  const name = data.name?.trim();
+  const nextType = data.type;
+  const typeChanging = nextType != null && nextType !== round.type;
 
-  if (data.type === round.type) {
-    return prisma.round.findFirstOrThrow({ where: { id: roundId } });
-  }
+  if (typeChanging && nextType) {
+    if (round.status === 'LOCKED') {
+      throw AppError.badRequest('Round is locked — type cannot be changed');
+    }
 
-  if (round.status === 'LOCKED') {
-    throw AppError.badRequest('Round is locked — type cannot be changed');
-  }
+    if (round.status === 'APPROVED') {
+      throw AppError.badRequest('Cannot change type of an approved round — reopen first if needed');
+    }
 
-  if (['APPROVED'].includes(round.status)) {
-    throw AppError.badRequest('Cannot change type of an approved round — reopen first if needed');
-  }
+    if (nextType === 'OFFICIAL' && round.type !== 'OFFICIAL') {
+      const competition = await getCompetition(competitionId);
+      const officialCount = await prisma.round.count({
+        where: { competitionId, type: 'OFFICIAL' },
+      });
+      if (officialCount >= competition.maxRounds) {
+        throw AppError.badRequest(
+          `Cannot promote to official — already at max ${competition.maxRounds} official rounds`,
+        );
+      }
+    }
 
-  if (data.type === 'OFFICIAL' && round.type !== 'OFFICIAL') {
-    const competition = await getCompetition(competitionId);
-    const officialCount = await prisma.round.count({
-      where: { competitionId, type: 'OFFICIAL' },
+    const conflict = await prisma.round.findFirst({
+      where: {
+        competitionId,
+        number: round.number,
+        type: nextType,
+        NOT: { id: roundId },
+      },
     });
-    if (officialCount >= competition.maxRounds) {
-      throw AppError.badRequest(
-        `Cannot promote to official — already at max ${competition.maxRounds} official rounds`,
+    if (conflict) {
+      throw AppError.conflict(
+        `Round ${round.number} already exists as ${nextType}. Change that round first.`,
       );
     }
   }
 
-  const conflict = await prisma.round.findFirst({
-    where: {
-      competitionId,
-      number: round.number,
-      type: data.type,
-      NOT: { id: roundId },
-    },
-  });
-  if (conflict) {
-    throw AppError.conflict(
-      `Round ${round.number} already exists as ${data.type}. Change that round first.`,
-    );
+  if (!typeChanging && name == null) {
+    return prisma.round.findFirstOrThrow({ where: { id: roundId } });
   }
 
   return prisma.round.update({
     where: { id: roundId },
-    data: { type: data.type },
+    data: {
+      ...(typeChanging && nextType ? { type: nextType } : {}),
+      ...(name != null ? { name } : {}),
+    },
   });
 }
 
