@@ -402,3 +402,54 @@ jobs:
             fi
             export IMAGE_TAG GHCR_TOKEN GHCR_USER
             ./scripts/ec2-deploy.sh
+
+  release:
+    name: Publish GitHub release
+    needs: [detect, deploy]
+    if: needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Create release for this deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_TAG: ${{ needs.detect.outputs.image_tag }}
+          SUMMARY: ${{ needs.detect.outputs.summary }}
+        run: |
+          set -euo pipefail
+          SHORT="$(git rev-parse --short=7 HEAD)"
+          TAG="deploy-${GITHUB_RUN_NUMBER}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists"
+            exit 0
+          fi
+          PREV="$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty')"
+          SUBJECT="$(git log -1 --pretty=%s)"
+          {
+            echo "${SUBJECT}"
+            echo
+            echo "Image tag: \`${IMAGE_TAG}\`"
+            echo
+            echo "Plan: ${SUMMARY}"
+            echo
+            echo "Changes:"
+            if [ -n "${PREV}" ] && git rev-parse -q --verify "refs/tags/${PREV}^{commit}" >/dev/null; then
+              git log --pretty=format:'- %s (%h)' "${PREV}..HEAD"
+            else
+              git log -1 --pretty=format:'- %s (%h)'
+            fi
+            echo
+            echo
+            echo "[Workflow run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+          } > "${RUNNER_TEMP}/release-notes.md"
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "Deploy #${GITHUB_RUN_NUMBER} · ${SHORT}" \
+            --notes-file "${RUNNER_TEMP}/release-notes.md"

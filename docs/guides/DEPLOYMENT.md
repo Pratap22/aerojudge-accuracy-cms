@@ -95,6 +95,7 @@ Merging a PR into **`main`** (or pushing to `main`) runs **Build and deploy**:
 1. Diff against the previous `main` tip (or last successful deploy)
 2. Build/push only changed services; retag unchanged ones from `:latest`
 3. Deploy that tag to EC2. The host pulls first, migrates while the current API is still up, then replaces only containers with a new image. Nginx reloads instead of restarting, so port 80 stays open.
+4. Publish a GitHub Release tagged `deploy-<run number>` for that rollout. A repeated run of the same workflow does not create a second release.
 
 | Path change | Rebuilds |
 |-------------|----------|
