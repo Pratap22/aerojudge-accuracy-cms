@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { isEmptyHtml } from '@aero-judge/shared';
+import { displayCountryCode } from '@aero-judge/utils';
 import { Layout } from '../components/Layout';
 import { Hero } from '../components/Hero';
 import { OrganizingTeamSection } from '../components/OrganizingTeam';
@@ -85,7 +86,7 @@ export function HomePage() {
         rank: r.rank,
         name: pilotFullName(r.pilot!.firstName, r.pilot!.lastName),
         score: formatScore(r.totalScoreCm),
-        country: r.pilot!.country?.code ?? r.pilot!.nationality ?? 'XX',
+        country: displayCountryCode(r.pilot!.country, r.pilot!.nationality) || '—',
       })) ?? [];
 
   const aboutHtml =

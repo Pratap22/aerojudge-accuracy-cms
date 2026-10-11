@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatScoreCm } from '@aero-judge/utils';
+import { displayCountryCode, formatScoreCm } from '@aero-judge/utils';
 import { Medal, RefreshCw } from 'lucide-react';
 import {
   Badge,
@@ -64,7 +64,7 @@ interface TeamRankingApi {
   teamId: string;
   totalScoreCm: number;
   roundsScored: number;
-  team?: { id: string; name: string; country?: { name?: string } | null };
+  team?: { id: string; name: string; country?: { name?: string; code?: string } | null };
 }
 
 interface CountryRankingApi {
@@ -84,7 +84,7 @@ function mapIndividual(rows: IndividualRankingApi[]): RankingRow[] {
       name: r.pilot
         ? `#${r.pilot.pilotNumber} ${r.pilot.firstName} ${r.pilot.lastName}`
         : r.pilotId,
-      country: r.pilot?.country?.name ?? r.pilot?.country?.code,
+      country: displayCountryCode(r.pilot?.country, r.pilot?.nationality) || undefined,
       totalScoreCm: r.totalScoreCm,
       roundsFlown: r.roundsFlown,
       bullseyes: r.bullseyes,
@@ -96,7 +96,7 @@ function mapTeam(rows: TeamRankingApi[]): RankingRow[] {
     rank: r.rank,
     id: r.teamId,
     name: r.team?.name ?? r.teamId,
-    country: r.team?.country?.name,
+    country: displayCountryCode(r.team?.country) || undefined,
     totalScoreCm: r.totalScoreCm,
     roundsFlown: r.roundsScored,
     bullseyes: 0,
@@ -178,15 +178,15 @@ export function RankingsPage() {
               countryId?: string | null;
               country?: { id: string; name: string; code: string } | null;
             }[]
-          >(`/competitions/${activeCompetitionId}/pilots`, { pageSize: 500 }),
+          >(`/competitions/${activeCompetitionId}/pilots`, { pageSize: 200 }),
         ]);
-        const countryNames: Record<string, string> = {};
+        const countryCodes: Record<string, string> = {};
         for (const p of pilots) {
           if (p.countryId && p.country) {
-            countryNames[p.countryId] = p.country.name;
+            countryCodes[p.countryId] = p.country.code;
           }
         }
-        return mapCountry(rankings, countryNames);
+        return mapCountry(rankings, countryCodes);
       }
 
       const path =

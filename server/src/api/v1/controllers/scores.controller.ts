@@ -6,7 +6,7 @@ import { sendSuccess } from '../../../utils/response.js';
 import { prisma } from '../../../config/prisma.js';
 import * as scoreService from '../../../services/score.service.js';
 import * as scoringService from '../../../services/scoring.service.js';
-import { emitRankingUpdated, emitScoreUpdated, emitCurrentPilot } from '../../../socket/index.js';
+import { emitRankingUpdated, emitScoreUpdated, emitCurrentPilot, scorePilotPayload } from '../../../socket/index.js';
 import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
 
@@ -59,18 +59,7 @@ export const enter = [
       after: score,
     });
 
-    emitScoreUpdated(
-      competitionId,
-      roundId,
-      computed,
-      {
-        id: score.pilot.id,
-        pilotNumber: score.pilot.pilotNumber ?? 0,
-        firstName: score.pilot.firstName,
-        lastName: score.pilot.lastName,
-      },
-      roundNumber,
-    );
+    emitScoreUpdated(competitionId, roundId, computed, scorePilotPayload(score.pilot), roundNumber);
     emitCurrentPilot(competitionId, score.pilotId, score.flightId);
 
     const recalc = await scoringService.recalculateRankings(competitionId);
@@ -102,12 +91,7 @@ export const confirm = [
       score.round.competitionId,
       score.roundId,
       computed,
-      {
-        id: score.pilot.id,
-        pilotNumber: score.pilot.pilotNumber ?? 0,
-        firstName: score.pilot.firstName,
-        lastName: score.pilot.lastName,
-      },
+      scorePilotPayload(score.pilot),
       score.round.number,
     );
     const recalc = await scoringService.recalculateRankings(score.round.competitionId);

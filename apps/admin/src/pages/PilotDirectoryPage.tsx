@@ -431,7 +431,7 @@ export function PilotDirectoryPage() {
                 <div className="min-w-0 space-y-2">
                   <PilotIdentity person={person} />
                   <p className="text-xs text-muted-foreground">
-                    {person.nationalityCountry?.name ?? 'No country'}
+                    {person.nationalityCountry?.code ?? 'No country'}
                     {' · '}
                     {genderLabel(person.gender)}
                     {' · '}
@@ -485,7 +485,7 @@ export function PilotDirectoryPage() {
                   <TableCell>
                     <PilotIdentity person={person} />
                   </TableCell>
-                  <TableCell>{person.nationalityCountry?.name ?? '—'}</TableCell>
+                  <TableCell>{person.nationalityCountry?.code ?? '—'}</TableCell>
                   <TableCell>
                     <div className="text-sm">{person.civlId ?? '—'}</div>
                     {person.faiLicenseNumber && (

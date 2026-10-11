@@ -38,7 +38,7 @@ export function findCountry(
 }
 
 function countryLabel(c: CountryOption): string {
-  return `${c.name} (${c.code2 || c.code})`;
+  return `${c.name} (${c.code})`;
 }
 
 interface CountrySelectProps {

@@ -1,4 +1,4 @@
-import { shuffleArray } from '@aero-judge/utils';
+import { displayCountryCode, shuffleArray } from '@aero-judge/utils';
 import { COMPETING_PILOT_STATUSES, type FlightOrderType, type RoundStatus } from '@aero-judge/shared';
 import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
@@ -452,7 +452,7 @@ export async function listFlights(competitionId: string, roundId: string) {
       firstName: flight.pilot.firstName,
       lastName: flight.pilot.lastName,
       pilotName: `${flight.pilot.firstName} ${flight.pilot.lastName}`,
-      country: flight.pilot.country?.name ?? flight.pilot.nationality ?? '—',
+      country: displayCountryCode(flight.pilot.country, flight.pilot.nationality) || '—',
       countryCode: flight.pilot.country?.code2 ?? undefined,
       status: flight.status,
       distanceCm: score?.distanceCm ?? null,

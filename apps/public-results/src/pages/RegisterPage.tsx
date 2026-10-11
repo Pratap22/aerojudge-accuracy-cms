@@ -543,8 +543,8 @@ export function RegisterPage() {
                   <p className="text-sky-300/80">
                     {person!.aeroJudgeId}
                     {person!.civlId ? ` · CIVL ${person!.civlId}` : ''}
-                    {person!.nationalityCountry
-                      ? ` · ${person!.nationalityCountry.name}`
+                    {person!.nationalityCountry?.code
+                      ? ` · ${person!.nationalityCountry.code}`
                       : ''}
                   </p>
                 </div>

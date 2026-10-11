@@ -10,7 +10,7 @@ import {
 } from '@aero-judge/pdf-engine';
 import { applyDiscardRules, resolveCompetitionRules } from '@aero-judge/scoring-engine';
 import { COMPETING_PILOT_STATUSES, type PrintFormat, type ReportType } from '@aero-judge/shared';
-import { formatPilotName, formatScoreCm, officialDisplayNumber } from '@aero-judge/utils';
+import { displayCountryCode, formatPilotName, formatScoreCm, officialDisplayNumber } from '@aero-judge/utils';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { toAbsoluteAssetUrl, resolveLocalUploadPath } from '../utils/assets.js';
@@ -993,7 +993,7 @@ async function loadCompetitionSheetPilots(competitionId: string) {
     order: i + 1,
     pilotNumber: p.pilotNumber,
     name: formatPilotName(p.firstName, p.lastName),
-    country: p.country?.name ?? p.nationality ?? '',
+    country: displayCountryCode(p.country, p.nationality),
     pilotId: p.id,
   }));
 }
@@ -1117,7 +1117,7 @@ async function buildReportInput(
               pilotNumber: r.pilot.pilotNumber ?? 0,
               name: formatPilotName(r.pilot.firstName, r.pilot.lastName),
               civlId: r.pilot.civlId ?? '',
-              country: r.pilot.country?.name ?? r.pilot.nationality ?? '',
+              country: displayCountryCode(r.pilot.country, r.pilot.nationality),
               scores: rounds.map((round) => {
                 const existing = scoreMap.get(`${r.pilotId}:${round.id}`);
                 const value = formatScoreCm(existing?.finalScoreCm ?? maxCm);
@@ -1356,7 +1356,7 @@ async function buildReportInput(
         rank: i + 1,
         pilotNumber: p.pilotNumber ?? undefined,
         name: formatPilotName(p.firstName, p.lastName),
-        country: p.country?.name ?? p.nationality ?? '',
+        country: displayCountryCode(p.country, p.nationality),
         scores: [p.gender, p.club ?? '', pilotStatusLabel(p.status)],
         total: '',
         notes: pilotStatusLabel(p.status),
@@ -1414,7 +1414,7 @@ async function buildReportInput(
             rank: f.flightOrder,
             pilotNumber: f.pilot.pilotNumber ?? undefined,
             name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
-            country: f.pilot.country?.name ?? f.pilot.nationality ?? '',
+            country: displayCountryCode(f.pilot.country, f.pilot.nationality),
             scores: [] as string[],
             total: '',
           }))
@@ -1498,7 +1498,7 @@ async function buildReportInput(
         rank: rankByScoreId.get(s.id) ?? 0,
         pilotNumber: s.pilot.pilotNumber ?? 0,
         name: formatPilotName(s.pilot.firstName, s.pilot.lastName),
-        country: s.pilot.country?.name ?? s.pilot.nationality ?? '',
+        country: displayCountryCode(s.pilot.country, s.pilot.nationality),
         scores: [],
         total: formatScoreCm(s.finalScoreCm),
       })),
@@ -1602,7 +1602,7 @@ async function buildReportInput(
             order: f.flightOrder,
             pilotNumber: f.pilot.pilotNumber,
             name: formatPilotName(f.pilot.firstName, f.pilot.lastName),
-            country: f.pilot.country?.name ?? f.pilot.nationality ?? '',
+            country: displayCountryCode(f.pilot.country, f.pilot.nationality),
             pilotId: f.pilot.id,
           }))
         : await loadCompetitionSheetPilots(competition.id);
@@ -1681,7 +1681,7 @@ async function buildReportInput(
       return {
         pilotNumber: p.pilotNumber ?? 0,
         name: formatPilotName(p.firstName, p.lastName),
-        country: p.country?.name ?? p.nationality ?? '',
+        country: displayCountryCode(p.country, p.nationality),
         team: p.teamMembers[0]?.team?.name,
         qrUrl,
       };
@@ -1733,7 +1733,7 @@ async function buildReportInput(
       return {
         pilotNumber: p.pilotNumber ?? 0,
         name: formatPilotName(p.firstName, p.lastName),
-        country: p.country?.name ?? p.nationality ?? '',
+        country: displayCountryCode(p.country, p.nationality),
         team: p.teamMembers[0]?.team?.name,
         qrUrl: branding.publicResultsUrl,
         rank: ranking?.rank,

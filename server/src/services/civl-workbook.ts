@@ -1,92 +1,5 @@
 import ExcelJS from 'exceljs';
 
-/**
- * ISO 3166-1 alpha-3 codes that CIVL writes as a different three-letter nation code.
- * Codes that already match are left unchanged.
- */
-const ISO_TO_CIVL: Record<string, string> = {
-  DZA: 'ALG',
-  ASM: 'ASA',
-  AGO: 'ANG',
-  ATG: 'ANT',
-  ABW: 'ARU',
-  BHS: 'BAH',
-  BHR: 'BRN',
-  BGD: 'BAN',
-  BRB: 'BAR',
-  BLZ: 'BIZ',
-  BMU: 'BER',
-  BTN: 'BHU',
-  BWA: 'BOT',
-  VGB: 'IVB',
-  BRN: 'BRU',
-  BGR: 'BUL',
-  BFA: 'BUR',
-  KHM: 'CAM',
-  CYM: 'CAY',
-  TCD: 'CHA',
-  CHL: 'CHI',
-  TWN: 'TPE',
-  COG: 'CGO',
-  CRI: 'CRC',
-  HRV: 'CRO',
-  DNK: 'DEN',
-  SLV: 'ESA',
-  GNQ: 'GEQ',
-  FJI: 'FIJ',
-  DEU: 'GER',
-  GRC: 'GRE',
-  GRD: 'GRN',
-  GTM: 'GUA',
-  GIN: 'GUI',
-  GNB: 'GBS',
-  HTI: 'HAI',
-  HND: 'HON',
-  IDN: 'INA',
-  IRN: 'IRI',
-  KNA: 'SKN',
-  KWT: 'KUW',
-  LVA: 'LAT',
-  LSO: 'LES',
-  LBY: 'LBA',
-  MDG: 'MAD',
-  MWI: 'MAW',
-  MYS: 'MAS',
-  MRT: 'MTN',
-  MUS: 'MRI',
-  MNG: 'MGL',
-  MMR: 'MYA',
-  NPL: 'NEP',
-  NLD: 'NED',
-  NIC: 'NCA',
-  NER: 'NIG',
-  NGA: 'NGR',
-  PSE: 'PLE',
-  PRY: 'PAR',
-  PHL: 'PHI',
-  PRT: 'POR',
-  PRI: 'PUR',
-  WSM: 'SAM',
-  SAU: 'KSA',
-  SYC: 'SEY',
-  SVN: 'SLO',
-  SLB: 'SOL',
-  ZAF: 'RSA',
-  LKA: 'SRI',
-  SDN: 'SUD',
-  CHE: 'SUI',
-  TZA: 'TAN',
-  TGO: 'TOG',
-  TON: 'TGA',
-  ARE: 'UAE',
-  URY: 'URU',
-  VCT: 'VIN',
-  VNM: 'VIE',
-  VIR: 'ISV',
-  ZMB: 'ZAM',
-  ZWE: 'ZIM',
-};
-
 const INDIVIDUAL_SHEET = 'Individual Overall or Custom';
 const TEAM_SHEET = 'Group National or Teams';
 
@@ -161,10 +74,10 @@ export interface CivlTeamGroup {
   members: CivlTeamMember[];
 }
 
+/** Nation column uses the same ISO alpha-3 code as the rest of the app. */
 export function civlNationCode(code: string | null | undefined): string {
   const trimmed = code?.trim().toUpperCase() ?? '';
-  if (!/^[A-Z]{3}$/.test(trimmed)) return '';
-  return ISO_TO_CIVL[trimmed] ?? trimmed;
+  return /^[A-Z]{3}$/.test(trimmed) ? trimmed : '';
 }
 
 export function civlGender(gender: string | null | undefined): string {

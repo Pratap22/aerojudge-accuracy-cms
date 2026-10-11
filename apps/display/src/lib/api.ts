@@ -51,6 +51,7 @@ export interface LatestPublicScore {
   firstName: string;
   lastName: string;
   countryCode: string;
+  countryCode2?: string;
   countryName: string | null;
   scoreCm: number | null;
   isBullseye: boolean;

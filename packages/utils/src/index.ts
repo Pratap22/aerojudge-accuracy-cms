@@ -206,6 +206,20 @@ export type RoundNumberSource = {
   type?: string | null;
 };
 
+/**
+ * The country code shown everywhere: ISO 3166-1 alpha-3 (NPL, IND, FRA).
+ * Alpha-2 stays on `code2` for flags only.
+ */
+export function displayCountryCode(
+  country?: { code?: string | null } | null,
+  nationality?: string | null,
+): string {
+  const code = country?.code?.trim().toUpperCase() ?? '';
+  if (/^[A-Z]{3}$/.test(code)) return code;
+  const stored = nationality?.trim().toUpperCase() ?? '';
+  return /^[A-Z]{3}$/.test(stored) ? stored : '';
+}
+
 export function isOfficialRound(round: RoundNumberSource): boolean {
   return (round.type ?? 'OFFICIAL') === 'OFFICIAL';
 }

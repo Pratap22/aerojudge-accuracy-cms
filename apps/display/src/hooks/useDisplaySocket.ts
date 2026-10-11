@@ -71,6 +71,7 @@ export function useDisplaySocket(
             lastName: prev.latestScore.lastName || score.lastName,
             pilotNumber: prev.latestScore.pilotNumber || score.pilotNumber,
             countryCode: prev.latestScore.countryCode || score.countryCode,
+            countryCode2: prev.latestScore.countryCode2 || score.countryCode2,
           },
         };
       }
@@ -128,8 +129,10 @@ export function useDisplaySocket(
             pilotNumber: pilot?.pilotNumber ?? prev.latestScore?.pilotNumber ?? 0,
             firstName: pilot?.firstName ?? prev.latestScore?.firstName ?? '',
             lastName: pilot?.lastName ?? prev.latestScore?.lastName ?? '',
-            countryCode:
-              pilot?.countryCode ?? pilot?.country ?? prev.latestScore?.countryCode ?? '',
+            countryCode: pilot
+              ? (pilot.countryCode ?? pilot.country ?? '')
+              : (prev.latestScore?.countryCode ?? ''),
+            countryCode2: pilot ? pilot.countryCode2 : prev.latestScore?.countryCode2,
             scoreCm: score.finalScoreCm,
             isBullseye: score.isBullseye,
             resultLabel: resultLabelFromScore(score),

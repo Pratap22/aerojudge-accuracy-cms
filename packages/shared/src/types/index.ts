@@ -395,7 +395,10 @@ export interface SocketEvents {
       firstName: string;
       lastName: string;
       country?: string;
+      /** ISO 3166-1 alpha-3 shown in the UI. */
       countryCode?: string;
+      /** ISO 3166-1 alpha-2 for flag emoji only. */
+      countryCode2?: string;
     };
   };
   'round:status': {

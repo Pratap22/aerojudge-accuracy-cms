@@ -65,12 +65,14 @@ function podiumCard(
         `${entry.firstName}${entry.lastName ? ` ${entry.lastName}` : ''}`.trim())
     : '—';
 
-  const countryCode = entry?.countryCode2?.trim().toUpperCase();
   const flagCode =
-    countryCode && countryCode.length === 2 && countryCode !== 'XX' && /^[A-Z]{2}$/.test(countryCode)
-      ? countryCode
+    entry?.countryCode2 &&
+    entry.countryCode2.length === 2 &&
+    entry.countryCode2 !== 'XX' &&
+    /^[A-Z]{2}$/.test(entry.countryCode2)
+      ? entry.countryCode2
       : null;
-  const countryLabel = entry?.countryName?.trim() || (flagCode ?? undefined);
+  const countryLabel = entry?.countryCode?.trim() || undefined;
   const showCountry = Boolean(countryLabel);
 
   return (

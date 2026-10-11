@@ -1,6 +1,7 @@
 import type { Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
 import { SOCKET_ROOMS, type RankingCategory, type RoundStatus } from '@aero-judge/shared';
+import { displayCountryCode } from '@aero-judge/utils';
 import { env, isDevLanOrigin } from '../config/env.js';
 import { verifyAccessToken } from '../auth/jwt.js';
 
@@ -74,6 +75,27 @@ export function getIo(): Server {
   return io;
 }
 
+export function scorePilotPayload(pilot: {
+  id: string;
+  pilotNumber: number | null;
+  firstName: string;
+  lastName: string;
+  nationality?: string | null;
+  country?: { code?: string | null; code2?: string | null } | null;
+}) {
+  const code = displayCountryCode(pilot.country, pilot.nationality);
+  const code2 = pilot.country?.code2?.trim().toUpperCase() ?? '';
+  return {
+    id: pilot.id,
+    pilotNumber: pilot.pilotNumber ?? 0,
+    firstName: pilot.firstName,
+    lastName: pilot.lastName,
+    country: code || undefined,
+    countryCode: code || undefined,
+    countryCode2: /^[A-Z]{2}$/.test(code2) ? code2 : undefined,
+  };
+}
+
 export function emitScoreUpdated(
   competitionId: string,
   roundId: string,
@@ -85,6 +107,8 @@ export function emitScoreUpdated(
     lastName: string;
     country?: string;
     countryCode?: string;
+    /** ISO alpha-2, flags only. */
+    countryCode2?: string;
   },
   roundNumber?: number,
 ): void {

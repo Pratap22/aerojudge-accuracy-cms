@@ -37,6 +37,14 @@ export async function resolveCountryId(hint: string | null | undefined): Promise
   return country?.id ?? null;
 }
 
+/** ISO alpha-3 stored on Country.code, for a known country id. */
+export async function countryAlpha3ById(id: string | null | undefined): Promise<string | null> {
+  if (!id) return null;
+  const countries = await loadCountries();
+  const code = countries.find((c) => c.id === id)?.code.trim().toUpperCase() ?? '';
+  return /^[A-Z]{3}$/.test(code) ? code : null;
+}
+
 /**
  * Link pilots that have nationality text but no countryId.
  * Returns how many rows were updated.
@@ -64,17 +72,20 @@ export async function linkPilotsToCountries(competitionId: string): Promise<numb
   return updated;
 }
 
-/** Public/API shape: `code` is always flag-ready alpha-2 when available. */
+/** Public/API shape. `code` is ISO alpha-3. `code2` is alpha-2 for flags only. */
 export function toPublicCountry(country: {
   name: string;
   code: string;
   code2?: string | null;
 } | null) {
   if (!country) return null;
-  const code2 = country.code2 || (country.code.length === 2 ? country.code : null);
+  const alpha3 = country.code.trim().length === 3 ? country.code.trim().toUpperCase() : '';
+  const alpha2 =
+    country.code2?.trim().toUpperCase() ||
+    (country.code.trim().length === 2 ? country.code.trim().toUpperCase() : '');
   return {
     name: country.name,
-    code: code2 || country.code,
-    code2: code2 || country.code,
+    code: alpha3,
+    code2: alpha2,
   };
 }

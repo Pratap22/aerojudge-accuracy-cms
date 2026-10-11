@@ -28,7 +28,7 @@ function CategoryPage({
         rank: row.rank,
         teamId: row.teamId ?? row.team!.id,
         name: row.team!.name,
-        countryCode2: row.team!.country?.code || undefined,
+        countryCode2: row.team!.country?.code2 || undefined,
         totalScoreCm: row.totalScoreCm,
         roundScores: (row.roundScores ?? []).map((rs) => ({
           round: rs.round,

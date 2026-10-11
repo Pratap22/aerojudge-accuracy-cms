@@ -47,9 +47,10 @@ function rowValues(sheet: ExcelJS.Worksheet, rowNumber: number): unknown[] {
 
 describe('CIVL spreadsheet', () => {
   it('writes nation codes, gender, and zero-padded numbers the template expects', () => {
-    expect(civlNationCode('idn')).toBe('INA');
-    expect(civlNationCode('NPL')).toBe('NEP');
+    expect(civlNationCode('idn')).toBe('IDN');
+    expect(civlNationCode('NPL')).toBe('NPL');
     expect(civlNationCode('IND')).toBe('IND');
+    expect(civlNationCode('NP')).toBe('');
     expect(civlNationCode('Nepal')).toBe('');
     expect(civlGender('FEMALE')).toBe('F');
     expect(civlGender('OTHER')).toBe('');

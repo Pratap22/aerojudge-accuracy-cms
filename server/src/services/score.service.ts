@@ -96,7 +96,7 @@ export async function enterScore(
       enteredAt: new Date(),
       version: { increment: 1 },
     },
-    include: { pilot: true, flight: true },
+    include: { pilot: { include: { country: true } }, flight: true },
   });
 
   await prisma.flight.update({
@@ -152,7 +152,7 @@ export async function confirmScore(scoreId: string, confirmedById: string) {
       confirmedAt: new Date(),
       enteredById: confirmedById,
     },
-    include: { pilot: true, flight: true, round: true },
+    include: { pilot: { include: { country: true } }, flight: true, round: true },
   });
 }
 

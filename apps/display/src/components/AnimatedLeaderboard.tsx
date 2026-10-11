@@ -171,9 +171,9 @@ export function AnimatedLeaderboard({
                     ) : null}
                     {label}
                   </p>
-                  {entry.countryCode2 && entry.countryCode2 !== 'XX' && (
+                  {entry.countryCode && entry.countryCode !== 'XX' && (
                     <p className="text-sm uppercase tracking-wider text-sky-400/70">
-                      {entry.countryCode2}
+                      {entry.countryCode}
                     </p>
                   )}
                 </div>

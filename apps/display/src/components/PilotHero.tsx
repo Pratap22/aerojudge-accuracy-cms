@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { CountryFlag } from './CountryFlag';
+import { displayCountryCode } from '@aero-judge/utils';
 import { formatScore, pilotFullName } from '../lib/utils';
 import type { PublicRankingRow } from '../lib/types';
 
@@ -43,8 +44,8 @@ export function PilotHero({
   const name = pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName);
   const showScore = hasLastScore || liveScoreCm != null || Boolean(resultLabel);
   const bullseye = isBullseye || liveScoreCm === 0;
-  const countryLabel = pilot.pilot.country?.name ?? pilot.pilot.nationality ?? '—';
-  const flagCode = pilot.pilot.country?.code2 ?? pilot.pilot.country?.code ?? '';
+  const countryLabel = displayCountryCode(pilot.pilot.country, pilot.pilot.nationality) || '—';
+  const flagCode = pilot.pilot.country?.code2?.trim().toUpperCase() ?? '';
   const showFlag = /^[A-Za-z]{2}$/.test(flagCode) && flagCode.toUpperCase() !== 'XX';
 
   return (

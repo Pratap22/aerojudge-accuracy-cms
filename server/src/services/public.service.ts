@@ -5,7 +5,7 @@ import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { syncCompetitionStatusFromRounds } from './competition.service.js';
 import { recalculateRankings } from './scoring.service.js';
-import { resolveCountryId, toPublicCountry } from '../utils/country-resolve.js';
+import { countryAlpha3ById, resolveCountryId, toPublicCountry } from '../utils/country-resolve.js';
 import {
   displayedPilotPhotoUrl,
   pilotPhotoWithPersonSelect,
@@ -610,7 +610,8 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           country: r.team.country
             ? {
                 name: r.team.country.name,
-                code: r.team.country.code2 || r.team.country.code,
+                code: r.team.country.code,
+                code2: r.team.country.code2,
               }
             : null,
         },
@@ -687,8 +688,8 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           roundsFlown: r.roundsScored ?? 0,
           bullseyes: 0,
           country: country
-            ? { name: country.name, code: country.code2 || country.code }
-            : { name: r.countryId, code: 'XX' },
+            ? { name: country.name, code: country.code, code2: country.code2 }
+            : { name: '', code: '', code2: '' },
           pilot: null,
           team: null,
         };
@@ -983,10 +984,8 @@ export async function getLatestPublicScore(slugOrId: string) {
 
   if (!score) return null;
 
-  const flagCode =
-    score.pilot.country?.code2 ||
-    (score.pilot.country?.code.length === 2 ? score.pilot.country.code : null) ||
-    'XX';
+  const countryCode = score.pilot.country?.code?.trim().toUpperCase() ?? '';
+  const countryCode2 = score.pilot.country?.code2?.trim().toUpperCase() ?? '';
 
   return {
     competitionId: competition.id,
@@ -995,7 +994,8 @@ export async function getLatestPublicScore(slugOrId: string) {
     firstName: score.pilot.firstName,
     lastName: score.pilot.lastName,
     photoUrl: displayedPilotPhotoUrl(score.pilot),
-    countryCode: flagCode,
+    countryCode: /^[A-Z]{3}$/.test(countryCode) ? countryCode : '',
+    countryCode2: /^[A-Z]{2}$/.test(countryCode2) ? countryCode2 : '',
     countryName: score.pilot.country?.name ?? score.pilot.nationality ?? null,
     scoreCm: score.finalScoreCm,
     isBullseye: score.isBullseye,
@@ -1198,6 +1198,7 @@ export async function registerAuthenticatedPilot(
     if (input.countryCode) {
       countryId = (await resolveCountryId(input.countryCode)) ?? undefined;
     }
+    const nationalityCode = countryId ? await countryAlpha3ById(countryId) : null;
     const person = await createPerson(
       {
         firstName,
@@ -1207,7 +1208,7 @@ export async function registerAuthenticatedPilot(
         civlId: input.civlId,
         faiLicenseNumber: input.faiLicense,
         nationalityCountryId: countryId ?? null,
-        nationality: input.nationality,
+        nationality: nationalityCode ?? input.nationality,
         dateOfBirth: input.dateOfBirth ?? null,
         forceCreate: true,
       },
@@ -1233,7 +1234,7 @@ export async function registerAuthenticatedPilot(
     lastName: person.lastName,
     gender: person.gender,
     countryCode: input.countryCode,
-    nationality: input.nationality ?? person.nationalityCountry?.name ?? undefined,
+    nationality: input.nationality ?? person.nationalityCountry?.code ?? undefined,
     countryId: person.nationalityCountryId ?? undefined,
     faiLicense: input.faiLicense ?? person.faiLicenseNumber ?? undefined,
     civlId: input.civlId ?? person.civlId ?? undefined,
@@ -1301,10 +1302,12 @@ async function enrollPilotInCompetition(
     if (!countryId) {
       throw AppError.badRequest(`Unknown country code: ${input.countryCode}`, 'INVALID_COUNTRY');
     }
-    const country = await prisma.country.findUnique({ where: { id: countryId } });
-    nationality = nationality ?? country?.name;
   } else if (nationality && !countryId) {
     countryId = (await resolveCountryId(nationality)) ?? undefined;
+  }
+  if (countryId) {
+    const alpha3 = await countryAlpha3ById(countryId);
+    if (alpha3) nationality = alpha3;
   }
 
   const maxNumber = await prisma.pilot.aggregate({

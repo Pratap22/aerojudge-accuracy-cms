@@ -11,6 +11,7 @@ import {
   type PilotStatus,
   type RoundStatus,
 } from '@aero-judge/shared';
+import { displayCountryCode } from '@aero-judge/utils';
 import {
   Check,
   Download,
@@ -66,6 +67,7 @@ interface Pilot {
   gender: Gender;
   faiLicense?: string | null;
   nationality?: string | null;
+  country?: { code: string; name: string } | null;
   club?: string | null;
   civlId?: string | null;
   countryId?: string | null;
@@ -151,7 +153,7 @@ function toFormValues(pilot: Pilot): CreatePilotInput {
     lastName: pilot.lastName,
     gender: pilot.gender,
     faiLicense: pilot.faiLicense ?? undefined,
-    nationality: pilot.nationality ?? undefined,
+    nationality: displayCountryCode(pilot.country, pilot.nationality) || undefined,
     club: pilot.club ?? undefined,
     civlId: pilot.civlId ?? undefined,
     countryId: pilot.countryId ?? undefined,
@@ -816,7 +818,7 @@ export function PilotsPage() {
                     </TableCell>
                     <TableCell className="font-mono">{pilot.civlId ?? '—'}</TableCell>
                     <TableCell>{pilot.gender}</TableCell>
-                    <TableCell>{pilot.nationality ?? '—'}</TableCell>
+                    <TableCell>{displayCountryCode(pilot.country, pilot.nationality) || '—'}</TableCell>
                     <TableCell>{pilot.club ?? '—'}</TableCell>
                     <TableCell>
                       <Badge variant={statusBadgeVariant(pilot.status)}>
@@ -899,8 +901,8 @@ export function PilotsPage() {
                           <UserCheck className="h-4 w-4 shrink-0 text-primary" />
                           <span className="truncate">
                             {selectedPerson.firstName} {selectedPerson.lastName}
-                            {selectedPerson.nationalityCountry
-                              ? ` · ${selectedPerson.nationalityCountry.name}`
+                            {selectedPerson.nationalityCountry?.code
+                              ? ` · ${selectedPerson.nationalityCountry.code}`
                               : ''}
                             {selectedPerson.civlId ? ` · CIVL ${selectedPerson.civlId}` : ''}
                             {` · ${selectedPerson.aeroJudgeId}`}
@@ -945,7 +947,7 @@ export function PilotsPage() {
                                   <span className="text-xs text-muted-foreground">
                                     {p.alreadyRegistered
                                       ? 'Already in this competition'
-                                      : `${p.aeroJudgeId}${p.civlId ? ` · CIVL ${p.civlId}` : ''}${p.nationalityCountry ? ` · ${p.nationalityCountry.name}` : ''}`}
+                                      : `${p.aeroJudgeId}${p.civlId ? ` · CIVL ${p.civlId}` : ''}${p.nationalityCountry?.code ? ` · ${p.nationalityCountry.code}` : ''}`}
                                   </span>
                                 </button>
                               </li>
@@ -1027,7 +1029,7 @@ export function PilotsPage() {
                     disabled={!!selectedPerson}
                     onChange={(country) => {
                       setValue('countryId', country?.id ?? undefined);
-                      setValue('nationality', country?.name ?? undefined);
+                      setValue('nationality', country?.code ?? undefined);
                     }}
                   />
                 </div>

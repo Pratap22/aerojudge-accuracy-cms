@@ -198,6 +198,7 @@ export function DisplayBoardPage() {
       firstName: persistedLatest.firstName,
       lastName: persistedLatest.lastName,
       countryCode: persistedLatest.countryCode,
+      countryCode2: persistedLatest.countryCode2,
       scoreCm: persistedLatest.scoreCm,
       isBullseye: persistedLatest.isBullseye,
       resultLabel: persistedLatest.resultLabel,
@@ -390,11 +391,9 @@ export function DisplayBoardPage() {
           lastName: latestScore.lastName || persistedLatest?.lastName || '',
           nationality: latestScore.countryCode || persistedLatest?.countryCode,
           country: {
-            name:
-              persistedLatest?.countryName ??
-              latestScore.countryCode ??
-              '—',
-            code: latestScore.countryCode || persistedLatest?.countryCode || 'XX',
+            name: latestScore.countryCode || persistedLatest?.countryCode || '',
+            code: latestScore.countryCode || persistedLatest?.countryCode || '',
+            code2: latestScore.countryCode2 || persistedLatest?.countryCode2,
           },
         },
       };

@@ -32,6 +32,8 @@ export interface LeaderboardEntry {
   displayName?: string;
   /** ISO 3166-1 alpha-2 for flag emoji */
   countryCode2?: string;
+  /** ISO 3166-1 alpha-3 country code shown in the UI */
+  countryCode?: string;
   /** Display name of the country (optional) */
   countryName?: string;
   flagUrl?: string;

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Search } from 'lucide-react';
 import { Button, cn, Input } from '@aero-judge/ui';
 import { COMPETING_PILOT_STATUSES, type PilotStatus, type RoundStatus } from '@aero-judge/shared';
+import { displayCountryCode } from '@aero-judge/utils';
 import { api } from '../lib/api';
 import { competitionDrawClosed, isDrawPresentation } from '../lib/pilot-draw';
 import {
@@ -20,6 +21,7 @@ interface DrawPilot {
   lastName: string;
   civlId?: string | null;
   nationality?: string | null;
+  country?: { code?: string | null } | null;
 }
 
 const ACCEPTED_STATUSES = new Set<PilotStatus>(COMPETING_PILOT_STATUSES);
@@ -286,7 +288,7 @@ export function PilotNumberDrawPage() {
                     >
                       <span className="font-medium">{pilotName(pilot)}</span>
                       <span className="text-xs text-muted-foreground">
-                        {[pilot.civlId ? `CIVL ${pilot.civlId}` : null, pilot.nationality]
+                        {[pilot.civlId ? `CIVL ${pilot.civlId}` : null, displayCountryCode(pilot.country, pilot.nationality) || null]
                           .filter(Boolean)
                           .join(' · ') || 'No CIVL ID'}
                       </span>

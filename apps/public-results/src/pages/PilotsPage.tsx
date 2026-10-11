@@ -120,8 +120,8 @@ export function PilotsPage() {
                     {pilotFullName(pilot.firstName, pilot.lastName)}
                   </p>
                   <p className="text-sm text-sky-300/60">
-                    {countryCodeToEmoji(pilot.country?.code2 ?? pilot.country?.code ?? '')}{' '}
-                    {pilot.country?.name ?? pilot.nationality ?? '—'}
+                    {countryCodeToEmoji(pilot.country?.code2 ?? '')}{' '}
+                    {pilot.country?.code || '—'}
                     {pilot.club ? ` · ${pilot.club}` : ''}
                   </p>
                 </div>

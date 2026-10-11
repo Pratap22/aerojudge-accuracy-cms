@@ -1,10 +1,10 @@
-import { generateQrPayload, parseCsvLine, formatPilotName, toCsv } from '@aero-judge/utils';
+import { displayCountryCode, generateQrPayload, parseCsvLine, formatPilotName, toCsv } from '@aero-judge/utils';
 import { COMPETING_PILOT_STATUSES, STARTED_ROUND_STATUSES, type PilotStatus } from '@aero-judge/shared';
 import type { CompetitionParticipationStatus, Prisma } from '@aero-judge/database';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
-import { resolveCountryId } from '../utils/country-resolve.js';
+import { countryAlpha3ById, resolveCountryId } from '../utils/country-resolve.js';
 import {
   assertPilotJudgePolicy,
   assignCompetitionRole,
@@ -299,6 +299,8 @@ export async function createPilot(
   const profilePhotoUrl =
     (typeof pilotFields.photoUrl === 'string' ? pilotFields.photoUrl : null) ??
     (await resolvePersonPhotoUrl(personId, person.photoUrl));
+  const resolvedCountryId = countryId ?? person.nationalityCountryId ?? undefined;
+  const nationalityCode = await countryAlpha3ById(resolvedCountryId);
 
   let pilot;
   try {
@@ -317,7 +319,8 @@ export async function createPilot(
         personId,
         competitionParticipantId: linkedParticipant.id,
         qrCode,
-        countryId: countryId ?? person.nationalityCountryId ?? undefined,
+        countryId: resolvedCountryId,
+        nationality: nationalityCode,
         isWomen:
           pilotFields.gender === 'FEMALE' ||
           pilotFields.isWomen === true ||
@@ -371,6 +374,12 @@ export async function updatePilot(
   if (nextCountryId === undefined && typeof nationality === 'string') {
     nextCountryId = (await resolveCountryId(nationality)) ?? undefined;
   }
+  const countryKey = typeof nextCountryId === 'string' ? nextCountryId : null;
+  const nationalityCode = countryKey ? await countryAlpha3ById(countryKey) : null;
+  const storedNationality =
+    nationalityCode && (nationality !== undefined || countryId !== undefined)
+      ? nationalityCode
+      : nationality;
 
   if (status !== undefined && status !== null) {
     await setPilotStatus(competitionId, pilotId, status as PilotStatus);
@@ -448,7 +457,7 @@ export async function updatePilot(
     where: { id: pilotId },
     data: {
       ...rest,
-      ...(nationality !== undefined ? { nationality } : {}),
+      ...(storedNationality !== undefined ? { nationality: storedNationality } : {}),
       ...(nextCountryId !== undefined ? { countryId: nextCountryId } : {}),
       ...(gender !== undefined ? { gender, isWomen: gender === 'FEMALE' } : {}),
     },
@@ -734,6 +743,7 @@ export async function exportPilotsCsv(competitionId: string): Promise<string> {
   const pilots = await prisma.pilot.findMany({
     where: { competitionId },
     orderBy: { pilotNumber: 'asc' },
+    include: { country: { select: { code: true } } },
   });
 
   const rows: string[][] = [
@@ -755,7 +765,7 @@ export async function exportPilotsCsv(competitionId: string): Promise<string> {
       p.firstName,
       p.lastName,
       p.gender,
-      p.nationality ?? '',
+      displayCountryCode(p.country, p.nationality),
       p.club ?? '',
       p.glider ?? '',
       p.civlId ?? '',
@@ -944,12 +954,12 @@ export function formatPilotDisplay(pilot: {
   pilotNumber: number;
   firstName: string;
   lastName: string;
-  country?: { name: string } | null;
+  country?: { code?: string | null } | null;
   nationality?: string | null;
 }) {
   return {
     pilotNumber: pilot.pilotNumber,
     name: formatPilotName(pilot.firstName, pilot.lastName),
-    country: pilot.country?.name ?? pilot.nationality ?? undefined,
+    country: displayCountryCode(pilot.country, pilot.nationality) || undefined,
   };
 }

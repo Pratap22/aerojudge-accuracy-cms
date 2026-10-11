@@ -18,6 +18,9 @@ function PilotCard({
   label: string;
   variant: 'current' | 'next' | 'upcoming';
 }) {
+  const flagCode = pilot?.pilot?.country?.code2?.trim().toUpperCase() ?? '';
+  const showFlag = /^[A-Z]{2}$/.test(flagCode) && flagCode !== 'XX';
+
   const borderColor =
     variant === 'current'
       ? 'border-sky-400'
@@ -48,7 +51,7 @@ function PilotCard({
           {pilot.pilot.photoUrl ? (
             <p className="mb-1 font-mono text-lg text-sky-400">#{pilot.pilot.pilotNumber}</p>
           ) : null}
-          <CountryFlag code={pilot.pilot.country?.code2 ?? pilot.pilot.country?.code ?? 'XX'} size="md" className="mb-3" />
+          {showFlag ? <CountryFlag code={flagCode} size="md" className="mb-3" /> : null}
           <h3 className="text-center font-display text-3xl uppercase text-white">
             {pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName)}
           </h3>

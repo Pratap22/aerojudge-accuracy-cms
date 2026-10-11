@@ -40,6 +40,7 @@ export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeade
       (e) =>
         `${e.firstName} ${e.lastName}`.toLowerCase().includes(q) ||
         String(e.pilotNumber).includes(q) ||
+        e.countryCode?.toLowerCase().includes(q) ||
         e.countryCode2?.toLowerCase().includes(q),
     );
     return maxRows ? filtered.slice(0, maxRows) : filtered;

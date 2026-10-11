@@ -81,7 +81,10 @@ export interface LiveScore {
   pilotNumber: number;
   firstName: string;
   lastName: string;
+  /** ISO alpha-3 shown as text. */
   countryCode: string;
+  /** ISO alpha-2 for the flag only. */
+  countryCode2?: string;
   scoreCm: number | null;
   isBullseye: boolean;
   resultLabel?: string;
