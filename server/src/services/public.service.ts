@@ -20,6 +20,15 @@ function displayedOfficialNumber(rows: { number: number }[], storedNumber: numbe
   );
 }
 
+const COUNTABLE_ROUND_STATUSES = [
+  'ACTIVE',
+  'PAUSED',
+  'CLOSED',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'LOCKED',
+] as const;
+
 const ACTIVE_STATUSES = new Set(['REGISTRATION', 'PRACTICE', 'OFFICIAL', 'PAUSED']);
 const PAST_STATUSES = new Set(['COMPLETED', 'CANCELLED']);
 
@@ -457,18 +466,17 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       }
     }
 
-    const scoringRoundRows = await prisma.round.findMany({
-      where: {
-        competitionId: competition.id,
-        type: 'OFFICIAL',
-        status: {
-          in: ['ACTIVE', 'PAUSED', 'CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'],
-        },
-      },
+    const officialRoundRows = await prisma.round.findMany({
+      where: { competitionId: competition.id, type: 'OFFICIAL' },
       orderBy: { number: 'asc' },
       select: { id: true, number: true, status: true },
     });
-    const roundNumbers = scoringRoundRows.map((row) => displayedOfficialNumber(scoringRoundRows, row.number));
+    const scoringRoundRows = officialRoundRows.filter((row) =>
+      (COUNTABLE_ROUND_STATUSES as readonly string[]).includes(row.status),
+    );
+    const roundNumbers = scoringRoundRows.map((row) =>
+      displayedOfficialNumber(officialRoundRows, row.number),
+    );
     const finalRoundStatuses = new Set(['CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED']);
     const roundIds = scoringRoundRows.map((r) => r.id);
 
@@ -547,7 +555,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
         const total = totalByRoundId.get(round.id);
         const hasRealScores = counted.length > 0 && total != null;
         return {
-          round: displayedOfficialNumber(scoringRoundRows, round.number),
+          round: displayedOfficialNumber(officialRoundRows, round.number),
           scoreCm: hasRealScores ? total : null,
           // Team round scores are never struck — only pilot cells within a round can be.
           isDiscarded: false,
@@ -574,7 +582,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
             const counted = contrib ? contrib.counted : scoreCm != null;
             const empty = scoreCm == null;
             return {
-              round: displayedOfficialNumber(scoringRoundRows, round.number),
+              round: displayedOfficialNumber(officialRoundRows, round.number),
               scoreCm: empty ? null : scoreCm,
               isBullseye: Boolean(raw?.isBullseye) && counted && !empty,
               // Strike when present but not counted toward the team round total (worst pilot).
@@ -725,18 +733,17 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
 
   // Round columns for live/final individual boards (overall, women, junior).
   // Prefer scoring-engine payload (includes discard flags); fall back to Score rows.
-  const scoringRoundRows = await prisma.round.findMany({
-    where: {
-      competitionId: competition.id,
-      type: 'OFFICIAL',
-      status: {
-        in: ['ACTIVE', 'PAUSED', 'CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'],
-      },
-    },
+  const officialRoundRows = await prisma.round.findMany({
+    where: { competitionId: competition.id, type: 'OFFICIAL' },
     orderBy: { number: 'asc' },
-    select: { id: true, number: true },
+    select: { id: true, number: true, status: true },
   });
-  const roundNumbers = scoringRoundRows.map((row) => displayedOfficialNumber(scoringRoundRows, row.number));
+  const scoringRoundRows = officialRoundRows.filter((row) =>
+    (COUNTABLE_ROUND_STATUSES as readonly string[]).includes(row.status),
+  );
+  const roundNumbers = scoringRoundRows.map((row) =>
+    displayedOfficialNumber(officialRoundRows, row.number),
+  );
 
   type PayloadRoundScore = {
     pilotId?: string;
@@ -780,7 +787,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           const scoreCm =
             provisional || typeof rs.finalScoreCm !== 'number' ? null : rs.finalScoreCm;
           return {
-            round: displayedOfficialNumber(scoringRoundRows, rs.roundNumber as number),
+            round: displayedOfficialNumber(officialRoundRows, rs.roundNumber as number),
             scoreCm,
             isBullseye: Boolean(rs.isBullseye) && !provisional,
             isDiscarded: Boolean(rs.isDiscarded) && !provisional,
@@ -812,7 +819,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       },
     });
     const roundNumberById = new Map(
-      scoringRoundRows.map((row) => [row.id, displayedOfficialNumber(scoringRoundRows, row.number)]),
+      scoringRoundRows.map((row) => [row.id, displayedOfficialNumber(officialRoundRows, row.number)]),
     );
     for (const s of scoreRows) {
       const round = roundNumberById.get(s.roundId);

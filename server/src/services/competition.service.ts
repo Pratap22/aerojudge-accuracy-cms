@@ -1,5 +1,5 @@
 import { DEFAULT_FAI_2022_RULES, type RuleConfig, type RuleSetVersion } from '@aero-judge/shared';
-import { slugify } from '@aero-judge/utils';
+import { flightStillToFly, slugify } from '@aero-judge/utils';
 import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
@@ -395,8 +395,9 @@ export async function advanceCompetitionForRoundStart(
 }
 
 /**
- * Mark the competition finished (e.g. weather stop).
- * Closes any in-progress rounds and sets status to COMPLETED.
+ * Mark the competition finished.
+ * A live round that was not finished is cancelled and does not count.
+ * A live round in which every pilot already has a score is closed and counts.
  */
 export async function completeCompetition(id: string) {
   const competition = await getCompetition(id);
@@ -412,14 +413,52 @@ export async function completeCompetition(id: string) {
   }
 
   const liveStatuses = ['ACTIVE', 'OPEN', 'PAUSED', 'BRIEFING'] as const;
-  await prisma.round.updateMany({
-    where: {
-      competitionId: id,
-      type: 'OFFICIAL',
-      status: { in: [...liveStatuses] },
+  const liveRounds = await prisma.round.findMany({
+    where: { competitionId: id, status: { in: [...liveStatuses] } },
+    select: {
+      id: true,
+      pauseReason: true,
+      flights: {
+        select: {
+          status: true,
+          scores: {
+            take: 1,
+            select: { status: true, resultType: true, finalScoreCm: true },
+          },
+        },
+      },
     },
-    data: { status: 'CLOSED', closedAt: new Date() },
   });
+
+  const now = new Date();
+  if (liveRounds.length > 0) {
+    await prisma.$transaction(
+      liveRounds.map((round) => {
+        const unfinished =
+          round.flights.length === 0 ||
+          round.flights.some((flight) =>
+            flightStillToFly({
+              status: flight.status,
+              score: flight.scores[0] ?? null,
+            }),
+          );
+        if (unfinished) {
+          return prisma.round.update({
+            where: { id: round.id },
+            data: {
+              status: 'CANCELLED',
+              closedAt: now,
+              pauseReason: round.pauseReason?.trim() || 'Not completed',
+            },
+          });
+        }
+        return prisma.round.update({
+          where: { id: round.id },
+          data: { status: 'CLOSED', closedAt: now },
+        });
+      }),
+    );
+  }
 
   return prisma.competition.update({
     where: { id },

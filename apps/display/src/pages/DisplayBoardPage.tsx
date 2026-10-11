@@ -33,7 +33,11 @@ const CLOSED_LIKE_STATUSES = new Set([
   'LOCKED',
 ]);
 
-type BoardRound = RoundNumberSource & { status: string; id?: string };
+type BoardRound = RoundNumberSource & {
+  status: string;
+  id?: string;
+  pauseReason?: string | null;
+};
 
 function shownRoundLabel(rounds: BoardRound[], round: BoardRound): string {
   if (round.type === 'PRACTICE') return 'Practice';
@@ -41,11 +45,12 @@ function shownRoundLabel(rounds: BoardRound[], round: BoardRound): string {
 }
 
 function resolveRoundPhase(rounds: BoardRound[] | undefined): {
-  phase: 'live' | 'closed' | 'idle';
+  phase: 'live' | 'closed' | 'cancelled' | 'idle';
   /** Stored number, used to match scores. Not the number announced on the board. */
   activeRoundNumber: number | null;
   activeRound: BoardRound | null;
   closedRound: BoardRound | null;
+  cancelledRound: BoardRound | null;
   nextDisplayNumber: number | null;
 } {
   const idle = {
@@ -53,6 +58,7 @@ function resolveRoundPhase(rounds: BoardRound[] | undefined): {
     activeRoundNumber: null,
     activeRound: null,
     closedRound: null,
+    cancelledRound: null,
     nextDisplayNumber: null,
   };
   if (!rounds?.length) return idle;
@@ -67,13 +73,30 @@ function resolveRoundPhase(rounds: BoardRound[] | undefined): {
       activeRoundNumber: active.number,
       activeRound: active,
       closedRound: null,
+      cancelledRound: null,
       nextDisplayNumber: null,
     };
   }
 
+  const cancelledRows = rounds.filter((round) => round.status === 'CANCELLED');
+  const cancelled =
+    cancelledRows.filter(isOfficialRound).sort(newest)[0] ?? cancelledRows.sort(newest)[0] ?? null;
   const closedRows = rounds.filter((round) => CLOSED_LIKE_STATUSES.has(round.status));
   const closed =
     closedRows.filter(isOfficialRound).sort(newest)[0] ?? closedRows.sort(newest)[0] ?? null;
+  const cancelledIsLatest =
+    cancelled != null && (closed == null || cancelled.number > closed.number);
+  if (cancelledIsLatest && cancelled) {
+    return {
+      phase: 'cancelled',
+      activeRoundNumber: null,
+      activeRound: null,
+      closedRound: null,
+      cancelledRound: cancelled,
+      nextDisplayNumber: null,
+    };
+  }
+
   if (!closed) return idle;
 
   const scheduledOfficial = rounds
@@ -94,6 +117,7 @@ function resolveRoundPhase(rounds: BoardRound[] | undefined): {
     activeRoundNumber: null,
     activeRound: null,
     closedRound: closed,
+    cancelledRound: null,
     nextDisplayNumber,
   };
 }
@@ -557,6 +581,25 @@ export function DisplayBoardPage() {
     const showRoundInterstitial =
       !beforeFirstRound && (activeLayout === 'current' || activeLayout === 'next');
 
+    if (showRoundInterstitial && roundPhase.phase === 'cancelled') {
+      const cancelled = roundPhase.cancelledRound;
+      const cancelledTitle =
+        cancelled?.type === 'PRACTICE'
+          ? 'Practice round cancelled'
+          : `Round ${
+              cancelled
+                ? (officialDisplayNumber(boardRounds, cancelled.number) ?? cancelled.number)
+                : ''
+            } cancelled`;
+      return (
+        <RoundClosedLayout
+          closedTitle={cancelledTitle}
+          detail={cancelled?.pauseReason?.trim() || 'This round will not count.'}
+          competitionName={competition.name}
+        />
+      );
+    }
+
     if (showRoundInterstitial && roundPhase.phase === 'closed') {
       return (
         <RoundClosedLayout
@@ -664,9 +707,11 @@ export function DisplayBoardPage() {
                 ? `pre-round-${activeLayout}`
                 : awaitingFirstScore
                   ? `awaiting-r${roundPhase.activeRoundNumber}`
-                  : roundPhase.phase === 'closed'
-                    ? `closed-r${roundPhase.closedRound?.number ?? 0}`
-                    : activeLayout
+                  : roundPhase.phase === 'cancelled'
+                    ? `cancelled-r${roundPhase.cancelledRound?.number ?? 0}`
+                    : roundPhase.phase === 'closed'
+                      ? `closed-r${roundPhase.closedRound?.number ?? 0}`
+                      : activeLayout
           }
         >
           {renderLayout()}

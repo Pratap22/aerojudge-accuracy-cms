@@ -875,7 +875,7 @@ model Round {
   scheduledAt     DateTime?
   startedAt       DateTime?
   pausedAt        DateTime?
-  /// Why the round was paused (weather, wind, or another hold). Cleared on resume.
+  /// Why the round was paused or cancelled. Cleared when a paused round resumes.
   pauseReason     String?
   closedAt        DateTime?
   approvedAt      DateTime?

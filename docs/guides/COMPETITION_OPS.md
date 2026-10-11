@@ -177,7 +177,7 @@ Categories: Overall, Women, Junior, Team, Country.
 | Wrong score entered | Admin edits before confirmation; after lock, requires director unlock + audit entry |
 | Server outage | Judges continue with offline queue; sync when API returns |
 | Protest | Do not unlock round; record in audit; Chief Judge documents decision |
-| Weather cancellation | Pause or cancel round; partial scores stand per FAI local rules |
+| Weather stops a round that cannot be finished | Cancel the round. Scores already entered stay on the round and do not count. Pause first if flying might resume. |
 
 ---
 
@@ -189,6 +189,8 @@ stateDiagram-v2
     SCHEDULED --> ACTIVE: Start round
     ACTIVE --> PAUSED: Pause
     PAUSED --> ACTIVE: Resume
+    ACTIVE --> CANCELLED: Cancel — round does not count
+    PAUSED --> CANCELLED: Cancel — round does not count
     ACTIVE --> CLOSED: Close round
     CLOSED --> PENDING_APPROVAL: Request approval
     PENDING_APPROVAL --> APPROVED: Chief Judge + Director approve

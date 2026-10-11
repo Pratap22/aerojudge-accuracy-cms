@@ -22,6 +22,7 @@ router.delete('/:roundId', requirePermission('round:manage'), ...ctrl.remove);
 router.post('/:roundId/start', requirePermission('round:start'), ...ctrl.start);
 router.post('/:roundId/pause', requirePermission('round:manage'), ...ctrl.pause);
 router.post('/:roundId/resume', requirePermission('round:start'), ...ctrl.resume);
+router.post('/:roundId/cancel', requirePermission('round:close'), ...ctrl.cancel);
 router.post('/:roundId/close', requirePermission('round:close'), ...ctrl.close);
 router.post('/:roundId/reopen', requirePermission('round:manage'), ...ctrl.reopen);
 router.post('/:roundId/approve', requirePermission('score:approve_chief'), ...ctrl.approve);

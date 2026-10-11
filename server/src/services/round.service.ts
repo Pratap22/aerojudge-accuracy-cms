@@ -232,6 +232,33 @@ export async function resumeRound(competitionId: string, roundId: string) {
   });
 }
 
+const CANCELLABLE_STATUSES = ['OPEN', 'BRIEFING', 'ACTIVE', 'PAUSED'];
+
+/**
+ * Stop a round that cannot be finished. Scores already entered stay on the
+ * round, but the round is left out of standings.
+ */
+export async function cancelRound(competitionId: string, roundId: string, reason: string) {
+  const round = await getRound(competitionId, roundId);
+  if (!CANCELLABLE_STATUSES.includes(round.status)) {
+    throw AppError.badRequest(`Cannot cancel a round in status ${round.status}`);
+  }
+  const cancelReason = reason.trim();
+  if (!cancelReason) throw AppError.badRequest('A reason is required');
+  if (cancelReason.length > 500) {
+    throw AppError.badRequest('Reason must be 500 characters or fewer');
+  }
+
+  return prisma.round.update({
+    where: { id: roundId },
+    data: {
+      status: 'CANCELLED',
+      closedAt: new Date(),
+      pauseReason: cancelReason,
+    },
+  });
+}
+
 export async function closeRound(competitionId: string, roundId: string) {
   const round = await getRound(competitionId, roundId);
   if (round.status === 'LOCKED') {

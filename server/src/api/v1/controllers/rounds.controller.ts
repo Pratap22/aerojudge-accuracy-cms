@@ -124,6 +124,35 @@ export const resume = [
   }),
 ];
 
+const cancelBody = z.object({
+  reason: z.string().trim().min(1, 'A reason is required').max(500),
+});
+
+export const cancel = [
+  validateParams(roundParams),
+  validateBody(cancelBody),
+  asyncHandler(async (req: Request, res: Response) => {
+    const round = await roundService.cancelRound(
+      req.params.competitionId,
+      req.params.roundId,
+      req.body.reason,
+    );
+    emitRoundStatus(
+      req.params.competitionId,
+      req.params.roundId,
+      round.status,
+      round.number,
+      round.pauseReason,
+    );
+    const recalc = await scoringService.recalculateRankings(req.params.competitionId);
+    for (const category of recalc.categories) {
+      emitRankingUpdated(req.params.competitionId, category);
+    }
+    emitRankingUpdated(req.params.competitionId, 'TEAM');
+    sendSuccess(res, round);
+  }),
+];
+
 export const close = [
   validateParams(roundParams),
   asyncHandler(async (req: Request, res: Response) => {

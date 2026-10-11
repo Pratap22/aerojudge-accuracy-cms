@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Ban,
   Pause,
   Play,
   Plus,
@@ -96,7 +97,7 @@ const statusColors: Record<
   CANCELLED: 'destructive',
 };
 
-type RoundAction = 'start' | 'pause' | 'resume' | 'close' | 'reopen' | 'approve' | 'lock';
+type RoundAction = 'start' | 'pause' | 'resume' | 'cancel' | 'close' | 'reopen' | 'approve' | 'lock';
 
 function roundRowLabel(
   round: { number: number; name: string; type: RoundType },
@@ -276,6 +277,8 @@ export function RoundsPage() {
 
   const [pauseTarget, setPauseTarget] = useState<{ id: string; number: number } | null>(null);
   const [pauseReason, setPauseReason] = useState('');
+  const [cancelTarget, setCancelTarget] = useState<{ id: string; number: number } | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
   const [renameTarget, setRenameTarget] = useState<{ id: string; number: number } | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -291,11 +294,13 @@ export function RoundsPage() {
     }) =>
       api.post(
         `/competitions/${competitionId}/rounds/${roundId}/${action}`,
-        action === 'pause' ? { reason } : undefined,
+        action === 'pause' || action === 'cancel' ? { reason } : undefined,
       ),
     onSuccess: () => {
       setPauseTarget(null);
       setPauseReason('');
+      setCancelTarget(null);
+      setCancelReason('');
       queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
       queryClient.invalidateQueries({ queryKey: ['rankings', competitionId] });
     },
@@ -358,11 +363,13 @@ export function RoundsPage() {
       case 'ACTIVE':
         return [
           { action: 'pause', label: 'Pause', icon: <Pause className="h-4 w-4" />, variant: 'outline' },
+          { action: 'cancel', label: 'Cancel', icon: <Ban className="h-4 w-4" />, variant: 'outline' },
           { action: 'close', label: 'Close', icon: <Square className="h-4 w-4" />, variant: 'outline' },
         ];
       case 'PAUSED':
         return [
           { action: 'resume', label: 'Resume', icon: <RotateCcw className="h-4 w-4" />, variant: 'outline' },
+          { action: 'cancel', label: 'Cancel', icon: <Ban className="h-4 w-4" />, variant: 'outline' },
           { action: 'close', label: 'Close', icon: <Square className="h-4 w-4" />, variant: 'outline' },
         ];
       case 'CLOSED':
@@ -535,7 +542,7 @@ export function RoundsPage() {
               disabled={completeCompetitionMutation.isPending}
               onClick={() => {
                 const ok = window.confirm(
-                  'Close this competition? Open rounds will be closed and the venue display will show the final podium (1st–3rd). This is typically used when flying stops early (e.g. weather).',
+                  'Close this competition? A round still in progress will be cancelled and will not count. Rounds that were already finished stay in the results. The venue display will show the final podium.',
                 );
                 if (ok) completeCompetitionMutation.mutate();
               }}
@@ -746,6 +753,11 @@ export function RoundsPage() {
                               setPauseTarget({ id: round.id, number: round.number });
                               return;
                             }
+                            if (action === 'cancel') {
+                              setCancelReason('Weather');
+                              setCancelTarget({ id: round.id, number: round.number });
+                              return;
+                            }
                             actionMutation.mutate({ roundId: round.id, action });
                           }}
                         >
@@ -903,6 +915,54 @@ export function RoundsPage() {
               onClick={() => renameMutation.mutate()}
             >
               {renameMutation.isPending ? 'Saving…' : 'Save name'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cancelTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setCancelTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel round {cancelTarget?.number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              This round will not count. Scores already entered stay on the round and are left out
+              of the standings.
+            </p>
+            <Label htmlFor="rounds-cancel-reason">Reason</Label>
+            <Textarea
+              id="rounds-cancel-reason"
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Weather"
+              required
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelTarget(null)}>
+              Keep round
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={actionMutation.isPending || !cancelReason.trim() || !cancelTarget}
+              onClick={() => {
+                if (!cancelTarget) return;
+                actionMutation.mutate({
+                  roundId: cancelTarget.id,
+                  action: 'cancel',
+                  reason: cancelReason.trim(),
+                });
+              }}
+            >
+              {actionMutation.isPending ? 'Cancelling…' : 'Cancel round'}
             </Button>
           </DialogFooter>
         </DialogContent>

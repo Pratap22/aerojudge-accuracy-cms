@@ -135,7 +135,7 @@ export function ScoringPage() {
         : (officialDisplayNumber(competitionRounds, roundMeta.number) ?? roundMeta.number);
 
   const scoresReadOnly =
-    !!roundMeta && ['APPROVED', 'LOCKED'].includes(roundMeta.status);
+    !!roundMeta && ['APPROVED', 'LOCKED', 'CANCELLED'].includes(roundMeta.status);
   const canUpdateWind =
     isOnline &&
     !!roundMeta &&
@@ -333,18 +333,27 @@ export function ScoringPage() {
 
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseReason, setPauseReason] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('Weather');
 
   const roundStateMutation = useMutation({
-    mutationFn: (input: { action: 'pause'; reason: string } | { action: 'resume' }) =>
+    mutationFn: (
+      input:
+        | { action: 'pause'; reason: string }
+        | { action: 'cancel'; reason: string }
+        | { action: 'resume' },
+    ) =>
       api.post(
         `/competitions/${competitionId}/rounds/${roundId}/${input.action}`,
-        input.action === 'pause' ? { reason: input.reason } : undefined,
+        input.action === 'resume' ? undefined : { reason: input.reason },
       ),
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       setPauseOpen(false);
       setPauseReason('');
+      setCancelOpen(false);
       queryClient.invalidateQueries({ queryKey: ['judge-round', competitionId, roundId] });
       queryClient.invalidateQueries({ queryKey: ['rounds', competitionId] });
+      if (input.action === 'cancel') navigate(roundsHref);
     },
   });
 
@@ -381,32 +390,46 @@ export function ScoringPage() {
             ) : null}
           </p>
           {roundMeta?.status === 'ACTIVE' || roundMeta?.status === 'PAUSED' ? (
-            <Button
-              size="sm"
-              variant={roundMeta.status === 'PAUSED' ? 'default' : 'secondary'}
-              className="mt-1 h-7 px-2 text-xs"
-              disabled={roundStateMutation.isPending}
-              onClick={() => {
-                if (roundMeta.status === 'PAUSED') {
-                  roundStateMutation.mutate({ action: 'resume' });
-                  return;
-                }
-                setPauseReason('');
-                setPauseOpen(true);
-              }}
-            >
-              {roundMeta.status === 'PAUSED' ? (
-                <>
-                  <Play className="mr-1 h-3 w-3" />
-                  Resume
-                </>
-              ) : (
-                <>
-                  <Pause className="mr-1 h-3 w-3" />
-                  Pause
-                </>
-              )}
-            </Button>
+            <div className="mt-1 flex items-center justify-center gap-1">
+              <Button
+                size="sm"
+                variant={roundMeta.status === 'PAUSED' ? 'default' : 'secondary'}
+                className="h-7 px-2 text-xs"
+                disabled={roundStateMutation.isPending}
+                onClick={() => {
+                  if (roundMeta.status === 'PAUSED') {
+                    roundStateMutation.mutate({ action: 'resume' });
+                    return;
+                  }
+                  setPauseReason('');
+                  setPauseOpen(true);
+                }}
+              >
+                {roundMeta.status === 'PAUSED' ? (
+                  <>
+                    <Play className="mr-1 h-3 w-3" />
+                    Resume
+                  </>
+                ) : (
+                  <>
+                    <Pause className="mr-1 h-3 w-3" />
+                    Pause
+                  </>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 px-2 text-xs"
+                disabled={roundStateMutation.isPending}
+                onClick={() => {
+                  setCancelReason(roundMeta.pauseReason?.trim() || 'Weather');
+                  setCancelOpen(true);
+                }}
+              >
+                Cancel round
+              </Button>
+            </div>
           ) : null}
           <p className="text-[10px] text-slate-500">
             {entryMode === 'type'
@@ -725,6 +748,48 @@ export function ScoringPage() {
         }}
         onConfirm={(wind) => windMutation.mutate(wind)}
       />
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Cancel{' '}
+              {roundMeta?.type === 'PRACTICE'
+                ? 'practice round'
+                : `round ${announcedRoundNumber ?? roundMeta?.number}`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              This round will not count. Scores already entered stay on the round and are left out
+              of the standings.
+            </p>
+            <Label htmlFor="judge-cancel-reason">Reason</Label>
+            <Textarea
+              id="judge-cancel-reason"
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Weather"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setCancelOpen(false)}>
+              Keep round
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={roundStateMutation.isPending || !cancelReason.trim()}
+              onClick={() =>
+                roundStateMutation.mutate({ action: 'cancel', reason: cancelReason.trim() })
+              }
+            >
+              {roundStateMutation.isPending ? 'Cancelling…' : 'Cancel round'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={pauseOpen} onOpenChange={setPauseOpen}>
         <DialogContent>
           <DialogHeader>

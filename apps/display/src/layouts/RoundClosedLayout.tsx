@@ -3,7 +3,8 @@ import { SponsorStrip } from '../components/SponsorStrip';
 
 interface RoundClosedLayoutProps {
   closedTitle: string;
-  nextCode: string;
+  nextCode?: string | null;
+  detail?: string | null;
   competitionName?: string;
 }
 
@@ -11,6 +12,7 @@ interface RoundClosedLayoutProps {
 export function RoundClosedLayout({
   closedTitle,
   nextCode,
+  detail,
   competitionName,
 }: RoundClosedLayoutProps) {
   return (
@@ -28,24 +30,36 @@ export function RoundClosedLayout({
         >
           {closedTitle}
         </motion.p>
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12 }}
-          className="mt-6 border-t border-sky-500/30 pt-6 sm:mt-10 sm:pt-10"
-        >
-          <p className="text-xs uppercase tracking-[0.35em] text-sky-400/70 sm:text-sm">Up next</p>
-          <p className="mt-2 font-display text-3xl uppercase tracking-wide text-sky-300 sm:mt-3 sm:text-6xl">
-            {nextCode}
-          </p>
-          <motion.p
-            animate={{ opacity: [0.55, 1, 0.55] }}
-            transition={{ repeat: Infinity, duration: 2.4 }}
-            className="mt-3 text-base uppercase tracking-[0.25em] text-sky-400/80 sm:mt-4 sm:text-2xl"
+        {nextCode ? (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="mt-6 border-t border-sky-500/30 pt-6 sm:mt-10 sm:pt-10"
           >
-            Starting soon
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-400/70 sm:text-sm">Up next</p>
+            <p className="mt-2 font-display text-3xl uppercase tracking-wide text-sky-300 sm:mt-3 sm:text-6xl">
+              {nextCode}
+            </p>
+            <motion.p
+              animate={{ opacity: [0.55, 1, 0.55] }}
+              transition={{ repeat: Infinity, duration: 2.4 }}
+              className="mt-3 text-base uppercase tracking-[0.25em] text-sky-400/80 sm:mt-4 sm:text-2xl"
+            >
+              Starting soon
+            </motion.p>
+          </motion.div>
+        ) : null}
+        {detail ? (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.16 }}
+            className="mt-6 max-w-3xl text-base text-sky-200 sm:mt-8 sm:text-2xl"
+          >
+            {detail}
           </motion.p>
-        </motion.div>
+        ) : null}
       </div>
       <SponsorStrip />
     </div>
