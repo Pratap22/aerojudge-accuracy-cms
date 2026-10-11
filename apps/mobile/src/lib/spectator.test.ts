@@ -127,15 +127,26 @@ describe('standings presentation', () => {
       official: false,
       completed: false,
       stale: true,
+      live: true,
       fetchedAtLabel: '11 Oct, 06:40',
     });
     expect(stale).toContain("Couldn't refresh");
     expect(stale.toLowerCase()).not.toContain('live');
     expect(
       resultsStatusLine({
+        official: false,
+        completed: false,
+        stale: false,
+        live: true,
+        fetchedAtLabel: '11 Oct, 06:40',
+      }),
+    ).toBe('Provisional results · Live · Updated 11 Oct, 06:40');
+    expect(
+      resultsStatusLine({
         official: true,
         completed: true,
         stale: false,
+        live: true,
         fetchedAtLabel: '11 Oct, 06:40',
       }),
     ).toBe('Official final standings · Updated 11 Oct, 06:40');

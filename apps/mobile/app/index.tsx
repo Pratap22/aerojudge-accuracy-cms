@@ -51,7 +51,7 @@ export default function CompetitionListScreen() {
       <View style={styles.header}>
         <Image source={logo} style={styles.logo} accessibilityLabel="AeroJudge" />
         <Text style={styles.kicker}>Competitions</Text>
-        <Text style={styles.subtitle}>Published events with public results</Text>
+        <Text style={styles.subtitle}>Live standings for published competitions</Text>
         <TextInput
           value={query}
           onChangeText={setQuery}

@@ -1,6 +1,6 @@
 # AeroJudge mobile
 
-Expo app for browsing published competitions and their results. It uses the existing API. It does not replace the website.
+Expo app for live public results. It reads published competitions from the existing API and follows standings over the public Socket.IO channel. Scoring, administration, and registration stay on the website.
 
 ## Requirements
 
@@ -37,8 +37,9 @@ After changing `@aero-judge/shared`, `@aero-judge/utils`, or `@aero-judge/scorin
 1. Lists published competitions from `GET /api/v1/public/competitions`.
 2. Opens a competition from `GET /api/v1/public/:id`.
 3. Shows standings from `GET /api/v1/public/:id/results`.
-4. Pull to refresh. A failed refresh keeps the last loaded list or standings and says they could not be refreshed.
-5. `layout=top10` shows the first ten overall rows.
+4. Joins the public socket room and reloads standings when scores, rankings, or publish events arrive.
+5. Pull to refresh. A failed refresh keeps the last loaded list or standings and does not call them live.
+6. `layout=top10` shows the first ten overall rows.
 
 A venue link such as:
 
@@ -64,6 +65,6 @@ Do not run a store submission from this repository without approval. Bundle iden
 
 The app imports `@aero-judge/shared` and `@aero-judge/utils`. Official rankings are calculated on the server. `@aero-judge/scoring-engine` is covered by the mobile unit tests so the phone and the API resolve the same package. The app does not import `@aero-judge/ui`, Prisma, or the PDF engine.
 
-## Not in this version
+## Out of scope
 
-Sign-in, score entry, offline score replay, sockets, pilots, registration, and admin tools stay on the website for now.
+The app shows public published data only. Sign-in, score entry, registration, and admin tools stay on the website.

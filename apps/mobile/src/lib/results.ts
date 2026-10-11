@@ -107,12 +107,13 @@ export function formatFetchedAt(timestamp: number): string {
 
 /**
  * Describe how fresh the standings are.
- * Cached or failed refreshes must not be described as live.
+ * "Live" is only for an open competition with a connected public socket and a successful load.
  */
 export function resultsStatusLine(input: {
   official: boolean;
   completed: boolean;
   stale: boolean;
+  live: boolean;
   fetchedAtLabel: string | null;
 }): string {
   const base =
@@ -126,6 +127,12 @@ export function resultsStatusLine(input: {
     return input.fetchedAtLabel
       ? `${base}. Couldn't refresh. Showing results last loaded ${input.fetchedAtLabel}.`
       : `${base}. Couldn't refresh.`;
+  }
+
+  if (input.live && !input.completed) {
+    return input.fetchedAtLabel
+      ? `${base} · Live · Updated ${input.fetchedAtLabel}`
+      : `${base} · Live`;
   }
 
   return input.fetchedAtLabel ? `${base} · Updated ${input.fetchedAtLabel}` : base;

@@ -26,6 +26,7 @@ import {
   visibleRankings,
 } from '../../../src/lib/results';
 import { RESULT_CATEGORIES } from '../../../src/lib/types';
+import { usePublicLiveUpdates } from '../../../src/lib/use-public-live';
 import { colors, spacing } from '../../../src/theme';
 
 export default function CompetitionScreen() {
@@ -49,6 +50,7 @@ export default function CompetitionScreen() {
     enabled: Boolean(competitionId),
   });
 
+  const live = usePublicLiveUpdates(competitionId);
   const competition = competitionQuery.data;
   useEffect(() => {
     navigation.setOptions({ title: competition?.name ?? 'Competition' });
@@ -96,6 +98,7 @@ export default function CompetitionScreen() {
         official: resultsQuery.data.official,
         completed: competition?.status === 'COMPLETED',
         stale: resultsQuery.isError,
+        live,
         fetchedAtLabel,
       })
     : null;
