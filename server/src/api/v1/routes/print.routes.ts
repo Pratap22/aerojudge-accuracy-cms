@@ -9,6 +9,7 @@ router.use(requireAuth);
 router.get('/', ...ctrl.list);
 router.post('/preview', requirePermission('print:generate'), ...ctrl.preview);
 router.post('/generate', requirePermission('print:generate'), ...ctrl.generate);
+router.post('/civl', requirePermission('print:generate'), ...ctrl.civl);
 router.get('/:printId/download', requirePermission('print:generate'), ...ctrl.download);
 router.post('/:printId/approve', requirePermission('print:approve'), ...ctrl.approve);
 

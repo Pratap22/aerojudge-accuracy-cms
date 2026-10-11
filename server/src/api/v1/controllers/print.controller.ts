@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { SYSTEM_ORG_ROLE_DEFINITIONS, mapLegacyRoleToOrgRole, type OrgRole } from '@aero-judge/shared';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
+import * as civlExportService from '../../../services/civl-export.service.js';
 import * as printService from '../../../services/print.service.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
 
@@ -61,6 +62,28 @@ export const generate = [
       printedById: req.user!.id,
     });
     sendSuccess(res, { print: result.print, filename: result.filename }, 201);
+  }),
+];
+
+const civlBody = z.object({
+  reportType: z.enum(['OVERALL_RESULTS', 'ROUND_RESULTS', 'TEAM_RESULTS']),
+  roundId: z.string().min(1).optional(),
+});
+
+export const civl = [
+  validateParams(competitionParams),
+  validateBody(civlBody),
+  asyncHandler(async (req: Request, res: Response) => {
+    const result = await civlExportService.exportCivlSpreadsheet(
+      req.params.competitionId,
+      req.body,
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    res.send(result.buffer);
   }),
 ];
 

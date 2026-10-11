@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Download, Eye, FileText, Printer, CheckCircle } from 'lucide-react';
+import { Download, Eye, FileSpreadsheet, FileText, Printer, CheckCircle } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -39,6 +39,9 @@ const formats: { value: PrintFormat; label: string }[] = [
 
 const needsRoundSelection = (type: ReportType) =>
   type === 'ROUND_RESULTS' || type === 'SCORE_SHEETS' || type === 'JUDGE_SHEETS';
+
+const civlExportType = (type: ReportType) =>
+  type === 'OVERALL_RESULTS' || type === 'ROUND_RESULTS' || type === 'TEAM_RESULTS';
 
 /** Score sheets can be printed before a round number is known. */
 const allowsBlankRound = (type: ReportType) => type === 'SCORE_SHEETS';
@@ -80,6 +83,9 @@ export function ReportsPage() {
   const [roundId, setRoundId] = useState<string>('');
   const [preview, setPreview] = useState<ReportPreview | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [civlRoundId, setCivlRoundId] = useState('');
+  const [civlError, setCivlError] = useState<string | null>(null);
+  const [civlPending, setCivlPending] = useState(false);
 
   const { data: rounds } = useQuery({
     queryKey: ['rounds', activeCompetitionId],
@@ -100,6 +106,7 @@ export function ReportsPage() {
     : allReportTypes.filter((r) => r.value !== 'TEAM_RESULTS');
 
   const sortedRounds = [...(rounds ?? [])].sort((a, b) => a.number - b.number);
+  const officialRounds = sortedRounds.filter((round) => isOfficialRound(round));
 
   useEffect(() => {
     if (reportType === 'TEAM_RESULTS' && !hasTeams) {
@@ -107,6 +114,14 @@ export function ReportsPage() {
       setPreview(null);
     }
   }, [reportType, hasTeams]);
+
+  useEffect(() => {
+    if (reportType !== 'TEAM_RESULTS') return;
+    setCivlRoundId((current) => {
+      if (current && officialRounds.some((round) => round.id === current)) return current;
+      return officialRounds[officialRounds.length - 1]?.id ?? '';
+    });
+  }, [reportType, rounds]);
 
   useEffect(() => {
     if (!needsRoundSelection(reportType)) {
@@ -200,6 +215,43 @@ export function ReportsPage() {
     }
   };
 
+  const handleCivlExport = async () => {
+    if (!activeCompetitionId) return;
+    setCivlError(null);
+    setCivlPending(true);
+    try {
+      const roundForExport = reportType === 'TEAM_RESULTS' ? civlRoundId : roundId;
+      const response = await apiFetch(`/competitions/${activeCompetitionId}/reports/civl`, {
+        method: 'POST',
+        body: {
+          reportType,
+          ...(reportType !== 'OVERALL_RESULTS' && roundForExport ? { roundId: roundForExport } : {}),
+        },
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        throw new Error(body?.error?.message ?? `Export failed (${response.status})`);
+      }
+      const blob = await response.blob();
+      const header = response.headers.get('Content-Disposition') ?? '';
+      const filename = /filename="([^"]+)"/.exec(header)?.[1] ?? 'civl-results.xlsx';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setCivlError(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setCivlPending(false);
+    }
+  };
+
   if (!activeCompetitionId) {
     return (
       <p className="text-muted-foreground">
@@ -213,6 +265,13 @@ export function ReportsPage() {
 
   const roundRequired = needsRoundSelection(reportType);
   const canGenerate = !roundRequired || Boolean(roundId);
+  const showCivlExport = civlExportType(reportType);
+  const civlRoundReady =
+    reportType === 'OVERALL_RESULTS' ||
+    (reportType === 'ROUND_RESULTS' &&
+      officialRounds.some((round) => round.id === roundId)) ||
+    (reportType === 'TEAM_RESULTS' &&
+      officialRounds.some((round) => round.id === civlRoundId));
   const previewReadyToPrint =
     !!preview &&
     (preview.status === 'APPROVED' ||
@@ -338,6 +397,49 @@ export function ReportsPage() {
               <Eye className="mr-2 h-4 w-4" />
               {generateMutation.isPending ? 'Generating…' : 'Generate Preview'}
             </Button>
+
+            {showCivlExport && (
+              <div className="space-y-2 border-t pt-4">
+                {reportType === 'TEAM_RESULTS' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="civl-round">Round</Label>
+                    <select
+                      id="civl-round"
+                      className={selectClassName}
+                      value={civlRoundId}
+                      disabled={officialRounds.length === 0}
+                      onChange={(event) => {
+                        setCivlRoundId(event.target.value);
+                        setCivlError(null);
+                      }}
+                    >
+                      {officialRounds.length === 0 ? (
+                        <option value="">No official rounds</option>
+                      ) : (
+                        officialRounds.map((round) => (
+                          <option key={round.id} value={round.id}>
+                            {announcedRoundLabel(round, sortedRounds)} ({round.status})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                )}
+                {civlError && <p className="text-sm text-destructive">{civlError}</p>}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => void handleCivlExport()}
+                  disabled={civlPending || !civlRoundReady}
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  {civlPending ? 'Exporting…' : 'Export CIVL spreadsheet'}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Spreadsheet in the CIVL results template.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
