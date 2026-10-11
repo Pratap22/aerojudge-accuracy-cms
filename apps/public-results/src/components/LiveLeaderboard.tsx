@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { isWindReadingCurrent } from '@aero-judge/utils';
+import { isWindReadingCurrent, padPilotNumber } from '@aero-judge/utils';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { Input, LeaderboardTable } from '@aero-judge/ui';
@@ -40,6 +40,7 @@ export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeade
       (e) =>
         `${e.firstName} ${e.lastName}`.toLowerCase().includes(q) ||
         String(e.pilotNumber).includes(q) ||
+        (e.pilotNumber != null && padPilotNumber(e.pilotNumber).includes(q)) ||
         e.countryCode?.toLowerCase().includes(q) ||
         e.countryCode2?.toLowerCase().includes(q),
     );

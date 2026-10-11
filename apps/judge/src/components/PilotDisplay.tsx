@@ -38,7 +38,7 @@ function countryFlag(code?: string): string {
 }
 
 function formatPilotNo(n: number): string {
-  return padPilotNumber(n, 2);
+  return padPilotNumber(n);
 }
 
 function formatPickerScore(p: PilotOption): string | null {

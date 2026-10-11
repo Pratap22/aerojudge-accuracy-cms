@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enterScoreSchema, type EnterScoreInput, type ScoreResultType, type RuleConfig } from '@aero-judge/shared';
-import { announcedRoundLabel, formatScoreCm, isOfficialRound, officialDisplayNumber } from '@aero-judge/utils';
+import { announcedRoundLabel, formatScoreCm, isOfficialRound, officialDisplayNumber, padPilotNumber } from '@aero-judge/utils';
 import { Pause, Play, Save, Target, Wind } from 'lucide-react';
 import {
   Badge,
@@ -513,7 +513,7 @@ export function ScoringPage() {
                     onClick={scoresReadOnly ? undefined : () => selectFlight(flight)}
                   >
                     <TableCell>{flight.order}</TableCell>
-                    <TableCell className="font-mono">{flight.pilotNumber}</TableCell>
+                    <TableCell className="font-mono">{padPilotNumber(flight.pilotNumber)}</TableCell>
                     <TableCell>{flight.pilotName}</TableCell>
                     <TableCell>{flight.country}</TableCell>
                     <TableCell>{formatFlightScore(flight)}</TableCell>
@@ -542,7 +542,7 @@ export function ScoringPage() {
                 <form onSubmit={handleSubmit((d) => scoreMutation.mutate(d))} className="space-y-4">
                   <div className="rounded-lg bg-muted/50 p-3 text-sm">
                     <p className="font-medium">
-                      #{selectedFlight.pilotNumber} {selectedFlight.pilotName}
+                      #{padPilotNumber(selectedFlight.pilotNumber)} {selectedFlight.pilotName}
                     </p>
                     <p className="text-muted-foreground">{selectedFlight.country}</p>
                   </div>

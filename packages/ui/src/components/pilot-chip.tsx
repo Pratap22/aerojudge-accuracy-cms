@@ -1,5 +1,7 @@
 import * as React from 'react';
 
+import { padPilotNumber } from '@aero-judge/utils';
+
 import { cn } from '../lib/utils';
 
 export interface PilotChipProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -32,9 +34,9 @@ const sizeClasses = {
 } as const;
 
 const numberSizeClasses = {
-  sm: 'h-5 w-5 text-[10px]',
-  default: 'h-6 w-6 text-xs',
-  lg: 'h-8 w-8 text-sm',
+  sm: 'h-5 min-w-5 px-1 text-[10px]',
+  default: 'h-6 min-w-6 px-1 text-xs',
+  lg: 'h-8 min-w-8 px-1.5 text-sm',
 } as const;
 
 const photoSizeClasses = {
@@ -56,6 +58,7 @@ export function PilotChip({
   ...props
 }: PilotChipProps) {
   const flagEmoji = countryCode2 ? countryCodeToEmoji(countryCode2) : null;
+  const bib = padPilotNumber(pilotNumber);
 
   return (
     <div
@@ -80,18 +83,18 @@ export function PilotChip({
       ) : (
         <span
           className={cn(
-            'inline-flex shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground',
+            'inline-flex shrink-0 items-center justify-center rounded-full bg-primary font-mono font-bold tabular-nums text-primary-foreground',
             numberSizeClasses[size],
           )}
         >
-          {pilotNumber}
+          {bib}
         </span>
       )}
 
       {photoUrl ? (
         <span
           className={cn(
-            'inline-flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-bold text-primary',
+            'inline-flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono font-bold tabular-nums text-primary',
             size === 'sm'
               ? 'h-4 min-w-4 px-1 text-[9px]'
               : size === 'lg'
@@ -99,7 +102,7 @@ export function PilotChip({
                 : 'h-5 min-w-5 px-1 text-[10px]',
           )}
         >
-          {pilotNumber}
+          {bib}
         </span>
       ) : null}
 

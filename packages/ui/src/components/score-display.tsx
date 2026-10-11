@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Target } from 'lucide-react';
-import { formatScoreCm } from '@aero-judge/utils';
+import { formatScoreCm, padPilotNumber } from '@aero-judge/utils';
 
 import { cn } from '../lib/utils';
 
@@ -62,13 +62,13 @@ export function ScoreDisplay({
           {pilotNumber != null && (
             <span
               className={cn(
-                'inline-flex h-8 w-8 items-center justify-center rounded-full font-bold',
+                'inline-flex h-8 min-w-8 items-center justify-center rounded-full px-2 font-mono font-bold tabular-nums',
                 size === 'led'
                   ? 'bg-sky-500 text-white'
                   : 'bg-primary text-primary-foreground',
               )}
             >
-              {pilotNumber}
+              {padPilotNumber(pilotNumber)}
             </span>
           )}
           {pilotName && <span>{pilotName}</span>}

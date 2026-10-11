@@ -182,7 +182,7 @@ export function comparePilotsForTieBreak(
         if (aInput.pilotNumber !== bInput.pilotNumber) {
           return {
             winner: aInput.pilotNumber < bInput.pilotNumber ? 'a' : 'b',
-            notes: `Tie-break: lower pilot number (${aInput.pilotNumber} vs ${bInput.pilotNumber})`,
+            notes: `Tie-break: lower pilot number (${String(aInput.pilotNumber).padStart(3, '0')} vs ${String(bInput.pilotNumber).padStart(3, '0')})`,
           };
         }
         break;

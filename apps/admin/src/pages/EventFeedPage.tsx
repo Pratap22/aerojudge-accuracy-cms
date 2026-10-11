@@ -13,6 +13,7 @@ import {
   Textarea,
   toast,
 } from '@aero-judge/ui';
+import { padPilotNumber } from '@aero-judge/utils';
 import { ApiError, api, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { connectSocket, onSocketEvent, onSocketReconnect } from '../lib/socket';
@@ -314,7 +315,7 @@ export function EventFeedPage() {
                       : item.kind === 'TEXT'
                         ? 'Text'
                         : 'Photo'}
-                  {item.pilotNumber != null ? ` · Pilot ${item.pilotNumber}` : ''}
+                  {item.pilotNumber != null ? ` · Pilot ${padPilotNumber(item.pilotNumber)}` : ''}
                   {item.pilotName ? ` · ${item.pilotName}` : ''}
                   {item.scoreText ? ` · ${item.scoreText}` : ''}
                   {item.roundNumber != null ? ` · Round ${item.roundNumber}` : ''}

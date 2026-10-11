@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { RankBadge } from '@aero-judge/ui';
 import type { LeaderboardEntry } from '@aero-judge/ui';
 import { formatScore, getAutoInterval } from '../lib/utils';
+import { padPilotNumber } from '@aero-judge/utils';
 
 interface AnimatedLeaderboardProps {
   entries: LeaderboardEntry[];
@@ -159,15 +160,17 @@ export function AnimatedLeaderboard({
                       className="h-12 w-12 shrink-0 rounded-full object-cover object-top ring-2 ring-sky-500/40"
                     />
                   ) : (
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sky-500 font-display text-xl text-broadcast-navy">
-                      {entry.pilotNumber}
+                    <div className="flex h-12 min-w-12 items-center justify-center rounded-full bg-sky-500 px-1 font-mono text-sm font-bold tabular-nums text-broadcast-navy">
+                      {padPilotNumber(entry.pilotNumber)}
                     </div>
                   )
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-2xl font-semibold text-white">
                     {!entry.hideNumber && entry.photoUrl ? (
-                      <span className="mr-2 font-mono text-lg text-sky-400">#{entry.pilotNumber}</span>
+                      <span className="mr-2 font-mono text-lg text-sky-400">
+                        #{padPilotNumber(entry.pilotNumber)}
+                      </span>
                     ) : null}
                     {label}
                   </p>

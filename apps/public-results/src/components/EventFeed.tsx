@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { padPilotNumber } from '@aero-judge/utils';
 import { competitionPath, type PublicFeedItem } from '../lib/api';
 
 function kindLabel(kind: PublicFeedItem['kind']): string {
@@ -25,8 +26,8 @@ function PilotFace({
     );
   }
   return (
-    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-sky-500 font-display text-xl font-bold text-white">
-      {pilotNumber ?? '·'}
+    <span className="flex h-14 min-w-14 shrink-0 items-center justify-center rounded-full bg-sky-500 px-1.5 font-mono text-sm font-bold tabular-nums text-white">
+      {pilotNumber != null ? padPilotNumber(pilotNumber) : '·'}
     </span>
   );
 }
@@ -58,7 +59,9 @@ function FeedCard({ item }: { item: PublicFeedItem }) {
             {item.pilotName ? (
               <p className="truncate text-lg font-semibold text-white">
                 {item.pilotPhotoUrl && item.pilotNumber != null ? (
-                  <span className="mr-2 font-mono text-base text-sky-400">#{item.pilotNumber}</span>
+                  <span className="mr-2 font-mono text-base text-sky-400">
+                    #{padPilotNumber(item.pilotNumber)}
+                  </span>
                 ) : null}
                 {item.pilotName}
               </p>

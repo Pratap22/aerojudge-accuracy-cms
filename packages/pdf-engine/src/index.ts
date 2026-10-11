@@ -97,7 +97,9 @@ export function resolveReportCellValue(
     };
   }
   if (key === 'no' || key === 'number' || key === 'pilot no' || key === 'pilot number') {
-    return { text: row.pilotNumber != null ? String(row.pilotNumber) : '' };
+    return {
+      text: row.pilotNumber != null ? String(row.pilotNumber).padStart(3, '0') : '',
+    };
   }
   if (key === 'team' && row.team != null) {
     if (row.hideTeam) return { text: '', skip: true };

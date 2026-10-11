@@ -9,7 +9,7 @@ import type {
   PersonDirectoryEntry,
   PersonRecord,
 } from '@aero-judge/shared';
-import { formatPilotName } from '@aero-judge/utils';
+import { formatPilotName, padPilotNumber } from '@aero-judge/utils';
 import { z } from 'zod';
 import { Pencil, Search, Shield, Users } from 'lucide-react';
 import {
@@ -676,7 +676,7 @@ export function PilotDirectoryPage() {
                             </div>
                             {entry.pilotSnapshot && (
                               <p className="text-xs text-muted-foreground">
-                                #{entry.pilotSnapshot.pilotNumber} ·{' '}
+                                #{padPilotNumber(entry.pilotSnapshot.pilotNumber)} ·{' '}
                                 {entry.pilotSnapshot.status.replace(/_/g, ' ')}
                                 {entry.pilotSnapshot.glider ? ` · ${entry.pilotSnapshot.glider}` : ''}
                               </p>

@@ -8,6 +8,7 @@ import { Layout } from '../components/Layout';
 import { competitionPath, fetchPilots } from '../lib/api';
 import { useCompetition, useSlug } from '../hooks/useCompetition';
 import { countryCodeToEmoji, pilotFullName } from '../lib/utils';
+import { padPilotNumber } from '@aero-judge/utils';
 import { isRegistrationOpen } from '../lib/competitionStatus';
 
 export function PilotsPage() {
@@ -30,6 +31,7 @@ export function PilotsPage() {
       (p) =>
         pilotFullName(p.firstName, p.lastName).toLowerCase().includes(q) ||
         String(p.pilotNumber).includes(q) ||
+        (p.pilotNumber != null && padPilotNumber(p.pilotNumber).includes(q)) ||
         (p.country?.name ?? '').toLowerCase().includes(q) ||
         (p.country?.code ?? '').toLowerCase().includes(q) ||
         (p.club ?? '').toLowerCase().includes(q),
@@ -106,15 +108,15 @@ export function PilotsPage() {
                     className="h-10 w-10 shrink-0 rounded-full object-cover object-top ring-1 ring-white/15"
                   />
                 ) : (
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 font-bold text-sky-300">
-                    {pilot.pilotNumber}
+                  <span className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 px-1 font-mono text-xs font-bold tabular-nums text-sky-300">
+                    {padPilotNumber(pilot.pilotNumber)}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-white">
                     {pilot.photoUrl ? (
                       <span className="mr-2 font-mono text-sm text-sky-400">
-                        #{pilot.pilotNumber}
+                        #{padPilotNumber(pilot.pilotNumber)}
                       </span>
                     ) : null}
                     {pilotFullName(pilot.firstName, pilot.lastName)}

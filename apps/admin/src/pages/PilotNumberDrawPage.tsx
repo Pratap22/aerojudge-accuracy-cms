@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Search } from 'lucide-react';
 import { Button, cn, Input } from '@aero-judge/ui';
 import { COMPETING_PILOT_STATUSES, type PilotStatus, type RoundStatus } from '@aero-judge/shared';
-import { displayCountryCode } from '@aero-judge/utils';
+import { displayCountryCode, padPilotNumber } from '@aero-judge/utils';
 import { api } from '../lib/api';
 import { competitionDrawClosed, isDrawPresentation } from '../lib/pilot-draw';
 import {
@@ -337,15 +337,15 @@ export function PilotNumberDrawPage() {
                           className="absolute left-0 top-0 -translate-x-1/2 text-xs font-semibold text-white"
                           style={{ transform: `translateY(-9.2rem) rotate(${-angle}deg)` }}
                         >
-                          {number}
+                          {padPilotNumber(number)}
                         </span>
                       </span>
                     );
                   })}
               </div>
               <div className="absolute left-1/2 top-1/2 z-10 flex h-36 w-36 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border bg-background text-center shadow-sm">
-                <span className="text-4xl font-bold tabular-nums">
-                  {pendingNumber ?? (spinning ? '…' : '—')}
+                <span className="font-mono text-3xl font-bold tabular-nums">
+                  {pendingNumber != null ? padPilotNumber(pendingNumber) : spinning ? '…' : '—'}
                 </span>
                 <span className="mt-1 max-w-[8rem] truncate text-xs text-muted-foreground">
                   {selected ? pilotName(selected) : 'Select a pilot'}
@@ -377,7 +377,7 @@ export function PilotNumberDrawPage() {
                 {assignMutation.isPending
                   ? 'Assigning…'
                   : pendingNumber != null && selected
-                    ? `Assign ${pendingNumber} to ${pilotName(selected)}`
+                    ? `Assign ${padPilotNumber(pendingNumber)} to ${pilotName(selected)}`
                     : 'Assign'}
               </Button>
             </div>
@@ -399,7 +399,7 @@ export function PilotNumberDrawPage() {
                         pendingNumber === number && 'border-primary bg-primary text-primary-foreground',
                       )}
                     >
-                      {number}
+                      {padPilotNumber(number)}
                     </li>
                   ))}
                 </ul>

@@ -3,6 +3,7 @@ import { CountryFlag } from '../components/CountryFlag';
 import { SponsorStrip } from '../components/SponsorStrip';
 import type { PublicRankingRow } from '../lib/types';
 import { pilotFullName } from '../lib/utils';
+import { padPilotNumber } from '@aero-judge/utils';
 
 interface NextPilotsLayoutProps {
   current: PublicRankingRow | null;
@@ -37,7 +38,7 @@ function PilotCard({
       <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-sky-400">{label}</p>
       {pilot?.pilot ? (
         <>
-          <div className="mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-sky-500 font-display text-5xl text-broadcast-navy">
+          <div className="mb-4 flex h-24 min-w-24 items-center justify-center overflow-hidden rounded-full bg-sky-500 px-2 font-mono text-2xl font-bold tabular-nums text-broadcast-navy">
             {pilot.pilot.photoUrl ? (
               <img
                 src={pilot.pilot.photoUrl}
@@ -45,11 +46,13 @@ function PilotCard({
                 className="h-full w-full object-cover object-top"
               />
             ) : (
-              pilot.pilot.pilotNumber
+              padPilotNumber(pilot.pilot.pilotNumber)
             )}
           </div>
           {pilot.pilot.photoUrl ? (
-            <p className="mb-1 font-mono text-lg text-sky-400">#{pilot.pilot.pilotNumber}</p>
+            <p className="mb-1 font-mono text-lg text-sky-400">
+              #{padPilotNumber(pilot.pilot.pilotNumber)}
+            </p>
           ) : null}
           {showFlag ? <CountryFlag code={flagCode} size="md" className="mb-3" /> : null}
           <h3 className="text-center font-display text-3xl uppercase text-white">
@@ -91,7 +94,7 @@ export function NextPilotsLayout({ current, queue }: NextPilotsLayoutProps) {
                   key={p.id}
                   className="rounded-full border border-sky-500/30 bg-broadcast-navy-mid px-4 py-2 text-sm text-sky-300"
                 >
-                  #{p.pilot.pilotNumber} {p.pilot.firstName} {p.pilot.lastName.charAt(0)}.
+                  #{padPilotNumber(p.pilot.pilotNumber)} {p.pilot.firstName} {p.pilot.lastName.charAt(0)}.
                 </span>
               );
             })}

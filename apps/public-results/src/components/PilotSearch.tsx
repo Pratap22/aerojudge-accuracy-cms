@@ -6,6 +6,7 @@ import { Input } from '@aero-judge/ui';
 import { competitionPath } from '../lib/api';
 import { useResults, useSlug } from '../hooks/useCompetition';
 import { countryCodeToEmoji, formatScore, pilotFullName } from '../lib/utils';
+import { padPilotNumber } from '@aero-judge/utils';
 
 export function PilotSearch() {
   const competitionId = useSlug();
@@ -21,6 +22,7 @@ export function PilotSearch() {
       return (
         pilotFullName(r.pilot.firstName, r.pilot.lastName).toLowerCase().includes(q) ||
         String(r.pilot.pilotNumber).includes(q) ||
+        padPilotNumber(r.pilot.pilotNumber).includes(q) ||
         Boolean(r.pilot.country?.code?.toLowerCase().includes(q))
       );
     });
@@ -52,8 +54,8 @@ export function PilotSearch() {
               to={competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))}
               className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-500/30 hover:bg-white/10"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 font-bold text-sky-300">
-                {pilot.pilotNumber}
+              <span className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 px-1 font-mono text-xs font-bold tabular-nums text-sky-300">
+                {padPilotNumber(pilot.pilotNumber)}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-white">

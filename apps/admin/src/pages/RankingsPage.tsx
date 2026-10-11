@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { displayCountryCode, formatScoreCm } from '@aero-judge/utils';
+import { displayCountryCode, formatScoreCm, padPilotNumber } from '@aero-judge/utils';
 import { Medal, RefreshCw } from 'lucide-react';
 import {
   Badge,
@@ -83,7 +83,7 @@ function mapIndividual(rows: IndividualRankingApi[]): RankingRow[] {
       rank: r.rank,
       id: r.pilotId,
       name: r.pilot
-        ? `#${r.pilot.pilotNumber} ${r.pilot.firstName} ${r.pilot.lastName}`
+        ? `#${padPilotNumber(r.pilot.pilotNumber)} ${r.pilot.firstName} ${r.pilot.lastName}`
         : r.pilotId,
       country: displayCountryCode(r.pilot?.country, r.pilot?.nationality) || undefined,
       totalScoreCm: r.totalScoreCm,

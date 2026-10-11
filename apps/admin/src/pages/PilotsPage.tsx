@@ -11,7 +11,7 @@ import {
   type PilotStatus,
   type RoundStatus,
 } from '@aero-judge/shared';
-import { displayCountryCode } from '@aero-judge/utils';
+import { displayCountryCode, padPilotNumber } from '@aero-judge/utils';
 import {
   Check,
   Download,
@@ -796,7 +796,7 @@ export function PilotsPage() {
                       />
                     </TableCell>
                     <TableCell className="font-mono font-medium">
-                      {pilot.pilotNumber ?? '—'}
+                      {pilot.pilotNumber != null ? padPilotNumber(pilot.pilotNumber) : '—'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

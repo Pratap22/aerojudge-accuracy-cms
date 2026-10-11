@@ -83,12 +83,12 @@ export function TextScoreEntry({
   function pilotHint(): string | null {
     if (!pilotRaw.trim()) return null;
     if (pilotNumber == null) return 'Use digits for the pilot number';
-    if (!flight) return `No pilot ${padPilotNumber(pilotNumber, 2)} in this round`;
+    if (!flight) return `No pilot ${padPilotNumber(pilotNumber)} in this round`;
     const name = `${flight.firstName} ${flight.lastName}`.trim();
     if (existingLabel) {
-      return `${padPilotNumber(flight.pilotNumber, 2)} · ${name} · already ${existingLabel}`;
+      return `${padPilotNumber(flight.pilotNumber)} · ${name} · already ${existingLabel}`;
     }
-    return `${padPilotNumber(flight.pilotNumber, 2)} · ${name}`;
+    return `${padPilotNumber(flight.pilotNumber)} · ${name}`;
   }
 
   async function commit(score: EnterScoreInput, nextLabel: string, pilotLabel: string) {
@@ -123,7 +123,7 @@ export function TextScoreEntry({
       return;
     }
     if (!flight) {
-      setError(`No pilot ${padPilotNumber(pilotNumber, 2)} in this round`);
+      setError(`No pilot ${padPilotNumber(pilotNumber)} in this round`);
       pilotRef.current?.focus();
       return;
     }
@@ -140,7 +140,7 @@ export function TextScoreEntry({
       resultType: parsed.resultType,
       penaltyCm: 0,
     };
-    const pilotLabel = padPilotNumber(flight.pilotNumber, 2);
+    const pilotLabel = padPilotNumber(flight.pilotNumber);
     const name = `${flight.firstName} ${flight.lastName}`.trim();
 
     if (flightAlreadyScored(flight)) {

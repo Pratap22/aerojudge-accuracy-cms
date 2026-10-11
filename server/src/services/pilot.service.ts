@@ -1,4 +1,4 @@
-import { displayCountryCode, generateQrPayload, parseCsvLine, formatPilotName, toCsv } from '@aero-judge/utils';
+import { displayCountryCode, generateQrPayload, parseCsvLine, formatPilotName, padPilotNumber, toCsv } from '@aero-judge/utils';
 import { COMPETING_PILOT_STATUSES, STARTED_ROUND_STATUSES, type PilotStatus } from '@aero-judge/shared';
 import type { CompetitionParticipationStatus, Prisma } from '@aero-judge/database';
 import { env } from '../config/env.js';
@@ -251,7 +251,9 @@ export async function createPilot(
   });
   if (existingPilot) {
     throw AppError.conflict(
-      `${personDisplayName(person)} is already registered as pilot #${existingPilot.pilotNumber}`,
+      `${personDisplayName(person)} is already registered as pilot #${
+        existingPilot.pilotNumber != null ? padPilotNumber(existingPilot.pilotNumber) : '—'
+      }`,
     );
   }
 
@@ -262,7 +264,7 @@ export async function createPilot(
     });
     if (numberTaken) {
       throw AppError.conflict(
-        `Pilot number ${pilotNumber} is already assigned to ${numberTaken.firstName} ${numberTaken.lastName}`,
+        `Pilot number ${padPilotNumber(pilotNumber)} is already assigned to ${numberTaken.firstName} ${numberTaken.lastName}`,
       );
     }
 
@@ -288,7 +290,7 @@ export async function createPilot(
           data: { qrCode: repairedQr },
         });
       } else {
-        throw AppError.conflict(`Pilot number ${pilotNumber} is already in use`);
+        throw AppError.conflict(`Pilot number ${padPilotNumber(pilotNumber)} is already in use`);
       }
     }
   }
@@ -351,7 +353,7 @@ export async function createPilot(
         )
       ) {
         throw AppError.conflict(
-          `Pilot number ${pilotNumber} is already in use in this competition`,
+          `Pilot number ${pilotNumber != null ? padPilotNumber(pilotNumber) : '—'} is already in use in this competition`,
         );
       }
     }
@@ -421,7 +423,7 @@ export async function updatePilot(
     });
     if (numberTaken) {
       throw AppError.conflict(
-        `Pilot number ${nextPilotNumber} is already assigned to ${numberTaken.firstName} ${numberTaken.lastName}`,
+        `Pilot number ${padPilotNumber(nextPilotNumber)} is already assigned to ${numberTaken.firstName} ${numberTaken.lastName}`,
       );
     }
     const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
@@ -447,7 +449,7 @@ export async function updatePilot(
           },
         });
       } else {
-        throw AppError.conflict(`Pilot number ${nextPilotNumber} is already in use`);
+        throw AppError.conflict(`Pilot number ${padPilotNumber(nextPilotNumber)} is already in use`);
       }
     }
     rest.qrCode = nextQr;
@@ -925,7 +927,7 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
         const target = (err as { meta?: { target?: string[] } }).meta?.target ?? [];
         throw AppError.conflict(
           `Duplicate pilot data at row ${i + 1}${
-            pilotNumber != null ? ` (pilot #${pilotNumber})` : ''
+            pilotNumber != null ? ` (pilot #${padPilotNumber(pilotNumber)})` : ''
           }${target.length ? `; unique: ${target.join(', ')}` : ''}.`,
         );
       }

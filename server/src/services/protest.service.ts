@@ -1,5 +1,5 @@
 import type { CreateProtestInput, UpdateProtestInput } from '@aero-judge/shared';
-import { formatPilotName } from '@aero-judge/utils';
+import { formatPilotName, padPilotNumber } from '@aero-judge/utils';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import {
@@ -43,7 +43,7 @@ async function pilotForNumber(competitionId: string, pilotNumber: number) {
     select: { id: true, pilotNumber: true, firstName: true, lastName: true },
   });
   if (!pilot) {
-    throw AppError.badRequest(`No pilot with number ${pilotNumber} is registered in this competition`);
+    throw AppError.badRequest(`No pilot with number ${padPilotNumber(pilotNumber)} is registered in this competition`);
   }
   return pilot;
 }

@@ -3,6 +3,7 @@ import type { LeaderboardEntry } from '@aero-judge/ui';
 import { CountryFlag } from '../components/CountryFlag';
 import { SponsorStrip } from '../components/SponsorStrip';
 import { formatScore } from '../lib/utils';
+import { padPilotNumber } from '@aero-judge/utils';
 
 export type PodiumCategory = 'individual' | 'team';
 
@@ -89,8 +90,8 @@ function podiumCard(
           {style.place}
         </p>
         {entry && !entry.hideNumber && category === 'individual' && (
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-500 font-display text-lg text-broadcast-navy sm:h-12 sm:w-12 sm:text-xl">
-            {entry.pilotNumber}
+          <div className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-full bg-sky-500 px-1 font-mono text-xs font-bold tabular-nums text-broadcast-navy sm:h-12 sm:min-w-12 sm:text-sm">
+            {padPilotNumber(entry.pilotNumber)}
           </div>
         )}
         {/* leading-none + no overflow-hidden: display fonts clip under line-clamp */}

@@ -23,7 +23,7 @@ interface OnDeckListProps {
 }
 
 function formatPilotNo(n: number): string {
-  return padPilotNumber(n, 2);
+  return padPilotNumber(n);
 }
 
 /** Compact score label for the switch-pilot list. */
@@ -87,7 +87,7 @@ export function OnDeckList({ pilots, currentId, onSelect, className, comfortable
         <h3 className="mb-1.5 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-400">
           Switch pilot
         </h3>
-        <div className="mb-1 grid shrink-0 grid-cols-[2.5rem_1fr_3.5rem] gap-x-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="mb-1 grid shrink-0 grid-cols-[3.25rem_1fr_3.5rem] gap-x-3 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
           <span>#</span>
           <span className="text-right">Status</span>
           <span className="text-right">Score</span>
@@ -101,7 +101,7 @@ export function OnDeckList({ pilots, currentId, onSelect, className, comfortable
                 key={p.id}
                 type="button"
                 className={cn(
-                  'grid w-full grid-cols-[2.5rem_1fr_3.5rem] items-center gap-x-3 rounded-lg px-3 py-1.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 active:scale-[0.99]',
+                  'grid w-full grid-cols-[3.25rem_1fr_3.5rem] items-center gap-x-3 rounded-lg px-3 py-1.5 text-left text-sm text-slate-300 transition-colors hover:bg-slate-800 active:scale-[0.99]',
                   comfortable && 'min-h-11 py-2.5',
                 )}
                 onClick={() => onSelect?.(p.id)}

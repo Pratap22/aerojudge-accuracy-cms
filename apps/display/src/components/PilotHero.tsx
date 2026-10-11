@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { CountryFlag } from './CountryFlag';
-import { displayCountryCode } from '@aero-judge/utils';
+import { displayCountryCode, padPilotNumber } from '@aero-judge/utils';
 import { formatScore, pilotFullName } from '../lib/utils';
 import type { PublicRankingRow } from '../lib/types';
 
@@ -65,7 +65,7 @@ export function PilotHero({
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-broadcast-navy-light to-broadcast-navy-mid">
             <span className="font-display text-6xl text-sky-400 sm:text-7xl md:text-8xl xl:text-9xl">
-              {pilot.pilot.pilotNumber}
+              {padPilotNumber(pilot.pilot.pilotNumber)}
             </span>
           </div>
         )}
@@ -76,7 +76,7 @@ export function PilotHero({
             </p>
             <p className="mt-0.5 truncate text-sm text-sky-200 md:hidden">{countryLabel}</p>
             <p className="font-display text-2xl leading-none text-white sm:text-3xl md:text-4xl xl:text-5xl">
-              #{pilot.pilot.pilotNumber}
+              #{padPilotNumber(pilot.pilot.pilotNumber)}
             </p>
           </div>
           {showFlag ? (

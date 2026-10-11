@@ -7,6 +7,7 @@ import { Layout } from '../components/Layout';
 import { competitionPath, fetchPilots } from '../lib/api';
 import { useResults } from '../hooks/useCompetition';
 import { countryCodeToEmoji, formatScore, pilotFullName } from '../lib/utils';
+import { padPilotNumber } from '@aero-judge/utils';
 
 export function PilotProfilePage() {
   const { competitionId, pilotNumber } = useParams<{ competitionId: string; pilotNumber: string }>();
@@ -79,7 +80,7 @@ export function PilotProfilePage() {
           <div className="mb-8 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-200">
             <CheckCircle2 className="h-5 w-5 shrink-0" />
             <p className="text-sm">
-              Registration received. You are pilot #{profile.pilotNumber} — organisers can see you
+              Registration received. You are pilot #{padPilotNumber(profile.pilotNumber)} — organisers can see you
               in the competition pilot list.
             </p>
           </div>
@@ -98,13 +99,13 @@ export function PilotProfilePage() {
                 className="h-16 w-16 rounded-full object-cover object-top ring-2 ring-sky-500/40"
               />
             ) : (
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-sky-500 font-display text-3xl text-[#050d1a]">
-                {profile.pilotNumber}
+              <span className="flex h-16 min-w-16 items-center justify-center rounded-full bg-sky-500 px-2 font-mono text-lg font-bold tabular-nums text-[#050d1a]">
+                {padPilotNumber(profile.pilotNumber)}
               </span>
             )}
             <div>
               {photoUrl ? (
-                <p className="mb-1 font-mono text-sky-400">#{profile.pilotNumber}</p>
+                <p className="mb-1 font-mono text-sky-400">#{padPilotNumber(profile.pilotNumber)}</p>
               ) : null}
               <h1 className="font-display text-4xl font-bold text-white">
                 {pilotFullName(profile.firstName, profile.lastName)}

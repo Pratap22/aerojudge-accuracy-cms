@@ -9,6 +9,7 @@ import {
   type RuleConfig,
   type TeamType,
 } from '@aero-judge/shared';
+import { padPilotNumber } from '@aero-judge/utils';
 import { AlertCircle, CheckCircle2, MoreHorizontal, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import {
   Badge,
@@ -66,7 +67,7 @@ interface TeamApi {
 type MemberRole = 'PILOT' | 'RESERVE';
 
 function pilotLabel(p: Pick<PilotOption, 'pilotNumber' | 'firstName' | 'lastName'>) {
-  const number = p.pilotNumber != null ? `#${p.pilotNumber} ` : '';
+  const number = p.pilotNumber != null ? `#${padPilotNumber(p.pilotNumber)} ` : '';
   return `${number}${p.firstName} ${p.lastName}`;
 }
 
@@ -209,6 +210,7 @@ export function TeamsPage() {
       const otherTeam = pilotTeamMap.get(p.id);
       return (
         String(p.pilotNumber).includes(q) ||
+        (p.pilotNumber != null && padPilotNumber(p.pilotNumber).includes(q)) ||
         p.firstName.toLowerCase().includes(q) ||
         p.lastName.toLowerCase().includes(q) ||
         `${p.firstName} ${p.lastName}`.toLowerCase().includes(q) ||

@@ -1,4 +1,5 @@
 import { ScoringEngine } from '@aero-judge/scoring-engine';
+import { padPilotNumber } from '@aero-judge/utils';
 import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
@@ -167,7 +168,7 @@ export async function setTeamMembers(
     const details = alreadyAssigned
       .map(
         (m) =>
-          `#${m.pilot.pilotNumber} ${m.pilot.firstName} ${m.pilot.lastName} is already on ${m.team.name}`,
+          `#${m.pilot.pilotNumber != null ? padPilotNumber(m.pilot.pilotNumber) : '—'} ${m.pilot.firstName} ${m.pilot.lastName} is already on ${m.team.name}`,
       )
       .join('; ');
     throw AppError.badRequest(`Pilots can only belong to one team. ${details}`);
