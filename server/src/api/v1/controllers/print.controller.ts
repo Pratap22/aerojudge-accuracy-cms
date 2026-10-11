@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { SYSTEM_ORG_ROLE_DEFINITIONS, mapLegacyRoleToOrgRole, type OrgRole } from '@aero-judge/shared';
 import { asyncHandler } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as civlExportService from '../../../services/civl-export.service.js';
@@ -103,17 +102,10 @@ export const download = [
 export const approve = [
   validateParams(printParams),
   asyncHandler(async (req: Request, res: Response) => {
-    const orgRole =
-      req.user!.orgRole ??
-      (req.user!.role ? mapLegacyRoleToOrgRole(req.user!.role) : null);
-    const roleLabel =
-      (orgRole && SYSTEM_ORG_ROLE_DEFINITIONS[orgRole as OrgRole]?.name) ||
-      'Meet Director';
-
     const record = await printService.approvePrint(
       req.params.competitionId,
       req.params.printId,
-      { userId: req.user!.id, roleLabel },
+      { userId: req.user!.id },
     );
     sendSuccess(res, record);
   }),

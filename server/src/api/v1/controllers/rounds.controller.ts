@@ -3,9 +3,6 @@ import {
   createRoundSchema,
   enterScoreSchema,
   updateRoundTypeSchema,
-  SYSTEM_ORG_ROLE_DEFINITIONS,
-  mapLegacyRoleToOrgRole,
-  type OrgRole,
 } from '@aero-judge/shared';
 import { z } from 'zod';
 import { asyncHandler } from '../../../utils/errors.js';
@@ -23,15 +20,6 @@ import {
 } from '../../../socket/index.js';
 import { auditFromRequest, writeAuditLog } from '../middleware/audit.js';
 import { validateBody, validateParams } from '../middleware/validate.js';
-
-function approverRoleLabel(req: Request): string {
-  const orgRole =
-    req.user?.orgRole ?? (req.user?.role ? mapLegacyRoleToOrgRole(req.user.role) : null);
-  return (
-    (orgRole && SYSTEM_ORG_ROLE_DEFINITIONS[orgRole as OrgRole]?.name) ||
-    'Meet Director'
-  );
-}
 
 const competitionParams = z.object({ competitionId: z.string().min(1) });
 const roundParams = z.object({ competitionId: z.string().min(1), roundId: z.string().min(1) });
@@ -174,9 +162,7 @@ export const approve = [
     const round = await roundService.approveRound(
       req.params.competitionId,
       req.params.roundId,
-      req.user?.id
-        ? { userId: req.user.id, roleLabel: approverRoleLabel(req) }
-        : undefined,
+      req.user?.id ? { userId: req.user.id } : undefined,
     );
     emitRoundStatus(req.params.competitionId, req.params.roundId, round.status, round.number);
     const recalc = await scoringService.recalculateRankings(req.params.competitionId);

@@ -16,6 +16,7 @@ import { prisma } from '../config/prisma.js';
 import { toAbsoluteAssetUrl, resolveLocalUploadPath } from '../utils/assets.js';
 import { cloudinaryPngDeliveryUrl } from '../utils/cloudinary.js';
 import { AppError } from '../utils/errors.js';
+import { resolveApproverRoleLabel } from './approver-label.js';
 import { getCompetition, settingsToRuleOverrides } from './competition.service.js';
 
 /** Number announced for an official round. Practice rounds do not take R1, R2, … */
@@ -139,7 +140,11 @@ async function resolveRoundApprovalLine(
   if (!round || !['APPROVED', 'LOCKED'].includes(round.status)) return undefined;
   if (!round.approvedAt || !round.approvedBy || !round.approvedById) return undefined;
 
-  const roleLabel = round.approvedByRole?.trim() || 'Approver';
+  const roleLabel = await resolveApproverRoleLabel({
+    competitionId,
+    userId: round.approvedById,
+    storedLabel: round.approvedByRole,
+  });
   return {
     line: buildApprovalLine({
       firstName: round.approvedBy.firstName,
@@ -803,16 +808,25 @@ export async function downloadReport(competitionId: string, printId: string) {
 
   const skipApproval = reportSkipsApproval(record.reportType as ReportType);
 
+  const downloadedRole =
+    !skipApproval && record.status === 'APPROVED' && record.approvedById
+      ? await resolveApproverRoleLabel({
+          competitionId,
+          userId: record.approvedById,
+          storedLabel: record.approvedByRole,
+        })
+      : undefined;
+
   let approvalLine =
     !skipApproval &&
     record.status === 'APPROVED' &&
     record.approvedBy &&
-    record.approvedByRole &&
+    downloadedRole &&
     record.approvedAt
       ? buildApprovalLine({
           firstName: record.approvedBy.firstName,
           lastName: record.approvedBy.lastName,
-          roleLabel: record.approvedByRole,
+          roleLabel: downloadedRole,
           approvedAt: record.approvedAt,
         })
       : undefined;
@@ -898,7 +912,7 @@ export async function listPrintHistory(competitionId: string) {
 export async function approvePrint(
   competitionId: string,
   printId: string,
-  approver: { userId: string; roleLabel: string },
+  approver: { userId: string },
 ) {
   const record = await prisma.printHistory.findFirst({
     where: { id: printId, competitionId },
@@ -916,10 +930,14 @@ export async function approvePrint(
   if (!user) throw AppError.notFound('Approver not found');
 
   const approvedAt = new Date();
+  const roleLabel = await resolveApproverRoleLabel({
+    competitionId,
+    userId: approver.userId,
+  });
   const approvalLine = buildApprovalLine({
     firstName: user.firstName,
     lastName: user.lastName,
-    roleLabel: approver.roleLabel,
+    roleLabel,
     approvedAt,
   });
 
@@ -947,7 +965,7 @@ export async function approvePrint(
       status: 'APPROVED',
       approvedAt,
       approvedById: approver.userId,
-      approvedByRole: approver.roleLabel,
+      approvedByRole: roleLabel,
       fileUrl: null,
       metadataJson: {
         ...previousMeta,

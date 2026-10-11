@@ -3,6 +3,7 @@ import { COMPETING_PILOT_STATUSES, type FlightOrderType, type RoundStatus } from
 import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
+import { resolveApproverRoleLabel } from './approver-label.js';
 import {
   advanceCompetitionForRoundStart,
   getCompetition,
@@ -272,7 +273,7 @@ export async function reopenRound(competitionId: string, roundId: string) {
 export async function approveRound(
   competitionId: string,
   roundId: string,
-  approver?: { userId: string; roleLabel: string },
+  approver?: { userId: string },
 ) {
   const round = await getRound(competitionId, roundId);
   if (round.status === 'LOCKED') {
@@ -287,6 +288,10 @@ export async function approveRound(
     data: { status: 'APPROVED' },
   });
 
+  const roleLabel = approver
+    ? await resolveApproverRoleLabel({ competitionId, userId: approver.userId })
+    : undefined;
+
   return prisma.round.update({
     where: { id: roundId },
     data: {
@@ -295,7 +300,7 @@ export async function approveRound(
       ...(approver
         ? {
             approvedById: approver.userId,
-            approvedByRole: approver.roleLabel,
+            approvedByRole: roleLabel,
           }
         : {}),
     },

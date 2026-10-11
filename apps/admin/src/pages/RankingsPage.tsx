@@ -55,6 +55,7 @@ interface IndividualRankingApi {
     pilotNumber: number;
     firstName: string;
     lastName: string;
+    nationality?: string | null;
     country?: { name?: string; code?: string } | null;
   };
 }
