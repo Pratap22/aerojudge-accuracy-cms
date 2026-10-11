@@ -59,6 +59,9 @@ postgres-data/
 Thumbs.db
 Desktop.ini
 
+# Expo
+.expo/
+
 # Misc
 *.pem
 *.key

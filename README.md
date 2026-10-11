@@ -23,6 +23,7 @@ See also [docs/PRODUCT.md](docs/PRODUCT.md).
 - **PDF reports** — Round score sheets, start lists, final results with QR links to public results
 - **Real-time updates** — Socket.IO for displays, judge terminals, and admin dashboards
 - **Public events** — competition directory and live standings (`/events/`)
+- **Mobile** — Expo app for published competitions and results (`apps/mobile`)
 - **Role-based access** — 10 roles from Super Admin to Display Operator
 - **Audit trail** — Immutable log of score changes, approvals, and configuration updates
 - **Docker deployment** — Local Compose stack; GHCR + GitHub Actions deploy to EC2
@@ -72,14 +73,14 @@ flowchart TB
 
 ## Tech Stack
 
-| Layer | Technologies |
-|-------|-------------|
-| **Frontend** | React 18, Vite 5, TypeScript, Tailwind CSS, TanStack Query, Socket.IO client |
-| **Backend** | Node.js 20, Express 4, Socket.IO, Zod, JWT auth |
-| **Database** | PostgreSQL 15, Prisma ORM |
-| **Shared** | Turborepo npm workspaces |
-| **Testing** | Vitest (unit), Playwright (e2e) |
-| **Deployment** | Docker Compose, multi-stage Nginx builds |
+| Layer          | Technologies                                                                 |
+| -------------- | ---------------------------------------------------------------------------- |
+| **Frontend**   | React 18, Vite 5, TypeScript, Tailwind CSS, TanStack Query, Socket.IO client |
+| **Backend**    | Node.js 20, Express 4, Socket.IO, Zod, JWT auth                              |
+| **Database**   | PostgreSQL 15, Prisma ORM                                                    |
+| **Shared**     | Turborepo npm workspaces                                                     |
+| **Testing**    | Vitest (unit), Playwright (e2e)                                              |
+| **Deployment** | Docker Compose, multi-stage Nginx builds                                     |
 
 ---
 
@@ -110,6 +111,8 @@ npm run dev
 
 Open **http://localhost:3004** (marketing), **http://localhost:3000** (admin) and **http://localhost:4000/api/docs** (Swagger).
 
+The Expo app is separate from `npm run dev`. See [apps/mobile/README.md](apps/mobile/README.md).
+
 ### Docker (production-like)
 
 ```bash
@@ -136,13 +139,13 @@ For **EC2 / production** (build in GitHub Actions, pull images on the server): s
 
 Sample seed data uses **NPHA as an example organization** (early customer / demo tenant), not as the product brand.
 
-| Role | Email | Password |
-|------|-------|----------|
-| **Super Admin** | `admin@npha.org.np` | `NphaAdmin@2024!` |
-| Competition Director | `director@npha.org.np` | `Director@2024!` |
-| Chief Judge | `chiefjudge@npha.org.np` | `ChiefJudge@2024!` |
-| Judge | `judge@npha.org.np` | `Judge@2024!` |
-| Scorekeeper | `scorekeeper@npha.org.np` | `Scorekeeper@2024!` |
+| Role                 | Email                     | Password            |
+| -------------------- | ------------------------- | ------------------- |
+| **Super Admin**      | `admin@npha.org.np`       | `NphaAdmin@2024!`   |
+| Competition Director | `director@npha.org.np`    | `Director@2024!`    |
+| Chief Judge          | `chiefjudge@npha.org.np`  | `ChiefJudge@2024!`  |
+| Judge                | `judge@npha.org.np`       | `Judge@2024!`       |
+| Scorekeeper          | `scorekeeper@npha.org.np` | `Scorekeeper@2024!` |
 
 > Change all passwords before any production deployment.
 
@@ -150,14 +153,14 @@ Sample seed data uses **NPHA as an example organization** (early customer / demo
 
 ## Apps & Ports
 
-| App | Dev URL | Purpose |
-|-----|---------|---------|
-| Marketing | http://localhost:3004 | Public product website |
-| Admin | http://localhost:3000 | Competition management (org RBAC) |
-| Judge | http://localhost:3001 | Touch scoring (login + org context) |
-| Display | http://localhost:3002 | Venue leaderboards (`/competition/:id`) |
-| Public Results | http://localhost:3003 | Public leaderboard (`/competition/:id`) |
-| API | http://localhost:4000/api/v1 · Swagger `/api/docs` | REST + Socket.IO |
+| App            | Dev URL                                            | Purpose                                 |
+| -------------- | -------------------------------------------------- | --------------------------------------- |
+| Marketing      | http://localhost:3004                              | Public product website                  |
+| Admin          | http://localhost:3000                              | Competition management (org RBAC)       |
+| Judge          | http://localhost:3001                              | Touch scoring (login + org context)     |
+| Display        | http://localhost:3002                              | Venue leaderboards (`/competition/:id`) |
+| Public Results | http://localhost:3003                              | Public leaderboard (`/competition/:id`) |
+| API            | http://localhost:4000/api/v1 · Swagger `/api/docs` | REST + Socket.IO                        |
 
 Seed sample competitions appear on each app’s home list when published with public results enabled. Legacy `?competition=` and `/:slug` URLs redirect to `/competition/:id`.
 
@@ -202,15 +205,15 @@ npm run docker:logs      # Follow container logs
 
 ## Documentation
 
-| Guide | Description |
-|-------|-------------|
-| [Product](docs/PRODUCT.md) | AeroJudge vision and roadmap |
-| [Installation](docs/guides/INSTALLATION.md) | Prerequisites, env, migrate, seed |
-| [Deployment](docs/guides/DEPLOYMENT.md) | GHCR images, GitHub Actions, EC2 |
-| [Competition Operations](docs/guides/COMPETITION_OPS.md) | Running a competition day |
-| [API Reference](docs/api/API.md) | `/api/v1` endpoint overview |
-| [Architecture Overview](docs/architecture/OVERVIEW.md) | Clean architecture & workflows |
-| [ER Diagram](docs/architecture/ER_DIAGRAM.md) | Database entity relationships |
+| Guide                                                    | Description                       |
+| -------------------------------------------------------- | --------------------------------- |
+| [Product](docs/PRODUCT.md)                               | AeroJudge vision and roadmap      |
+| [Installation](docs/guides/INSTALLATION.md)              | Prerequisites, env, migrate, seed |
+| [Deployment](docs/guides/DEPLOYMENT.md)                  | GHCR images, GitHub Actions, EC2  |
+| [Competition Operations](docs/guides/COMPETITION_OPS.md) | Running a competition day         |
+| [API Reference](docs/api/API.md)                         | `/api/v1` endpoint overview       |
+| [Architecture Overview](docs/architecture/OVERVIEW.md)   | Clean architecture & workflows    |
+| [ER Diagram](docs/architecture/ER_DIAGRAM.md)            | Database entity relationships     |
 
 ---
 
