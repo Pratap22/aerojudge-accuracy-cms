@@ -58,7 +58,7 @@ function PilotCard({
           <h3 className="text-center font-display text-3xl uppercase text-white">
             {pilotFullName(pilot.pilot.firstName, pilot.pilot.lastName)}
           </h3>
-          <p className="mt-2 text-sky-300">Rank #{pilot.rank}</p>
+          {pilot.rank > 0 ? <p className="mt-2 text-sky-300">Rank #{pilot.rank}</p> : null}
         </>
       ) : (
         <p className="text-xl text-sky-400/50">—</p>

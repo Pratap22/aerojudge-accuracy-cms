@@ -116,6 +116,10 @@ export function useDisplaySocket(
           currentFlightId: payload.flightId,
         }));
       }),
+      onSocketEvent('flight:status', (payload) => {
+        if (payload.competitionId !== competitionId) return;
+        onRankingUpdateRef.current?.();
+      }),
       onSocketEvent('score:updated', (payload) => {
         if (payload.competitionId !== competitionId) return;
         const score = payload.score;

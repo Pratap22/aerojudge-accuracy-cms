@@ -43,6 +43,13 @@ export interface PublicTeam {
   country?: { name: string; code: string; code2?: string } | null;
 }
 
+export interface PublicRoundScore {
+  round: number;
+  scoreCm: number | null;
+  isProvisional?: boolean;
+  resultType?: string;
+}
+
 export interface PublicRankingRow {
   id: string;
   pilotId?: string;
@@ -52,6 +59,7 @@ export interface PublicRankingRow {
   totalScoreCm: number;
   roundsFlown: number;
   bullseyes: number;
+  roundScores?: PublicRoundScore[];
   pilot?: PublicPilot | null;
   team?: PublicTeam | null;
   country?: { name: string; code: string; code2?: string } | null;

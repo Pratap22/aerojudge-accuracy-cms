@@ -1,5 +1,5 @@
 import { compareOfficials, isEmptyHtml, officialRoleLabel } from '@aero-judge/shared';
-import { officialDisplayNumber } from '@aero-judge/utils';
+import { flightStillToFly, officialDisplayNumber } from '@aero-judge/utils';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
@@ -888,6 +888,8 @@ export async function getPublicRoundResults(slug: string, roundNumber: number) {
   return { competition, round, scores };
 }
 
+const LIVE_BOARD_ROUND_STATUSES = new Set(['ACTIVE', 'OPEN', 'PAUSED', 'BRIEFING']);
+
 export async function getPublicRoundsStatus(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
   const rounds = await prisma.round.findMany({
@@ -895,7 +897,69 @@ export async function getPublicRoundsStatus(slugOrId: string) {
     select: { id: true, number: true, name: true, type: true, status: true, pauseReason: true },
     orderBy: { number: 'asc' },
   });
-  return { competitionId: competition.id, rounds };
+
+  const liveRoundIds = rounds
+    .filter((round) => LIVE_BOARD_ROUND_STATUSES.has(round.status))
+    .map((round) => round.id);
+  const flightRows = liveRoundIds.length
+    ? await prisma.flight.findMany({
+        where: { roundId: { in: liveRoundIds } },
+        orderBy: { flightOrder: 'asc' },
+        select: {
+          roundId: true,
+          pilotId: true,
+          flightOrder: true,
+          status: true,
+          scores: {
+            take: 1,
+            select: { status: true, resultType: true, finalScoreCm: true },
+          },
+          pilot: {
+            select: {
+              pilotNumber: true,
+              firstName: true,
+              lastName: true,
+              ...pilotPhotoWithPersonSelect,
+              country: { select: { name: true, code: true, code2: true } },
+            },
+          },
+        },
+      })
+    : [];
+
+  const flightsByRound = new Map<string, typeof flightRows>();
+  for (const flight of flightRows) {
+    const list = flightsByRound.get(flight.roundId) ?? [];
+    list.push(flight);
+    flightsByRound.set(flight.roundId, list);
+  }
+
+  return {
+    competitionId: competition.id,
+    rounds: rounds.map((round) => {
+      if (!LIVE_BOARD_ROUND_STATUSES.has(round.status)) return round;
+      const flights = (flightsByRound.get(round.id) ?? []).flatMap((flight) => {
+        const pilotNumber = flight.pilot.pilotNumber;
+        if (pilotNumber == null) return [];
+        return [
+          {
+            pilotId: flight.pilotId,
+            flightOrder: flight.flightOrder,
+            stillToFly: flightStillToFly({
+              status: flight.status,
+              score: flight.scores[0] ?? null,
+            }),
+            pilotNumber,
+            firstName: flight.pilot.firstName,
+            lastName: flight.pilot.lastName,
+            photoUrl: displayedPilotPhotoUrl(flight.pilot),
+            country: toPublicCountry(flight.pilot.country),
+          },
+        ];
+      });
+      return { ...round, flights };
+    }),
+  };
 }
 
 export async function getPublicFeed(slugOrId: string) {

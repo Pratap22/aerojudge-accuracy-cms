@@ -18,6 +18,7 @@ import { NextPilotsLayout } from '../layouts/NextPilotsLayout';
 import { SponsorsLayout } from '../layouts/SponsorsLayout';
 import { useCompetition, useLatestScore, useLatestWind, useResults, useRoundsStatus, useSponsors, toLeaderboardEntries } from '../hooks/useCompetition';
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
+import { buildOnDeck } from '../lib/on-deck';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
 import { isOfficialRound, isWindReadingCurrent, officialDisplayNumber, type RoundNumberSource } from '@aero-judge/utils';
@@ -32,7 +33,7 @@ const CLOSED_LIKE_STATUSES = new Set([
   'LOCKED',
 ]);
 
-type BoardRound = RoundNumberSource & { status: string };
+type BoardRound = RoundNumberSource & { status: string; id?: string };
 
 function shownRoundLabel(rounds: BoardRound[], round: BoardRound): string {
   if (round.type === 'PRACTICE') return 'Practice';
@@ -145,7 +146,10 @@ export function DisplayBoardPage() {
 
   const socketState = useDisplaySocket(
     competition?.id,
-    refreshOverall,
+    () => {
+      refreshOverall();
+      refreshRoundsStatus();
+    },
     () => {
       refreshRoundsStatus();
       void refetchCompetition();
@@ -408,16 +412,36 @@ export function DisplayBoardPage() {
     persistedLatest,
   ]);
 
-  const onDeckQueue = useMemo(() => {
-    if (!overallResults?.rankings.length || !currentPilot) {
-      return overallResults?.rankings.slice(1, 8) ?? [];
-    }
-    const idx = overallResults.rankings.findIndex(
-      (r) => r.id === currentPilot.id || r.pilotId === currentPilot.pilotId,
-    );
-    if (idx === -1) return overallResults.rankings.slice(1, 8);
-    return overallResults.rankings.slice(idx + 1, idx + 8);
-  }, [overallResults, currentPilot]);
+  const onDeck = useMemo(() => {
+    const rankings = overallResults?.rankings ?? [];
+    const activeRound = roundPhase.activeRound;
+    const liveRound = roundsStatus?.rounds.find((round) => round.id === activeRound?.id);
+    const activeDisplayRound =
+      activeRound && isOfficialRound(activeRound) && roundPhase.activeRoundNumber != null
+        ? officialDisplayNumber(roundsStatus?.rounds ?? [], roundPhase.activeRoundNumber)
+        : null;
+    const justScoredPilotId =
+      latestScore &&
+      roundPhase.activeRoundNumber != null &&
+      latestScore.roundNumber === roundPhase.activeRoundNumber
+        ? latestScore.pilotId
+        : null;
+
+    return buildOnDeck({
+      rankings,
+      flights: liveRound?.flights ?? [],
+      anchorPilotId: currentPilot?.pilotId ?? currentPilot?.id ?? null,
+      activeDisplayRound,
+      justScoredPilotId,
+    });
+  }, [
+    overallResults,
+    currentPilot,
+    roundPhase.activeRound,
+    roundPhase.activeRoundNumber,
+    roundsStatus?.rounds,
+    latestScore,
+  ]);
 
   const handleLayoutChange = useCallback((newLayout: DisplayLayoutType) => {
     setScoreFocusUntil(0);
@@ -598,7 +622,7 @@ export function DisplayBoardPage() {
           />
         );
       case 'next':
-        return <NextPilotsLayout current={currentPilot} queue={onDeckQueue} />;
+        return <NextPilotsLayout current={onDeck.nowFlying} queue={onDeck.queue} />;
       case 'sponsors':
         return <SponsorsLayout />;
       default:

@@ -76,6 +76,17 @@ export function fetchLatestWind(idOrSlug: string): Promise<PublicWind | null> {
   return publicFetch<PublicWind | null>(`/${idOrSlug}/wind`);
 }
 
+export interface PublicLaunchFlight {
+  pilotId: string;
+  flightOrder: number;
+  stillToFly: boolean;
+  pilotNumber: number;
+  firstName: string;
+  lastName: string;
+  photoUrl: string | null;
+  country: { name: string; code: string; code2?: string } | null;
+}
+
 export interface PublicRoundStatusRow {
   id: string;
   number: number;
@@ -83,6 +94,8 @@ export interface PublicRoundStatusRow {
   type?: string;
   status: string;
   pauseReason?: string | null;
+  /** Present on a live round. Flight order for the on-deck board. */
+  flights?: PublicLaunchFlight[];
 }
 
 export function fetchRoundsStatus(idOrSlug: string): Promise<{

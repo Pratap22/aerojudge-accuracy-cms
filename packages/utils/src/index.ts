@@ -269,6 +269,69 @@ export function announcedRoundLabel(
   return generic ? `Round ${display}` : name;
 }
 
+const FINISHED_FLIGHT_STATUSES = new Set(['SCORED', 'DNF', 'ABS', 'DNS', 'DSQ']);
+const RECORDED_SCORE_STATUSES = new Set(['ENTERED', 'CONFIRMED', 'DISPUTED', 'APPROVED', 'LOCKED']);
+
+/**
+ * Whether this pilot still has to fly the round.
+ * A recorded score finishes the flight. A reflight does not.
+ */
+export function flightStillToFly(input: {
+  status: string;
+  score?: {
+    status?: string | null;
+    resultType?: string | null;
+    finalScoreCm?: number | null;
+  } | null;
+}): boolean {
+  if (input.status === 'REFLIGHT' || input.score?.resultType === 'REFLIGHT') return true;
+  if (FINISHED_FLIGHT_STATUSES.has(input.status)) return false;
+
+  const score = input.score;
+  if (
+    score &&
+    score.finalScoreCm != null &&
+    score.resultType !== 'REFLIGHT' &&
+    (score.status == null || RECORDED_SCORE_STATUSES.has(score.status))
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Venue on-deck cards for one round, in flight order.
+ * Pilots who have already scored are omitted. When the anchor (the pilot just
+ * scored, or the one the judge selected) is done, the next pilot still to fly
+ * becomes "now flying".
+ */
+export function onDeckSlots<T extends { pilotId: string; stillToFly: boolean }>(
+  flightsInOrder: T[],
+  anchorPilotId: string | null | undefined,
+): { nowFlying: T | null; queue: T[] } {
+  const anchorIndex =
+    anchorPilotId == null
+      ? -1
+      : flightsInOrder.findIndex((flight) => flight.pilotId === anchorPilotId);
+  const rotated =
+    anchorIndex < 0
+      ? flightsInOrder
+      : [...flightsInOrder.slice(anchorIndex + 1), ...flightsInOrder.slice(0, anchorIndex)];
+  const waiting = rotated.filter(
+    (flight) => flight.stillToFly && flight.pilotId !== anchorPilotId,
+  );
+  const anchor = anchorIndex >= 0 ? flightsInOrder[anchorIndex] : undefined;
+
+  if (anchor?.stillToFly) {
+    return { nowFlying: anchor, queue: waiting };
+  }
+
+  const [nowFlying, ...queue] = waiting;
+  if (nowFlying) return { nowFlying, queue };
+  return { nowFlying: anchor ?? null, queue: [] };
+}
+
 export function parseStaffSessionHandoff(hash: string): StaffSessionHandoff | null {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
   if (!raw.startsWith(STAFF_SESSION_HANDOFF_PREFIX)) return null;
