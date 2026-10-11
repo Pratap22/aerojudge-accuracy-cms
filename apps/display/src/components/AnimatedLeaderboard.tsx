@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { RankBadge } from '@aero-judge/ui';
 import type { LeaderboardEntry } from '@aero-judge/ui';
+import { CountryFlag } from './CountryFlag';
 import { formatScore, getAutoInterval } from '../lib/utils';
 import { padPilotNumber } from '@aero-judge/utils';
 
@@ -137,6 +138,8 @@ export function AnimatedLeaderboard({
               `${entry.firstName}${entry.lastName ? ` ${entry.lastName}` : ''}`.trim();
             const isHighlighted =
               !entry.hideNumber && entry.pilotNumber === highlightPilotNumber;
+            const flagCode = entry.countryCode2?.trim().toUpperCase() ?? '';
+            const showFlag = /^[A-Z]{2}$/.test(flagCode) && flagCode !== 'XX';
             return (
               <motion.div
                 key={`${entry.rank}-${entry.pilotNumber}-${label}`}
@@ -174,11 +177,9 @@ export function AnimatedLeaderboard({
                     ) : null}
                     {label}
                   </p>
-                  {entry.countryCode && entry.countryCode !== 'XX' && (
-                    <p className="text-sm uppercase tracking-wider text-sky-400/70">
-                      {entry.countryCode}
-                    </p>
-                  )}
+                  {showFlag ? (
+                    <CountryFlag code={flagCode} size="sm" className="mt-1" />
+                  ) : null}
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-3xl font-bold tabular-nums text-white">
