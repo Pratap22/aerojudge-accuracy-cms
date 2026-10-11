@@ -538,13 +538,13 @@ export function DisplayBoardPage() {
         <RoundClosedLayout
           closedTitle={
             roundPhase.closedRound?.type === 'PRACTICE'
-              ? 'Practice round closed'
+              ? 'Practice round completed'
               : `Round ${
                   roundPhase.closedRound
                     ? (officialDisplayNumber(boardRounds, roundPhase.closedRound.number) ??
                       roundPhase.closedRound.number)
                     : 1
-                } closed`
+                } completed`
           }
           nextCode={`R${roundPhase.nextDisplayNumber ?? 1}`}
           competitionName={competition.name}
