@@ -39,7 +39,7 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
     await assignMissingScoresAsDnf(competitionId, round.id);
   }
 
-  const { pilots, rules } = await buildRoundScoreEntries(competitionId);
+  const { pilots, rules, discardContext } = await buildRoundScoreEntries(competitionId);
   await capStoredScoresToMaximum(competitionId, rules.maximumScoreCm);
 
   const categories: RankingCategory[] = ['OVERALL'];
@@ -49,7 +49,12 @@ export async function recalculateRankings(competitionId: string): Promise<Recalc
   const allIndividual: Array<ReturnType<typeof ScoringEngine.calculateIndividualRankings>[number] & { category: RankingCategory }> = [];
 
   for (const category of categories) {
-    const rankings = ScoringEngine.calculateIndividualRankings(pilots, rules, category);
+    const rankings = ScoringEngine.calculateIndividualRankings(
+      pilots,
+      rules,
+      category,
+      discardContext,
+    );
     for (const r of rankings) {
       allIndividual.push({ ...r, category });
     }

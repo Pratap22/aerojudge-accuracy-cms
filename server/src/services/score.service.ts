@@ -214,6 +214,8 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
     roundScores: RoundScoreEntry[];
   }>;
   rules: ReturnType<typeof ScoringEngine.resolveRules>;
+  /** Started vs finished official rounds, so discard opens for the whole field together. */
+  discardContext: { roundsStarted: number; roundsCompleted: number };
 }> {
   const competition = await getCompetition(competitionId);
   const rules = ScoringEngine.resolveRules(
@@ -305,6 +307,10 @@ export async function buildRoundScoreEntries(competitionId: string): Promise<{
   return {
     pilots: ScoringEngine.fillMissingRoundScoresAsDnf(pilotInputs, roundsForScoreFill, rules),
     rules,
+    discardContext: {
+      roundsStarted: countableRounds.length,
+      roundsCompleted: countableRounds.filter((round) => FINAL_FOR_FILL.has(round.status)).length,
+    },
   };
 }
 

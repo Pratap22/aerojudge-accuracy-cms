@@ -2,7 +2,9 @@
  * Individual overall ranking – FAI Section 7C
  *
  * Total score = sum of countable round scores (lower is better).
- * Discard rules: after N rounds flown, discard worst M round(s).
+ * Discard: once the round after `discardAfterRounds` has started, drop the
+ * worst `discardWorstRounds` real scores. 4 removes the worst score from
+ * round 5. 8 removes it from round 9. The rounds before that all count.
  * Tie-breaks applied per configurable priority list.
  */
 
@@ -30,18 +32,57 @@ function audit(step: string, detail: string, data?: Record<string, unknown>): Sc
   return { timestamp: new Date().toISOString(), step, detail, data };
 }
 
+/** How far the competition has got, so discard is the same for every pilot. */
+export interface DiscardContext {
+  /** Official rounds that have started (active through locked). */
+  roundsStarted: number;
+  /** Official rounds that are closed or further along. */
+  roundsCompleted: number;
+}
+
+/**
+ * True once worst-round discard should affect totals.
+ *
+ * `discardAfterRounds` is the last round that still counts in full.
+ * The worst score is removed when the following round starts: 4 from round 5,
+ * 8 from round 9. Finishing round 8 with no 9th round does not discard.
+ * `discardWorstRounds` of 0 keeps every score.
+ *
+ * Without competition context, the pilot's own non-provisional score count
+ * stands in for rounds started.
+ */
+export function isDiscardWindowOpen(
+  rules: Pick<RuleConfig, 'discardWorstRounds' | 'discardAfterRounds'>,
+  context?: DiscardContext,
+  realScoreCount = 0,
+): boolean {
+  if (rules.discardWorstRounds <= 0) return false;
+  if (rules.discardAfterRounds <= 0) return true;
+  if (context) return context.roundsStarted > rules.discardAfterRounds;
+  return realScoreCount > rules.discardAfterRounds;
+}
+
+/**
+ * Split countable scores into those that stay in the total and those dropped
+ * as worst rounds.
+ *
+ * Live provisional fills (an unflown round scored at the maximum) are never
+ * the discarded score. They stay in the total until a real result replaces them.
+ */
 export function applyDiscardRules(
   scores: RoundScoreEntry[],
   rules: RuleConfig,
+  context?: DiscardContext,
 ): { kept: RoundScoreEntry[]; discarded: RoundScoreEntry[]; discardedTotal: number } {
   const countable = scores.filter(
     (s) => !rules.excludeFromRankingTypes.includes(s.resultType),
   );
+  const provisional = countable.filter((s) => s.isProvisional);
+  const real = countable.filter((s) => !s.isProvisional);
 
   if (
-    rules.discardWorstRounds <= 0 ||
-    countable.length < rules.discardAfterRounds ||
-    countable.length <= rules.discardWorstRounds
+    !isDiscardWindowOpen(rules, context, real.length) ||
+    real.length <= rules.discardWorstRounds
   ) {
     return {
       kept: countable.map((s) => ({ ...s, isDiscarded: false })),
@@ -50,15 +91,15 @@ export function applyDiscardRules(
     };
   }
 
-  // Discard the worst (highest) scores
-  const sorted = [...countable].sort((a, b) => b.finalScoreCm - a.finalScoreCm);
+  // Discard the worst (highest) real scores. Placeholders are not eligible.
+  const sorted = [...real].sort((a, b) => b.finalScoreCm - a.finalScoreCm);
   const toDiscard = sorted.slice(0, rules.discardWorstRounds);
   const discardIds = new Set(toDiscard.map((s) => `${s.roundId}:${s.pilotId}`));
 
-  const kept: RoundScoreEntry[] = [];
+  const kept: RoundScoreEntry[] = provisional.map((s) => ({ ...s, isDiscarded: false }));
   const discarded: RoundScoreEntry[] = [];
 
-  for (const s of countable) {
+  for (const s of real) {
     const key = `${s.roundId}:${s.pilotId}`;
     if (discardIds.has(key)) {
       discarded.push({ ...s, isDiscarded: true });
@@ -196,6 +237,7 @@ export function calculateIndividualRankings(
   pilots: PilotRankingInput[],
   rules: RuleConfig,
   category: RankingCategory = 'OVERALL',
+  discardContext?: DiscardContext,
 ): IndividualRankingResult[] {
   const filtered = pilots.filter((p) => {
     if (p.status === 'WITHDRAWN' || p.status === 'DISQUALIFIED') {
@@ -209,7 +251,11 @@ export function calculateIndividualRankings(
 
   const results: IndividualRankingResult[] = filtered.map((pilot) => {
     const audits: ScoringAuditEntry[] = [];
-    const { kept, discarded, discardedTotal } = applyDiscardRules(pilot.roundScores, rules);
+    const { kept, discarded, discardedTotal } = applyDiscardRules(
+      pilot.roundScores,
+      rules,
+      discardContext,
+    );
 
     audits.push(
       audit('discard', `Applied discard rules`, {

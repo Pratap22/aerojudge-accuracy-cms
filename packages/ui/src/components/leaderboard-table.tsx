@@ -4,14 +4,7 @@ import { formatScoreCm } from '@aero-judge/utils';
 import { cn } from '../lib/utils';
 import { PilotChip } from './pilot-chip';
 import { RankBadge } from './rank-badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from './table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table';
 
 export interface LeaderboardRoundScore {
   round: number;
@@ -92,10 +85,7 @@ function deriveRoundNumbers(entries: LeaderboardEntry[]): number[] {
   return [...set].sort((a, b) => a - b);
 }
 
-function scoreByRound(
-  entry: LeaderboardEntry,
-  round: number,
-): LeaderboardRoundScore | undefined {
+function scoreByRound(entry: LeaderboardEntry, round: number): LeaderboardRoundScore | undefined {
   return entry.roundScores?.find((rs) => rs.round === round);
 }
 
@@ -121,17 +111,37 @@ export function LeaderboardTable({
   const detailMode = showRoundScores && roundNumbers.length > 0;
   // When rounds are expanded, "9/9" is redundant unless callers keep it on.
   const showRoundsCount = showRounds && !detailMode;
+  const frozen = 'max-md:sticky max-md:z-20 max-md:bg-[#121925] max-md:px-2 max-md:py-2.5';
 
   return (
-    <div className={cn('w-full', className)} {...props}>
+    <div className={cn('min-w-full w-max', className)} {...props}>
       {title && (
         <h3 className="mb-4 text-lg font-semibold tracking-tight text-foreground">{title}</h3>
       )}
-      <Table>
+      <Table
+        containerClassName="overflow-visible"
+        className="w-max min-w-full border-separate border-spacing-0"
+      >
         <TableHeader>
           <TableRow>
-            <TableHead className={cn('w-16', compact && 'w-12')}>Rank</TableHead>
-            <TableHead>{nameColumn}</TableHead>
+            <TableHead
+              className={cn(
+                'w-[4.75rem] min-w-[4.75rem] max-md:left-0',
+                compact && 'w-12 min-w-12',
+                detailMode && frozen,
+              )}
+            >
+              Rank
+            </TableHead>
+            <TableHead
+              className={cn(
+                detailMode && frozen,
+                detailMode &&
+                  'max-md:left-[4.75rem] max-md:min-w-[9.5rem] max-md:border-r max-md:border-white/10',
+              )}
+            >
+              {nameColumn}
+            </TableHead>
             {showRoundsCount && (
               <TableHead className="hidden text-right sm:table-cell">Rounds</TableHead>
             )}
@@ -141,10 +151,7 @@ export function LeaderboardTable({
             <TableHead className="text-right">{detailMode ? 'Score' : 'Total (cm)'}</TableHead>
             {detailMode &&
               roundNumbers.map((n) => (
-                <TableHead
-                  key={n}
-                  className="min-w-[2.75rem] px-1 text-center tabular-nums"
-                >
+                <TableHead key={n} className="min-w-[2.75rem] px-1 text-center tabular-nums">
                   {n}.
                 </TableHead>
               ))}
@@ -171,10 +178,16 @@ export function LeaderboardTable({
                   highlightPodium && entry.rank <= 3 && 'font-medium',
                 )}
               >
-                <TableCell>
+                <TableCell className={cn(detailMode && frozen, detailMode && 'max-md:left-0')}>
                   <RankBadge rank={entry.rank} size={compact ? 'sm' : 'default'} />
                 </TableCell>
-                <TableCell>
+                <TableCell
+                  className={cn(
+                    detailMode && frozen,
+                    detailMode &&
+                      'max-md:left-[4.75rem] max-md:max-w-[12.5rem] max-md:border-r max-md:border-white/10',
+                  )}
+                >
                   {entry.hideNumber ? (
                     <div className="inline-flex items-center gap-2 font-medium">
                       {flagEmoji && (
@@ -190,6 +203,7 @@ export function LeaderboardTable({
                       firstName={entry.firstName}
                       lastName={entry.lastName}
                       countryCode2={entry.countryCode2}
+                      countryCode={entry.countryCode}
                       flagUrl={entry.flagUrl}
                       photoUrl={entry.photoUrl}
                       size={compact ? 'sm' : 'default'}
@@ -212,7 +226,9 @@ export function LeaderboardTable({
                       'font-mono font-semibold tabular-nums',
                       detailMode &&
                         'inline-flex min-w-[2.75rem] items-center justify-center rounded-md bg-foreground px-2 py-0.5 text-background',
-                      entry.totalScoreCm === 0 && !detailMode && 'text-[hsl(var(--score-bullseye))]',
+                      entry.totalScoreCm === 0 &&
+                        !detailMode &&
+                        'text-[hsl(var(--score-bullseye))]',
                     )}
                   >
                     {formatScoreCm(entry.totalScoreCm)}
@@ -233,15 +249,16 @@ export function LeaderboardTable({
                             !empty &&
                               discarded &&
                               'text-red-500 line-through decoration-2 decoration-red-500',
-                            !empty &&
-                              provisional &&
-                              !discarded &&
-                              'text-muted-foreground/70',
+                            !empty && provisional && !discarded && 'text-muted-foreground/70',
                             !empty &&
                               cell?.isBullseye &&
                               !discarded &&
                               'font-semibold text-[hsl(var(--score-bullseye))]',
-                            !empty && !discarded && !provisional && !cell?.isBullseye && 'text-foreground',
+                            !empty &&
+                              !discarded &&
+                              !provisional &&
+                              !cell?.isBullseye &&
+                              'text-foreground',
                           )}
                           title={
                             discarded

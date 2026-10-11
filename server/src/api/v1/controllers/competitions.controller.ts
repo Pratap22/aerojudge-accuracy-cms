@@ -173,6 +173,10 @@ export const updateSettingsHandler = [
       before: before.settings ?? null,
       after: competition.settings ?? null,
     });
+    const { recalculateRankings } = await import('../../../services/scoring.service.js');
+    await recalculateRankings(competition.id);
+    const { emitSyncRequired } = await import('../../../socket/index.js');
+    emitSyncRequired(competition.id);
     sendSuccess(res, rules);
   }),
 ];

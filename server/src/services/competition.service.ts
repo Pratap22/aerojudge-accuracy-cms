@@ -1,4 +1,4 @@
-import type { RuleConfig, RuleSetVersion } from '@aero-judge/shared';
+import { DEFAULT_FAI_2022_RULES, type RuleConfig, type RuleSetVersion } from '@aero-judge/shared';
 import { slugify } from '@aero-judge/utils';
 import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
@@ -105,6 +105,8 @@ export async function createCompetition(data: {
       publicSlug: slug,
       settings: {
         create: {
+          discardWorstRounds: DEFAULT_FAI_2022_RULES.discardWorstRounds,
+          discardAfterRounds: DEFAULT_FAI_2022_RULES.discardAfterRounds,
           ...(maximumScoreCm != null ? { maximumScoreCm } : {}),
         },
       },

@@ -185,11 +185,26 @@ export function SettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Discard Worst Rounds</Label>
-                <Input type="number" {...register('discardWorstRounds', { valueAsNumber: true })} />
+                <Input
+                  type="number"
+                  min={0}
+                  {...register('discardWorstRounds', { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  How many worst scores to remove. Use 1 for a single drop. 0 keeps every round.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Discard After Rounds</Label>
-                <Input type="number" {...register('discardAfterRounds', { valueAsNumber: true })} />
+                <Input
+                  type="number"
+                  min={0}
+                  {...register('discardAfterRounds', { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The worst scores come out when the next round starts. 4 means from round 5. 8
+                  means from round 9.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Max Reflights / Round</Label>

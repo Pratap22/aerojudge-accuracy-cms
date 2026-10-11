@@ -1,8 +1,30 @@
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { CountryFlag } from './CountryFlag';
 import { displayCountryCode, padPilotNumber } from '@aero-judge/utils';
 import { formatScore, pilotFullName } from '../lib/utils';
 import type { PublicRankingRow } from '../lib/types';
+
+/** Rolls the new figure up into place. The first paint stays still. */
+function RollingValue({ value, className }: { value: string; className?: string }) {
+  return (
+    <span
+      className={`inline-grid overflow-hidden py-[0.08em] -my-[0.08em] align-bottom leading-none ${className ?? ''}`}
+    >
+      <AnimatePresence initial={false}>
+        <motion.span
+          key={value}
+          className="col-start-1 row-start-1"
+          initial={{ y: '80%', opacity: 0 }}
+          animate={{ y: '0%', opacity: 1 }}
+          exit={{ y: '-80%', opacity: 0 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
 
 interface PilotHeroProps {
   pilot: PublicRankingRow | null;
@@ -120,7 +142,7 @@ export function PilotHero({
               Rank
             </p>
             <p className="font-display text-2xl leading-none text-broadcast-amber sm:text-3xl md:text-5xl xl:text-6xl">
-              #{pilot.rank}
+              <RollingValue value={`#${pilot.rank}`} />
             </p>
           </div>
           <div className="min-w-0 rounded-lg bg-broadcast-navy-light/40 px-2 py-2 text-center sm:px-3 md:rounded-none md:bg-transparent md:px-0 md:py-0 md:text-left">
@@ -128,7 +150,7 @@ export function PilotHero({
               Total
             </p>
             <p className="font-mono text-xl font-bold leading-none tracking-tighter text-white sm:text-2xl md:text-4xl xl:text-5xl">
-              {formatScore(pilot.totalScoreCm)}{' '}
+              <RollingValue value={formatScore(pilot.totalScoreCm)} />{' '}
               <span className="text-sm font-semibold text-sky-400 sm:text-base md:text-2xl xl:text-3xl">
                 cm
               </span>
@@ -142,10 +164,9 @@ export function PilotHero({
           </p>
           {showScore ? (
             <motion.div
-              key={`${liveScoreCm}-${resultLabel ?? ''}-${isBullseye}`}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
               className={
                 bullseye && !resultLabel
                   ? 'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-emerald-400/50 bg-emerald-500/10 px-4 py-4 sm:gap-3 sm:px-8 sm:py-6 xl:px-12 xl:py-8'
@@ -154,19 +175,18 @@ export function PilotHero({
             >
               {resultLabel ? (
                 <p className="text-center font-display text-[clamp(1.75rem,8vw,4.5rem)] uppercase leading-none tracking-[0.1em] text-sky-100">
-                  {resultLabel}
+                  <RollingValue value={resultLabel} />
                 </p>
               ) : (
                 <div className="flex items-baseline justify-center gap-x-2 sm:gap-x-3">
-                  <span
+                  <RollingValue
+                    value={formatScore(liveScoreCm ?? 0)}
                     className={
                       bullseye
-                        ? 'font-mono text-[clamp(2.5rem,12vw,5.5rem)] font-bold tabular-nums leading-none tracking-tighter text-emerald-400'
-                        : 'font-mono text-[clamp(2.5rem,12vw,5.5rem)] font-bold tabular-nums leading-none tracking-tighter text-white'
+                        ? 'font-mono text-[clamp(2.5rem,12vw,5.5rem)] font-bold tabular-nums tracking-tighter text-emerald-400'
+                        : 'font-mono text-[clamp(2.5rem,12vw,5.5rem)] font-bold tabular-nums tracking-tighter text-white'
                     }
-                  >
-                    {formatScore(liveScoreCm ?? 0)}
-                  </span>
+                  />
                   <span
                     className={
                       bullseye

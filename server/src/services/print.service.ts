@@ -8,7 +8,11 @@ import {
   type ReportCardItem,
   type ResultRow,
 } from '@aero-judge/pdf-engine';
-import { applyDiscardRules, resolveCompetitionRules } from '@aero-judge/scoring-engine';
+import {
+  applyDiscardRules,
+  isDiscardWindowOpen,
+  resolveCompetitionRules,
+} from '@aero-judge/scoring-engine';
 import { COMPETING_PILOT_STATUSES, type PrintFormat, type ReportType } from '@aero-judge/shared';
 import { displayCountryCode, formatPilotName, formatScoreCm, officialDisplayNumber } from '@aero-judge/utils';
 import { env } from '../config/env.js';
@@ -1074,8 +1078,10 @@ async function buildReportInput(
       settingsToRuleOverrides(competition.settings),
     );
     const maxCm = rules.maximumScoreCm;
-    const discardActive =
-      rules.discardWorstRounds > 0 && rounds.length >= rules.discardAfterRounds;
+    const discardActive = isDiscardWindowOpen(rules, {
+      roundsStarted: rankingRounds.length,
+      roundsCompleted: rounds.length,
+    });
     const roundHeaders = rounds.map((round) => {
       const announced = rankingRounds.findIndex((row) => row.id === round.id) + 1;
       return `R${announced}`;

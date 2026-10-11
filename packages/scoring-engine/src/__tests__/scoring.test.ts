@@ -104,12 +104,124 @@ describe('applyDiscardRules', () => {
       isBullseye: false,
       isDiscarded: false,
     }));
-    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 5 };
-    const { kept, discarded, discardedTotal } = applyDiscardRules(scores, rules);
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 4 };
+    const { kept, discarded, discardedTotal } = applyDiscardRules(scores, rules, {
+      roundsStarted: 5,
+      roundsCompleted: 4,
+    });
     expect(discarded).toHaveLength(1);
     expect(discarded[0].finalScoreCm).toBe(900);
     expect(kept).toHaveLength(4);
     expect(discardedTotal).toBe(900);
+  });
+
+  it('discards the worst score from the round after the setting', () => {
+    const scores = Array.from({ length: 8 }, (_, i) => ({
+      pilotId: 'p1',
+      roundId: `r${i + 1}`,
+      roundNumber: i + 1,
+      finalScoreCm: i === 3 ? 400 : 10,
+      resultType: 'MEASURED' as const,
+      isBullseye: false,
+      isDiscarded: false,
+    }));
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 8 };
+    const beforeNinth = applyDiscardRules(scores, rules, {
+      roundsStarted: 8,
+      roundsCompleted: 8,
+    });
+    expect(beforeNinth.discarded).toHaveLength(0);
+
+    const fromNinth = applyDiscardRules(scores, rules, {
+      roundsStarted: 9,
+      roundsCompleted: 8,
+    });
+    expect(fromNinth.discarded).toHaveLength(1);
+    expect(fromNinth.discarded[0].roundNumber).toBe(4);
+    expect(fromNinth.discarded[0].finalScoreCm).toBe(400);
+    expect(fromNinth.kept.reduce((sum, score) => sum + score.finalScoreCm, 0)).toBe(70);
+  });
+
+  it('does not discard when discard worst rounds is 0', () => {
+    const scores = Array.from({ length: 5 }, (_, i) => ({
+      pilotId: 'p1',
+      roundId: `r${i + 1}`,
+      roundNumber: i + 1,
+      finalScoreCm: i === 0 ? 400 : 10,
+      resultType: 'MEASURED' as const,
+      isBullseye: false,
+      isDiscarded: false,
+    }));
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 0, discardAfterRounds: 4 };
+    const { discarded, kept } = applyDiscardRules(scores, rules, {
+      roundsStarted: 5,
+      roundsCompleted: 4,
+    });
+    expect(discarded).toHaveLength(0);
+    expect(kept).toHaveLength(5);
+  });
+
+  it('drops the worst real score when the next round has started', () => {
+    const scores = [
+      ...[20, 200, 5, 8].map((finalScoreCm, i) => ({
+        pilotId: 'p1',
+        roundId: `r${i + 1}`,
+        roundNumber: i + 1,
+        finalScoreCm,
+        resultType: 'MEASURED' as const,
+        isBullseye: false,
+        isDiscarded: false,
+      })),
+      {
+        pilotId: 'p1',
+        roundId: 'r5',
+        roundNumber: 5,
+        finalScoreCm: 500,
+        resultType: 'DNF' as const,
+        isBullseye: false,
+        isDiscarded: false,
+        isProvisional: true,
+      },
+    ];
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 4 };
+    const { kept, discarded } = applyDiscardRules(scores, rules, {
+      roundsStarted: 5,
+      roundsCompleted: 4,
+    });
+    expect(discarded).toHaveLength(1);
+    expect(discarded[0].finalScoreCm).toBe(200);
+    expect(kept.some((score) => score.isProvisional)).toBe(true);
+    expect(kept.reduce((sum, score) => sum + score.finalScoreCm, 0)).toBe(20 + 5 + 8 + 500);
+  });
+
+  it('does not let a live placeholder satisfy a five-round discard before that round is complete', () => {
+    const scores = [
+      ...[20, 200, 5, 8].map((finalScoreCm, i) => ({
+        pilotId: 'p1',
+        roundId: `r${i + 1}`,
+        roundNumber: i + 1,
+        finalScoreCm,
+        resultType: 'MEASURED' as const,
+        isBullseye: false,
+        isDiscarded: false,
+      })),
+      {
+        pilotId: 'p1',
+        roundId: 'r5',
+        roundNumber: 5,
+        finalScoreCm: 500,
+        resultType: 'DNF' as const,
+        isBullseye: false,
+        isDiscarded: false,
+        isProvisional: true,
+      },
+    ];
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 5 };
+    const { discarded } = applyDiscardRules(scores, rules, {
+      roundsStarted: 5,
+      roundsCompleted: 4,
+    });
+    expect(discarded).toHaveLength(0);
   });
 });
 
