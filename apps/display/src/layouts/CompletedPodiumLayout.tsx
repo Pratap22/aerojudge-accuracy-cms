@@ -2,14 +2,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { LeaderboardEntry } from '@aero-judge/ui';
 import { CountryFlag } from '../components/CountryFlag';
 import { SponsorStrip } from '../components/SponsorStrip';
-import { formatScore } from '../lib/utils';
+import { formatScore, pilotFullName } from '../lib/utils';
+import type { PublicTeamPilot } from '../lib/types';
 import { padPilotNumber } from '@aero-judge/utils';
 
 export type PodiumCategory = 'individual' | 'team';
 
+type PodiumEntry = LeaderboardEntry & { members?: PublicTeamPilot[] };
+
 interface CompletedPodiumLayoutProps {
   competitionName?: string;
-  entries: LeaderboardEntry[];
+  entries: PodiumEntry[];
   category?: PodiumCategory;
 }
 
@@ -57,7 +60,7 @@ const CATEGORY_COPY: Record<PodiumCategory, { title: string; subtitle: string }>
 };
 
 function podiumCard(
-  entry: LeaderboardEntry | undefined,
+  entry: PodiumEntry | undefined,
   style: (typeof PLACE_STYLES)[number],
   delay: number,
   category: PodiumCategory,
@@ -76,6 +79,52 @@ function podiumCard(
       : null;
   const countryLabel = entry?.countryCode?.trim() || undefined;
   const showCountry = Boolean(countryLabel);
+
+  const members = category === 'team' ? (entry?.members ?? []) : [];
+
+  if (entry && members.length > 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 48 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay, type: 'spring', stiffness: 110 }}
+        className={`flex flex-col justify-end sm:shrink-0 ${style.width}`}
+      >
+        <div
+          className={`flex ${style.height} w-full flex-col rounded-xl border p-2 sm:rounded-2xl sm:p-4 ${style.ring}`}
+        >
+          <div className="flex items-start justify-between gap-1 sm:gap-2">
+            <span
+              className={`font-display text-sm uppercase leading-none tracking-[0.15em] sm:text-2xl sm:tracking-[0.2em] md:text-3xl ${style.accent}`}
+            >
+              {style.place}
+            </span>
+            <span className="font-mono text-sm font-bold tabular-nums leading-none text-white sm:text-2xl md:text-3xl">
+              {formatScore(entry.totalScoreCm)}
+              <span className="ml-0.5 text-[10px] text-sky-400 sm:ml-1 sm:text-base">cm</span>
+            </span>
+          </div>
+          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-3 text-center sm:gap-2 sm:py-5">
+            {/* leading-tight + no overflow-hidden: display fonts clip under line-clamp */}
+            <p
+              className={`w-full break-words font-display uppercase leading-tight tracking-wide text-white ${style.nameSize}`}
+            >
+              {label}
+            </p>
+            {flagCode ? <CountryFlag code={flagCode} size="sm" /> : null}
+          </div>
+          <ul className="space-y-0.5 border-t border-white/10 pt-2 text-left text-[10px] leading-tight text-sky-200/90 sm:space-y-1 sm:pt-3 sm:text-xs md:text-sm">
+            {members.map((m) => (
+              <li key={m.pilotId} className="truncate">
+                <span className="font-mono text-sky-400">#{padPilotNumber(m.pilotNumber)}</span>{' '}
+                {pilotFullName(m.firstName, m.lastName)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </motion.div>
+    );
+  }
 
   if (entry && category === 'individual' && !entry.hideNumber) {
     return (
