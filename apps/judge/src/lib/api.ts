@@ -201,4 +201,5 @@ export const api = {
   get: <T>(path: string, params?: RequestOptions['params']) =>
     apiRequest<T>(path, { method: 'GET', params }),
   post: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
+  patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
 };

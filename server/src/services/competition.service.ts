@@ -124,6 +124,39 @@ function competitionCalendarDay(value: Date): string {
  * Update competition identity fields, including start and end dates.
  * End date must fall on or after the start date (calendar day, UTC).
  */
+/**
+ * Official-round cap used when creating rounds.
+ * Cannot drop below the number of official rounds already created.
+ */
+export function assertMaxRoundsAllowed(maxRounds: number, officialRoundCount: number): void {
+  if (!Number.isInteger(maxRounds) || maxRounds < 1 || maxRounds > 30) {
+    throw AppError.badRequest('Max rounds must be a whole number from 1 to 30');
+  }
+  if (maxRounds < officialRoundCount) {
+    const label = officialRoundCount === 1 ? 'official round' : 'official rounds';
+    throw AppError.badRequest(
+      `Max rounds cannot be lower than the ${officialRoundCount} ${label} already created`,
+    );
+  }
+}
+
+/**
+ * Change how many official rounds a competition may have.
+ * Callers must already be allowed to manage rounds.
+ */
+export async function updateMaxRounds(competitionId: string, maxRounds: number) {
+  await getCompetition(competitionId);
+  const officialRoundCount = await prisma.round.count({
+    where: { competitionId, type: 'OFFICIAL' },
+  });
+  assertMaxRoundsAllowed(maxRounds, officialRoundCount);
+  return prisma.competition.update({
+    where: { id: competitionId },
+    data: { maxRounds },
+    include: { settings: true },
+  });
+}
+
 export async function updateCompetition(id: string, data: Record<string, unknown>) {
   const existing = await getCompetition(id);
 

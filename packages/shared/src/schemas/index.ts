@@ -755,6 +755,11 @@ export const updateCompetitionSchema = createCompetitionSchema
   .omit({ organizationId: true, maximumScoreCm: true })
   .partial();
 
+/** Official-round cap. Required on purpose so an empty body cannot fall back to 8. */
+export const updateMaxRoundsSchema = z.object({
+  maxRounds: z.number().int().min(1).max(30),
+});
+
 /** True when HTML has no visible text (empty editor / whitespace-only). */
 export function isEmptyHtml(html: string | null | undefined): boolean {
   if (html == null || html.trim() === '') return true;
@@ -776,6 +781,7 @@ export type UpdateCompetitionLinkInput = z.infer<typeof updateCompetitionLinkSch
 export type CreateCompetitionContactInput = z.infer<typeof createCompetitionContactSchema>;
 export type UpdateCompetitionContactInput = z.infer<typeof updateCompetitionContactSchema>;
 export type UpdateCompetitionInput = z.infer<typeof updateCompetitionSchema>;
+export type UpdateMaxRoundsInput = z.infer<typeof updateMaxRoundsSchema>;
 
 // ─── Person directory ───
 

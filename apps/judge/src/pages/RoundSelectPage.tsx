@@ -14,6 +14,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Input,
   Label,
   Textarea,
 } from '@aero-judge/ui';
@@ -180,6 +181,9 @@ export function RoundSelectPage() {
   const isLoading = compsLoading || (!!activeCompId && roundsLoading);
 
   const maxRounds = competitionDetail?.maxRounds ?? activeCompetition?.maxRounds ?? 12;
+  const [maxRoundsDraft, setMaxRoundsDraft] = useState<string | null>(null);
+  const [maxRoundsError, setMaxRoundsError] = useState<string | null>(null);
+  const maxRoundsValue = maxRoundsDraft ?? String(maxRounds);
   const officialRounds = roundsNormalized.filter((round) => round.type === 'OFFICIAL');
   const nextStoredNumber = nextOfficialStoredNumber(officialRounds);
   const nextNumber = nextOfficialDisplayNumber(officialRounds);
@@ -223,6 +227,21 @@ export function RoundSelectPage() {
     queryClient.invalidateQueries({ queryKey: ['rounds', activeCompId] });
     queryClient.invalidateQueries({ queryKey: ['competition', activeCompId] });
   };
+
+  const saveMaxRoundsMutation = useMutation({
+    mutationFn: (value: number) =>
+      api.patch<CompetitionOption>(`/competitions/${activeCompId}/max-rounds`, {
+        maxRounds: value,
+      }),
+    onSuccess: () => {
+      setMaxRoundsDraft(null);
+      setMaxRoundsError(null);
+      invalidateRounds();
+    },
+    onError: (err) => {
+      setMaxRoundsError(err instanceof ApiError ? err.message : 'Could not update max rounds');
+    },
+  });
 
   const startMutation = useMutation({
     mutationFn: async ({
@@ -413,6 +432,51 @@ export function RoundSelectPage() {
           </p>
         )}
 
+        {activeCompId && (
+          <form
+            className="mb-6 flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const value = Number(maxRoundsValue);
+              if (!Number.isInteger(value) || value < 1 || value > 30) {
+                setMaxRoundsError('Max rounds must be a whole number from 1 to 30');
+                return;
+              }
+              saveMaxRoundsMutation.mutate(value);
+            }}
+          >
+            <div className="space-y-1">
+              <Label htmlFor="maxRounds">Max official rounds</Label>
+              <Input
+                id="maxRounds"
+                type="number"
+                min={Math.max(1, officialRounds.length)}
+                max={30}
+                value={maxRoundsValue}
+                onChange={(event) => {
+                  setMaxRoundsDraft(event.target.value);
+                  setMaxRoundsError(null);
+                }}
+                className="h-10 w-24"
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={
+                saveMaxRoundsMutation.isPending ||
+                competitionDetail?.maxRounds == null ||
+                Number(maxRoundsValue) === maxRounds
+              }
+            >
+              {saveMaxRoundsMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+            {maxRoundsError && (
+              <p className="w-full text-sm text-red-300">{maxRoundsError}</p>
+            )}
+          </form>
+        )}
+
         {canCreateNext && roundsNormalized.length > 0 && (
           <div className="mb-6">
             <Button
@@ -469,7 +533,7 @@ export function RoundSelectPage() {
             title="No round is open for scoring"
             body={
               atMax
-                ? 'All rounds for this competition have been used.'
+                ? 'All official rounds have been used. Raise Max official rounds to add another.'
                 : 'Start a scheduled round below.'
             }
           >

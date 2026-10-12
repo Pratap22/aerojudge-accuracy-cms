@@ -1,5 +1,10 @@
 import type { Request, Response } from 'express';
-import { createCompetitionSchema, paginationSchema, updateCompetitionSchema } from '@aero-judge/shared';
+import {
+  createCompetitionSchema,
+  paginationSchema,
+  updateCompetitionSchema,
+  updateMaxRoundsSchema,
+} from '@aero-judge/shared';
 import { ScoringEngine } from '@aero-judge/scoring-engine';
 import { z } from 'zod';
 import { asyncHandler, AppError } from '../../../utils/errors.js';
@@ -99,6 +104,28 @@ export const create = [
       after: competition,
     });
     sendSuccess(res, competition, 201);
+  }),
+];
+
+export const updateMaxRounds = [
+  validateParams(idParams),
+  validateBody(updateMaxRoundsSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const before = await competitionService.getCompetition(req.params.id, req.organizationId);
+    const competition = await competitionService.updateMaxRounds(
+      req.params.id,
+      req.body.maxRounds,
+    );
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: competition.id,
+      action: 'UPDATE',
+      entityType: 'Competition',
+      entityId: competition.id,
+      before: { maxRounds: before.maxRounds },
+      after: { maxRounds: competition.maxRounds },
+    });
+    sendSuccess(res, competition);
   }),
 ];
 

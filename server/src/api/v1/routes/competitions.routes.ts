@@ -22,6 +22,13 @@ router.patch(
   requirePermission('competition:update'),
   ...ctrl.update,
 );
+router.patch(
+  '/:id/max-rounds',
+  requireOrgContext,
+  requireCompetitionInOrg,
+  requirePermission('round:manage'),
+  ...ctrl.updateMaxRounds,
+);
 router.get('/:id/dashboard', requireOrgContext, requireCompetitionInOrg, ...ctrl.dashboard);
 router.delete(
   '/:id',

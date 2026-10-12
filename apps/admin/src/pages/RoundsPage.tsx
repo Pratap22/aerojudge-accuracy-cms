@@ -251,6 +251,24 @@ export function RoundsPage() {
     [rounds],
   );
   const maxRounds = competition?.maxRounds ?? 12;
+  const [maxRoundsDraft, setMaxRoundsDraft] = useState<string | null>(null);
+  const [maxRoundsError, setMaxRoundsError] = useState<string | null>(null);
+  const maxRoundsValue = maxRoundsDraft ?? String(maxRounds);
+  const saveMaxRoundsMutation = useMutation({
+    mutationFn: (value: number) =>
+      api.patch<CompetitionInfo>(`/competitions/${competitionId}/max-rounds`, {
+        maxRounds: value,
+      }),
+    onSuccess: () => {
+      setMaxRoundsDraft(null);
+      setMaxRoundsError(null);
+      void queryClient.invalidateQueries({ queryKey: ['competition', competitionId] });
+      void queryClient.invalidateQueries({ queryKey: ['competitions'] });
+    },
+    onError: (err) => {
+      setMaxRoundsError(err instanceof ApiError ? err.message : 'Could not update max rounds');
+    },
+  });
   /** Practice and official rounds each keep their own number sequence. */
   const nextNumber = useMemo(() => {
     const sameType = rounds.filter((round) => round.type === roundType);
@@ -473,12 +491,53 @@ export function RoundsPage() {
         <div>
           <h1 className="text-2xl font-bold">Rounds</h1>
           <p className="text-muted-foreground">
-            Control round lifecycle · Max {maxRounds} official rounds
+            Control round lifecycle
             <span className="mt-1 block text-xs">
               Practice rounds do not count toward results or the official max. Approve → Lock for
               finals.
             </span>
           </p>
+          <form
+            className="mt-3 flex flex-wrap items-center gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const value = Number(maxRoundsValue);
+              if (!Number.isInteger(value) || value < 1 || value > 30) {
+                setMaxRoundsError('Max rounds must be a whole number from 1 to 30');
+                return;
+              }
+              saveMaxRoundsMutation.mutate(value);
+            }}
+          >
+            <Label htmlFor="maxRounds" className="text-sm">
+              Max official rounds
+            </Label>
+            <Input
+              id="maxRounds"
+              type="number"
+              min={Math.max(1, officialRounds.length)}
+              max={30}
+              value={maxRoundsValue}
+              onChange={(event) => {
+                setMaxRoundsDraft(event.target.value);
+                setMaxRoundsError(null);
+              }}
+              className="h-9 w-24"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              disabled={
+                saveMaxRoundsMutation.isPending ||
+                !competition ||
+                Number(maxRoundsValue) === maxRounds
+              }
+            >
+              {saveMaxRoundsMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+            {maxRoundsError && <p className="w-full text-sm text-destructive">{maxRoundsError}</p>}
+          </form>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {canDownloadStandings && (
@@ -648,8 +707,7 @@ export function RoundsPage() {
 
       {atMaxOfficial && (
         <p className="text-sm text-muted-foreground">
-          Maximum of {maxRounds} official rounds reached. You can still add practice rounds, or
-          increase Max Rounds in competition settings.
+          Maximum of {maxRounds} official rounds reached. Raise Max official rounds above to add another.
         </p>
       )}
       <div className="rounded-lg border">
