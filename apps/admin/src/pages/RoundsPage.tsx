@@ -372,7 +372,12 @@ export function RoundsPage() {
 
   const getActions = (
     status: RoundStatus,
-  ): { action: RoundAction; label: string; icon: React.ReactNode; variant?: 'default' | 'outline' }[] => {
+  ): {
+    action: RoundAction;
+    label: string;
+    icon: React.ReactNode;
+    variant?: 'default' | 'outline' | 'destructive';
+  }[] => {
     switch (status) {
       case 'SCHEDULED':
       case 'BRIEFING':
@@ -381,14 +386,14 @@ export function RoundsPage() {
       case 'ACTIVE':
         return [
           { action: 'pause', label: 'Pause', icon: <Pause className="h-4 w-4" />, variant: 'outline' },
-          { action: 'cancel', label: 'Cancel', icon: <Ban className="h-4 w-4" />, variant: 'outline' },
-          { action: 'close', label: 'Close', icon: <Square className="h-4 w-4" />, variant: 'outline' },
+          { action: 'cancel', label: 'Cancel', icon: <Ban className="h-4 w-4" />, variant: 'destructive' },
+          { action: 'close', label: 'Complete', icon: <Square className="h-4 w-4" />, variant: 'outline' },
         ];
       case 'PAUSED':
         return [
           { action: 'resume', label: 'Resume', icon: <RotateCcw className="h-4 w-4" />, variant: 'outline' },
-          { action: 'cancel', label: 'Cancel', icon: <Ban className="h-4 w-4" />, variant: 'outline' },
-          { action: 'close', label: 'Close', icon: <Square className="h-4 w-4" />, variant: 'outline' },
+          { action: 'cancel', label: 'Cancel', icon: <Ban className="h-4 w-4" />, variant: 'destructive' },
+          { action: 'close', label: 'Complete', icon: <Square className="h-4 w-4" />, variant: 'outline' },
         ];
       case 'CLOSED':
       case 'PENDING_APPROVAL':
