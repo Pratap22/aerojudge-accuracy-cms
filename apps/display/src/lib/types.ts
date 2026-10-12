@@ -40,6 +40,7 @@ export interface PublicPilot {
 export interface PublicTeam {
   id: string;
   name: string;
+  logoUrl?: string | null;
   country?: { name: string; code: string; code2?: string } | null;
 }
 

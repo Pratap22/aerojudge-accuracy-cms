@@ -83,6 +83,10 @@ function podiumCard(
   const members = category === 'team' ? (entry?.members ?? []) : [];
 
   if (entry && members.length > 0) {
+    const teamImage = entry.photoUrl ?? null;
+    const badge = teamImage
+      ? 'rounded-md bg-black/60 px-1.5 py-1 backdrop-blur-sm sm:rounded-lg sm:px-2.5 sm:py-1.5'
+      : '';
     return (
       <motion.div
         initial={{ opacity: 0, y: 48 }}
@@ -91,29 +95,48 @@ function podiumCard(
         className={`flex flex-col justify-end sm:shrink-0 ${style.width}`}
       >
         <div
-          className={`flex ${style.height} w-full flex-col rounded-xl border p-2 sm:rounded-2xl sm:p-4 ${style.ring}`}
+          className={`flex ${style.height} w-full flex-col overflow-hidden rounded-xl border sm:rounded-2xl ${style.ring}`}
         >
-          <div className="flex items-start justify-between gap-1 sm:gap-2">
-            <span
-              className={`font-display text-sm uppercase leading-none tracking-[0.15em] sm:text-2xl sm:tracking-[0.2em] md:text-3xl ${style.accent}`}
+          <div className="relative flex flex-1 flex-col p-2 sm:p-4">
+            {teamImage ? (
+              <>
+                <img
+                  src={teamImage}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/20" />
+              </>
+            ) : null}
+            <div className="relative flex items-start justify-between gap-1 sm:gap-2">
+              <span
+                className={`font-display text-sm uppercase leading-none tracking-[0.15em] sm:text-2xl sm:tracking-[0.2em] md:text-3xl ${style.accent} ${badge}`}
+              >
+                {style.place}
+              </span>
+              <span
+                className={`font-mono text-sm font-bold tabular-nums leading-none text-white sm:text-2xl md:text-3xl ${badge}`}
+              >
+                {formatScore(entry.totalScoreCm)}
+                <span className="ml-0.5 text-[10px] text-sky-400 sm:ml-1 sm:text-base">cm</span>
+              </span>
+            </div>
+            {teamImage ? <div className="min-h-16 flex-1 sm:min-h-24" /> : null}
+            <div
+              className={`relative flex flex-col items-center gap-1.5 text-center sm:gap-2 ${
+                teamImage ? 'pt-2' : 'flex-1 justify-center py-3 sm:py-5'
+              }`}
             >
-              {style.place}
-            </span>
-            <span className="font-mono text-sm font-bold tabular-nums leading-none text-white sm:text-2xl md:text-3xl">
-              {formatScore(entry.totalScoreCm)}
-              <span className="ml-0.5 text-[10px] text-sky-400 sm:ml-1 sm:text-base">cm</span>
-            </span>
+              {/* leading-tight + no overflow-hidden: display fonts clip under line-clamp */}
+              <p
+                className={`w-full break-words font-display uppercase leading-tight tracking-wide text-white ${style.nameSize}`}
+              >
+                {label}
+              </p>
+              {flagCode ? <CountryFlag code={flagCode} size="sm" /> : null}
+            </div>
           </div>
-          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-3 text-center sm:gap-2 sm:py-5">
-            {/* leading-tight + no overflow-hidden: display fonts clip under line-clamp */}
-            <p
-              className={`w-full break-words font-display uppercase leading-tight tracking-wide text-white ${style.nameSize}`}
-            >
-              {label}
-            </p>
-            {flagCode ? <CountryFlag code={flagCode} size="sm" /> : null}
-          </div>
-          <ul className="space-y-0.5 border-t border-white/10 pt-2 text-left text-[10px] leading-tight text-sky-200/90 sm:space-y-1 sm:pt-3 sm:text-xs md:text-sm">
+          <ul className="space-y-0.5 border-t border-white/10 p-2 text-left text-[10px] leading-tight text-sky-200/90 sm:space-y-1 sm:p-4 sm:text-xs md:text-sm">
             {members.map((m) => (
               <li key={m.pilotId} className="truncate">
                 <span className="font-mono text-sky-400">#{padPilotNumber(m.pilotNumber)}</span>{' '}

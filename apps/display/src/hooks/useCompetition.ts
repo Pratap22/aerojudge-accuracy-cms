@@ -159,6 +159,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
           totalScoreCm: row.totalScoreCm,
           roundsFlown: row.roundsFlown,
           bullseyes: row.bullseyes,
+          photoUrl: row.team.logoUrl ?? undefined,
           members: row.pilots ?? [],
         };
       }
