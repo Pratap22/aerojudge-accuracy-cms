@@ -101,6 +101,30 @@ export async function updateTeam(
   return getTeam(competitionId, teamId);
 }
 
+export async function uploadTeamImage(
+  competitionId: string,
+  teamId: string,
+  file: Express.Multer.File,
+) {
+  await getTeam(competitionId, teamId);
+  const { uploadImageToCloudinary } = await import('../utils/cloudinary.js');
+  const { url } = await uploadImageToCloudinary(file, {
+    folder: `teams/${competitionId}`,
+    publicId: teamId,
+    maxEdge: 1200,
+  });
+  await prisma.team.update({ where: { id: teamId }, data: { logoUrl: url } });
+  return getTeam(competitionId, teamId);
+}
+
+export async function removeTeamImage(competitionId: string, teamId: string) {
+  const team = await getTeam(competitionId, teamId);
+  await prisma.team.update({ where: { id: teamId }, data: { logoUrl: null } });
+  const { destroyCloudinaryImage } = await import('../utils/cloudinary.js');
+  await destroyCloudinaryImage(team.logoUrl);
+  return getTeam(competitionId, teamId);
+}
+
 export async function deleteTeam(competitionId: string, teamId: string): Promise<void> {
   await getTeam(competitionId, teamId);
   await prisma.team.delete({ where: { id: teamId } });

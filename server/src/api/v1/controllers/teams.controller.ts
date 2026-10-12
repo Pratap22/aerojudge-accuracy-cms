@@ -52,6 +52,33 @@ export const update = [
   }),
 ];
 
+export const uploadImage = [
+  validateParams(teamParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Image file required', code: 'BAD_REQUEST' },
+      });
+      return;
+    }
+    const team = await teamService.uploadTeamImage(
+      req.params.competitionId,
+      req.params.teamId,
+      req.file,
+    );
+    sendSuccess(res, team);
+  }),
+];
+
+export const removeImage = [
+  validateParams(teamParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const team = await teamService.removeTeamImage(req.params.competitionId, req.params.teamId);
+    sendSuccess(res, team);
+  }),
+];
+
 export const remove = [
   validateParams(teamParams),
   asyncHandler(async (req: Request, res: Response) => {

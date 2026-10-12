@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,7 +10,17 @@ import {
   type TeamType,
 } from '@aero-judge/shared';
 import { padPilotNumber } from '@aero-judge/utils';
-import { AlertCircle, CheckCircle2, MoreHorizontal, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  ImageMinus,
+  ImagePlus,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import {
   Badge,
   Button,
@@ -37,8 +47,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@aero-judge/ui';
-import { api } from '../lib/api';
+import { api, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
+
+const TEAM_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 interface PilotOption {
   id: string;
@@ -61,6 +73,7 @@ interface TeamApi {
   type: TeamType;
   isValid: boolean;
   validationNotes: string | null;
+  logoUrl?: string | null;
   members: TeamMemberApi[];
 }
 
@@ -80,6 +93,9 @@ export function TeamsPage() {
   const [selectedPilotIds, setSelectedPilotIds] = useState<string[]>([]);
   const [reserveIds, setReserveIds] = useState<Set<string>>(new Set());
   const [memberSearch, setMemberSearch] = useState('');
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageTargetRef = useRef<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: teams, isLoading } = useQuery({
@@ -173,6 +189,40 @@ export function TeamsPage() {
       setDeletingTeam(null);
     },
   });
+
+  const imageMutation = useMutation({
+    mutationFn: ({ teamId, file }: { teamId: string; file: File | null }) => {
+      const path = `/competitions/${activeCompetitionId}/teams/${teamId}/image`;
+      if (!file) return apiRequest<TeamApi>(path, { method: 'DELETE' });
+      const formData = new FormData();
+      formData.append('image', file);
+      return apiRequest<TeamApi>(path, { method: 'POST', formData });
+    },
+    onMutate: () => setImageError(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err) => {
+      setImageError((err as Error)?.message ?? 'Could not update the team image');
+    },
+  });
+
+  function pickTeamImage(team: TeamApi) {
+    imageTargetRef.current = team.id;
+    setImageError(null);
+    imageInputRef.current?.click();
+  }
+
+  function onTeamImageSelected(file: File | null) {
+    if (imageInputRef.current) imageInputRef.current.value = '';
+    const teamId = imageTargetRef.current;
+    if (!file || !teamId) return;
+    if (file.size > TEAM_IMAGE_MAX_BYTES) {
+      setImageError('Team image is too large. Maximum size is 5 MB.');
+      return;
+    }
+    imageMutation.mutate({ teamId, file });
+  }
 
   const membersMutation = useMutation({
     mutationFn: ({
@@ -314,6 +364,19 @@ export function TeamsPage() {
         </Button>
       </div>
 
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
+        className="hidden"
+        onChange={(e) => onTeamImageSelected(e.target.files?.[0] ?? null)}
+      />
+      {imageError && (
+        <p className="flex items-center gap-1 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" /> {imageError}
+        </p>
+      )}
+
       {isLoading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
@@ -325,9 +388,21 @@ export function TeamsPage() {
                 .map((s) => s.trim())
                 .filter(Boolean) ?? [];
             const members = [...(team.members ?? [])].sort((a, b) => a.order - b.order);
+            const imageBusy =
+              imageMutation.isPending && imageMutation.variables?.teamId === team.id;
 
             return (
-              <Card key={team.id} className={team.isValid ? '' : 'border-amber-500/50'}>
+              <Card
+                key={team.id}
+                className={`overflow-hidden ${team.isValid ? '' : 'border-amber-500/50'}`}
+              >
+                {team.logoUrl ? (
+                  <img
+                    src={team.logoUrl}
+                    alt=""
+                    className={`aspect-video w-full object-cover ${imageBusy ? 'opacity-50' : ''}`}
+                  />
+                ) : null}
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
                     <Users className="h-5 w-5 text-primary" />
@@ -355,6 +430,22 @@ export function TeamsPage() {
                             <Users className="mr-2 h-4 w-4" />
                             Manage Members
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={imageBusy}
+                            onSelect={() => pickTeamImage(team)}
+                          >
+                            <ImagePlus className="mr-2 h-4 w-4" />
+                            {team.logoUrl ? 'Change Image' : 'Upload Image'}
+                          </DropdownMenuItem>
+                          {team.logoUrl ? (
+                            <DropdownMenuItem
+                              disabled={imageBusy}
+                              onSelect={() => imageMutation.mutate({ teamId: team.id, file: null })}
+                            >
+                              <ImageMinus className="mr-2 h-4 w-4" />
+                              Remove Image
+                            </DropdownMenuItem>
+                          ) : null}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
@@ -373,6 +464,7 @@ export function TeamsPage() {
                   <CardTitle>{team.name}</CardTitle>
                   <CardDescription>
                     {team.type} · {members.length}/{maxMembers} members
+                    {imageBusy ? ' · Updating image…' : ''}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">

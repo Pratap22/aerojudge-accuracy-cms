@@ -408,6 +408,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
           select: {
             id: true,
             name: true,
+            logoUrl: true,
             country: { select: { name: true, code: true, code2: true } },
             members: {
               orderBy: { order: 'asc' },
@@ -442,6 +443,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
               select: {
                 id: true,
                 name: true,
+                logoUrl: true,
                 country: { select: { name: true, code: true, code2: true } },
                 members: {
                   orderBy: { order: 'asc' },
@@ -615,6 +617,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
         team: {
           id: r.team.id,
           name: r.team.name,
+          logoUrl: r.team.logoUrl,
           country: r.team.country
             ? {
                 name: r.team.country.name,
