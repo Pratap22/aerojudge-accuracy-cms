@@ -89,6 +89,25 @@ function scoreByRound(entry: LeaderboardEntry, round: number): LeaderboardRoundS
   return entry.roundScores?.find((rs) => rs.round === round);
 }
 
+/** A live round filled at the maximum because the pilot has not landed yet. */
+function awaitingLanding(entry: LeaderboardEntry): boolean {
+  return (entry.roundScores ?? []).some((rs) => rs.isProvisional);
+}
+
+/**
+ * Score column for the board. Ranking still uses `totalScoreCm`, which includes
+ * the live maximum for a pilot who has not landed. That fill is omitted here
+ * so the number matches the rounds already flown.
+ */
+function scoreColumnCm(entry: LeaderboardEntry): number {
+  const rounds = entry.roundScores ?? [];
+  if (!rounds.some((rs) => rs.isProvisional)) return entry.totalScoreCm;
+  return rounds.reduce((sum, rs) => {
+    if (rs.isProvisional || rs.isDiscarded || rs.scoreCm == null) return sum;
+    return sum + rs.scoreCm;
+  }, 0);
+}
+
 export function LeaderboardTable({
   entries,
   title,
@@ -111,7 +130,8 @@ export function LeaderboardTable({
   const detailMode = showRoundScores && roundNumbers.length > 0;
   // When rounds are expanded, "9/9" is redundant unless callers keep it on.
   const showRoundsCount = showRounds && !detailMode;
-  const frozen = 'max-md:sticky max-md:z-20 max-md:bg-[#121925] max-md:px-2 max-md:py-2.5';
+  const frozen = 'max-md:sticky max-md:z-20 max-md:px-2 max-md:py-2.5';
+  const frozenBg = 'max-md:bg-[#121925]';
 
   return (
     <div className={cn('min-w-full w-max', className)} {...props}>
@@ -129,6 +149,7 @@ export function LeaderboardTable({
                 'w-[4.75rem] min-w-[4.75rem] max-md:left-0',
                 compact && 'w-12 min-w-12',
                 detailMode && frozen,
+                detailMode && frozenBg,
               )}
             >
               Rank
@@ -136,6 +157,7 @@ export function LeaderboardTable({
             <TableHead
               className={cn(
                 detailMode && frozen,
+                detailMode && frozenBg,
                 detailMode &&
                   'max-md:left-[4.75rem] max-md:min-w-[9.5rem] max-md:border-r max-md:border-white/10',
               )}
@@ -163,6 +185,8 @@ export function LeaderboardTable({
               entry.displayName ??
               `${entry.firstName}${entry.lastName ? ` ${entry.lastName}` : ''}`.trim();
             const flagEmoji = toFlagEmoji(entry.countryCode2);
+            const pendingLanding = awaitingLanding(entry);
+            const shownScoreCm = scoreColumnCm(entry);
             const roundsLabel =
               entry.roundsFlown == null
                 ? '—'
@@ -178,12 +202,19 @@ export function LeaderboardTable({
                   highlightPodium && entry.rank <= 3 && 'font-medium',
                 )}
               >
-                <TableCell className={cn(detailMode && frozen, detailMode && 'max-md:left-0')}>
+                <TableCell
+                  className={cn(
+                    detailMode && frozen,
+                    detailMode && frozenBg,
+                    detailMode && 'max-md:left-0',
+                  )}
+                >
                   <RankBadge rank={entry.rank} size={compact ? 'sm' : 'default'} />
                 </TableCell>
                 <TableCell
                   className={cn(
                     detailMode && frozen,
+                    detailMode && frozenBg,
                     detailMode &&
                       'max-md:left-[4.75rem] max-md:max-w-[12.5rem] max-md:border-r max-md:border-white/10',
                   )}
@@ -225,13 +256,18 @@ export function LeaderboardTable({
                     className={cn(
                       'font-mono font-semibold tabular-nums',
                       detailMode &&
-                        'inline-flex min-w-[2.75rem] items-center justify-center rounded-md bg-foreground px-2 py-0.5 text-background',
-                      entry.totalScoreCm === 0 &&
+                        'inline-flex min-w-[2.75rem] items-center justify-center rounded-md px-2 py-0.5',
+                      pendingLanding
+                        ? 'bg-orange-500 text-white'
+                        : detailMode && 'bg-foreground text-background',
+                      shownScoreCm === 0 &&
                         !detailMode &&
+                        !pendingLanding &&
                         'text-[hsl(var(--score-bullseye))]',
                     )}
+                    title={pendingLanding ? 'Yet to land — maximum not shown' : undefined}
                   >
-                    {formatScoreCm(entry.totalScoreCm)}
+                    {formatScoreCm(shownScoreCm)}
                   </span>
                 </TableCell>
                 {detailMode &&
