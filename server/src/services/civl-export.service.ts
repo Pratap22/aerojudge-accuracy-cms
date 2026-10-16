@@ -36,17 +36,9 @@ interface PilotIdentity {
   country: { code: string } | null;
 }
 
-function uniqueIds(ids: string[] | undefined): string[] {
-  return [...new Set((ids ?? []).map((id) => id.trim()).filter((id) => id.length > 0))];
-}
-
-/**
- * Build a CIVL results workbook.
- * Round results accept several official rounds and write one column per round.
- */
 export async function exportCivlSpreadsheet(
   competitionId: string,
-  input: { reportType: CivlReportType; roundId?: string; roundIds?: string[] },
+  input: { reportType: CivlReportType; roundId?: string },
 ): Promise<{ buffer: Buffer; filename: string }> {
   if (input.reportType === 'OVERALL_RESULTS') {
     const built = await buildOverall(competitionId);
@@ -57,15 +49,7 @@ export async function exportCivlSpreadsheet(
   }
 
   if (input.reportType === 'ROUND_RESULTS') {
-    const ids = uniqueIds(input.roundIds);
-    if (ids.length > 1) {
-      const built = await buildSelectedRounds(competitionId, ids);
-      return {
-        buffer: await buildIndividualWorkbook(built.rows, built.roundLabels),
-        filename: `civl-individual-rounds-${built.announced.join('-')}.xlsx`,
-      };
-    }
-    const built = await buildRound(competitionId, ids[0] ?? input.roundId);
+    const built = await buildRound(competitionId, input.roundId);
     return {
       buffer: await buildIndividualWorkbook(built.rows, []),
       filename: `civl-individual-round-${built.announced}.xlsx`,
@@ -239,103 +223,6 @@ async function buildRound(
       ...pilotFields(row.pilot),
       score: row.total,
       rounds: [],
-    })),
-  };
-}
-
-/**
- * Custom CIVL individual sheet: one column per selected official round.
- * The score is the total of those rounds after the competition discard rules.
- * A finished round with no score counts as the maximum. An open round stays blank.
- */
-async function buildSelectedRounds(
-  competitionId: string,
-  roundIds: string[],
-): Promise<{ rows: CivlIndividualRow[]; roundLabels: string[]; announced: number[] }> {
-  const competition = await getCompetition(competitionId);
-  const catalogue = await officialRounds(competitionId);
-  const selected: Array<Awaited<ReturnType<typeof requireOfficialRound>>> = [];
-  for (const roundId of roundIds) {
-    selected.push(await requireOfficialRound(competitionId, roundId));
-  }
-  selected.sort((a, b) => a.number - b.number);
-
-  const scores = await prisma.score.findMany({
-    where: {
-      roundId: { in: selected.map((round) => round.id) },
-      status: { in: [...SCORED_STATUSES] },
-      finalScoreCm: { not: null },
-      pilot: { status: { in: [...COMPETING_PILOT_STATUSES] } },
-    },
-    include: { pilot: { include: { country: true } } },
-  });
-  const scoreMap = new Map(scores.map((score) => [`${score.pilotId}:${score.roundId}`, score]));
-  const pilots = new Map(scores.map((score) => [score.pilotId, score.pilot]));
-  const rules = resolveCompetitionRules(
-    competition.ruleSet,
-    settingsToRuleOverrides(competition.settings),
-  );
-  const maxCm = rules.maximumScoreCm;
-  const labeled = selected.map((round) => {
-    const announced = officialDisplayNumber(catalogue, round.number) ?? round.number;
-    return { round, announced, label: `Round ${announced}` };
-  });
-
-  const prepared = [...pilots.values()]
-    .flatMap((pilot) => {
-      const roundEntries = selected.flatMap((round) => {
-        const existing = scoreMap.get(`${pilot.id}:${round.id}`);
-        const isFinal = FINAL_ROUND_STATUSES.has(round.status);
-        if (!existing && !isFinal) return [];
-        return [
-          {
-            pilotId: pilot.id,
-            roundId: round.id,
-            roundNumber: round.number,
-            finalScoreCm: existing?.finalScoreCm ?? maxCm,
-            resultType: (existing?.resultType ?? 'DNF') as
-              | 'MEASURED'
-              | 'BULLSEYE'
-              | 'MAXIMUM'
-              | 'DNF'
-              | 'ABS'
-              | 'DNS'
-              | 'DSQ'
-              | 'REFLIGHT'
-              | 'PENALTY',
-            isBullseye: existing?.isBullseye ?? false,
-            isDiscarded: false,
-            isProvisional: false,
-          },
-        ];
-      });
-      const { kept, discarded } = applyDiscardRules(roundEntries, rules);
-      if (kept.length === 0 && discarded.length === 0) return [];
-      const total = kept.reduce((sum, score) => sum + score.finalScoreCm, 0);
-      return [
-        {
-          pilot,
-          pilotNumber: pilot.pilotNumber ?? Number.MAX_SAFE_INTEGER,
-          total: scoreCm(total) ?? 0,
-          rounds: selected.map((round) => {
-            const existing = scoreMap.get(`${pilot.id}:${round.id}`);
-            if (existing) return scoreCm(existing.finalScoreCm) ?? 0;
-            return FINAL_ROUND_STATUSES.has(round.status) ? (scoreCm(maxCm) ?? maxCm) : null;
-          }),
-        },
-      ];
-    })
-    .sort((a, b) => a.total - b.total || a.pilotNumber - b.pilotNumber);
-
-  const ranks = competitionRanks(prepared.map((row) => row.total));
-  return {
-    announced: labeled.map((item) => item.announced),
-    roundLabels: labeled.map((item) => item.label),
-    rows: prepared.map((row, index) => ({
-      rank: ranks[index] ?? index + 1,
-      ...pilotFields(row.pilot),
-      score: row.total,
-      rounds: row.rounds,
     })),
   };
 }

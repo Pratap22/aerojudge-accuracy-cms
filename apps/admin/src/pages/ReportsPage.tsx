@@ -81,7 +81,6 @@ export function ReportsPage() {
   const [reportType, setReportType] = useState<ReportType>('OVERALL_RESULTS');
   const [format, setFormat] = useState<PrintFormat>('A4_PORTRAIT');
   const [roundId, setRoundId] = useState<string>('');
-  const [selectedRoundIds, setSelectedRoundIds] = useState<string[]>([]);
   const [preview, setPreview] = useState<ReportPreview | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [civlRoundId, setCivlRoundId] = useState('');
@@ -125,19 +124,8 @@ export function ReportsPage() {
   }, [reportType, rounds]);
 
   useEffect(() => {
-    if (reportType !== 'ROUND_RESULTS') return;
-    const ordered = [...(rounds ?? [])].sort((a, b) => a.number - b.number);
-    setSelectedRoundIds((current) => {
-      const valid = current.filter((id) => ordered.some((round) => round.id === id));
-      if (valid.length > 0) return valid.length === current.length ? current : valid;
-      const latest = ordered[ordered.length - 1];
-      return latest ? [latest.id] : [];
-    });
-  }, [reportType, rounds]);
-
-  useEffect(() => {
-    if (reportType === 'ROUND_RESULTS' || !needsRoundSelection(reportType)) {
-      if (reportType !== 'ROUND_RESULTS') setRoundId('');
+    if (!needsRoundSelection(reportType)) {
+      setRoundId('');
       return;
     }
     if (!sortedRounds.length) {
@@ -156,11 +144,9 @@ export function ReportsPage() {
       api.post<ReportPreview>(`/competitions/${activeCompetitionId}/reports/preview`, {
         reportType,
         format,
-        ...(reportType === 'ROUND_RESULTS'
-          ? { roundIds: selectedRoundIds }
-          : needsRoundSelection(reportType) && roundId && roundId !== BLANK_ROUND
-            ? { roundId }
-            : {}),
+        ...(needsRoundSelection(reportType) && roundId && roundId !== BLANK_ROUND
+          ? { roundId }
+          : {}),
       }),
     onSuccess: (data) => {
       setPreview(data);
@@ -239,11 +225,7 @@ export function ReportsPage() {
         method: 'POST',
         body: {
           reportType,
-          ...(reportType === 'ROUND_RESULTS'
-            ? { roundIds: selectedRoundIds }
-            : reportType !== 'OVERALL_RESULTS' && roundForExport
-              ? { roundId: roundForExport }
-              : {}),
+          ...(reportType !== 'OVERALL_RESULTS' && roundForExport ? { roundId: roundForExport } : {}),
         },
       });
       if (!response.ok) {
@@ -281,17 +263,13 @@ export function ReportsPage() {
     );
   }
 
-  const roundRequired = needsRoundSelection(reportType) && reportType !== 'ROUND_RESULTS';
-  const selectedResultRounds = sortedRounds.filter((round) => selectedRoundIds.includes(round.id));
-  const selectedAreOfficial =
-    selectedResultRounds.length > 0 &&
-    selectedResultRounds.every((round) => isOfficialRound(round));
-  const canGenerate =
-    reportType === 'ROUND_RESULTS' ? selectedRoundIds.length > 0 : !roundRequired || Boolean(roundId);
+  const roundRequired = needsRoundSelection(reportType);
+  const canGenerate = !roundRequired || Boolean(roundId);
   const showCivlExport = civlExportType(reportType);
   const civlRoundReady =
     reportType === 'OVERALL_RESULTS' ||
-    (reportType === 'ROUND_RESULTS' && selectedAreOfficial) ||
+    (reportType === 'ROUND_RESULTS' &&
+      officialRounds.some((round) => round.id === roundId)) ||
     (reportType === 'TEAM_RESULTS' &&
       officialRounds.some((round) => round.id === civlRoundId));
   const previewReadyToPrint =
@@ -344,89 +322,6 @@ export function ReportsPage() {
                 ))}
               </select>
             </div>
-
-            {reportType === 'ROUND_RESULTS' && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label>Rounds</Label>
-                  <div className="flex gap-3 text-xs">
-                    <button
-                      type="button"
-                      className="text-primary hover:underline disabled:opacity-50"
-                      disabled={sortedRounds.length === 0}
-                      onClick={() => {
-                        setSelectedRoundIds(sortedRounds.map((round) => round.id));
-                        setPreview(null);
-                      }}
-                    >
-                      All
-                    </button>
-                    <button
-                      type="button"
-                      className="text-primary hover:underline disabled:opacity-50"
-                      disabled={officialRounds.length === 0}
-                      onClick={() => {
-                        setSelectedRoundIds(officialRounds.map((round) => round.id));
-                        setPreview(null);
-                      }}
-                    >
-                      Official
-                    </button>
-                  </div>
-                </div>
-                <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border border-input p-2">
-                  {sortedRounds.length === 0 ? (
-                    <p className="px-1 py-2 text-sm text-muted-foreground">No rounds available</p>
-                  ) : (
-                    (['PRACTICE', 'OFFICIAL', 'OTHER'] as const).map((group) => {
-                      const groupRounds = sortedRounds.filter((round) => {
-                        if (group === 'PRACTICE') return round.type === 'PRACTICE';
-                        if (group === 'OFFICIAL') return isOfficialRound(round);
-                        return round.type !== 'PRACTICE' && !isOfficialRound(round);
-                      });
-                      if (groupRounds.length === 0) return null;
-                      const label =
-                        group === 'PRACTICE' ? 'Practice' : group === 'OFFICIAL' ? 'Official' : 'Other';
-                      return (
-                        <div key={group} className="space-y-0.5">
-                          <p className="px-1 pt-1 text-xs font-medium text-muted-foreground">{label}</p>
-                          {groupRounds.map((round) => (
-                            <label
-                              key={round.id}
-                              className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-accent"
-                            >
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 accent-primary"
-                                checked={selectedRoundIds.includes(round.id)}
-                                onChange={() => {
-                                  setSelectedRoundIds((current) =>
-                                    current.includes(round.id)
-                                      ? current.filter((id) => id !== round.id)
-                                      : [...current, round.id],
-                                  );
-                                  setPreview(null);
-                                }}
-                              />
-                              <span>
-                                {announcedRoundLabel(round, sortedRounds)} ({round.status})
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {selectedRoundIds.length === 0
-                    ? 'Select at least one round.'
-                    : selectedRoundIds.length === 1
-                      ? 'PDF and the CIVL spreadsheet use this round.'
-                      : 'The PDF includes each selected round. The CIVL spreadsheet adds a column for each official round.'}
-                </p>
-              </div>
-            )}
 
             {roundRequired && (
               <div className="space-y-2">
@@ -540,17 +435,8 @@ export function ReportsPage() {
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
                   {civlPending ? 'Exporting…' : 'Export CIVL spreadsheet'}
                 </Button>
-                {reportType === 'ROUND_RESULTS' &&
-                  selectedRoundIds.length > 0 &&
-                  !selectedAreOfficial && (
-                    <p className="text-xs text-muted-foreground">
-                      CIVL spreadsheets use official rounds.
-                    </p>
-                  )}
                 <p className="text-xs text-muted-foreground">
-                  {reportType === 'ROUND_RESULTS' && selectedRoundIds.length > 1
-                    ? 'One CIVL spreadsheet, with a column for each selected round.'
-                    : 'Spreadsheet in the CIVL results template.'}
+                  Spreadsheet in the CIVL results template.
                 </p>
               </div>
             )}
@@ -581,7 +467,7 @@ export function ReportsPage() {
                   <iframe
                     title="Report preview"
                     srcDoc={preview.html}
-                    className={`${selectedRoundIds.length > 1 && reportType === 'ROUND_RESULTS' ? 'h-[720px]' : 'h-[500px]'} w-full border-0 bg-white`}
+                    className="h-[500px] w-full border-0 bg-white"
                     sandbox=""
                   />
                 </div>

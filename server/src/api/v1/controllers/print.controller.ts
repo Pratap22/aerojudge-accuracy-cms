@@ -30,7 +30,6 @@ const generateBody = z.object({
     .enum(['A4_PORTRAIT', 'A4_LANDSCAPE', 'LETTER_PORTRAIT', 'LETTER_LANDSCAPE'])
     .optional(),
   roundId: z.string().optional(),
-  roundIds: z.array(z.string().min(1)).max(40).optional(),
 });
 
 export const list = [
@@ -68,7 +67,6 @@ export const generate = [
 const civlBody = z.object({
   reportType: z.enum(['OVERALL_RESULTS', 'ROUND_RESULTS', 'TEAM_RESULTS']),
   roundId: z.string().min(1).optional(),
-  roundIds: z.array(z.string().min(1)).max(40).optional(),
 });
 
 export const civl = [
