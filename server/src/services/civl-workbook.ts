@@ -58,8 +58,8 @@ export interface CivlPilotFields {
 export interface CivlIndividualRow extends CivlPilotFields {
   rank: number;
   score: number;
-  /** One value per closed official round, in announced order. */
-  rounds: number[];
+  /** One value per selected round, in announced order. Null leaves the cell blank. */
+  rounds: Array<number | null>;
 }
 
 export interface CivlTeamMember extends CivlPilotFields {
@@ -151,7 +151,12 @@ export async function buildIndividualWorkbook(
   const headers = individualHeaders(roundLabels);
   sheet.addRow(headers);
   for (const row of rows) {
-    sheet.addRow([row.rank, ...pilotCells(row), row.score, ...row.rounds]);
+    sheet.addRow([
+      row.rank,
+      ...pilotCells(row),
+      row.score,
+      ...row.rounds.map((value) => value ?? ''),
+    ]);
   }
   sheet.getColumn(2).numFmt = '@';
   styleHeader(sheet);

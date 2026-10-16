@@ -6,6 +6,7 @@ import {
   resolveReportCellValue,
   type GenerateReportInput,
   type ReportCardItem,
+  type ReportSection,
   type ResultRow,
 } from '@aero-judge/pdf-engine';
 import {
@@ -323,12 +324,252 @@ async function optionalQrDataUrl(url: string): Promise<string | undefined> {
   }
 }
 
+function uniqueRoundIds(ids: string[] | undefined): string[] {
+  return [...new Set((ids ?? []).map((id) => id.trim()).filter((id) => id.length > 0))];
+}
+
+function metadataObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function storedRoundIds(metadata: unknown): string[] | undefined {
+  const ids = metadataObject(metadata).roundIds;
+  if (!Array.isArray(ids)) return undefined;
+  const cleaned = uniqueRoundIds(ids.filter((id): id is string => typeof id === 'string'));
+  return cleaned.length > 1 ? cleaned : undefined;
+}
+
+function storedApprovalMode(metadata: unknown): 'rounds' | 'document' | undefined {
+  const mode = metadataObject(metadata).approvalMode;
+  return mode === 'rounds' || mode === 'document' ? mode : undefined;
+}
+
+/** Stamp each round sheet with that round's approver. Returns true when every round is approved. */
+async function stampSectionApprovals(
+  competitionId: string,
+  reportInput: GenerateReportInput,
+): Promise<boolean> {
+  const sections = reportInput.sections;
+  if (!sections || sections.length <= 1) return false;
+  const approvals = await Promise.all(
+    sections.map((section) =>
+      section.roundId
+        ? resolveRoundApprovalLine(competitionId, section.roundId)
+        : Promise.resolve(undefined),
+    ),
+  );
+  if (!approvals.every((approval) => approval)) return false;
+  sections.forEach((section, index) => {
+    section.approvalLine = approvals[index]!.line;
+  });
+  return true;
+}
+
+function sectionTableHtml(section: ReportSection): string {
+  const headerCells = section.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join('');
+  const bodyRows = section.rows
+    .map((row) => {
+      const scoreIdx = { current: 0 };
+      const cells = section.columns.map((col) => {
+        const key = col.toLowerCase().trim();
+        if (
+          key === 'signature' ||
+          key === 'sign' ||
+          key.includes('signature') ||
+          key === 'remarks' ||
+          key === 'remark'
+        ) {
+          return `<td class="sig">&nbsp;</td>`;
+        }
+        const cell = resolveReportCellValue(col, row, scoreIdx);
+        if (cell.skip) return '';
+        const classes = [
+          cell.excluded ? 'excluded' : '',
+          cell.bold ? 'bold' : '',
+          row.rowKind === 'team_total' ? 'team-total' : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const rowspanAttr = cell.rowspan && cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : '';
+        const classAttr = classes ? ` class="${classes}"` : '';
+        return `<td${rowspanAttr}${classAttr}>${escapeHtml(cell.text)}</td>`;
+      });
+      const trClass = row.rowKind === 'team_total' ? ' class="team-total-row"' : '';
+      return `<tr${trClass}>${cells.join('')}</tr>`;
+    })
+    .join('');
+  const empty = `<tr><td colspan="${section.columns.length}">No data available</td></tr>`;
+  return `<table>
+      <thead><tr>${headerCells}</tr></thead>
+      <tbody>${bodyRows || empty}</tbody>
+    </table>`;
+}
+
+/** Several round sheets in one preview, each starting on its own printed page. */
+function sectionsToHtml(input: GenerateReportInput, qrDataUrl?: string): string {
+  const sections = input.sections ?? [];
+  const logoUrl = input.branding.organizerLogoUrl;
+  const logoHtml = logoUrl
+    ? `<img class="organiser-logo" src="${escapeHtml(logoUrl)}" alt="" />`
+    : '';
+  const qrHtml = qrDataUrl
+    ? `<img src="${qrDataUrl}" alt="" /><div>Live Results</div>`
+    : '';
+
+  const blocks = sections
+    .map((section) => {
+      const roundLabel = section.roundNumber != null ? String(section.roundNumber) : '';
+      const titleNamesRound =
+        roundLabel !== '' && section.title.toLowerCase().includes(`round ${roundLabel.toLowerCase()}`);
+      const roundBadge =
+        titleNamesRound || roundLabel === ''
+          ? ''
+          : `<div class="round-badge">Round ${escapeHtml(roundLabel)}</div>`;
+      const sheetFieldsHtml =
+        section.sheetFields && section.sheetFields.length > 0
+          ? `<div class="sheet-fields">${section.sheetFields
+              .map(
+                (field) => `<div class="sheet-field">
+          <label>${escapeHtml(field.label)}</label>
+          <div class="box">${field.blank ? '&nbsp;' : escapeHtml(field.value ?? '')}</div>
+        </div>`,
+              )
+              .join('')}</div>`
+          : '';
+      return `<section class="report-section">
+        <div class="report-header">
+          <div class="header-side">${logoHtml}</div>
+          <div class="report-header-main">
+            <h1>${escapeHtml(section.title)}</h1>
+            ${roundBadge}
+            <h2>${escapeHtml(input.branding.competitionName)}</h2>
+            <div class="meta">
+              ${escapeHtml(input.branding.organizer)} · ${escapeHtml(input.branding.venue)},
+              ${escapeHtml(input.branding.country)} · ${escapeHtml(input.branding.dateLabel)}
+              ${section.subtitle ? `<br/>${escapeHtml(section.subtitle)}` : ''}
+            </div>
+          </div>
+          <div class="header-side header-qr">${qrHtml}</div>
+        </div>
+        ${sheetFieldsHtml}
+        ${sectionTableHtml(section)}
+        ${
+          section.approvalLine
+            ? `<div class="approval">${escapeHtml(section.approvalLine)}</div>`
+            : ''
+        }
+      </section>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(input.title)}</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #fff; }
+    .npha-report-preview {
+      font-family: Georgia, 'Times New Roman', serif;
+      color: #111;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .report-section + .report-section { break-before: page; }
+    .npha-report-preview .report-header {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr) 96px;
+      align-items: start;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .npha-report-preview .report-header-main { min-width: 0; text-align: center; }
+    .npha-report-preview .header-side { min-height: 1px; }
+    .npha-report-preview .organiser-logo {
+      display: block;
+      max-height: 64px;
+      max-width: 96px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+    .npha-report-preview .header-qr { text-align: center; font-size: 10px; color: #444; }
+    .npha-report-preview .header-qr img {
+      display: block;
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 2px;
+    }
+    .npha-report-preview h1 { font-size: 22px; margin: 0 0 4px; color: #111; text-align: center; }
+    .npha-report-preview h2 { font-size: 14px; font-weight: 700; color: #111; margin: 0 0 8px; text-align: center; }
+    .npha-report-preview .meta { font-size: 12px; color: #555; margin-bottom: 12px; text-align: center; }
+    .npha-report-preview table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .npha-report-preview th,
+    .npha-report-preview td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; color: #111; vertical-align: middle; }
+    .npha-report-preview th { background: #1a365d; color: #fff; font-weight: 600; }
+    .npha-report-preview tr:nth-child(even) td:not(.excluded) { background: #fafafa; }
+    .npha-report-preview td.excluded {
+      background: #d1d5db !important;
+      color: #4b5563;
+      text-decoration: line-through;
+      text-align: center;
+    }
+    .npha-report-preview td.bold { font-weight: 600; }
+    .npha-report-preview .round-badge {
+      display: inline-block;
+      margin: 4px 0 8px;
+      padding: 4px 12px;
+      border: 2px solid #1a365d;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a365d;
+    }
+    .npha-report-preview .approval {
+      margin-top: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #111;
+    }
+    .npha-report-preview .footer { margin-top: 24px; font-size: 11px; color: #666; }
+    @media screen {
+      .report-section + .report-section {
+        margin-top: 28px;
+        padding-top: 28px;
+        border-top: 1px solid #e5e7eb;
+      }
+    }
+    ${SPONSOR_PAGE_CSS}
+  </style>
+</head>
+<body>
+  <div class="npha-report-preview">
+    ${blocks}
+    <div class="report-tail">
+      ${sponsorPageHtml(input)}
+      <div class="footer">
+        ${escapeHtml(input.footerNote ?? 'FAI Sporting Code Section 7C · Preview')}
+        · ${escapeHtml(input.branding.publicResultsUrl)}
+        · Generated by AeroJudge
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function reportToHtml(input: GenerateReportInput, qrDataUrl?: string): string {
   if (input.layout === 'pilot_cards' || input.reportType === 'PILOT_CARDS') {
     return cardsToHtml(input);
   }
   if (input.layout === 'certificates' || input.reportType === 'CERTIFICATES') {
     return certificatesToHtml(input);
+  }
+  if (input.sections && input.sections.length > 1) {
+    return sectionsToHtml(input, qrDataUrl);
   }
 
   const headerCells = input.columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
@@ -699,28 +940,43 @@ export async function previewReport(
     reportType: ReportType;
     format?: PrintFormat;
     roundId?: string;
+    roundIds?: string[];
     printedById?: string;
   },
 ) {
   const competition = await getCompetition(competitionId);
   const format = input.format ?? 'A4_PORTRAIT';
-  const reportInput = await buildReportInput(competition, input.reportType, format, input.roundId);
+  const requested = uniqueRoundIds(input.roundIds);
+  const reportInput = await buildReportInput(
+    competition,
+    input.reportType,
+    format,
+    input.roundId,
+    requested,
+  );
   const skipApproval = reportSkipsApproval(input.reportType);
-  const roundApproval = skipApproval
-    ? undefined
-    : await resolveRoundApprovalLine(competitionId, input.roundId);
+  const multi = (reportInput.sections?.length ?? 0) > 1;
+  const multiApproved =
+    !skipApproval && multi ? await stampSectionApprovals(competitionId, reportInput) : false;
+  const roundApproval =
+    skipApproval || multi
+      ? undefined
+      : await resolveRoundApprovalLine(competitionId, input.roundId ?? requested[0]);
   if (roundApproval) {
     reportInput.approvalLine = roundApproval.line;
   }
   const html = reportToHtml(reportInput, await optionalQrDataUrl(reportInput.branding.publicResultsUrl));
 
   // Operational sheets are ready to print immediately (no approve step / stamp).
-  const readyStatus = skipApproval || roundApproval ? 'APPROVED' : 'PREVIEW';
+  const readyStatus = skipApproval || multiApproved || roundApproval ? 'APPROVED' : 'PREVIEW';
+  const sectionRoundIds = reportInput.sections
+    ?.map((section) => section.roundId)
+    .filter((id): id is string => Boolean(id));
 
   const printRecord = await prisma.printHistory.create({
     data: {
       competitionId,
-      roundId: input.roundId,
+      roundId: sectionRoundIds?.[0] ?? requested[0] ?? input.roundId,
       reportType: input.reportType,
       format,
       status: readyStatus,
@@ -731,7 +987,9 @@ export async function previewReport(
       metadataJson: {
         html,
         title: reportInput.title,
+        ...(sectionRoundIds && sectionRoundIds.length > 1 ? { roundIds: sectionRoundIds } : {}),
         ...(skipApproval ? { skipsApproval: true } : {}),
+        ...(multiApproved ? { approvalMode: 'rounds' as const } : {}),
         ...(roundApproval ? { approvalLine: roundApproval.line } : {}),
       },
     },
@@ -754,16 +1012,18 @@ export async function generateReport(
     reportType: ReportType;
     format?: PrintFormat;
     roundId?: string;
+    roundIds?: string[];
     printedById?: string;
   },
 ) {
   const competition = await getCompetition(competitionId);
   const format = input.format ?? 'A4_PORTRAIT';
+  const requested = uniqueRoundIds(input.roundIds);
 
   const printRecord = await prisma.printHistory.create({
     data: {
       competitionId,
-      roundId: input.roundId,
+      roundId: requested[0] ?? input.roundId,
       reportType: input.reportType,
       format,
       status: 'PENDING',
@@ -772,32 +1032,48 @@ export async function generateReport(
   });
 
   try {
-    const reportInput = await buildReportInput(competition, input.reportType, format, input.roundId);
+    const reportInput = await buildReportInput(
+      competition,
+      input.reportType,
+      format,
+      input.roundId,
+      requested,
+    );
     const skipApproval = reportSkipsApproval(input.reportType);
-    const roundApproval = skipApproval
-      ? undefined
-      : await resolveRoundApprovalLine(competitionId, input.roundId);
+    const multi = (reportInput.sections?.length ?? 0) > 1;
+    const multiApproved =
+      !skipApproval && multi ? await stampSectionApprovals(competitionId, reportInput) : false;
+    const roundApproval =
+      skipApproval || multi
+        ? undefined
+        : await resolveRoundApprovalLine(competitionId, input.roundId ?? requested[0]);
     if (roundApproval) {
       reportInput.approvalLine = roundApproval.line;
     }
     const pdf = await generateReportPdf(reportInput);
     // Keep PDF only in memory for the HTTP response path — do not retain on disk.
     const filename = `${competition.code}-${input.reportType}-${printRecord.id}.pdf`;
+    const sectionRoundIds = reportInput.sections
+      ?.map((section) => section.roundId)
+      .filter((id): id is string => Boolean(id));
 
     const updated = await prisma.printHistory.update({
       where: { id: printRecord.id },
       data: {
-        status: skipApproval || roundApproval ? 'APPROVED' : 'ARCHIVED',
+        status: skipApproval || multiApproved || roundApproval ? 'APPROVED' : 'ARCHIVED',
         fileUrl: null,
         pageCount: pdf.pageCount,
         printedAt: new Date(),
+        roundId: sectionRoundIds?.[0] ?? requested[0] ?? input.roundId,
         approvedAt: roundApproval?.approvedAt,
         approvedById: roundApproval?.approvedById,
         approvedByRole: roundApproval?.approvedByRole,
         metadataJson: {
           mimeType: pdf.mimeType,
           filename,
+          ...(sectionRoundIds && sectionRoundIds.length > 1 ? { roundIds: sectionRoundIds } : {}),
           ...(skipApproval ? { skipsApproval: true } : {}),
+          ...(multiApproved ? { approvalMode: 'rounds' as const } : {}),
           ...(roundApproval ? { approvalLine: roundApproval.line } : {}),
         },
       },
@@ -852,9 +1128,13 @@ export async function downloadReport(competitionId: string, printId: string) {
         })
       : undefined;
 
+  const savedRoundIds = storedRoundIds(record.metadataJson);
+  const approvalMode = storedApprovalMode(record.metadataJson);
+  const multiRounds = approvalMode === 'rounds' || (savedRoundIds?.length ?? 0) > 1;
+
   // Prefer the round approver when print history was not separately approved.
   let roundApprovalMeta: Awaited<ReturnType<typeof resolveRoundApprovalLine>> | undefined;
-  if (!skipApproval && !approvalLine) {
+  if (!skipApproval && !approvalLine && !multiRounds) {
     roundApprovalMeta = await resolveRoundApprovalLine(
       competitionId,
       record.roundId ?? undefined,
@@ -882,9 +1162,17 @@ export async function downloadReport(competitionId: string, printId: string) {
     competition,
     record.reportType as ReportType,
     format,
-    record.roundId ?? undefined,
+    record.roundId ?? savedRoundIds?.[0],
+    savedRoundIds,
   );
-  if (approvalLine) {
+  if (approvalMode === 'document' && approvalLine) {
+    reportInput.approvalLine = approvalLine;
+    for (const section of reportInput.sections ?? []) {
+      section.approvalLine = approvalLine;
+    }
+  } else if ((reportInput.sections?.length ?? 0) > 1) {
+    await stampSectionApprovals(competitionId, reportInput);
+  } else if (approvalLine) {
     reportInput.approvalLine = approvalLine;
   }
 
@@ -963,13 +1251,18 @@ export async function approvePrint(
   });
 
   const competition = await getCompetition(competitionId);
+  const savedIds = storedRoundIds(record.metadataJson);
   const reportInput = await buildReportInput(
     competition,
     record.reportType as ReportType,
     (record.format as PrintFormat) ?? 'A4_PORTRAIT',
-    record.roundId ?? undefined,
+    record.roundId ?? savedIds?.[0],
+    savedIds,
   );
   reportInput.approvalLine = approvalLine;
+  for (const section of reportInput.sections ?? []) {
+    section.approvalLine = approvalLine;
+  }
   const html = reportToHtml(
     reportInput,
     await optionalQrDataUrl(reportInput.branding.publicResultsUrl),
@@ -993,6 +1286,7 @@ export async function approvePrint(
         html,
         title: reportInput.title,
         approvalLine,
+        ...((reportInput.sections?.length ?? 0) > 1 ? { approvalMode: 'document' as const } : {}),
       },
     },
     include: {
@@ -1037,11 +1331,57 @@ async function loadCompetitionSheetPilots(competitionId: string) {
   }));
 }
 
+/** Ranked round-results sheet for one round, ordered by pilot number. */
+async function loadRoundResultSheet(
+  competitionId: string,
+  round: { id: string; number: number; type: string },
+): Promise<ReportSection> {
+  const scores = await prisma.score.findMany({
+    where: {
+      roundId: round.id,
+      status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
+      finalScoreCm: { not: null },
+    },
+    include: { pilot: { include: { country: true } } },
+  });
+
+  const rankByScoreId = new Map(
+    [...scores]
+      .sort((a, b) => {
+        const scoreDiff = (a.finalScoreCm ?? 0) - (b.finalScoreCm ?? 0);
+        if (scoreDiff !== 0) return scoreDiff;
+        return (a.pilot.pilotNumber ?? 0) - (b.pilot.pilotNumber ?? 0);
+      })
+      .map((score, index) => [score.id, index + 1]),
+  );
+  const byPilotNumber = [...scores].sort(
+    (a, b) =>
+      (a.pilot.pilotNumber ?? Number.MAX_SAFE_INTEGER) - (b.pilot.pilotNumber ?? Number.MAX_SAFE_INTEGER),
+  );
+  const announcedRound = await announcedOfficialNumber(competitionId, round);
+
+  return {
+    roundId: round.id,
+    title: `Round ${announcedRound} Results`,
+    roundNumber: announcedRound,
+    columns: ['Rank', 'No', 'Name', 'Country', 'Score (cm)'],
+    rows: byPilotNumber.map((score) => ({
+      rank: rankByScoreId.get(score.id) ?? 0,
+      pilotNumber: score.pilot.pilotNumber ?? 0,
+      name: formatPilotName(score.pilot.firstName, score.pilot.lastName),
+      country: displayCountryCode(score.pilot.country, score.pilot.nationality),
+      scores: [],
+      total: formatScoreCm(score.finalScoreCm),
+    })),
+  };
+}
+
 async function buildReportInput(
   competition: Awaited<ReturnType<typeof getCompetition>>,
   reportType: ReportType,
   format: PrintFormat,
   roundId?: string,
+  roundIds?: string[],
 ): Promise<GenerateReportInput> {
   const logoSource = resolveOrganizerLogoSource(competition);
   const organizerLogoUrl = toAbsoluteAssetUrl(logoSource) ?? undefined;
@@ -1483,18 +1823,30 @@ async function buildReportInput(
 
   if (reportType === 'ROUND_RESULTS') {
     await recalculateRankings(competition.id);
-    const round = roundId
-      ? await prisma.round.findFirst({ where: { id: roundId, competitionId: competition.id } })
-      : await prisma.round.findFirst({
-          where: {
-            competitionId: competition.id,
-            type: 'OFFICIAL',
-            status: { in: [...RANKING_ROUND_STATUSES] },
-          },
-          orderBy: [{ number: 'desc' }],
-        });
+    const requested = uniqueRoundIds(roundIds && roundIds.length > 0 ? roundIds : roundId ? [roundId] : []);
+    let rounds: Array<{ id: string; number: number; type: string }>;
+    if (requested.length > 0) {
+      const found = await prisma.round.findMany({
+        where: { id: { in: requested }, competitionId: competition.id },
+        select: { id: true, number: true, type: true },
+      });
+      if (found.length !== requested.length) throw AppError.notFound('Round not found');
+      const byId = new Map(found.map((round) => [round.id, round]));
+      rounds = requested.map((id) => byId.get(id)!).sort((a, b) => a.number - b.number);
+    } else {
+      const latest = await prisma.round.findFirst({
+        where: {
+          competitionId: competition.id,
+          type: 'OFFICIAL',
+          status: { in: [...RANKING_ROUND_STATUSES] },
+        },
+        orderBy: [{ number: 'desc' }],
+        select: { id: true, number: true, type: true },
+      });
+      rounds = latest ? [latest] : [];
+    }
 
-    if (!round) {
+    if (rounds.length === 0) {
       return {
         reportType,
         format,
@@ -1506,43 +1858,30 @@ async function buildReportInput(
       };
     }
 
-    const scores = await prisma.score.findMany({
-      where: {
-        roundId: round.id,
-        status: { in: ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] },
-        finalScoreCm: { not: null },
-      },
-      include: { pilot: { include: { country: true } } },
-    });
+    const sheets: ReportSection[] = [];
+    for (const round of rounds) {
+      sheets.push(await loadRoundResultSheet(competition.id, round));
+    }
+    const first = sheets[0]!;
+    if (sheets.length === 1) {
+      return {
+        reportType,
+        format,
+        branding: { ...branding, roundNumber: first.roundNumber },
+        title: first.title,
+        columns: first.columns,
+        rows: first.rows,
+      };
+    }
 
-    const rankByScoreId = new Map(
-      [...scores]
-        .sort((a, b) => {
-          const scoreDiff = (a.finalScoreCm ?? 0) - (b.finalScoreCm ?? 0);
-          if (scoreDiff !== 0) return scoreDiff;
-          return (a.pilot.pilotNumber ?? 0) - (b.pilot.pilotNumber ?? 0);
-        })
-        .map((score, index) => [score.id, index + 1]),
-    );
-    const byPilotNumber = [...scores].sort(
-      (a, b) => (a.pilot.pilotNumber ?? Number.MAX_SAFE_INTEGER) - (b.pilot.pilotNumber ?? Number.MAX_SAFE_INTEGER),
-    );
-
-    const announcedRound = await announcedOfficialNumber(competition.id, round);
     return {
       reportType,
       format,
-      branding: { ...branding, roundNumber: announcedRound },
-      title: `Round ${announcedRound} Results`,
-      columns: ['Rank', 'No', 'Name', 'Country', 'Score (cm)'],
-      rows: byPilotNumber.map((s) => ({
-        rank: rankByScoreId.get(s.id) ?? 0,
-        pilotNumber: s.pilot.pilotNumber ?? 0,
-        name: formatPilotName(s.pilot.firstName, s.pilot.lastName),
-        country: displayCountryCode(s.pilot.country, s.pilot.nationality),
-        scores: [],
-        total: formatScoreCm(s.finalScoreCm),
-      })),
+      branding,
+      title: 'Round Results',
+      columns: first.columns,
+      rows: [],
+      sections: sheets,
     };
   }
 
