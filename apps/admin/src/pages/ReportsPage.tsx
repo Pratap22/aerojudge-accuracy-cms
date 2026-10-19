@@ -85,7 +85,7 @@ export function ReportsPage() {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [civlRoundId, setCivlRoundId] = useState('');
   const [civlError, setCivlError] = useState<string | null>(null);
-  const [civlPending, setCivlPending] = useState(false);
+  const [civlPending, setCivlPending] = useState<'sheet' | 'team' | null>(null);
 
   const { data: rounds } = useQuery({
     queryKey: ['rounds', activeCompetitionId],
@@ -215,18 +215,23 @@ export function ReportsPage() {
     }
   };
 
-  const handleCivlExport = async () => {
+  const handleCivlExport = async (kind: 'sheet' | 'team' = 'sheet') => {
     if (!activeCompetitionId) return;
     setCivlError(null);
-    setCivlPending(true);
+    setCivlPending(kind);
     try {
       const roundForExport = reportType === 'TEAM_RESULTS' ? civlRoundId : roundId;
+      const competitionTeam = kind === 'team';
       const response = await apiFetch(`/competitions/${activeCompetitionId}/reports/civl`, {
         method: 'POST',
-        body: {
-          reportType,
-          ...(reportType !== 'OVERALL_RESULTS' && roundForExport ? { roundId: roundForExport } : {}),
-        },
+        body: competitionTeam
+          ? { reportType: 'TEAM_RESULTS' }
+          : {
+              reportType,
+              ...(reportType !== 'OVERALL_RESULTS' && roundForExport
+                ? { roundId: roundForExport }
+                : {}),
+            },
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as {
@@ -248,7 +253,7 @@ export function ReportsPage() {
     } catch (err) {
       setCivlError(err instanceof Error ? err.message : 'Export failed');
     } finally {
-      setCivlPending(false);
+      setCivlPending(null);
     }
   };
 
@@ -429,19 +434,35 @@ export function ReportsPage() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => void handleCivlExport()}
-                  disabled={civlPending || !civlRoundReady}
+                  onClick={() => void handleCivlExport('sheet')}
+                  disabled={civlPending !== null || !civlRoundReady}
                 >
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  {civlPending ? 'Exporting…' : 'Export CIVL spreadsheet'}
+                  {civlPending === 'sheet' ? 'Exporting…' : 'Export CIVL spreadsheet'}
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   {reportType === 'TEAM_RESULTS'
-                    ? 'CIVL team sheet through this round. Score is the running total, with one T column per round. A score left out of the total starts with d.'
+                    ? 'CIVL team sheet through this round, for Round results. Score is the running total, with one T column per round. A score left out of the total starts with d.'
                     : reportType === 'OVERALL_RESULTS'
-                      ? 'CIVL individual sheet with Score and one column per completed round.'
-                      : 'CIVL individual sheet for this round. Score is that round only.'}
+                      ? 'Individual sheet for Competition results. Score is the final total, with one column per completed round.'
+                      : 'Individual sheet for Round results. Score is that round only.'}
                 </p>
+                {reportType === 'OVERALL_RESULTS' && hasTeams && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => void handleCivlExport('team')}
+                      disabled={civlPending !== null || officialRounds.length === 0}
+                    >
+                      <FileSpreadsheet className="mr-2 h-4 w-4" />
+                      {civlPending === 'team' ? 'Exporting…' : 'Export CIVL team spreadsheet'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Team sheet for Competition results. Every completed round, with the final team total in Score.
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </CardContent>

@@ -60,7 +60,9 @@ export async function exportCivlSpreadsheet(
   const built = await buildTeamRound(competitionId, input.roundId);
   return {
     buffer: await buildTeamWorkbook(built.groups, built.taskLabels),
-    filename: `civl-team-round-${built.announced}.xlsx`,
+    filename: input.roundId
+      ? `civl-team-round-${built.announced}.xlsx`
+      : 'civl-team-overall.xlsx',
   };
 }
 
@@ -92,6 +94,15 @@ async function officialRounds(competitionId: string) {
     orderBy: { number: 'asc' },
     select: { id: true, number: true, type: true, status: true },
   });
+}
+
+async function lastCompletedOfficialRound(competitionId: string) {
+  const rounds = await officialRounds(competitionId);
+  const last = [...rounds].reverse().find((round) => FINAL_ROUND_STATUSES.has(round.status));
+  if (!last) {
+    throw AppError.badRequest('No completed official rounds to export.');
+  }
+  return last;
 }
 
 async function requireOfficialRound(competitionId: string, roundId: string | undefined) {
@@ -237,15 +248,19 @@ interface RoundTeamScore {
 }
 
 /**
- * Team sheet for upload against one CIVL round.
- * Columns run from T 1 through the selected round, and Score is the sum of
- * those team totals. A pilot score that was not counted is marked with d.
+ * Team sheet for CIVL.
+ * With a round, columns run from T 1 through that round.
+ * With no round, columns cover every completed official round. That is the
+ * Competition results team file. Score is the sum of those team totals.
+ * A pilot score that was not counted is marked with d.
  */
 async function buildTeamRound(
   competitionId: string,
   roundId: string | undefined,
 ): Promise<{ groups: CivlTeamGroup[]; taskLabels: string[]; announced: number }> {
-  const round = await requireOfficialRound(competitionId, roundId);
+  const round = roundId
+    ? await requireOfficialRound(competitionId, roundId)
+    : await lastCompletedOfficialRound(competitionId);
   await recalculateRankings(competitionId);
   const rounds = await officialRounds(competitionId);
   const announced = officialDisplayNumber(rounds, round.number) ?? round.number;
