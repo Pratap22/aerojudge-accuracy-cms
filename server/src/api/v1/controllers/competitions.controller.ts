@@ -47,6 +47,8 @@ const settingsSchema = z.object({
   juniorMaxAge: z.number().int().optional(),
   countryRankingEnabled: z.boolean().optional(),
   livePublicResults: z.boolean().optional(),
+  feedPublishScores: z.boolean().optional(),
+  feedPublishReflights: z.boolean().optional(),
   windDisplayMaxAgeMinutes: z.number().int().min(0).max(1440).optional(),
   partnersLabel: z.string().min(1).max(40).optional(),
   partnerTiersEnabled: z.boolean().optional(),

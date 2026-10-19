@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_FAI_2022_RULES, type RuleConfig } from '@aero-judge/shared';
-import { Calendar, Save, Settings, Wind } from 'lucide-react';
+import { Calendar, Newspaper, Save, Settings, Wind } from 'lucide-react';
 import {
   Button,
   Card,
@@ -31,17 +31,40 @@ export function SettingsPage() {
   const { data: competition } = useQuery({
     queryKey: ['competition', activeCompetitionId],
     queryFn: () =>
-      api.get<{ settings?: { windDisplayMaxAgeMinutes?: number } | null }>(
-        `/competitions/${activeCompetitionId}`,
-      ),
+      api.get<{
+        settings?: {
+          windDisplayMaxAgeMinutes?: number;
+          feedPublishScores?: boolean;
+          feedPublishReflights?: boolean;
+        } | null;
+      }>(`/competitions/${activeCompetitionId}`,),
     enabled: !!activeCompetitionId,
   });
   const [windMaxAgeMinutes, setWindMaxAgeMinutes] = useState('30');
+  const [feedPublishScores, setFeedPublishScores] = useState(true);
+  const [feedPublishReflights, setFeedPublishReflights] = useState(true);
   useEffect(() => {
     const minutes = competition?.settings?.windDisplayMaxAgeMinutes;
     if (minutes == null) return;
     setWindMaxAgeMinutes(String(minutes));
   }, [competition?.settings?.windDisplayMaxAgeMinutes]);
+  useEffect(() => {
+    if (!competition?.settings) return;
+    setFeedPublishScores(competition.settings.feedPublishScores !== false);
+    setFeedPublishReflights(competition.settings.feedPublishReflights !== false);
+  }, [competition?.settings]);
+
+  const feedMutation = useMutation({
+    mutationFn: () =>
+      api.put(`/competitions/${activeCompetitionId}/rules`, {
+        feedPublishScores,
+        feedPublishReflights,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
+      queryClient.invalidateQueries({ queryKey: ['event-feed', activeCompetitionId] });
+    },
+  });
 
   const windMutation = useMutation({
     mutationFn: (minutes: number) =>
@@ -152,6 +175,55 @@ export function SettingsPage() {
           {windMutation.isError && (
             <p className="mt-2 text-sm text-destructive">Could not save the wind display setting.</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Newspaper className="h-5 w-5" />
+            Event feed
+          </CardTitle>
+          <CardDescription>
+            Choose whether scores entered during a round are posted to the public feed. Text and
+            photo posts are unchanged. Turning a post type off removes the ones already created
+            from scoring.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              feedMutation.mutate();
+            }}
+          >
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={feedPublishScores}
+                onChange={(event) => setFeedPublishScores(event.target.checked)}
+              />
+              Post round scores
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={feedPublishReflights}
+                onChange={(event) => setFeedPublishReflights(event.target.checked)}
+              />
+              Post reflights
+            </label>
+            <Button type="submit" disabled={feedMutation.isPending}>
+              <Save className="mr-2 h-4 w-4" />
+              {feedMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </form>
+          {feedMutation.isError ? (
+            <p className="mt-2 text-sm text-destructive">Could not save the feed settings.</p>
+          ) : null}
         </CardContent>
       </Card>
 

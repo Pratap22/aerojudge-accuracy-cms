@@ -215,6 +215,22 @@ export async function createPhotoPost(
   return mapItem(row);
 }
 
+/** Drop score or reflight cards that were created from scoring, not written by hand. */
+export async function removeAutoFeedPosts(
+  competitionId: string,
+  kinds: Array<'SCORE' | 'REFLIGHT'>,
+): Promise<void> {
+  if (kinds.length === 0) return;
+  const removed = await prisma.eventFeedItem.deleteMany({
+    where: {
+      competitionId,
+      kind: { in: kinds },
+      sourceKey: { not: null },
+    },
+  });
+  if (removed.count > 0) emitFeedUpdated(competitionId);
+}
+
 /**
  * Publish or refresh the feed card for a score just entered on a flight.
  * A later correction for the same flight updates this card instead of adding another.
@@ -230,10 +246,26 @@ export async function publishEnteredScore(input: {
   isBullseye: boolean;
   judgeNotes?: string | null;
 }): Promise<void> {
+  const isReflight = input.resultType === 'REFLIGHT';
+  const settings = await prisma.competitionSettings.findUnique({
+    where: { competitionId: input.competitionId },
+    select: { feedPublishScores: true, feedPublishReflights: true },
+  });
+  const publish = isReflight ? settings?.feedPublishReflights : settings?.feedPublishScores;
+  if (publish === false) {
+    const removed = await prisma.eventFeedItem.deleteMany({
+      where: {
+        competitionId: input.competitionId,
+        sourceKey: `flight:${input.flightId}`,
+      },
+    });
+    if (removed.count > 0) emitFeedUpdated(input.competitionId);
+    return;
+  }
+
   const pilot = await loadPilot(input.competitionId, input.pilotId);
   const name = pilotDisplayName(pilot);
   const label = pilotLabel(pilot.pilotNumber);
-  const isReflight = input.resultType === 'REFLIGHT';
   const reason = isReflight ? input.judgeNotes?.trim() || 'Reflight' : null;
   const scoreText = isReflight
     ? null

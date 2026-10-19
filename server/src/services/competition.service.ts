@@ -4,6 +4,7 @@ import type { Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { organizationService } from '../modules/organization/index.js';
+import { removeAutoFeedPosts } from './event-feed.service.js';
 
 export async function listCompetitions(query: {
   page: number;
@@ -287,6 +288,8 @@ export async function updateSettings(
     'requireChiefJudgeApproval',
     'requireDirectorApproval',
     'livePublicResults',
+    'feedPublishScores',
+    'feedPublishReflights',
     'offlineModeEnabled',
     'windDisplayMaxAgeMinutes',
     'partnersLabel',
@@ -309,6 +312,11 @@ export async function updateSettings(
     create: { competitionId, ...updateData } as Prisma.CompetitionSettingsCreateInput,
     update: updateData,
   });
+
+  const unpublished: Array<'SCORE' | 'REFLIGHT'> = [];
+  if (settingsFields.feedPublishScores === false) unpublished.push('SCORE');
+  if (settingsFields.feedPublishReflights === false) unpublished.push('REFLIGHT');
+  await removeAutoFeedPosts(competitionId, unpublished);
 
   // Keep all teams aligned with competition team composition rules
   await prisma.team.updateMany({
