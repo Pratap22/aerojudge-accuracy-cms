@@ -96,6 +96,22 @@
   html {
     scrollbar-gutter: stable;
   }
+
+  /* Native date icons are black, so they disappear on the dark field. */
+  .dark input[type='date'],
+  .dark input[type='datetime-local'],
+  .dark input[type='time'],
+  .dark input[type='month'] {
+    color-scheme: dark;
+  }
+
+  .dark input[type='date']::-webkit-calendar-picker-indicator,
+  .dark input[type='datetime-local']::-webkit-calendar-picker-indicator,
+  .dark input[type='time']::-webkit-calendar-picker-indicator,
+  .dark input[type='month']::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 1;
+  }
 }
 
 @layer base {
