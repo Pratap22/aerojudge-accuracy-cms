@@ -267,15 +267,15 @@ export function SettingsPage() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label>Discard After Rounds</Label>
+                <Label>Discard from round</Label>
                 <Input
                   type="number"
                   min={0}
                   {...register('discardAfterRounds', { valueAsNumber: true })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  The worst scores come out when the next round starts. 4 means from round 5. 8
-                  means from round 9.
+                  The worst score is removed once this round has started. Section 7 uses 5, so
+                  every score counts through round 4 and the worst score drops from round 5.
                 </p>
               </div>
               <div className="space-y-2">

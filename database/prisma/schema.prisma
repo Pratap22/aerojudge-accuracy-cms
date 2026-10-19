@@ -646,6 +646,7 @@ model CompetitionSettings {
   maximumScoreCm          Float   @default(1000)
   measuringUnit           String  @default("cm")
   discardWorstRounds      Int     @default(0)
+  /// First official round at which the worst score is removed. Section 7 uses 5.
   discardAfterRounds      Int     @default(5)
   allowReflights          Boolean @default(true)
   maxReflightsPerRound    Int     @default(1)

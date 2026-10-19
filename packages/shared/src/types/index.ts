@@ -139,6 +139,7 @@ export interface RuleConfig {
   bullseyeScoreCm: number;
   maximumScoreCm: number;
   discardWorstRounds: number;
+  /** First official round at which the worst score is removed. Section 7 uses 5. */
   discardAfterRounds: number;
   allowReflights: boolean;
   maxReflightsPerRound: number;
@@ -609,7 +610,7 @@ export const DEFAULT_FAI_2022_RULES: RuleConfig = {
   maximumScoreCm: 1000,
   /** How many worst scores to drop. 0 keeps every round. */
   discardWorstRounds: 1,
-  /** Last round that counts in full. 5 drops the worst score from round 6. */
+  /** First round at which the worst score is removed. Section 7 uses 5. */
   discardAfterRounds: 5,
   allowReflights: true,
   maxReflightsPerRound: 1,

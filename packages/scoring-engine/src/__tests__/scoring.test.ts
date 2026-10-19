@@ -104,7 +104,12 @@ describe('applyDiscardRules', () => {
       isBullseye: false,
       isDiscarded: false,
     }));
-    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 4 };
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 5 };
+    const beforeFifth = applyDiscardRules(scores, rules, {
+      roundsStarted: 4,
+      roundsCompleted: 4,
+    });
+    expect(beforeFifth.discarded).toHaveLength(0);
     const { kept, discarded, discardedTotal } = applyDiscardRules(scores, rules, {
       roundsStarted: 5,
       roundsCompleted: 4,
@@ -115,7 +120,7 @@ describe('applyDiscardRules', () => {
     expect(discardedTotal).toBe(900);
   });
 
-  it('discards the worst score from the round after the setting', () => {
+  it('discards the worst score once the named round has started', () => {
     const scores = Array.from({ length: 8 }, (_, i) => ({
       pilotId: 'p1',
       roundId: `r${i + 1}`,
@@ -125,7 +130,7 @@ describe('applyDiscardRules', () => {
       isBullseye: false,
       isDiscarded: false,
     }));
-    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 8 };
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 9 };
     const beforeNinth = applyDiscardRules(scores, rules, {
       roundsStarted: 8,
       roundsCompleted: 8,
@@ -161,7 +166,7 @@ describe('applyDiscardRules', () => {
     expect(kept).toHaveLength(5);
   });
 
-  it('drops the worst real score when the next round has started', () => {
+  it('drops the worst real score once round 5 has started', () => {
     const scores = [
       ...[20, 200, 5, 8].map((finalScoreCm, i) => ({
         pilotId: 'p1',
@@ -183,7 +188,7 @@ describe('applyDiscardRules', () => {
         isProvisional: true,
       },
     ];
-    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 4 };
+    const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 5 };
     const { kept, discarded } = applyDiscardRules(scores, rules, {
       roundsStarted: 5,
       roundsCompleted: 4,
@@ -194,7 +199,7 @@ describe('applyDiscardRules', () => {
     expect(kept.reduce((sum, score) => sum + score.finalScoreCm, 0)).toBe(20 + 5 + 8 + 500);
   });
 
-  it('does not let a live placeholder satisfy a five-round discard before that round is complete', () => {
+  it('does not discard before the named round has started', () => {
     const scores = [
       ...[20, 200, 5, 8].map((finalScoreCm, i) => ({
         pilotId: 'p1',
@@ -218,7 +223,7 @@ describe('applyDiscardRules', () => {
     ];
     const rules = { ...DEFAULT_FAI_2022_RULES, discardWorstRounds: 1, discardAfterRounds: 5 };
     const { discarded } = applyDiscardRules(scores, rules, {
-      roundsStarted: 5,
+      roundsStarted: 4,
       roundsCompleted: 4,
     });
     expect(discarded).toHaveLength(0);

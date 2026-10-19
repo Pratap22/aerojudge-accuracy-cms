@@ -2,9 +2,9 @@
  * Individual overall ranking – FAI Section 7C
  *
  * Total score = sum of countable round scores (lower is better).
- * Discard: once the round after `discardAfterRounds` has started, drop the
- * worst `discardWorstRounds` real scores. 4 removes the worst score from
- * round 5. 8 removes it from round 9. The rounds before that all count.
+ * Discard: once round `discardAfterRounds` has started, drop the worst
+ * `discardWorstRounds` real scores. 5 removes the worst score from round 5.
+ * The rounds before that all count.
  * Tie-breaks applied per configurable priority list.
  */
 
@@ -43,10 +43,9 @@ export interface DiscardContext {
 /**
  * True once worst-round discard should affect totals.
  *
- * `discardAfterRounds` is the last round that still counts in full.
- * The worst score is removed when the following round starts: 4 from round 5,
- * 8 from round 9. Finishing round 8 with no 9th round does not discard.
- * `discardWorstRounds` of 0 keeps every score.
+ * `discardAfterRounds` is the first round at which the worst score is removed.
+ * Section 7 uses 5: the worst score drops once round 5 has started, and it
+ * stays in the total through round 4. `discardWorstRounds` of 0 keeps every score.
  *
  * Without competition context, the pilot's own non-provisional score count
  * stands in for rounds started.
@@ -58,8 +57,8 @@ export function isDiscardWindowOpen(
 ): boolean {
   if (rules.discardWorstRounds <= 0) return false;
   if (rules.discardAfterRounds <= 0) return true;
-  if (context) return context.roundsStarted > rules.discardAfterRounds;
-  return realScoreCount > rules.discardAfterRounds;
+  if (context) return context.roundsStarted >= rules.discardAfterRounds;
+  return realScoreCount >= rules.discardAfterRounds;
 }
 
 /**
