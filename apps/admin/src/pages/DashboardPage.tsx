@@ -6,6 +6,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  ExternalLink,
   Pencil,
   Play,
   Target,
@@ -47,6 +48,7 @@ import {
   useRouteOrganizationId,
 } from '../hooks/useCompetitionId';
 import { usePermission } from '../hooks/usePermission';
+import { eventLiveUrl, venueDisplayUrl } from '../lib/staff-app';
 import { PageHeader } from '../components/PageHeader';
 
 interface DashboardStats {
@@ -482,6 +484,22 @@ export function DashboardPage() {
             <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
               <Link to={orgScope && competitionId ? competitionPath(orgScope, competitionId, 'reports') : '#'}>Generate reports</Link>
             </Button>
+            {competitionId && (
+              <>
+                <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
+                  <a href={venueDisplayUrl(competitionId)} target="_blank" rel="noopener noreferrer">
+                    Display
+                    <ExternalLink className="ml-auto h-3.5 w-3.5 shrink-0 opacity-70" />
+                  </a>
+                </Button>
+                <Button variant="outline" asChild className="h-11 justify-start sm:h-10">
+                  <a href={eventLiveUrl(competitionId)} target="_blank" rel="noopener noreferrer">
+                    Event live page
+                    <ExternalLink className="ml-auto h-3.5 w-3.5 shrink-0 opacity-70" />
+                  </a>
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

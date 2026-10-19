@@ -24,28 +24,13 @@ export function Navigation() {
   const preEvent = isPreEvent(competition?.status);
   const registrationOpen = isRegistrationOpen(competition?.status);
 
-  const navItems = preEvent
-    ? [
-        { path: '', label: 'Home' },
-        { path: 'feed', label: 'Feed' },
-        ...(competition?.hasInfo ? [{ path: 'info', label: 'Info' }] : []),
-        { path: 'pilots', label: 'Pilots' },
-        { path: 'officials', label: 'Officials' },
-        ...(registrationOpen ? [{ path: 'register', label: 'Register' }] : []),
-      ]
-    : [
-        { path: '', label: 'Home' },
-        { path: 'feed', label: 'Feed' },
-        ...(competition?.hasInfo ? [{ path: 'info', label: 'Info' }] : []),
-        { path: 'results', label: completed ? 'Final Results' : 'Live Results' },
-        { path: 'pilots', label: 'Pilots' },
-        { path: 'officials', label: 'Officials' },
-        { path: 'women', label: 'Women' },
-        ...((competition?.teamCount ?? 0) > 0 ? [{ path: 'teams', label: 'Team ranking' }] : []),
-        { path: 'countries', label: 'Countries' },
-        { path: 'statistics', label: 'Statistics' },
-        ...(registrationOpen ? [{ path: 'register', label: 'Register' }] : []),
-      ];
+  const navItems = [
+    { path: '', label: 'Home' },
+    ...(!preEvent ? [{ path: 'results', label: 'Results' }] : []),
+    { path: 'pilots', label: 'Pilots' },
+    { path: 'event', label: 'Event' },
+    ...(registrationOpen ? [{ path: 'register', label: 'Register' }] : []),
+  ];
 
   useEffect(() => {
     setMenuOpen(false);
@@ -103,15 +88,26 @@ export function Navigation() {
         </div>
 
         <div className="hidden items-center gap-1 md:flex">
-          {navItems.map(({ path, label }) => (
-            <Link
-              key={path}
-              to={path ? competitionPath(id, path) : competitionPath(id)}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-sky-100/80 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              {label}
-            </Link>
-          ))}
+          {navItems.map(({ path, label }) => {
+            const href = path ? competitionPath(id, path) : competitionPath(id);
+            const active = path
+              ? location.pathname === href || location.pathname.startsWith(`${href}/`)
+              : location.pathname === href;
+            return (
+              <Link
+                key={path || 'home'}
+                to={href}
+                aria-current={active ? 'page' : undefined}
+                className={
+                  active
+                    ? 'rounded-lg bg-white/10 px-3 py-2 text-sm font-medium text-white'
+                    : 'rounded-lg px-3 py-2 text-sm font-medium text-sky-100/80 transition-colors hover:bg-white/5 hover:text-white'
+                }
+              >
+                {label}
+              </Link>
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-2">
@@ -132,15 +128,26 @@ export function Navigation() {
       {menuOpen ? (
         <div id="public-nav-menu" className="border-t border-white/10 px-4 py-3 md:hidden">
           <div className="flex flex-col">
-            {navItems.map(({ path, label }) => (
-              <Link
-                key={path || 'home'}
-                to={path ? competitionPath(id, path) : competitionPath(id)}
-                className="rounded-lg px-3 py-3 text-base font-medium text-sky-100/90 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                {label}
-              </Link>
-            ))}
+            {navItems.map(({ path, label }) => {
+              const href = path ? competitionPath(id, path) : competitionPath(id);
+              const active = path
+                ? location.pathname === href || location.pathname.startsWith(`${href}/`)
+                : location.pathname === href;
+              return (
+                <Link
+                  key={path || 'home'}
+                  to={href}
+                  aria-current={active ? 'page' : undefined}
+                  className={
+                    active
+                      ? 'rounded-lg bg-white/10 px-3 py-3 text-base font-medium text-white'
+                      : 'rounded-lg px-3 py-3 text-base font-medium text-sky-100/90 transition-colors hover:bg-white/5 hover:text-white'
+                  }
+                >
+                  {label}
+                </Link>
+              );
+            })}
           </div>
         </div>
       ) : null}

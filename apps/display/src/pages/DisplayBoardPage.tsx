@@ -285,7 +285,7 @@ export function DisplayBoardPage() {
       auto: !beforeFirstRound,
       women: womenEntries.length > 0,
       teams: teamEntries.length > 0,
-      country: countryEntries.length > 0,
+      country: countryEntries.length > 1,
       sponsors: sponsors.length > 0,
     }),
     [

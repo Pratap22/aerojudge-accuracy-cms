@@ -103,7 +103,7 @@ export function HomePage() {
           <div className="flex flex-wrap items-end justify-between gap-4">
             <h2 className="font-display text-2xl font-semibold text-white sm:text-3xl">About</h2>
             <Link
-              to={competitionPath(competitionId, 'info')}
+              to={`${competitionPath(competitionId, 'event')}#info`}
               className="text-sm font-medium text-sky-400 hover:text-sky-300"
             >
               Full event info →

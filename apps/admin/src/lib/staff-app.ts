@@ -30,6 +30,26 @@ export function siblingStaffAppUrl(target: StaffAppId): string {
   return `${window.location.origin}/judge/`;
 }
 
+/** Venue display and the public event page. Dev uses sibling ports; production uses path prefixes. */
+function audienceAppBase(devPort: number, productionPath: string): string {
+  const prefix = productionPath.replace(/\/$/, '');
+  if (import.meta.env.DEV) {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    return `http://${host}:${devPort}`;
+  }
+  return `${window.location.origin}${prefix}`;
+}
+
+/** Full-screen venue board for this competition. */
+export function venueDisplayUrl(competitionId: string): string {
+  return `${audienceAppBase(3002, '/display')}/competition/${encodeURIComponent(competitionId)}`;
+}
+
+/** Public live page for this competition. */
+export function eventLiveUrl(competitionId: string): string {
+  return `${audienceAppBase(3003, '/events')}/competition/${encodeURIComponent(competitionId)}`;
+}
+
 function buildHandoff(intent: StaffAppId): StaffSessionHandoff | null {
   const accessToken = getAccessToken();
   if (!accessToken) return null;

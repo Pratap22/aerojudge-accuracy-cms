@@ -9,6 +9,7 @@ function CategoryPage({
   nameColumn,
   showBullseyes = true,
   showRoundScores = false,
+  embedded = false,
 }: {
   title: string;
   category: 'WOMEN' | 'TEAM' | 'COUNTRY';
@@ -16,6 +17,8 @@ function CategoryPage({
   showBullseyes?: boolean;
   /** Individual boards: expand every official round with discard strikethrough */
   showRoundScores?: boolean;
+  /** Render only the board, for the shared Results page. */
+  embedded?: boolean;
 }) {
   const { data: results, isLoading } = useResults(category);
   const entries = toLeaderboardEntries(results);
@@ -55,11 +58,10 @@ function CategoryPage({
       }));
   }, [category, results]);
 
-  return (
-    <Layout>
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <h1 className="mb-8 font-display text-4xl font-bold text-white">{title}</h1>
-        {isLoading ? (
+  const board = (
+    <>
+      {embedded ? <h2 className="sr-only">{title}</h2> : null}
+      {isLoading ? (
           <div className="flex justify-center py-20">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
           </div>
@@ -96,35 +98,53 @@ function CategoryPage({
             />
           </div>
         )}
+    </>
+  );
+
+  if (embedded) return board;
+
+  return (
+    <Layout>
+      <div className="mx-auto max-w-7xl px-6 py-12">
+        <h1 className="mb-8 font-display text-4xl font-bold text-white">{title}</h1>
+        {board}
       </div>
     </Layout>
   );
 }
 
-export function WomenPage() {
+export function WomenBoard({ embedded = false }: { embedded?: boolean }) {
   return (
     <CategoryPage
       title="Women's Ranking"
       category="WOMEN"
       nameColumn="Pilot"
       showRoundScores
+      embedded={embedded}
     />
   );
 }
 
-export function TeamsPage() {
+export function TeamsBoard({ embedded = false }: { embedded?: boolean }) {
   return (
-    <CategoryPage title="Team Ranking" category="TEAM" nameColumn="Team" showBullseyes={false} />
+    <CategoryPage
+      title="Team Ranking"
+      category="TEAM"
+      nameColumn="Team"
+      showBullseyes={false}
+      embedded={embedded}
+    />
   );
 }
 
-export function CountriesPage() {
+export function CountriesBoard({ embedded = false }: { embedded?: boolean }) {
   return (
     <CategoryPage
       title="Country Ranking"
       category="COUNTRY"
       nameColumn="Country"
       showBullseyes={false}
+      embedded={embedded}
     />
   );
 }

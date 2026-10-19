@@ -202,7 +202,7 @@ export function OrganizingTeamSection({
           </h2>
           {limit != null && (
             <Link
-              to={competitionPath(competitionId, 'officials')}
+              to={`${competitionPath(competitionId, 'event')}#officials`}
               className="shrink-0 text-sm font-medium text-sky-400 underline-offset-4 hover:text-sky-300 hover:underline"
             >
               Show all

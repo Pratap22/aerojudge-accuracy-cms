@@ -8,11 +8,17 @@ import { isCompetitionCompleted } from '../lib/competitionStatus';
 
 interface LiveLeaderboardProps {
   title?: string;
+  showHeading?: boolean;
   showSearch?: boolean;
   maxRows?: number;
 }
 
-export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeaderboardProps) {
+export function LiveLeaderboard({
+  title,
+  showHeading = true,
+  showSearch = true,
+  maxRows,
+}: LiveLeaderboardProps) {
   const { data: competition } = useCompetition();
   const { data: results, isLoading, error } = useResults('OVERALL');
   const { data: wind } = useLatestWind();
@@ -66,9 +72,13 @@ export function LiveLeaderboard({ title, showSearch = true, maxRows }: LiveLeade
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-display text-3xl font-bold text-white">{heading}</h2>
+        {showHeading ? (
+          <h2 className="font-display text-3xl font-bold text-white">{heading}</h2>
+        ) : (
+          <span className="sr-only">{heading}</span>
+        )}
         {showSearch && (
-          <div className="relative max-w-sm">
+          <div className={showHeading ? 'relative max-w-sm' : 'relative ml-auto max-w-sm'}>
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-400/50" />
             <Input
               placeholder="Search pilots…"
