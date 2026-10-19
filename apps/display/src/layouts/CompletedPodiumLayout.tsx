@@ -48,14 +48,12 @@ const PLACE_STYLES = [
   },
 ] as const;
 
-const CATEGORY_COPY: Record<PodiumCategory, { title: string; subtitle: string }> = {
+const CATEGORY_COPY: Record<PodiumCategory, { title: string; }> = {
   individual: {
-    title: 'Competition completed',
-    subtitle: 'Official individual podium',
+    title: 'Individual podium',
   },
   team: {
-    title: 'Competition completed',
-    subtitle: 'Official team podium',
+    title: 'Team podium',
   },
 };
 
@@ -276,9 +274,6 @@ export function CompletedPodiumLayout({
           >
             <p className="shrink-0 font-display text-4xl uppercase tracking-wide text-white sm:text-5xl md:text-6xl lg:text-7xl">
               {copy.title}
-            </p>
-            <p className="mt-3 shrink-0 text-base uppercase tracking-[0.35em] text-sky-400/80 sm:text-lg">
-              {copy.subtitle}
             </p>
 
             <div className="mt-6 flex w-full max-w-5xl flex-row items-end justify-center gap-2 overflow-visible pb-2 sm:mt-10 sm:gap-6 md:gap-8">
