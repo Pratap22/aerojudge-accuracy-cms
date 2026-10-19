@@ -8,6 +8,19 @@ import { OfficialCard, OrganizerCard } from '../components/OrganizingTeam';
 import { useCompetition, useEventFeed } from '../hooks/useCompetition';
 import { competitionPath, fetchEventInfo, fetchOfficials } from '../lib/api';
 
+const SECTIONS = [
+  { id: 'feed', label: 'Feed' },
+  { id: 'info', label: 'Info' },
+  { id: 'officials', label: 'Officials' },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]['id'];
+
+function sectionFromHash(hash: string): SectionId {
+  const id = hash.replace(/^#/, '');
+  return SECTIONS.some((section) => section.id === id) ? (id as SectionId) : 'feed';
+}
+
 export function EventPage() {
   const { competitionId = '' } = useParams<{ competitionId: string }>();
   const location = useLocation();
@@ -31,12 +44,18 @@ export function EventPage() {
   const organiser = competition?.organiser;
   const hasOrganiser = Boolean(organiser?.name);
   const ready = !competitionLoading && !feedLoading && !infoLoading && !officialsLoading;
+  const section = sectionFromHash(location.hash);
+  const eventPath = competitionPath(competitionId, 'event');
 
   useEffect(() => {
-    if (!ready || !location.hash) return;
-    const id = location.hash.slice(1);
-    document.getElementById(id)?.scrollIntoView();
-  }, [ready, location.hash]);
+    if (!ready) return;
+    const target = document.getElementById(section);
+    if (!target) return;
+    const top = target.getBoundingClientRect().top;
+    if (top < 80 || top > window.innerHeight * 0.4) {
+      target.scrollIntoView();
+    }
+  }, [ready, section]);
 
   if (!competitionId) {
     return (
@@ -66,7 +85,28 @@ export function EventPage() {
           ) : null}
         </header>
 
-        <section id="feed" className="scroll-mt-28 border-t border-white/10 py-12 mt-10">
+        <div className="mt-8 flex flex-wrap gap-2">
+          {SECTIONS.map((item) => {
+            const active = item.id === section;
+            return (
+              <Link
+                key={item.id}
+                to={`${eventPath}#${item.id}`}
+                aria-current={active ? 'page' : undefined}
+                className={
+                  active
+                    ? 'rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-[#050d1a]'
+                    : 'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-sky-100/80 transition-colors hover:bg-white/10 hover:text-white'
+                }
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        {section === 'feed' ? (
+        <section id="feed" className="scroll-mt-28 py-10">
           <h2 className="font-display text-2xl font-semibold text-white sm:text-3xl">Feed</h2>
           <p className="mt-2 text-sm text-sky-300/70">Scores, reflights, and photos from this event</p>
           <div className="mt-6 max-w-3xl">
@@ -75,8 +115,10 @@ export function EventPage() {
             {!feedLoading && !feedError ? <EventFeedList items={feed} /> : null}
           </div>
         </section>
+        ) : null}
 
-        <section id="info" className="scroll-mt-28 border-t border-white/10 py-12">
+        {section === 'info' ? (
+        <section id="info" className="scroll-mt-28 py-10">
           <h2 className="font-display text-2xl font-semibold text-white sm:text-3xl">Info</h2>
           <div className="mt-6">
             {infoLoading ? <p className="text-sm text-sky-200/60">Loading event info…</p> : null}
@@ -86,8 +128,10 @@ export function EventPage() {
             ) : null}
           </div>
         </section>
+        ) : null}
 
-        <section id="officials" className="scroll-mt-28 border-t border-white/10 py-12">
+        {section === 'officials' ? (
+        <section id="officials" className="scroll-mt-28 py-10">
           <h2 className="font-display text-2xl font-semibold text-white sm:text-3xl">Officials</h2>
           <p className="mt-2 text-sm text-sky-300/70">Judges and officials for this competition</p>
           <div className="mt-6">
@@ -115,6 +159,7 @@ export function EventPage() {
             ) : null}
           </div>
         </section>
+        ) : null}
 
         <p className="border-t border-white/10 pt-8">
           <Link to={competitionPath(competitionId)} className="text-sm font-medium text-sky-400 hover:text-sky-300">
