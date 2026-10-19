@@ -63,8 +63,11 @@ export interface CivlIndividualRow extends CivlPilotFields {
 }
 
 export interface CivlTeamMember extends CivlPilotFields {
-  /** One value per task column. Null when that pilot has no score for the task. */
-  tasks: Array<number | null>;
+  /**
+   * One value per task column. Null when that pilot has no score for the task.
+   * A discarded score is the string `d` plus the centimetres, matching the CIVL team template.
+   */
+  tasks: Array<number | string | null>;
 }
 
 export interface CivlTeamGroup {
@@ -90,6 +93,20 @@ export function civlGender(gender: string | null | undefined): string {
 export function civlPilotNumber(pilotNumber: number | null | undefined): string {
   if (pilotNumber == null || !Number.isFinite(pilotNumber)) return '';
   return String(Math.trunc(pilotNumber)).padStart(3, '0');
+}
+
+/**
+ * Task cell for the CIVL team sheet.
+ * A counted score stays numeric so it can add into Score.
+ * A score left out of the team total is written as `d` plus the centimetres (`d15`).
+ */
+export function civlTaskCell(
+  scoreCm: number | null | undefined,
+  counted: boolean,
+): number | string | null {
+  if (scoreCm == null || Number.isNaN(scoreCm)) return null;
+  const cm = Math.round(scoreCm);
+  return counted ? cm : `d${cm}`;
 }
 
 /** Ties share a rank and the next rank skips ahead (1, 1, 1, 4). */

@@ -8,6 +8,7 @@ import {
   civlGender,
   civlNationCode,
   civlPilotNumber,
+  civlTaskCell,
   competitionRanks,
   type CivlPilotFields,
 } from '../services/civl-workbook.js';
@@ -55,6 +56,9 @@ describe('CIVL spreadsheet', () => {
     expect(civlGender('FEMALE')).toBe('F');
     expect(civlGender('OTHER')).toBe('');
     expect(civlPilotNumber(6)).toBe('006');
+    expect(civlTaskCell(2, true)).toBe(2);
+    expect(civlTaskCell(15, false)).toBe('d15');
+    expect(civlTaskCell(null, false)).toBeNull();
     expect(competitionRanks([0, 0, 1, 1, 2])).toEqual([1, 1, 3, 3, 5]);
   });
 
@@ -85,28 +89,31 @@ describe('CIVL spreadsheet', () => {
           name: 'SOL Team',
           score: 3,
           members: [
-            { ...pilot({ number: '026' }), tasks: [2] },
-            { ...pilot({ number: '029', firstName: 'Rizky' }), tasks: [0] },
+            { ...pilot({ number: '026' }), tasks: [2, 'd9'] },
+            { ...pilot({ number: '029', firstName: 'Rizky' }), tasks: [0, 1] },
           ],
         },
         {
           rank: 2,
           name: 'Sky Lords',
           score: 4,
-          members: [{ ...pilot({ number: '017' }), tasks: [0] }],
+          members: [{ ...pilot({ number: '017' }), tasks: [0, null] }],
         },
       ],
-      ['T 1'],
+      ['T 1', 'T 2'],
     );
     const sheet = await sheetOf(buffer);
     expect(sheet.name).toBe('Group National or Teams');
-    expect(rowValues(sheet, 1)).toEqual([...TEAM_BASE_HEADERS, 'T 1']);
+    expect(rowValues(sheet, 1)).toEqual([...TEAM_BASE_HEADERS, 'T 1', 'T 2']);
     expect(rowValues(sheet, 2)[0]).toBe(1);
     expect(rowValues(sheet, 2)[1]).toBe('SOL Team');
     expect(rowValues(sheet, 2)[14]).toBe(3);
     expect(rowValues(sheet, 2)[15]).toBe(2);
+    expect(rowValues(sheet, 2)[16]).toBe('d9');
     expect(rowValues(sheet, 3)[15]).toBe(0);
+    expect(rowValues(sheet, 3)[16]).toBe(1);
     expect(rowValues(sheet, 4)[0]).toBe(2);
+    expect(rowValues(sheet, 4)[16]).toBe('');
     const merges = (sheet.model.merges ?? []).slice().sort();
     expect(merges).toEqual(['A2:A3', 'B2:B3', 'O2:O3']);
   });

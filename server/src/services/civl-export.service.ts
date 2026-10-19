@@ -11,6 +11,7 @@ import {
   civlGender,
   civlNationCode,
   civlPilotNumber,
+  civlTaskCell,
   competitionRanks,
   type CivlIndividualRow,
   type CivlPilotFields,
@@ -227,6 +228,19 @@ async function buildRound(
   };
 }
 
+type PilotContrib = { pilotId: string; scoreCm: number };
+
+interface RoundTeamScore {
+  total: number;
+  counted: Map<string, number>;
+  discarded: Map<string, number>;
+}
+
+/**
+ * Team sheet for upload against one CIVL round.
+ * Columns run from T 1 through the selected round, and Score is the sum of
+ * those team totals. A pilot score that was not counted is marked with d.
+ */
 async function buildTeamRound(
   competitionId: string,
   roundId: string | undefined,
@@ -235,6 +249,11 @@ async function buildTeamRound(
   await recalculateRankings(competitionId);
   const rounds = await officialRounds(competitionId);
   const announced = officialDisplayNumber(rounds, round.number) ?? round.number;
+  const through = rounds.filter((candidate) => {
+    const display = officialDisplayNumber(rounds, candidate.number) ?? candidate.number;
+    return display <= announced;
+  });
+  const finalRounds = through.filter((candidate) => FINAL_ROUND_STATUSES.has(candidate.status));
 
   const teams = await prisma.team.findMany({
     where: { competitionId },
@@ -246,33 +265,61 @@ async function buildTeamRound(
     },
   });
   const teamScores = await prisma.teamScore.findMany({
-    where: { roundId: round.id, teamId: { in: teams.map((team) => team.id) } },
+    where: {
+      roundId: { in: finalRounds.map((candidate) => candidate.id) },
+      teamId: { in: teams.map((team) => team.id) },
+    },
   });
-  const scoreByTeam = new Map(teamScores.map((score) => [score.teamId, score]));
+  const byTeamRound = new Map<string, RoundTeamScore>();
+  for (const teamScore of teamScores) {
+    const total = scoreCm(teamScore.totalScoreCm);
+    if (total == null) continue;
+    const counted = new Map<string, number>();
+    const discarded = new Map<string, number>();
+    const countedRows = (teamScore.countedPilots as PilotContrib[] | null) ?? [];
+    const discardedRows = (teamScore.discardedPilots as PilotContrib[] | null) ?? [];
+    for (const entry of countedRows) {
+      if (entry.pilotId.startsWith('MISSING_')) continue;
+      const value = scoreCm(entry.scoreCm);
+      if (value != null) counted.set(entry.pilotId, value);
+    }
+    for (const entry of discardedRows) {
+      const value = scoreCm(entry.scoreCm);
+      if (value != null) discarded.set(entry.pilotId, value);
+    }
+    byTeamRound.set(`${teamScore.teamId}:${teamScore.roundId}`, { total, counted, discarded });
+  }
 
   const rawScores = await prisma.score.findMany({
     where: {
-      roundId: round.id,
+      roundId: { in: finalRounds.map((candidate) => candidate.id) },
       status: { in: [...SCORED_STATUSES] },
       finalScoreCm: { not: null },
     },
-    select: { pilotId: true, finalScoreCm: true },
+    select: { pilotId: true, roundId: true, finalScoreCm: true },
   });
-  const rawByPilot = new Map(rawScores.map((score) => [score.pilotId, score.finalScoreCm]));
+  const rawByPilotRound = new Map(
+    rawScores.map((score) => [`${score.pilotId}:${score.roundId}`, score.finalScoreCm]),
+  );
+
+  const taskLabels = through.map((candidate) => {
+    const display = officialDisplayNumber(rounds, candidate.number) ?? candidate.number;
+    return `T ${display}`;
+  });
 
   const groups = teams
     .flatMap((team) => {
-      const teamScore = scoreByTeam.get(team.id);
-      const total = scoreCm(teamScore?.totalScoreCm);
       const members = team.members.filter((member) => member.pilot);
-      if (total == null || members.length === 0) return [];
-      const contrib = new Map<string, number>();
-      const counted = (teamScore?.countedPilots as Array<{ pilotId: string; scoreCm: number }> | null) ?? [];
-      const discarded = (teamScore?.discardedPilots as Array<{ pilotId: string; scoreCm: number }> | null) ?? [];
-      for (const entry of [...counted, ...discarded]) {
-        const value = scoreCm(entry.scoreCm);
-        if (value != null) contrib.set(entry.pilotId, value);
+      if (members.length === 0) return [];
+      let total = 0;
+      let scoredRounds = 0;
+      for (const candidate of through) {
+        const record = byTeamRound.get(`${team.id}:${candidate.id}`);
+        if (!record) continue;
+        total += record.total;
+        scoredRounds += 1;
       }
+      if (scoredRounds === 0) return [];
       return [
         {
           name: team.name,
@@ -285,7 +332,18 @@ async function buildTeamRound(
             )
             .map((member) => ({
               ...pilotFields(member.pilot),
-              tasks: [contrib.get(member.pilot.id) ?? scoreCm(rawByPilot.get(member.pilot.id))],
+              tasks: through.map((candidate) => {
+                const record = byTeamRound.get(`${team.id}:${candidate.id}`);
+                if (!record) return null;
+                if (record.counted.has(member.pilot.id)) {
+                  return civlTaskCell(record.counted.get(member.pilot.id), true);
+                }
+                if (record.discarded.has(member.pilot.id)) {
+                  return civlTaskCell(record.discarded.get(member.pilot.id), false);
+                }
+                const raw = scoreCm(rawByPilotRound.get(`${member.pilot.id}:${candidate.id}`));
+                return raw == null ? null : civlTaskCell(raw, false);
+              }),
             })),
         },
       ];
@@ -298,5 +356,9 @@ async function buildTeamRound(
       members: group.members,
     }));
 
-  return { groups, taskLabels: [`T ${announced}`], announced };
+  if (groups.length === 0) {
+    throw AppError.badRequest('No completed team scores to export through this round.');
+  }
+
+  return { groups, taskLabels, announced };
 }

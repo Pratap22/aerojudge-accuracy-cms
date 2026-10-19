@@ -436,7 +436,11 @@ export function ReportsPage() {
                   {civlPending ? 'Exporting…' : 'Export CIVL spreadsheet'}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Spreadsheet in the CIVL results template.
+                  {reportType === 'TEAM_RESULTS'
+                    ? 'CIVL team sheet through this round. Score is the running total, with one T column per round. A score left out of the total starts with d.'
+                    : reportType === 'OVERALL_RESULTS'
+                      ? 'CIVL individual sheet with Score and one column per completed round.'
+                      : 'CIVL individual sheet for this round. Score is that round only.'}
                 </p>
               </div>
             )}
