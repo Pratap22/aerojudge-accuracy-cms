@@ -97,7 +97,7 @@ export function LiveLeaderboard({
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-card backdrop-blur-sm">
+      <div className="-mx-4 overflow-x-auto border-y border-border bg-card backdrop-blur-sm sm:mx-0 sm:rounded-xl sm:border">
         <LeaderboardTable
           entries={entries}
           showRoundScores
@@ -105,7 +105,7 @@ export function LiveLeaderboard({
           showBullseyes={false}
           showRounds={false}
           highlightPodium
-          className="min-w-max [&_th]:h-8 [&_th]:border-border [&_th]:px-3 [&_th]:text-xs [&_th]:text-muted-foreground [&_td]:border-border/70 [&_td]:px-3 [&_td]:py-2 [&_tr]:border-border/70 [&_td]:text-foreground"
+          className="min-w-max [&_th]:h-8 [&_th]:border-border [&_th]:px-1 [&_th]:text-xs [&_th]:text-muted-foreground [&_td]:border-border/70 [&_td]:px-1 [&_td]:py-2 sm:[&_th]:px-3 sm:[&_td]:px-3 [&_tr]:border-border/70 [&_td]:text-foreground"
         />
       </div>
 

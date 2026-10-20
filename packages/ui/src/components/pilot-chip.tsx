@@ -66,10 +66,12 @@ export function PilotChip({
           'row-span-2 shrink-0 rounded-full object-cover object-top ring-1 ring-border',
           photoSizeClasses[size],
         )}
+        data-pilot-photo=""
       />
     ) : (
       <span
         className={cn('row-span-2 shrink-0 rounded-full bg-muted', photoSizeClasses[size])}
+        data-pilot-photo=""
         aria-hidden
       />
     )

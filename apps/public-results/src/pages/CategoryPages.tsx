@@ -80,7 +80,7 @@ function CategoryPage({
               No rankings available yet. Approve or lock an official round, then recalculate rankings.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <div className="-mx-4 overflow-x-auto border-y border-border bg-card sm:mx-0 sm:rounded-xl sm:border">
               <TeamLeaderboard
                 entries={teamEntries}
                 roundNumbers={results?.roundNumbers}
@@ -94,7 +94,7 @@ function CategoryPage({
             No rankings available yet. Approve or lock an official round, then recalculate rankings.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <div className="-mx-4 overflow-x-auto border-y border-border bg-card sm:mx-0 sm:rounded-xl sm:border">
             <LeaderboardTable
               entries={entries}
               nameColumn={nameColumn}
@@ -103,7 +103,7 @@ function CategoryPage({
               showRoundScores={showRoundScores}
               roundNumbers={results?.roundNumbers}
               highlightPodium
-              className="min-w-max [&_th]:h-8 [&_th]:border-border [&_th]:px-3 [&_th]:text-xs [&_th]:text-muted-foreground [&_td]:border-border/70 [&_td]:px-3 [&_td]:py-2"
+              className="min-w-max [&_th]:h-8 [&_th]:border-border [&_th]:px-1 [&_th]:text-xs [&_th]:text-muted-foreground [&_td]:border-border/70 [&_td]:px-1 [&_td]:py-2 sm:[&_th]:px-3 sm:[&_td]:px-3"
             />
           </div>
         )}

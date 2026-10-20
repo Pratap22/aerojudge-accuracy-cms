@@ -132,6 +132,21 @@ function SortLabel({
   );
 }
 
+function usePhoneLayout() {
+  const query = '(max-width: 767px)';
+  const [matches, setMatches] = React.useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches,
+  );
+  React.useEffect(() => {
+    const media = window.matchMedia(query);
+    const onChange = () => setMatches(media.matches);
+    onChange();
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
+  return matches;
+}
+
 function scoreColumnCm(entry: LeaderboardEntry): number {
   const rounds = entry.roundScores ?? [];
   if (!rounds.some((rs) => rs.isProvisional)) return entry.totalScoreCm;
@@ -189,11 +204,30 @@ export function LeaderboardTable({
   const detailMode = showRoundScores && roundNumbers.length > 0;
   // When rounds are expanded, "9/9" is redundant unless callers keep it on.
   const showRoundsCount = showRounds && !detailMode;
-  const frozen = 'max-md:sticky max-md:z-20 max-md:px-2 max-md:py-2.5';
+  const phone = usePhoneLayout();
+  const dense = compact || (detailMode && phone);
+  // Phone widths: rank + pilot + total stay put; rounds use whatever is left.
+  const frozen = 'max-md:sticky max-md:z-20 max-md:!px-1 max-md:py-2';
   const frozenBg = 'max-md:bg-card';
+  const rankCol = detailMode
+    ? 'w-[var(--lb-rank)] min-w-[var(--lb-rank)] max-w-[var(--lb-rank)] md:w-[4.75rem] md:min-w-[4.75rem] md:max-w-none'
+    : cn('w-[4.75rem] min-w-[4.75rem]', compact && 'w-12 min-w-12');
+  const pilotCol = detailMode
+    ? 'max-md:left-[var(--lb-rank)] max-md:w-[var(--lb-pilot)] max-md:min-w-[var(--lb-pilot)] max-md:max-w-[var(--lb-pilot)] max-md:border-r max-md:border-border'
+    : '';
+  const scoreCol = detailMode
+    ? 'max-md:left-[calc(var(--lb-rank)+var(--lb-pilot))] max-md:w-[var(--lb-score)] max-md:min-w-[var(--lb-score)] max-md:max-w-[var(--lb-score)] max-md:border-r max-md:border-border'
+    : '';
 
   return (
-    <div className={cn('min-w-full w-max', className)} {...props}>
+    <div
+      className={cn(
+        'min-w-full w-max',
+        detailMode && '[--lb-pilot:8rem] [--lb-rank:3.5rem] [--lb-score:3rem]',
+        className,
+      )}
+      {...props}
+    >
       {title && (
         <h3 className="mb-4 text-lg font-semibold tracking-tight text-foreground">{title}</h3>
       )}
@@ -204,12 +238,7 @@ export function LeaderboardTable({
         <TableHeader>
           <TableRow>
             <TableHead
-              className={cn(
-                'w-[4.75rem] min-w-[4.75rem] max-md:left-0',
-                compact && 'w-12 min-w-12',
-                detailMode && frozen,
-                detailMode && frozenBg,
-              )}
+              className={cn(rankCol, detailMode && frozen, detailMode && frozenBg, detailMode && 'max-md:left-0')}
               aria-sort={sortKey === 'rank' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
             >
               <SortLabel
@@ -220,12 +249,7 @@ export function LeaderboardTable({
               />
             </TableHead>
             <TableHead
-              className={cn(
-                detailMode && frozen,
-                detailMode && frozenBg,
-                detailMode &&
-                  'max-md:left-[4.75rem] max-md:min-w-[9.5rem] max-md:border-r max-md:border-border',
-              )}
+              className={cn(detailMode && frozen, detailMode && frozenBg, pilotCol)}
               aria-sort={
                 sortKey === 'number' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
               }
@@ -244,10 +268,12 @@ export function LeaderboardTable({
             {showBullseyes && (
               <TableHead className="hidden text-right md:table-cell">Bullseyes</TableHead>
             )}
-            <TableHead className="text-right">{detailMode ? 'Score' : 'Total (cm)'}</TableHead>
+            <TableHead className={cn('text-right', detailMode && frozen, detailMode && frozenBg, scoreCol)}>
+              {detailMode ? 'Score' : 'Total (cm)'}
+            </TableHead>
             {detailMode &&
               roundNumbers.map((n) => (
-                <TableHead key={n} className="min-w-[2.75rem] px-1 text-center tabular-nums">
+                <TableHead key={n} className="!px-0 text-center tabular-nums max-md:w-8 md:min-w-[2.75rem] md:!px-1 md:w-auto">
                   {n}.
                 </TableHead>
               ))}
@@ -277,24 +303,20 @@ export function LeaderboardTable({
                 )}
               >
                 <TableCell
-                  className={cn(
-                    detailMode && frozen,
-                    detailMode && frozenBg,
-                    detailMode && 'max-md:left-0',
-                  )}
+                  className={cn(detailMode && frozen, detailMode && frozenBg, detailMode && 'max-md:left-0', rankCol)}
                 >
-                  <RankBadge rank={entry.rank} size={compact ? 'sm' : 'default'} />
+                  <RankBadge rank={entry.rank} size={dense ? 'sm' : 'default'} />
                 </TableCell>
-                <TableCell
-                  className={cn(
-                    detailMode && frozen,
-                    detailMode && frozenBg,
-                    detailMode &&
-                      'max-md:left-[4.75rem] max-md:max-w-[12.5rem] max-md:border-r max-md:border-border',
-                  )}
-                >
+                <TableCell className={cn(detailMode && frozen, detailMode && frozenBg, pilotCol)}>
+                  <div
+                    className={
+                      detailMode
+                        ? 'max-md:w-[calc(var(--lb-pilot)-0.5rem)] max-md:max-w-[calc(var(--lb-pilot)-0.5rem)] max-md:overflow-hidden'
+                        : undefined
+                    }
+                  >
                   {entry.hideNumber ? (
-                    <div className="inline-flex items-center gap-2 font-medium">
+                    <div className="flex min-w-0 items-center gap-2 font-medium">
                       {flagEmoji && (
                         <span className="text-base leading-none" aria-hidden>
                           {flagEmoji}
@@ -305,7 +327,7 @@ export function LeaderboardTable({
                   ) : entry.profileHref ? (
                     <a
                       href={entry.profileHref}
-                      className="inline-flex rounded-lg outline-offset-2 hover:bg-muted/70"
+                      className="flex w-full min-w-0 max-w-full rounded-lg outline-offset-2 hover:bg-muted/70"
                     >
                       <PilotChip
                         pilotNumber={entry.pilotNumber}
@@ -315,7 +337,8 @@ export function LeaderboardTable({
                         countryCode={entry.countryCode}
                         flagUrl={entry.flagUrl}
                         photoUrl={entry.photoUrl}
-                        size={compact ? 'sm' : 'default'}
+                        size={dense ? 'sm' : 'default'}
+                        className={detailMode ? 'max-md:w-full max-md:!gap-x-1.5 max-md:[&_[data-pilot-photo]]:h-8 max-md:[&_[data-pilot-photo]]:w-8' : undefined}
                       />
                     </a>
                   ) : (
@@ -327,9 +350,11 @@ export function LeaderboardTable({
                       countryCode={entry.countryCode}
                       flagUrl={entry.flagUrl}
                       photoUrl={entry.photoUrl}
-                      size={compact ? 'sm' : 'default'}
+                      size={dense ? 'sm' : 'default'}
+                      className={detailMode ? 'max-md:w-full max-md:!gap-x-1.5 max-md:[&_[data-pilot-photo]]:h-8 max-md:[&_[data-pilot-photo]]:w-8' : undefined}
                     />
                   )}
+                  </div>
                 </TableCell>
                 {showRoundsCount && (
                   <TableCell className="hidden text-right tabular-nums sm:table-cell">
@@ -341,12 +366,12 @@ export function LeaderboardTable({
                     {entry.bullseyes ?? '—'}
                   </TableCell>
                 )}
-                <TableCell className="text-right">
+                <TableCell className={cn('text-right', detailMode && frozen, detailMode && frozenBg, scoreCol)}>
                   <span
                     className={cn(
                       'font-mono font-semibold tabular-nums',
                       detailMode &&
-                        'inline-flex min-w-[2.75rem] items-center justify-center rounded-md px-2 py-0.5',
+                        'inline-flex min-w-[2.25rem] items-center justify-center rounded-md px-1.5 py-0.5 md:min-w-[2.75rem] md:px-2',
                       pendingLanding
                         ? 'bg-orange-500 text-white'
                         : detailMode && 'bg-foreground text-background',
@@ -367,10 +392,10 @@ export function LeaderboardTable({
                     const discarded = Boolean(cell?.isDiscarded);
                     const provisional = Boolean(cell?.isProvisional);
                     return (
-                      <TableCell key={n} className="px-1 text-center">
+                      <TableCell key={n} className="!px-0 text-center md:!px-1">
                         <span
                           className={cn(
-                            'inline-flex min-w-[2.25rem] items-center justify-center rounded px-1 py-0.5 font-mono text-xs tabular-nums sm:text-sm',
+                            'inline-flex min-w-[2rem] items-center justify-center rounded px-0 py-0.5 font-mono text-xs tabular-nums sm:min-w-[2.25rem] sm:px-1 sm:text-sm',
                             empty && 'bg-muted/40 text-muted-foreground/50',
                             !empty &&
                               discarded &&
