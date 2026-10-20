@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { Layout } from '../components/Layout';
 import { LeaderboardTable, TeamLeaderboard, type TeamLeaderboardEntry } from '@aero-judge/ui';
-import { useResults, toLeaderboardEntries } from '../hooks/useCompetition';
+import { browserPath, pilotProfilePath } from '../lib/api';
+import { useResults, toLeaderboardEntries, useSlug } from '../hooks/useCompetition';
 
 function CategoryPage({
   title,
@@ -20,6 +21,7 @@ function CategoryPage({
   /** Render only the board, for the shared Results page. */
   embedded?: boolean;
 }) {
+  const competitionId = useSlug();
   const { data: results, isLoading } = useResults(category);
   const entries = toLeaderboardEntries(results);
 
@@ -47,6 +49,13 @@ function CategoryPage({
           lastName: p.lastName,
           role: p.role,
           photoUrl: p.photoUrl ?? undefined,
+          profileHref: (() => {
+            const path = pilotProfilePath(results?.competition.id ?? competitionId, {
+              pilotNumber: p.pilotNumber,
+              aeroJudgeId: p.aeroJudgeId,
+            });
+            return path ? browserPath(path) : undefined;
+          })(),
           roundScores: (p.roundScores ?? []).map((rs) => ({
             round: rs.round,
             scoreCm: rs.scoreCm,
@@ -56,7 +65,7 @@ function CategoryPage({
           })),
         })),
       }));
-  }, [category, results]);
+  }, [category, competitionId, results]);
 
   const board = (
     <>

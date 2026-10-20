@@ -41,6 +41,31 @@ export function competitionPath(competitionId: string, ...segments: string[]): s
   return segments.length ? `${base}/${segments.join('/')}` : base;
 }
 
+/** Browser path including the app base, for anchors outside React Router. */
+export function browserPath(path: string): string {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  if (!base) return path;
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+/**
+ * Career page for someone in this competition.
+ * A bib number opens the pilot page (back to the pilot list). An AeroJudge id
+ * alone opens the person page used by the organizing team.
+ */
+export function pilotProfilePath(
+  competitionId: string,
+  pilot: { pilotNumber?: number | null; aeroJudgeId?: string | null },
+): string | null {
+  if (pilot.pilotNumber != null) {
+    return competitionPath(competitionId, 'pilots', String(pilot.pilotNumber));
+  }
+  if (pilot.aeroJudgeId) {
+    return competitionPath(competitionId, 'profile', encodeURIComponent(pilot.aeroJudgeId));
+  }
+  return null;
+}
+
 export function fetchCompetitions(): Promise<PublicCompetitionList> {
   return publicFetch<PublicCompetitionList>('/competitions');
 }
@@ -129,6 +154,7 @@ export interface PublicPilotListItem {
   isWomen: boolean;
   isJunior: boolean;
   photoUrl?: string | null;
+  aeroJudgeId?: string | null;
   country: { name: string; code: string; code2: string } | null;
 }
 
@@ -143,6 +169,49 @@ export function fetchPilots(idOrSlug: string): Promise<PublicPilotList> {
   return publicFetch<PublicPilotList>(`/${idOrSlug}/pilots`);
 }
 
+export interface PublicCareerCompetition {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  venue: string;
+  country: string;
+  pilotNumber: number | null;
+  rank: number | null;
+  totalScoreCm: number | null;
+  roundsFlown: number | null;
+}
+
+export interface PublicCareerWork {
+  competitionId: string;
+  competitionName: string;
+  startDate: string;
+  endDate: string;
+  venue: string;
+  country: string;
+  role: string;
+}
+
+export interface PublicCareer {
+  aeroJudgeId: string | null;
+  displayName: string;
+  firstName: string;
+  lastName: string;
+  photoUrl: string | null;
+  nationality: { code: string; code2: string; name: string } | null;
+  civlId: string | null;
+  competitions: PublicCareerCompetition[];
+  work: PublicCareerWork[];
+}
+
+export function fetchPilotProfile(idOrSlug: string, pilotNumber: number): Promise<PublicCareer> {
+  return publicFetch<PublicCareer>(`/${idOrSlug}/pilots/${pilotNumber}/profile`);
+}
+
+export function fetchCareer(aeroJudgeId: string): Promise<PublicCareer> {
+  return publicFetch<PublicCareer>(`/profiles/${encodeURIComponent(aeroJudgeId)}`);
+}
+
 export interface PublicOfficial {
   id: string;
   competitionId: string;
@@ -153,6 +222,7 @@ export interface PublicOfficial {
   email: string | null;
   displayOrder: number;
   isPublic: boolean;
+  aeroJudgeId?: string | null;
 }
 
 export function fetchOfficials(idOrSlug: string): Promise<PublicOfficial[]> {

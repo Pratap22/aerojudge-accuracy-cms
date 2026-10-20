@@ -45,6 +45,8 @@ export interface LeaderboardEntry {
   isHighlighted?: boolean;
   /** Hide pilot-number badge (teams / countries) */
   hideNumber?: boolean;
+  /** Opens the pilot profile. Full browser path, including the app base. */
+  profileHref?: string;
 }
 
 export interface LeaderboardTableProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -300,6 +302,22 @@ export function LeaderboardTable({
                       )}
                       <span>{label}</span>
                     </div>
+                  ) : entry.profileHref ? (
+                    <a
+                      href={entry.profileHref}
+                      className="inline-flex rounded-lg outline-offset-2 hover:bg-muted/70"
+                    >
+                      <PilotChip
+                        pilotNumber={entry.pilotNumber}
+                        firstName={entry.firstName}
+                        lastName={entry.lastName}
+                        countryCode2={entry.countryCode2}
+                        countryCode={entry.countryCode}
+                        flagUrl={entry.flagUrl}
+                        photoUrl={entry.photoUrl}
+                        size={compact ? 'sm' : 'default'}
+                      />
+                    </a>
                   ) : (
                     <PilotChip
                       pilotNumber={entry.pilotNumber}

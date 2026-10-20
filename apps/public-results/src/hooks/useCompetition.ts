@@ -2,7 +2,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import type { RankingCategory } from '@aero-judge/shared';
-import { fetchCompetition, fetchFeed, fetchLatestWind, fetchResults, fetchRoundsStatus } from '../lib/api';
+import {
+  browserPath,
+  fetchCompetition,
+  fetchFeed,
+  fetchLatestWind,
+  fetchResults,
+  fetchRoundsStatus,
+  pilotProfilePath,
+} from '../lib/api';
 import { connectPublicSocket, disconnectSocket, onSocketEvent, onSocketReconnect } from '../lib/socket';
 import type { PublicResults } from '../lib/types';
 
@@ -224,6 +232,13 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
         };
       }
 
+      const profilePath = row.pilot
+        ? pilotProfilePath(results.competition.id, {
+            pilotNumber: row.pilot.pilotNumber,
+            aeroJudgeId: row.pilot.aeroJudgeId,
+          })
+        : null;
+
       return {
         rank: row.rank,
         pilotNumber: row.pilot?.pilotNumber ?? 0,
@@ -236,6 +251,7 @@ export function toLeaderboardEntries(results: PublicResults | undefined) {
         roundsTotal,
         bullseyes: row.bullseyes,
         photoUrl: row.pilot?.photoUrl ?? undefined,
+        profileHref: profilePath ? browserPath(profilePath) : undefined,
         roundScores: (row.roundScores ?? []).map((rs) => ({
           round: rs.round,
           scoreCm: rs.scoreCm,

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Building2, Mail, Phone, UserRound } from 'lucide-react';
 import type { PublicOfficial } from '../lib/api';
-import { competitionPath } from '../lib/api';
+import { competitionPath, pilotProfilePath } from '../lib/api';
 import type { PublicOrganiser } from '../lib/types';
 
 function Avatar({
@@ -45,6 +45,7 @@ interface PersonCardProps {
   phone?: string | null;
   showContact?: boolean;
   index?: number;
+  href?: string;
 }
 
 function PersonCard({
@@ -56,22 +57,21 @@ function PersonCard({
   phone,
   showContact = false,
   index = 0,
+  href,
 }: PersonCardProps) {
   const hasContact = showContact && (email || phone);
-
-  return (
-    <motion.article
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.04, 0.35) }}
-      className="flex flex-col items-center rounded-2xl border border-border bg-card px-5 py-8 text-center backdrop-blur-sm transition-colors hover:border-sky-500/25 hover:bg-muted"
-    >
+  const className =
+    'flex h-full flex-col items-center rounded-2xl border border-border bg-card px-5 py-8 text-center backdrop-blur-sm transition-colors hover:border-sky-500/25 hover:bg-muted';
+  const identity = (
+    <>
       <Avatar name={name} imageUrl={imageUrl} isLogo={isLogo} />
       <h3 className="mt-5 text-base font-semibold leading-snug text-sky-700 dark:text-sky-300 sm:text-lg">
         {name}
       </h3>
       <p className="mt-1.5 text-sm text-muted-foreground">{role}</p>
-      {hasContact && (
+    </>
+  );
+  const contact = hasContact ? (
         <div className="mt-4 w-full space-y-2.5 border-t border-border pt-4 text-sm text-muted-foreground">
           {email && (
             <a
@@ -92,8 +92,26 @@ function PersonCard({
             </a>
           )}
         </div>
-      )}
-    </motion.article>
+      ) : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(index * 0.04, 0.35) }}
+      className="h-full"
+    >
+      <article className={className}>
+        {href ? (
+          <Link to={href} className="flex flex-col items-center">
+            {identity}
+          </Link>
+        ) : (
+          identity
+        )}
+        {contact}
+      </article>
+    </motion.div>
   );
 }
 
@@ -101,9 +119,10 @@ interface OfficialCardProps {
   official: PublicOfficial;
   showContact?: boolean;
   index?: number;
+  href?: string;
 }
 
-export function OfficialCard({ official, showContact = false, index = 0 }: OfficialCardProps) {
+export function OfficialCard({ official, showContact = false, index = 0, href }: OfficialCardProps) {
   return (
     <PersonCard
       name={official.name}
@@ -113,6 +132,7 @@ export function OfficialCard({ official, showContact = false, index = 0 }: Offic
       phone={official.phone}
       showContact={showContact}
       index={index}
+      href={href}
     />
   );
 }
@@ -220,6 +240,9 @@ export function OrganizingTeamSection({
             official={official}
             showContact={showContact}
             index={index + (hasOrganiser ? 1 : 0)}
+            href={
+              pilotProfilePath(competitionId, { aeroJudgeId: official.aeroJudgeId }) ?? undefined
+            }
           />
         ))}
       </div>

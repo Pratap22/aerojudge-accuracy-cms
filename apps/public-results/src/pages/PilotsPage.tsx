@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Search, UserPlus } from 'lucide-react';
 import { Input } from '@aero-judge/ui';
 import { Layout } from '../components/Layout';
-import { competitionPath, fetchPilots } from '../lib/api';
+import { competitionPath, fetchPilots, pilotProfilePath } from '../lib/api';
 import { useCompetition, useSlug } from '../hooks/useCompetition';
 import { countryCodeToEmoji, pilotFullName } from '../lib/utils';
 import { padPilotNumber } from '@aero-judge/utils';
@@ -97,7 +97,10 @@ export function PilotsPage() {
                 transition={{ delay: Math.min(index * 0.02, 0.4) }}
               >
                 <Link
-                  to={competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))}
+                  to={
+                    pilotProfilePath(competitionId, pilot) ??
+                    competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))
+                  }
                   className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-card p-3 transition-colors hover:border-sky-500/30 hover:bg-muted"
                 >
                   {pilot.photoUrl ? (

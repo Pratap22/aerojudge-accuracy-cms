@@ -22,6 +22,8 @@ export interface TeamLeaderboardPilot {
   lastName: string;
   role?: string;
   photoUrl?: string | null;
+  /** Full browser path to the pilot profile, including the app base. */
+  profileHref?: string;
   roundScores: LeaderboardRoundScore[];
 }
 
@@ -227,13 +229,28 @@ export function TeamLeaderboard({
                       <TableCell />
                       <TableCell />
                       <TableCell>
-                        <PilotChip
-                          pilotNumber={pilot.pilotNumber}
-                          firstName={pilot.firstName}
-                          lastName={pilot.lastName}
-                          photoUrl={pilot.photoUrl}
-                          size={compact ? 'sm' : 'default'}
-                        />
+                        {pilot.profileHref ? (
+                          <a
+                            href={pilot.profileHref}
+                            className="inline-flex rounded-lg outline-offset-2 hover:bg-muted/70"
+                          >
+                            <PilotChip
+                              pilotNumber={pilot.pilotNumber}
+                              firstName={pilot.firstName}
+                              lastName={pilot.lastName}
+                              photoUrl={pilot.photoUrl}
+                              size={compact ? 'sm' : 'default'}
+                            />
+                          </a>
+                        ) : (
+                          <PilotChip
+                            pilotNumber={pilot.pilotNumber}
+                            firstName={pilot.firstName}
+                            lastName={pilot.lastName}
+                            photoUrl={pilot.photoUrl}
+                            size={compact ? 'sm' : 'default'}
+                          />
+                        )}
                       </TableCell>
                       <TableCell />
                       {roundNumbers.map((n) => (

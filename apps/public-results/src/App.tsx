@@ -4,6 +4,7 @@ import { HomePage } from './pages/HomePage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { PilotsPage } from './pages/PilotsPage';
 import { PilotProfilePage } from './pages/PilotProfilePage';
+import { PersonProfilePage } from './pages/PersonProfilePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -59,6 +60,7 @@ function App() {
       <Route path="/competition/:competitionId/results" element={<LeaderboardPage />} />
       <Route path="/competition/:competitionId/pilots" element={<PilotsPage />} />
       <Route path="/competition/:competitionId/pilots/:pilotNumber" element={<PilotProfilePage />} />
+      <Route path="/competition/:competitionId/profile/:aeroJudgeId" element={<PersonProfilePage />} />
       <Route path="/competition/:competitionId/register" element={<RegisterPage />} />
       <Route path="/competition/:competitionId/event" element={<EventPage />} />
       <Route path="/competition/:competitionId/women" element={<SectionRedirect segment="results" search="board=women" />} />

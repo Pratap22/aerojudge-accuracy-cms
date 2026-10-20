@@ -246,7 +246,7 @@ export function displayedPilotPhotoUrl(pilot: {
 /** Prisma select fragment when returning pilot photos publicly / to clients. */
 export const pilotPhotoWithPersonSelect = {
   photoUrl: true,
-  person: { select: { photoUrl: true } },
+  person: { select: { photoUrl: true, aeroJudgeId: true } },
 } as const;
 
 export type CreatePersonInput = {

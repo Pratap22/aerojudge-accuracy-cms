@@ -9,6 +9,7 @@ import { countryAlpha3ById, resolveCountryId, toPublicCountry } from '../utils/c
 import {
   displayedPilotPhotoUrl,
   pilotPhotoWithPersonSelect,
+  resolvePersonPhotoUrl,
 } from './person.service.js';
 
 function displayedOfficialNumber(rows: { number: number }[], storedNumber: number): number {
@@ -608,6 +609,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
             firstName: pilot.firstName,
             lastName: pilot.lastName,
             photoUrl: displayedPilotPhotoUrl(pilot),
+            aeroJudgeId: pilot.person?.aeroJudgeId ?? null,
             role: m.role,
             roundScores: pilotRoundScores,
           };
@@ -865,6 +867,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
         ? {
             ...r.pilot,
             photoUrl: displayedPilotPhotoUrl(r.pilot),
+            aeroJudgeId: r.pilot.person?.aeroJudgeId ?? null,
             country: toPublicCountry(r.pilot.country),
             person: undefined,
           }
@@ -1113,6 +1116,9 @@ export async function getPublicOfficials(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
   const rows = await prisma.competitionOfficial.findMany({
     where: { competitionId: competition.id, isPublic: true },
+    include: {
+      person: { select: { aeroJudgeId: true, status: true } },
+    },
   });
   return rows
     .map((row) => ({
@@ -1125,6 +1131,7 @@ export async function getPublicOfficials(slugOrId: string) {
       email: row.email,
       displayOrder: row.displayOrder,
       isPublic: row.isPublic,
+      aeroJudgeId: row.person?.status === 'ACTIVE' ? row.person.aeroJudgeId : null,
     }))
     .sort(compareOfficials);
 }
@@ -1176,9 +1183,221 @@ export async function listPublicPilots(slugOrId: string) {
     pilots: pilots.map((p) => ({
       ...p,
       photoUrl: displayedPilotPhotoUrl(p),
+      aeroJudgeId: p.person?.aeroJudgeId ?? null,
       person: undefined,
       country: toPublicCountry(p.country),
     })),
+  };
+}
+
+const CAREER_HIDDEN_PILOT_STATUSES = ['REJECTED', 'WITHDRAWN', 'DISQUALIFIED', 'DNS'] as const;
+
+const careerCompetitionSelect = {
+  id: true,
+  name: true,
+  startDate: true,
+  endDate: true,
+  venue: true,
+  country: true,
+} as const;
+
+export interface PublicCareerCompetition {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  venue: string;
+  country: string;
+  pilotNumber: number | null;
+  rank: number | null;
+  totalScoreCm: number | null;
+  roundsFlown: number | null;
+}
+
+export interface PublicCareerWork {
+  competitionId: string;
+  competitionName: string;
+  startDate: string;
+  endDate: string;
+  venue: string;
+  country: string;
+  role: string;
+}
+
+export interface PublicCareer {
+  aeroJudgeId: string | null;
+  displayName: string;
+  firstName: string;
+  lastName: string;
+  photoUrl: string | null;
+  nationality: { code: string; code2: string; name: string } | null;
+  civlId: string | null;
+  competitions: PublicCareerCompetition[];
+  work: PublicCareerWork[];
+}
+
+/**
+ * Public record of a person: competitions they flew and official appointments.
+ * Published competition results only. Contact details stay off this payload.
+ */
+export async function getPublicCareer(aeroJudgeId: string): Promise<PublicCareer> {
+  const person = await prisma.person.findFirst({
+    where: {
+      aeroJudgeId: aeroJudgeId.trim().toUpperCase(),
+      status: 'ACTIVE',
+    },
+    include: { nationalityCountry: true },
+  });
+  if (!person) throw AppError.notFound('Profile not found');
+
+  const [pilotRows, officialRows] = await Promise.all([
+    prisma.pilot.findMany({
+      where: {
+        personId: person.id,
+        status: { notIn: [...CAREER_HIDDEN_PILOT_STATUSES] },
+        competition: { isPublished: true },
+      },
+      orderBy: { competition: { startDate: 'desc' } },
+      select: {
+        pilotNumber: true,
+        club: true,
+        civlId: true,
+        country: { select: { name: true, code: true, code2: true } },
+        competition: { select: careerCompetitionSelect },
+        individualRankings: {
+          where: { category: 'OVERALL' },
+          select: { rank: true, totalScoreCm: true, roundsFlown: true },
+          take: 1,
+        },
+      },
+    }),
+    prisma.competitionOfficial.findMany({
+      where: {
+        personId: person.id,
+        isPublic: true,
+        competition: { isPublished: true },
+      },
+      orderBy: { competition: { startDate: 'desc' } },
+      select: {
+        role: true,
+        competition: { select: careerCompetitionSelect },
+      },
+    }),
+  ]);
+
+  if (person.visibility !== 'PUBLIC' && pilotRows.length === 0 && officialRows.length === 0) {
+    throw AppError.notFound('Profile not found');
+  }
+
+  const photo = await resolvePersonPhotoUrl(person.id, person.photoUrl);
+  const ranking = (row: (typeof pilotRows)[number]) => row.individualRankings[0] ?? null;
+  const country =
+    person.nationalityCountry ?? pilotRows.find((row) => row.country)?.country ?? null;
+
+  return {
+    aeroJudgeId: person.aeroJudgeId,
+    displayName: [person.firstName, person.lastName].filter(Boolean).join(' '),
+    firstName: person.firstName,
+    lastName: person.lastName,
+    photoUrl: toAbsoluteAssetUrl(photo),
+    nationality: country
+      ? { code: country.code, code2: country.code2, name: country.name }
+      : null,
+    civlId: person.civlId ?? pilotRows.find((row) => row.civlId)?.civlId ?? null,
+    competitions: pilotRows.map((row) => {
+      const standing = ranking(row);
+      const scored = (standing?.roundsFlown ?? 0) > 0;
+      return {
+        id: row.competition.id,
+        name: row.competition.name,
+        startDate: row.competition.startDate.toISOString(),
+        endDate: row.competition.endDate.toISOString(),
+        venue: row.competition.venue,
+        country: row.competition.country,
+        pilotNumber: row.pilotNumber,
+        rank: scored ? (standing?.rank ?? null) : null,
+        totalScoreCm: scored ? (standing?.totalScoreCm ?? null) : null,
+        roundsFlown: standing?.roundsFlown ?? null,
+      };
+    }),
+    work: officialRows.map((row) => ({
+      competitionId: row.competition.id,
+      competitionName: row.competition.name,
+      startDate: row.competition.startDate.toISOString(),
+      endDate: row.competition.endDate.toISOString(),
+      venue: row.competition.venue,
+      country: row.competition.country,
+      role: officialRoleLabel(row.role),
+    })),
+  };
+}
+
+/** Career for the pilot bib in this competition, including a one-event record when they have no person link. */
+export async function getPublicPilotProfile(
+  slugOrId: string,
+  pilotNumber: number,
+): Promise<PublicCareer> {
+  const competition = await getPublicCompetition(slugOrId);
+  const pilot = await prisma.pilot.findFirst({
+    where: { competitionId: competition.id, pilotNumber },
+    select: {
+      pilotNumber: true,
+      firstName: true,
+      lastName: true,
+      civlId: true,
+      status: true,
+      ...pilotPhotoWithPersonSelect,
+      country: { select: { name: true, code: true, code2: true } },
+      individualRankings: {
+        where: { category: 'OVERALL' },
+        select: { rank: true, totalScoreCm: true, roundsFlown: true },
+        take: 1,
+      },
+    },
+  });
+  if (!pilot || (CAREER_HIDDEN_PILOT_STATUSES as readonly string[]).includes(pilot.status)) {
+    throw AppError.notFound('Pilot not found');
+  }
+
+  if (pilot.person?.aeroJudgeId) {
+    try {
+      return await getPublicCareer(pilot.person.aeroJudgeId);
+    } catch (err) {
+      if (!(err instanceof AppError) || err.statusCode !== 404) throw err;
+    }
+  }
+
+  const standing = pilot.individualRankings[0] ?? null;
+  const scored = (standing?.roundsFlown ?? 0) > 0;
+  return {
+    aeroJudgeId: null,
+    displayName: `${pilot.firstName} ${pilot.lastName}`.trim(),
+    firstName: pilot.firstName,
+    lastName: pilot.lastName,
+    photoUrl: toAbsoluteAssetUrl(displayedPilotPhotoUrl(pilot)),
+    nationality: pilot.country
+      ? {
+          code: pilot.country.code,
+          code2: pilot.country.code2,
+          name: pilot.country.name,
+        }
+      : null,
+    civlId: pilot.civlId,
+    competitions: [
+      {
+        id: competition.id,
+        name: competition.name,
+        startDate: competition.startDate.toISOString(),
+        endDate: competition.endDate.toISOString(),
+        venue: competition.venue,
+        country: competition.country,
+        pilotNumber: pilot.pilotNumber,
+        rank: scored ? (standing?.rank ?? null) : null,
+        totalScoreCm: scored ? (standing?.totalScoreCm ?? null) : null,
+        roundsFlown: standing?.roundsFlown ?? null,
+      },
+    ],
+    work: [],
   };
 }
 

@@ -46,6 +46,7 @@ export interface PublicPilot {
   lastName: string;
   nationality?: string | null;
   photoUrl?: string | null;
+  aeroJudgeId?: string | null;
   country?: { name: string; code: string; code2?: string } | null;
 }
 
@@ -71,6 +72,7 @@ export interface PublicTeamPilot {
   lastName: string;
   role?: string;
   photoUrl?: string | null;
+  aeroJudgeId?: string | null;
   roundScores: PublicRoundScore[];
 }
 

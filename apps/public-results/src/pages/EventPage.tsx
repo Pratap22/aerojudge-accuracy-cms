@@ -7,7 +7,7 @@ import { EventFeedList } from '../components/EventFeed';
 import { OfficialCard, OrganizerCard } from '../components/OrganizingTeam';
 import { FaiCategoryBadge } from '../components/FaiCategoryBadge';
 import { useCompetition, useEventFeed } from '../hooks/useCompetition';
-import { competitionPath, fetchEventInfo, fetchOfficials } from '../lib/api';
+import { competitionPath, fetchEventInfo, fetchOfficials, pilotProfilePath } from '../lib/api';
 
 const SECTIONS = [
   { id: 'feed', label: 'Feed' },
@@ -157,6 +157,10 @@ export function EventPage() {
                     official={official}
                     showContact
                     index={index + (hasOrganiser ? 1 : 0)}
+                    href={
+                      pilotProfilePath(competitionId, { aeroJudgeId: official.aeroJudgeId }) ??
+                      undefined
+                    }
                   />
                 ))}
               </div>

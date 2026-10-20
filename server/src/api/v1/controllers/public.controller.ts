@@ -8,11 +8,14 @@ import { asyncHandler, AppError } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
 import * as publicService from '../../../services/public.service.js';
 import * as seoService from '../../../services/seo.service.js';
-import * as personService from '../../../services/person.service.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
 
 const slugParams = z.object({ slug: z.string().min(1) });
 const aeroJudgeParams = z.object({ aeroJudgeId: z.string().min(1) });
+const pilotProfileParams = z.object({
+  slug: z.string().min(1),
+  pilotNumber: z.coerce.number().int().positive(),
+});
 const roundQuery = z.object({ round: z.coerce.number().int().positive() });
 const categoryQuery = z.object({
   category: z.enum(['OVERALL', 'WOMEN', 'JUNIOR', 'TEAM', 'COUNTRY']).default('OVERALL'),
@@ -166,7 +169,18 @@ export const listCountries = [
 export const publicProfile = [
   validateParams(aeroJudgeParams),
   asyncHandler(async (req: Request, res: Response) => {
-    const profile = await personService.getPublicProfile(req.params.aeroJudgeId);
+    const profile = await publicService.getPublicCareer(req.params.aeroJudgeId);
+    sendSuccess(res, profile);
+  }),
+];
+
+export const pilotProfile = [
+  validateParams(pilotProfileParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const profile = await publicService.getPublicPilotProfile(
+      req.params.slug,
+      Number(req.params.pilotNumber),
+    );
     sendSuccess(res, profile);
   }),
 ];

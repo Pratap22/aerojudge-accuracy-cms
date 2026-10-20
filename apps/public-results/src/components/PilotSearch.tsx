@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { Input } from '@aero-judge/ui';
-import { competitionPath } from '../lib/api';
+import { competitionPath, pilotProfilePath } from '../lib/api';
 import { useResults, useSlug } from '../hooks/useCompetition';
 import { countryCodeToEmoji, formatScore, pilotFullName } from '../lib/utils';
 import { padPilotNumber } from '@aero-judge/utils';
@@ -51,7 +51,10 @@ export function PilotSearch() {
             transition={{ delay: index * 0.03 }}
           >
             <Link
-              to={competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))}
+              to={
+                pilotProfilePath(competitionId, pilot) ??
+                competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))
+              }
               className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-colors hover:border-sky-500/30 hover:bg-muted"
             >
               <span className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 px-1 font-mono text-xs font-bold tabular-nums text-sky-700 dark:text-sky-300">
