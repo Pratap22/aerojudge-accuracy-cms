@@ -55,15 +55,17 @@ function PartnerCard({
   showType?: boolean;
 }) {
   const logo = (
-    <div className="mx-auto flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted ring-2 ring-sky-500/20">
+    <div className="mx-auto h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted ring-2 ring-sky-500/20">
       {partner.logoUrl ? (
         <img
           src={partner.logoUrl}
           alt={partner.name}
-          className="h-[85%] w-[85%] object-contain p-2"
+          className="h-full w-full object-cover"
         />
       ) : (
-        <Building2 className="h-7 w-7 text-muted-foreground/50" strokeWidth={1.25} />
+        <span className="flex h-full w-full items-center justify-center">
+          <Building2 className="h-8 w-8 text-muted-foreground/50" strokeWidth={1.25} />
+        </span>
       )}
     </div>
   );

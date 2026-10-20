@@ -17,9 +17,11 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]['id'];
 
-function sectionFromHash(hash: string): SectionId {
+function sectionFromHash(hash: string, allowFeed: boolean): SectionId {
   const id = hash.replace(/^#/, '');
-  return SECTIONS.some((section) => section.id === id) ? (id as SectionId) : 'feed';
+  if (id === 'feed' && !allowFeed) return 'info';
+  if (id === 'info' || id === 'officials' || (id === 'feed' && allowFeed)) return id;
+  return allowFeed ? 'feed' : 'info';
 }
 
 export function EventPage() {
@@ -44,8 +46,10 @@ export function EventPage() {
 
   const organiser = competition?.organiser;
   const hasOrganiser = Boolean(organiser?.name);
+  const showFeed = feedLoading || Boolean(feedError) || feed.length > 0;
+  const sections = SECTIONS.filter((item) => item.id !== 'feed' || showFeed);
   const ready = !competitionLoading && !feedLoading && !infoLoading && !officialsLoading;
-  const section = sectionFromHash(location.hash);
+  const section = sectionFromHash(location.hash, showFeed);
   const eventPath = competitionPath(competitionId, 'event');
 
   useEffect(() => {
@@ -90,7 +94,7 @@ export function EventPage() {
         </header>
 
         <div className="mt-8 flex flex-wrap gap-2">
-          {SECTIONS.map((item) => {
+          {sections.map((item) => {
             const active = item.id === section;
             return (
               <Link
@@ -109,7 +113,7 @@ export function EventPage() {
           })}
         </div>
 
-        {section === 'feed' ? (
+        {section === 'feed' && showFeed ? (
         <section id="feed" className="scroll-mt-28 py-10">
           <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">Feed</h2>
           <p className="mt-2 text-sm text-muted-foreground">Scores, reflights, and photos from this event</p>

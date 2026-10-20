@@ -115,6 +115,8 @@ export function EventFeedPreview({
   competitionId: string;
   items: PublicFeedItem[];
 }) {
+  if (items.length === 0) return null;
+
   const preview = items.slice(0, 4);
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
