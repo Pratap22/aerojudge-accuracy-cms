@@ -16,7 +16,7 @@ function Avatar({
   isLogo?: boolean;
 }) {
   return (
-    <div className="mx-auto flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted ring-2 ring-sky-500/20">
+    <div className="mx-auto flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted ring-2 ring-sky-500/20 sm:h-32 sm:w-32">
       {imageUrl ? (
         <img
           src={imageUrl}
@@ -28,9 +28,9 @@ function Avatar({
           }
         />
       ) : isLogo ? (
-        <Building2 className="h-7 w-7 text-muted-foreground/50" strokeWidth={1.25} />
+        <Building2 className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.25} />
       ) : (
-        <UserRound className="h-7 w-7 text-muted-foreground/50" strokeWidth={1.25} />
+        <UserRound className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.25} />
       )}
     </div>
   );
@@ -64,13 +64,13 @@ function PersonCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.35) }}
-      className="flex flex-col items-center rounded-xl border border-border bg-card px-3 py-4 text-center transition-colors hover:border-sky-500/25 hover:bg-muted"
+      className="flex flex-col items-center rounded-2xl border border-border bg-card px-5 py-8 text-center backdrop-blur-sm transition-colors hover:border-sky-500/25 hover:bg-muted"
     >
       <Avatar name={name} imageUrl={imageUrl} isLogo={isLogo} />
-      <h3 className="mt-3 text-sm font-semibold leading-snug text-sky-700 dark:text-sky-300">
+      <h3 className="mt-5 text-base font-semibold leading-snug text-sky-700 dark:text-sky-300 sm:text-lg">
         {name}
       </h3>
-      <p className="mt-0.5 text-xs text-muted-foreground">{role}</p>
+      <p className="mt-1.5 text-sm text-muted-foreground">{role}</p>
       {hasContact && (
         <div className="mt-4 w-full space-y-2.5 border-t border-border pt-4 text-sm text-muted-foreground">
           {email && (
@@ -194,10 +194,10 @@ export function OrganizingTeamSection({
     limit != null ? officials.slice(0, officialSlots) : officials;
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <section className="mx-auto max-w-7xl px-6 py-12 md:py-16">
       {showHeader && (
-        <div className="mb-4 flex items-baseline justify-between gap-4 border-b border-border pb-2">
-          <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+        <div className="mb-8 flex items-baseline justify-between gap-4 border-b border-border pb-3">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
             Organizing Team
           </h2>
           {limit != null && (
@@ -210,7 +210,7 @@ export function OrganizingTeamSection({
           )}
         </div>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {hasOrganiser && organiser ? (
           <OrganizerCard organiser={organiser} index={0} />
         ) : null}
