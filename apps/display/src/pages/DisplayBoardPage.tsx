@@ -22,6 +22,7 @@ import { buildOnDeck } from '../lib/on-deck';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
 import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode } from '../lib/utils';
 import { isOfficialRound, isWindReadingCurrent, officialDisplayNumber, type RoundNumberSource } from '@aero-judge/utils';
+import { FaiCategoryBadge } from '../components/FaiCategoryBadge';
 
 const PRE_ROUND_LAYOUTS: DisplayLayoutType[] = ['sponsors', 'women', 'teams'];
 
@@ -682,9 +683,12 @@ export function DisplayBoardPage() {
       >
         <div className="min-w-0 flex-1">
           <AeroJudgeLogo className="h-8 w-auto sm:h-10" />
-          <h1 className="line-clamp-2 font-display text-sm uppercase leading-snug tracking-wide text-white sm:line-clamp-1 sm:text-xl sm:tracking-wider md:text-2xl">
-            {competition.name}
-          </h1>
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
+            <h1 className="line-clamp-2 min-w-0 font-display text-sm uppercase leading-snug tracking-wide text-white sm:line-clamp-1 sm:text-xl sm:tracking-wider md:text-2xl">
+              {competition.name}
+            </h1>
+            <FaiCategoryBadge value={competition.faiCategory} />
+          </div>
         </div>
         {windReading && !competitionCompleted && !pausedRound && (
           <div className="shrink-0 rounded-lg border border-sky-500/30 bg-broadcast-navy-mid/80 px-2.5 py-1 text-right sm:px-4 sm:py-2">

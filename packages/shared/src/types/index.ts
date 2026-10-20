@@ -589,6 +589,17 @@ export interface PersonCompetitionHistoryItem {
   } | null;
 }
 
+/** Label shown on public and venue pages. Unknown stored values stay hidden. */
+export function faiCategoryLabel(
+  value: string | null | undefined,
+): 'Cat 1' | 'Cat 2' | 'No category' | null {
+  const raw = (value ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+  if (raw === '1' || raw === 'CAT 1' || raw === 'CAT1' || raw === 'CAT_1') return 'Cat 1';
+  if (raw === '2' || raw === 'CAT 2' || raw === 'CAT2' || raw === 'CAT_2') return 'Cat 2';
+  if (raw === 'NONE' || raw === 'NO CAT' || raw === 'NO_CAT' || raw === 'NOCAT') return 'No category';
+  return null;
+}
+
 export const ROLES: Role[] = [
   'SUPER_ADMIN',
   'PLATFORM_SUPPORT',

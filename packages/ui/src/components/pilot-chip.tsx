@@ -27,12 +27,6 @@ function countryCodeToEmoji(code2: string): string {
   return String.fromCodePoint(...upper.split('').map((char) => 127397 + char.charCodeAt(0)));
 }
 
-const sizeClasses = {
-  sm: 'gap-1.5 px-2 py-1 text-xs',
-  default: 'gap-2 px-3 py-1.5 text-sm',
-  lg: 'gap-3 px-4 py-2 text-base',
-} as const;
-
 const numberSizeClasses = {
   sm: 'h-5 min-w-5 px-1 text-[10px]',
   default: 'h-6 min-w-6 px-1 text-xs',
@@ -40,9 +34,9 @@ const numberSizeClasses = {
 } as const;
 
 const photoSizeClasses = {
-  sm: 'h-5 w-5',
-  default: 'h-6 w-6',
-  lg: 'h-8 w-8',
+  sm: 'h-9 w-9',
+  default: 'h-12 w-12',
+  lg: 'h-14 w-14',
 } as const;
 
 export function PilotChip({
@@ -63,16 +57,23 @@ export function PilotChip({
   const name = `${firstName} ${lastName}`.trim();
   const countryLabel = countryCode2 ? `Country ${countryCode2}` : undefined;
 
-  const photo = photoUrl ? (
-    <img
-      src={photoUrl}
-      alt=""
-      className={cn(
-        'shrink-0 rounded-full object-cover object-top ring-1 ring-border',
-        photoSizeClasses[size],
-      )}
-    />
-  ) : null;
+  const photo = (
+    photoUrl ? (
+      <img
+        src={photoUrl}
+        alt=""
+        className={cn(
+          'row-span-2 shrink-0 rounded-full object-cover object-top ring-1 ring-border',
+          photoSizeClasses[size],
+        )}
+      />
+    ) : (
+      <span
+        className={cn('row-span-2 shrink-0 rounded-full bg-muted', photoSizeClasses[size])}
+        aria-hidden
+      />
+    )
+  );
 
   const numberBadge = (overlay: boolean) => (
     <span
@@ -111,31 +112,20 @@ export function PilotChip({
     ) : null;
 
   return (
-    <div className={cn('max-w-full font-medium', className)} {...props}>
-      <div className="flex min-w-0 flex-col gap-1 md:hidden">
-        <div className="flex min-w-0 items-center gap-2">
-          {photo}
-          <span className="min-w-0 truncate text-card-foreground">{name}</span>
-        </div>
-        <div className="flex min-w-0 items-center gap-2">
-          {numberBadge(false)}
-          {countryMark(true)}
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          'hidden max-w-full items-center rounded-full border border-border bg-card text-card-foreground transition-colors md:inline-flex',
-          sizeClasses[size],
-          isActive &&
-            'border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-background',
-        )}
-      >
-        {photo ?? numberBadge(false)}
-        {photo ? numberBadge(true) : null}
-        <span className="min-w-0 truncate text-card-foreground">{name}</span>
-        {countryMark(false) ? <span className="ml-auto">{countryMark(false)}</span> : null}
-      </div>
+    <div
+      className={cn(
+        'grid min-w-0 max-w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 font-medium',
+        isActive && 'rounded-xl bg-accent/10 ring-2 ring-accent',
+        className,
+      )}
+      {...props}
+    >
+      {photo}
+      <span className="min-w-0 truncate leading-tight text-card-foreground">{name}</span>
+      <span className="flex min-w-0 items-center gap-1.5">
+        {numberBadge(false)}
+        {countryMark(true)}
+      </span>
     </div>
   );
 }

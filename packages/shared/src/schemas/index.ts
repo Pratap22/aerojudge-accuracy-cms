@@ -96,7 +96,8 @@ export const createCompetitionSchema = z.object({
   /** Out-of-target / DNF / ABS / DNS score in centimetres – competition-specific */
   maximumScoreCm: z.number().min(1).max(10000).default(1000),
   ruleSet: z.enum(['FAI_2022', 'FAI_FUTURE', 'NPHA_LOCAL', 'CUSTOM']).default('FAI_2022'),
-  faiCategory: z.string().default('2'),
+  /** `1` and `2` are FAI category events. `NONE` is not a category event. */
+  faiCategory: z.enum(['1', '2', 'NONE']).default('2'),
   /** Owning organization; omitted → default/active organization. */
   organizationId: z.string().min(1).optional(),
 });

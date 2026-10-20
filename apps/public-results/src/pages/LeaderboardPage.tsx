@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Search } from 'lucide-react';
+import { Input } from '@aero-judge/ui';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { LiveLeaderboard } from '../components/LiveLeaderboard';
@@ -7,6 +9,7 @@ import { competitionPath } from '../lib/api';
 import { isCompetitionCompleted } from '../lib/competitionStatus';
 import { CountriesBoard, TeamsBoard, WomenBoard } from './CategoryPages';
 import { ResultsStats } from './StatisticsPage';
+import { FaiCategoryBadge } from '../components/FaiCategoryBadge';
 
 const BOARDS = ['overall', 'women', 'teams', 'countries'] as const;
 type Board = (typeof BOARDS)[number];
@@ -20,6 +23,7 @@ export function LeaderboardPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const [query, setQuery] = useState('');
   const { data: competition } = useCompetition();
   const { data: countryResults, isSuccess: countriesReady } = useResults('COUNTRY');
   const showCountries = countriesReady && toLeaderboardEntries(countryResults).length > 1;
@@ -66,31 +70,47 @@ export function LeaderboardPage() {
 
   return (
     <Layout>
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <h1 className="font-display text-4xl font-bold text-white">{title}</h1>
-        <div className="mt-6 flex flex-wrap gap-2">
-          {boards.map((item) => {
-            const active = item.id === board;
-            const to = item.id === 'overall' ? resultsPath : `${resultsPath}?board=${item.id}`;
-            return (
-              <Link
-                key={item.id}
-                to={to}
-                aria-current={active ? 'page' : undefined}
-                className={
-                  active
-                    ? 'rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-[#050d1a]'
-                    : 'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-sky-100/80 transition-colors hover:bg-white/10 hover:text-white'
-                }
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="font-display text-xl font-bold text-white sm:text-2xl">{title}</h1>
+          <FaiCategoryBadge value={competition?.faiCategory} />
+          <div className="flex flex-wrap gap-1.5">
+            {boards.map((item) => {
+              const active = item.id === board;
+              const to = item.id === 'overall' ? resultsPath : `${resultsPath}?board=${item.id}`;
+              return (
+                <Link
+                  key={item.id}
+                  to={to}
+                  aria-current={active ? 'page' : undefined}
+                  className={
+                    active
+                      ? 'rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-[#050d1a]'
+                      : 'rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-sky-100/80 transition-colors hover:bg-white/10 hover:text-white'
+                  }
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+          {board === 'overall' ? (
+            <div className="relative ml-auto w-full max-w-[14rem] sm:w-52">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sky-400/50" />
+              <Input
+                placeholder="Search pilots…"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="h-8 border-white/10 bg-white/5 pl-8 text-sm text-white placeholder:text-sky-300/40"
+              />
+            </div>
+          ) : null}
         </div>
 
-        <div className="mt-8">
-          {board === 'overall' ? <LiveLeaderboard showHeading={false} showSearch /> : null}
+        <div className="mt-3">
+          {board === 'overall' ? (
+            <LiveLeaderboard showHeading={false} showSearch={false} query={query} />
+          ) : null}
           {board === 'women' ? <WomenBoard embedded /> : null}
           {board === 'teams' ? <TeamsBoard embedded /> : null}
           {board === 'countries' ? <CountriesBoard embedded /> : null}

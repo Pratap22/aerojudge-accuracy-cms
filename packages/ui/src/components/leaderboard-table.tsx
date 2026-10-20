@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { formatScoreCm } from '@aero-judge/utils';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 
 import { cn } from '../lib/utils';
 import { PilotChip } from './pilot-chip';
@@ -99,6 +100,36 @@ function awaitingLanding(entry: LeaderboardEntry): boolean {
  * the live maximum for a pilot who has not landed. That fill is omitted here
  * so the number matches the rounds already flown.
  */
+type SortKey = 'rank' | 'number';
+type SortDir = 'asc' | 'desc';
+
+function SortLabel({
+  label,
+  active,
+  dir,
+  onClick,
+  ariaLabel,
+}: {
+  label: string;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+  ariaLabel?: string;
+}) {
+  const Icon = !active ? ArrowUpDown : dir === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel ?? `Sort by ${label}`}
+      className="inline-flex items-center gap-1 text-inherit hover:text-foreground"
+    >
+      {label}
+      <Icon className="h-3.5 w-3.5 opacity-70" aria-hidden />
+    </button>
+  );
+}
+
 function scoreColumnCm(entry: LeaderboardEntry): number {
   const rounds = entry.roundScores ?? [];
   if (!rounds.some((rs) => rs.isProvisional)) return entry.totalScoreCm;
@@ -127,6 +158,32 @@ export function LeaderboardTable({
     return deriveRoundNumbers(entries);
   }, [showRoundScores, roundNumbersProp, entries]);
 
+  const [sortKey, setSortKey] = React.useState<SortKey>('rank');
+  const [sortDir, setSortDir] = React.useState<SortDir>('asc');
+  const sortByNumber = entries.some((entry) => !entry.hideNumber);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir('asc');
+  };
+
+  const sortedEntries = React.useMemo(() => {
+    const factor = sortDir === 'asc' ? 1 : -1;
+    return [...entries].sort((a, b) => {
+      if (sortKey === 'number') {
+        if (sortByNumber) return (a.pilotNumber - b.pilotNumber) * factor;
+        const aName = (a.displayName ?? `${a.firstName} ${a.lastName}`).trim();
+        const bName = (b.displayName ?? `${b.firstName} ${b.lastName}`).trim();
+        return aName.localeCompare(bName) * factor;
+      }
+      return (a.rank - b.rank) * factor;
+    });
+  }, [entries, sortByNumber, sortDir, sortKey]);
+
   const detailMode = showRoundScores && roundNumbers.length > 0;
   // When rounds are expanded, "9/9" is redundant unless callers keep it on.
   const showRoundsCount = showRounds && !detailMode;
@@ -151,8 +208,14 @@ export function LeaderboardTable({
                 detailMode && frozen,
                 detailMode && frozenBg,
               )}
+              aria-sort={sortKey === 'rank' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
             >
-              Rank
+              <SortLabel
+                label="Rank"
+                active={sortKey === 'rank'}
+                dir={sortDir}
+                onClick={() => toggleSort('rank')}
+              />
             </TableHead>
             <TableHead
               className={cn(
@@ -161,8 +224,17 @@ export function LeaderboardTable({
                 detailMode &&
                   'max-md:left-[4.75rem] max-md:min-w-[9.5rem] max-md:border-r max-md:border-white/10',
               )}
+              aria-sort={
+                sortKey === 'number' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+              }
             >
-              {nameColumn}
+              <SortLabel
+                label={nameColumn}
+                active={sortKey === 'number'}
+                dir={sortDir}
+                onClick={() => toggleSort('number')}
+                ariaLabel={sortByNumber ? `Sort by pilot number` : `Sort by ${nameColumn}`}
+              />
             </TableHead>
             {showRoundsCount && (
               <TableHead className="hidden text-right sm:table-cell">Rounds</TableHead>
@@ -180,7 +252,7 @@ export function LeaderboardTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {entries.map((entry) => {
+          {sortedEntries.map((entry) => {
             const label =
               entry.displayName ??
               `${entry.firstName}${entry.lastName ? ` ${entry.lastName}` : ''}`.trim();

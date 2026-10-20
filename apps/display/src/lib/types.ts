@@ -9,6 +9,8 @@ export interface PublicCompetition {
   endDate: string;
   status: string;
   publicSlug: string;
+  /** `1` or `2` for an FAI category event, `NONE` when it is not a category event. */
+  faiCategory?: string | null;
   settings?: {
     livePublicResults: boolean;
     partnersLabel?: string;

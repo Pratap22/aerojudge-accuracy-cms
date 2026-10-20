@@ -5,6 +5,7 @@ import { AeroJudgeLogo } from '@aero-judge/ui';
 import { ArrowRight, Loader2, MonitorPlay, Radio, Trophy, Users } from 'lucide-react';
 import { competitionPath, fetchCompetitions } from '../lib/api';
 import type { PublicCompetitionSummary } from '../lib/types';
+import { FaiCategoryBadge } from '../components/FaiCategoryBadge';
 
 function formatRange(start: string, end: string) {
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
@@ -68,11 +69,14 @@ function CompetitionCard({
             )}
           </div>
           <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
-            <span
-              className={`rounded border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${statusTone(competition.status)}`}
-            >
-              {competition.status.replace(/_/g, ' ')}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <FaiCategoryBadge value={competition.faiCategory} />
+              <span
+                className={`rounded border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${statusTone(competition.status)}`}
+              >
+                {competition.status.replace(/_/g, ' ')}
+              </span>
+            </div>
             <span className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-sky-400 opacity-0 transition group-hover:opacity-100">
               Open display
               <ArrowRight className="h-3.5 w-3.5" />

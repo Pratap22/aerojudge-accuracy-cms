@@ -94,7 +94,7 @@ function CategoryPage({
               showRoundScores={showRoundScores}
               roundNumbers={results?.roundNumbers}
               highlightPodium
-              className="min-w-max [&_th]:border-white/10 [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_.bg-foreground]:bg-white [&_.text-background]:text-slate-900"
+              className="min-w-max [&_th]:h-8 [&_th]:border-white/10 [&_th]:px-3 [&_th]:text-xs [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_td]:px-3 [&_td]:py-2 [&_.bg-foreground]:bg-white [&_.text-background]:text-slate-900"
             />
           </div>
         )}

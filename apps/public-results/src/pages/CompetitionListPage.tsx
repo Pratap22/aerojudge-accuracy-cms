@@ -7,6 +7,7 @@ import { competitionPath, fetchCompetitions } from '../lib/api';
 import type { PublicCompetitionSummary } from '../lib/types';
 import { formatDate } from '../lib/utils';
 import { ListSeo } from '../components/Seo';
+import { FaiCategoryBadge } from '../components/FaiCategoryBadge';
 
 function statusTone(status: string) {
   if (status === 'COMPLETED') return 'border-amber-400/40 text-amber-200';
@@ -64,11 +65,14 @@ function CompetitionCard({
             )}
           </div>
           <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
-            <span
-              className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${statusTone(competition.status)}`}
-            >
-              {competition.status.replace(/_/g, ' ')}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <FaiCategoryBadge value={competition.faiCategory} />
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider ${statusTone(competition.status)}`}
+              >
+                {competition.status.replace(/_/g, ' ')}
+              </span>
+            </div>
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-sky-400 opacity-0 transition group-hover:opacity-100">
               Open event
               <ArrowRight className="h-4 w-4" />

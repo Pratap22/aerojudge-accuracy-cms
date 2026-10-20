@@ -13,6 +13,11 @@ import {
   CardTitle,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@aero-judge/ui';
 import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
@@ -32,6 +37,7 @@ export function SettingsPage() {
     queryKey: ['competition', activeCompetitionId],
     queryFn: () =>
       api.get<{
+        faiCategory?: string | null;
         settings?: {
           windDisplayMaxAgeMinutes?: number;
           feedPublishScores?: boolean;
@@ -40,9 +46,14 @@ export function SettingsPage() {
       }>(`/competitions/${activeCompetitionId}`,),
     enabled: !!activeCompetitionId,
   });
+  const [eventCategory, setEventCategory] = useState<'1' | '2' | 'NONE' | ''>('');
   const [windMaxAgeMinutes, setWindMaxAgeMinutes] = useState('30');
   const [feedPublishScores, setFeedPublishScores] = useState(true);
   const [feedPublishReflights, setFeedPublishReflights] = useState(true);
+  useEffect(() => {
+    const stored = competition?.faiCategory;
+    setEventCategory(stored === 'NONE' ? 'NONE' : stored === '1' ? '1' : stored === '2' ? '2' : '');
+  }, [competition?.faiCategory]);
   useEffect(() => {
     const minutes = competition?.settings?.windDisplayMaxAgeMinutes;
     if (minutes == null) return;
@@ -53,6 +64,15 @@ export function SettingsPage() {
     setFeedPublishScores(competition.settings.feedPublishScores !== false);
     setFeedPublishReflights(competition.settings.feedPublishReflights !== false);
   }, [competition?.settings]);
+
+  const categoryMutation = useMutation({
+    mutationFn: (faiCategory: '1' | '2' | 'NONE') =>
+      api.patch(`/competitions/${activeCompetitionId}`, { faiCategory }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
+      queryClient.invalidateQueries({ queryKey: ['competitions'] });
+    },
+  });
 
   const feedMutation = useMutation({
     mutationFn: () =>
@@ -130,6 +150,49 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent>
           <CompetitionDatesForm competitionId={activeCompetitionId} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Event category
+          </CardTitle>
+          <CardDescription>
+            Shown on the public results pages and the venue display.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (eventCategory !== '1' && eventCategory !== '2' && eventCategory !== 'NONE') return;
+              categoryMutation.mutate(eventCategory);
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="event-category">Category</Label>
+              <Select
+                value={eventCategory || undefined}
+                onValueChange={(value) => setEventCategory(value as '1' | '2' | 'NONE')}
+              >
+                <SelectTrigger id="event-category" className="w-48">
+                  <SelectValue placeholder="Choose category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Cat 1</SelectItem>
+                  <SelectItem value="2">Cat 2</SelectItem>
+                  <SelectItem value="NONE">No category</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" disabled={categoryMutation.isPending || !eventCategory}>
+              <Save className="mr-2 h-4 w-4" />
+              Save category
+            </Button>
+          </form>
         </CardContent>
       </Card>
 

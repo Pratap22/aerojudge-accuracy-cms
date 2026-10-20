@@ -45,6 +45,7 @@ const publicCompetitionSelect = {
   endDate: true,
   status: true,
   publicSlug: true,
+  faiCategory: true,
   organization: {
     select: {
       name: true,
@@ -127,6 +128,7 @@ function mapPublicCompetition(competition: {
   endDate: Date;
   status: string;
   publicSlug: string;
+  faiCategory?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   organization?: {
@@ -179,6 +181,7 @@ function mapPublicCompetition(competition: {
     endDate: competition.endDate,
     status: competition.status,
     publicSlug: competition.publicSlug,
+    faiCategory: competition.faiCategory,
     settings: competition.settings,
     organiser: toPublicOrganiser(competition),
     hasInfo,
@@ -245,6 +248,7 @@ export async function listPublicCompetitions() {
       endDate: true,
       status: true,
       publicSlug: true,
+      faiCategory: true,
       _count: {
         select: {
           pilots: true,
@@ -315,6 +319,7 @@ export async function listPublicCompetitions() {
       endDate: c.endDate,
       status: c.status,
       publicSlug: c.publicSlug,
+      faiCategory: c.faiCategory,
       pilotCount: c._count.pilots,
       teamCount: c._count.teams,
       roundCount,

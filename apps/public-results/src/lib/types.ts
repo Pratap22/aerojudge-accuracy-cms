@@ -15,6 +15,8 @@ export interface PublicCompetition {
   endDate: string;
   status: string;
   publicSlug: string;
+  /** `1` or `2` for an FAI category event, `NONE` when it is not a category event. */
+  faiCategory?: string | null;
   /** Display card for the organising association (logo + name). */
   organiser?: PublicOrganiser | null;
   /** True when brochure content (about, gallery, map, etc.) is available. */

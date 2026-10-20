@@ -5,6 +5,7 @@ import { Layout } from '../components/Layout';
 import { CompetitionInfoSections } from '../components/CompetitionInfoSections';
 import { EventFeedList } from '../components/EventFeed';
 import { OfficialCard, OrganizerCard } from '../components/OrganizingTeam';
+import { FaiCategoryBadge } from '../components/FaiCategoryBadge';
 import { useCompetition, useEventFeed } from '../hooks/useCompetition';
 import { competitionPath, fetchEventInfo, fetchOfficials } from '../lib/api';
 
@@ -75,9 +76,12 @@ export function EventPage() {
       <div className="mx-auto max-w-7xl px-6 py-12">
         <header className="max-w-3xl">
           <p className="text-sm font-medium uppercase tracking-wider text-sky-400/70">Event</p>
-          <h1 className="mt-2 font-display text-4xl font-bold text-white">
-            {competition?.name ?? 'Event'}
-          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-4xl font-bold text-white">
+              {competition?.name ?? 'Event'}
+            </h1>
+            <FaiCategoryBadge value={competition?.faiCategory} />
+          </div>
           {competition ? (
             <p className="mt-3 text-sky-100/55">
               {[competition.venue, competition.country].filter(Boolean).join(' · ')}

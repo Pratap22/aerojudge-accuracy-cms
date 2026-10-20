@@ -10,6 +10,9 @@ interface LiveLeaderboardProps {
   title?: string;
   showHeading?: boolean;
   showSearch?: boolean;
+  /** Controlled search. When set with `showSearch` false, the parent renders the field. */
+  query?: string;
+  onQueryChange?: (value: string) => void;
   maxRows?: number;
 }
 
@@ -17,12 +20,16 @@ export function LiveLeaderboard({
   title,
   showHeading = true,
   showSearch = true,
+  query,
+  onQueryChange,
   maxRows,
 }: LiveLeaderboardProps) {
   const { data: competition } = useCompetition();
   const { data: results, isLoading, error } = useResults('OVERALL');
   const { data: wind } = useLatestWind();
-  const [search, setSearch] = useState('');
+  const [internalSearch, setInternalSearch] = useState('');
+  const search = query ?? internalSearch;
+  const setSearch = onQueryChange ?? setInternalSearch;
   const completed = isCompetitionCompleted(competition?.status);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -70,7 +77,7 @@ export function LiveLeaderboard({
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {showHeading ? (
           <h2 className="font-display text-3xl font-bold text-white">{heading}</h2>
@@ -98,7 +105,7 @@ export function LiveLeaderboard({
           showBullseyes={false}
           showRounds={false}
           highlightPodium
-          className="min-w-max [&_th]:border-white/10 [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_tr]:border-white/5 [&_td]:text-white [&_.bg-foreground]:bg-white [&_.text-background]:text-slate-900"
+          className="min-w-max [&_th]:h-8 [&_th]:border-white/10 [&_th]:px-3 [&_th]:text-xs [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_td]:px-3 [&_td]:py-2 [&_tr]:border-white/5 [&_td]:text-white [&_.bg-foreground]:bg-white [&_.text-background]:text-slate-900"
         />
       </div>
 

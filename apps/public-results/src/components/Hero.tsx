@@ -11,6 +11,7 @@ import {
   isRegistrationOpen,
 } from '../lib/competitionStatus';
 import { FitHeading } from './FitHeading';
+import { FaiCategoryBadge } from './FaiCategoryBadge';
 
 interface HeroProps {
   competition: PublicCompetition;
@@ -67,9 +68,12 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
             {competition.venue}
             {competition.country ? ` · ${competition.country}` : ''}
           </h2>
-          <p className="mb-4 text-sky-400/60">
-            {formatDate(competition.startDate)} – {formatDate(competition.endDate)}
-          </p>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <FaiCategoryBadge value={competition.faiCategory} />
+            <p className="text-sky-400/60">
+              {formatDate(competition.startDate)} – {formatDate(competition.endDate)}
+            </p>
+          </div>
           {completed ? (
             <p className="mb-12 text-sm uppercase tracking-[0.3em] text-amber-300/80">
               Competition completed · Official final standings

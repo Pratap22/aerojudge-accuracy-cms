@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createCompetitionSchema, type CreateCompetitionInput, type CompetitionStatus, type Organization } from '@aero-judge/shared';
+import { createCompetitionSchema, faiCategoryLabel, type CreateCompetitionInput, type CompetitionStatus, type Organization } from '@aero-judge/shared';
 import { Archive, Plus } from 'lucide-react';
 import {
   Badge,
@@ -244,8 +244,20 @@ export function CompetitionForm({
             </p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="faiCategory">FAI Category</Label>
-            <Input id="faiCategory" {...register('faiCategory')} />
+            <Label htmlFor="faiCategory">Event category</Label>
+            <Select
+              value={watch('faiCategory')}
+              onValueChange={(value) => setValue('faiCategory', value as CreateCompetitionInput['faiCategory'])}
+            >
+              <SelectTrigger id="faiCategory">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Cat 1</SelectItem>
+                <SelectItem value="2">Cat 2</SelectItem>
+                <SelectItem value="NONE">No category</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Rule Set</Label>
@@ -376,6 +388,9 @@ export function CompetitionsPage() {
                         <Badge variant="outline">Unpublished</Badge>
                       )}
                       {isOpen && <Badge variant="secondary">Open</Badge>}
+                      {faiCategoryLabel(comp.faiCategory) && (
+                        <Badge variant="outline">{faiCategoryLabel(comp.faiCategory)}</Badge>
+                      )}
                     </div>
                   </div>
                   <CardDescription>
