@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   isEmptyHtml,
+  parseMapSites,
   type CreateCompetitionContactInput,
   type CreateCompetitionLinkInput,
   type CreateGalleryImageInput,
@@ -10,6 +11,7 @@ import {
   type UpdateCompetitionInfoInput,
   type UpdateCompetitionLinkInput,
   type UpdateGalleryImageInput,
+  type MapSite,
 } from '@aero-judge/shared';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
@@ -82,6 +84,7 @@ function computeHasContent(input: {
   travelInfoHtml: string | null;
   latitude: number | null;
   longitude: number | null;
+  mapSites: MapSite[];
   galleryCount: number;
   linksCount: number;
   contactsCount: number;
@@ -93,6 +96,7 @@ function computeHasContent(input: {
     !isEmptyHtml(input.entryFeePaymentHtml) ||
     !isEmptyHtml(input.flyingSiteHtml) ||
     !isEmptyHtml(input.travelInfoHtml) ||
+    input.mapSites.length > 0 ||
     (input.latitude != null && input.longitude != null) ||
     input.galleryCount > 0 ||
     input.linksCount > 0 ||
@@ -130,6 +134,19 @@ export async function getEventInfo(competitionId: string, opts?: { publicOnly?: 
   const flyingSiteHtml = info?.flyingSiteHtml ?? null;
   const travelInfoHtml = info?.travelInfoHtml ?? null;
 
+  const mapSites = parseMapSites(info?.mapSites);
+  if (
+    !mapSites.some((site) => site.kind === 'HQ') &&
+    competition.latitude != null &&
+    competition.longitude != null
+  ) {
+    mapSites.unshift({
+      kind: 'HQ',
+      latitude: competition.latitude,
+      longitude: competition.longitude,
+    });
+  }
+
   const mappedGallery = gallery.map(mapGalleryImage);
   const mappedLinks = links.map(mapLink);
   const mappedContacts = contacts.map(mapContact);
@@ -146,6 +163,7 @@ export async function getEventInfo(competitionId: string, opts?: { publicOnly?: 
     mapZoom: info?.mapZoom ?? 13,
     latitude: competition.latitude,
     longitude: competition.longitude,
+    mapSites,
     venue: competition.venue,
     location: competition.location,
     gallery: mappedGallery,
@@ -160,6 +178,7 @@ export async function getEventInfo(competitionId: string, opts?: { publicOnly?: 
       travelInfoHtml,
       latitude: competition.latitude,
       longitude: competition.longitude,
+      mapSites,
       galleryCount: mappedGallery.length,
       linksCount: mappedLinks.length,
       contactsCount: mappedContacts.length,
@@ -191,6 +210,7 @@ export async function updateEventInfo(competitionId: string, input: UpdateCompet
       : {}),
     ...(input.mapLabel !== undefined ? { mapLabel: input.mapLabel ?? null } : {}),
     ...(input.mapZoom !== undefined ? { mapZoom: input.mapZoom } : {}),
+    ...(input.mapSites !== undefined ? { mapSites: input.mapSites } : {}),
   };
 
   const competitionUpdate: {
@@ -198,8 +218,14 @@ export async function updateEventInfo(competitionId: string, input: UpdateCompet
     longitude?: number | null;
     location?: string | null;
   } = {};
-  if (input.latitude !== undefined) competitionUpdate.latitude = input.latitude;
-  if (input.longitude !== undefined) competitionUpdate.longitude = input.longitude;
+  if (input.mapSites !== undefined) {
+    const hq = input.mapSites.find((site) => site.kind === 'HQ');
+    competitionUpdate.latitude = hq?.latitude ?? null;
+    competitionUpdate.longitude = hq?.longitude ?? null;
+  } else {
+    if (input.latitude !== undefined) competitionUpdate.latitude = input.latitude;
+    if (input.longitude !== undefined) competitionUpdate.longitude = input.longitude;
+  }
   if (input.location !== undefined) competitionUpdate.location = input.location ?? null;
 
   await prisma.$transaction(async (tx) => {

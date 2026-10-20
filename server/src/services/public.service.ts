@@ -69,6 +69,7 @@ const publicCompetitionSelect = {
       entryFeePaymentHtml: true,
       flyingSiteHtml: true,
       travelInfoHtml: true,
+      mapSites: true,
     },
   },
   latitude: true,
@@ -149,6 +150,7 @@ function mapPublicCompetition(competition: {
     entryFeePaymentHtml: string | null;
     flyingSiteHtml: string | null;
     travelInfoHtml: string | null;
+    mapSites?: unknown;
   } | null;
   _count?: {
     galleryImages: number;
@@ -165,6 +167,7 @@ function mapPublicCompetition(competition: {
     !isEmptyHtml(info?.entryFeePaymentHtml) ||
     !isEmptyHtml(info?.flyingSiteHtml) ||
     !isEmptyHtml(info?.travelInfoHtml) ||
+    (Array.isArray(info?.mapSites) && info.mapSites.length > 0) ||
     (competition.latitude != null && competition.longitude != null) ||
     (competition._count?.galleryImages ?? 0) > 0 ||
     (competition._count?.links ?? 0) > 0 ||

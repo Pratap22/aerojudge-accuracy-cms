@@ -101,3 +101,4 @@ export {
 } from './components/team-leaderboard';
 export { ThemeToggle, type ThemeToggleProps } from './components/theme-toggle';
 export { AeroJudgeLogo } from './components/aerojudge-logo';
+export { EventMap, type EventMapPin } from './components/event-map';

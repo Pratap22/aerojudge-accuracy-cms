@@ -703,6 +703,48 @@ const richHtml = z
   .optional()
   .transform((v) => (v === undefined ? undefined : v));
 
+export const mapSiteKindSchema = z.enum(['HQ', 'TAKEOFF', 'LANDING']);
+
+export const mapSiteSchema = z.object({
+  kind: mapSiteKindSchema,
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+});
+
+export type MapSiteKind = z.infer<typeof mapSiteKindSchema>;
+export type MapSite = z.infer<typeof mapSiteSchema>;
+
+export const MAP_SITE_ORDER: MapSiteKind[] = ['HQ', 'TAKEOFF', 'LANDING'];
+
+export const MAP_SITE_LABELS: Record<MapSiteKind, string> = {
+  HQ: 'HQ',
+  TAKEOFF: 'Takeoff',
+  LANDING: 'Landing',
+};
+
+/** Pin colours on the event map. */
+export const MAP_SITE_COLORS: Record<MapSiteKind, string> = {
+  HQ: '#2563eb',
+  TAKEOFF: '#16a34a',
+  LANDING: '#ea580c',
+};
+
+/** Drop unknown or duplicate sites and keep HQ, takeoff, landing in that order. */
+export function parseMapSites(value: unknown): MapSite[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<MapSiteKind>();
+  const sites: MapSite[] = [];
+  for (const item of value) {
+    const parsed = mapSiteSchema.safeParse(item);
+    if (!parsed.success || seen.has(parsed.data.kind)) continue;
+    seen.add(parsed.data.kind);
+    sites.push(parsed.data);
+  }
+  return sites.sort(
+    (a, b) => MAP_SITE_ORDER.indexOf(a.kind) - MAP_SITE_ORDER.indexOf(b.kind),
+  );
+}
+
 export const updateCompetitionInfoSchema = z.object({
   aboutHtml: richHtml,
   dailyScheduleHtml: richHtml,
@@ -712,10 +754,18 @@ export const updateCompetitionInfoSchema = z.object({
   travelInfoHtml: richHtml,
   mapLabel: optionalString,
   mapZoom: z.number().int().min(1).max(19).optional(),
-  /** Event map coordinates (stored on Competition). */
+  /** Event map coordinates (stored on Competition). HQ is copied here as well. */
   latitude: z.number().min(-90).max(90).nullable().optional(),
   longitude: z.number().min(-180).max(180).nullable().optional(),
   location: optionalString,
+  mapSites: z
+    .array(mapSiteSchema)
+    .max(3)
+    .optional()
+    .refine(
+      (sites) => !sites || new Set(sites.map((site) => site.kind)).size === sites.length,
+      'Each map site can only be set once',
+    ),
 });
 
 export const createGalleryImageSchema = z.object({

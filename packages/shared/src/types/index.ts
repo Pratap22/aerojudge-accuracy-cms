@@ -517,6 +517,8 @@ export interface CompetitionEventInfo extends CompetitionInfoContent {
   competitionId: string;
   latitude: number | null;
   longitude: number | null;
+  /** HQ, takeoff, and landing. Existing single coordinates are returned as HQ. */
+  mapSites: { kind: 'HQ' | 'TAKEOFF' | 'LANDING'; latitude: number; longitude: number }[];
   venue: string;
   location: string | null;
   gallery: CompetitionGalleryImage[];

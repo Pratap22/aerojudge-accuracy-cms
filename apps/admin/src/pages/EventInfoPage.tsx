@@ -6,12 +6,17 @@ import {
   createCompetitionContactSchema,
   createCompetitionLinkSchema,
   isEmptyHtml,
+  MAP_SITE_COLORS,
+  MAP_SITE_LABELS,
+  MAP_SITE_ORDER,
   type CompetitionContact,
   type CompetitionEventInfo,
   type CompetitionGalleryImage,
   type CompetitionLink,
   type CreateCompetitionContactInput,
   type CreateCompetitionLinkInput,
+  type MapSite,
+  type MapSiteKind,
   type UpdateCompetitionInfoInput,
 } from '@aero-judge/shared';
 import {
@@ -28,6 +33,7 @@ import {
 import {
   Button,
   Card,
+  EventMap,
   CardContent,
   CardDescription,
   CardHeader,
@@ -93,6 +99,35 @@ const RICH_SECTIONS: Array<{ key: HtmlFieldKey; label: string; hint: string }> =
   },
 ];
 
+const emptySiteDraft = (): Record<MapSiteKind, { latitude: string; longitude: string }> => ({
+  HQ: { latitude: '', longitude: '' },
+  TAKEOFF: { latitude: '', longitude: '' },
+  LANDING: { latitude: '', longitude: '' },
+});
+
+function sitesToDraft(sites: MapSite[]) {
+  const draft = emptySiteDraft();
+  for (const site of sites) {
+    draft[site.kind] = {
+      latitude: String(site.latitude),
+      longitude: String(site.longitude),
+    };
+  }
+  return draft;
+}
+
+function sitesFromDraft(
+  draft: Record<MapSiteKind, { latitude: string; longitude: string }>,
+): MapSite[] {
+  return MAP_SITE_ORDER.flatMap((kind) => {
+    const latitude = Number(draft[kind].latitude);
+    const longitude = Number(draft[kind].longitude);
+    if (draft[kind].latitude.trim() === '' || draft[kind].longitude.trim() === '') return [];
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+    return [{ kind, latitude, longitude }];
+  });
+}
+
 export function EventInfoPage() {
   const competitionId = useCompetitionId();
   const queryClient = useQueryClient();
@@ -105,10 +140,15 @@ export function EventInfoPage() {
   });
 
   const [draft, setDraft] = useState<UpdateCompetitionInfoInput>({});
+  const [siteDraft, setSiteDraft] = useState<Record<MapSiteKind, { latitude: string; longitude: string }>>(
+    emptySiteDraft,
+  );
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!info) return;
+    const sites = info.mapSites ?? [];
+    setSiteDraft(sitesToDraft(sites));
     setDraft({
       aboutHtml: info.aboutHtml,
       dailyScheduleHtml: info.dailyScheduleHtml,
@@ -118,8 +158,7 @@ export function EventInfoPage() {
       travelInfoHtml: info.travelInfoHtml,
       mapLabel: info.mapLabel ?? undefined,
       mapZoom: info.mapZoom,
-      latitude: info.latitude,
-      longitude: info.longitude,
+      mapSites: sites,
       location: info.location ?? undefined,
     });
     setDirty(false);
@@ -179,6 +218,16 @@ export function EventInfoPage() {
 
   const setHtml = (key: HtmlFieldKey, html: string) => {
     setDraft((prev) => ({ ...prev, [key]: isEmptyHtml(html) ? null : html }));
+    setDirty(true);
+  };
+
+  const updateSite = (kind: MapSiteKind, field: 'latitude' | 'longitude', value: string) => {
+    const next = {
+      ...siteDraft,
+      [kind]: { ...siteDraft[kind], [field]: value },
+    };
+    setSiteDraft(next);
+    setDraft((current) => ({ ...current, mapSites: sitesFromDraft(next) }));
     setDirty(true);
   };
 
@@ -302,42 +351,46 @@ export function EventInfoPage() {
               <CardHeader>
                 <CardTitle>Event map</CardTitle>
                 <CardDescription>
-                  Coordinates power the OpenStreetMap embed on the public info page.
+                  Add HQ, takeoff, and landing. Leave a site blank to hide its pin. Both latitude
+                  and longitude are required for a pin to appear.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="latitude">Latitude</Label>
-                  <Input
-                    id="latitude"
-                    type="number"
-                    step="any"
-                    value={draft.latitude ?? ''}
-                    onChange={(e) =>
-                      setMapField(
-                        'latitude',
-                        e.target.value === '' ? null : Number(e.target.value),
-                      )
-                    }
-                    placeholder="e.g. 27.175"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="longitude">Longitude</Label>
-                  <Input
-                    id="longitude"
-                    type="number"
-                    step="any"
-                    value={draft.longitude ?? ''}
-                    onChange={(e) =>
-                      setMapField(
-                        'longitude',
-                        e.target.value === '' ? null : Number(e.target.value),
-                      )
-                    }
-                    placeholder="e.g. 88.606"
-                  />
-                </div>
+                {MAP_SITE_ORDER.map((kind) => (
+                  <div key={kind} className="space-y-3 rounded-lg border p-3 sm:col-span-2">
+                    <p className="flex items-center gap-2 text-sm font-medium">
+                      <span
+                        className="inline-block h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: MAP_SITE_COLORS[kind] }}
+                      />
+                      {MAP_SITE_LABELS[kind]}
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor={`${kind}-latitude`}>Latitude</Label>
+                        <Input
+                          id={`${kind}-latitude`}
+                          type="number"
+                          step="any"
+                          value={siteDraft[kind].latitude}
+                          onChange={(e) => updateSite(kind, 'latitude', e.target.value)}
+                          placeholder="e.g. 28.209"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`${kind}-longitude`}>Longitude</Label>
+                        <Input
+                          id={`${kind}-longitude`}
+                          type="number"
+                          step="any"
+                          value={siteDraft[kind].longitude}
+                          onChange={(e) => updateSite(kind, 'longitude', e.target.value)}
+                          placeholder="e.g. 83.985"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
                 <div className="space-y-2">
                   <Label htmlFor="mapZoom">Zoom (1–19)</Label>
                   <Input
@@ -367,13 +420,17 @@ export function EventInfoPage() {
                     placeholder="Optional address or area description"
                   />
                 </div>
-                {draft.latitude != null && draft.longitude != null ? (
+                {(draft.mapSites?.length ?? 0) > 0 ? (
                   <div className="sm:col-span-2 overflow-hidden rounded-lg border">
-                    <iframe
-                      title="Event map preview"
-                      className="h-64 w-full border-0"
-                      src={osmEmbedUrl(draft.latitude, draft.longitude, draft.mapZoom ?? 13)}
-                      loading="lazy"
+                    <EventMap
+                      className="h-64 sm:h-64"
+                      pins={(draft.mapSites ?? []).map((site) => ({
+                        label: MAP_SITE_LABELS[site.kind],
+                        latitude: site.latitude,
+                        longitude: site.longitude,
+                        color: MAP_SITE_COLORS[site.kind],
+                      }))}
+                      zoom={draft.mapZoom ?? 13}
                     />
                     <p className="flex items-center gap-1.5 border-t px-3 py-2 text-xs text-muted-foreground">
                       <MapPin className="h-3.5 w-3.5" />
@@ -382,8 +439,8 @@ export function EventInfoPage() {
                   </div>
                 ) : (
                   <p className="sm:col-span-2 text-sm text-muted-foreground">
-                    Set latitude and longitude to preview the map. The section stays hidden on the
-                    public page until both are set.
+                    Set latitude and longitude for HQ, takeoff, or landing to preview the map. The
+                    section stays hidden on the public page until at least one site is complete.
                   </p>
                 )}
               </CardContent>
@@ -409,15 +466,6 @@ export function EventInfoPage() {
       )}
     </div>
   );
-}
-
-function osmEmbedUrl(lat: number, lng: number, zoom: number): string {
-  const delta = 0.02 * Math.pow(2, 13 - zoom);
-  const minLon = lng - delta;
-  const minLat = lat - delta;
-  const maxLon = lng + delta;
-  const maxLat = lat + delta;
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${minLon}%2C${minLat}%2C${maxLon}%2C${maxLat}&layer=mapnik&marker=${lat}%2C${lng}`;
 }
 
 function GalleryCard({

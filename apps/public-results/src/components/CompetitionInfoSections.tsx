@@ -1,7 +1,13 @@
 import type { ReactNode } from 'react';
-import { isEmptyHtml, type CompetitionEventInfo } from '@aero-judge/shared';
+import {
+  isEmptyHtml,
+  MAP_SITE_COLORS,
+  MAP_SITE_LABELS,
+  type CompetitionEventInfo,
+} from '@aero-judge/shared';
+import { EventMap } from '@aero-judge/ui';
 import { ExternalLink, Mail, MapPin, Phone } from 'lucide-react';
-import { osmBrowseUrl, osmEmbedUrl, sanitizePublicHtml } from '../lib/rich-html';
+import { osmBrowseUrl, sanitizePublicHtml } from '../lib/rich-html';
 
 function InfoSection({
   id,
@@ -47,7 +53,13 @@ export function CompetitionInfoSections({ info }: CompetitionInfoSectionsProps) 
     { id: 'travel', title: 'Travel info', html: info.travelInfoHtml },
   ];
 
-  const hasMap = info.latitude != null && info.longitude != null;
+  const mapPins = (info.mapSites ?? []).map((site) => ({
+    label: MAP_SITE_LABELS[site.kind],
+    latitude: site.latitude,
+    longitude: site.longitude,
+    color: MAP_SITE_COLORS[site.kind],
+  }));
+  const hasMap = mapPins.length > 0;
   const hasGallery = info.gallery.length > 0;
   const hasLinks = info.links.length > 0;
   const hasContacts = info.contacts.length > 0;
@@ -99,20 +111,23 @@ export function CompetitionInfoSections({ info }: CompetitionInfoSectionsProps) 
       {hasMap ? (
         <InfoSection id="map" title="Event map">
           <div className="overflow-hidden rounded-xl border border-white/10">
-            <iframe
-              title="Event map"
-              className="h-72 w-full border-0 sm:h-96"
-              src={osmEmbedUrl(info.latitude!, info.longitude!, info.mapZoom ?? 13)}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-sky-100/65">
-              <span className="inline-flex items-center gap-1.5">
+            <EventMap pins={mapPins} zoom={info.mapZoom ?? 13} />
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-sky-100/65">
+              <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
                 <MapPin className="h-3.5 w-3.5 text-sky-400/60" />
                 {info.mapLabel || info.location || info.venue}
+                {mapPins.map((pin) => (
+                  <span key={pin.label} className="inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: pin.color }}
+                    />
+                    {pin.label}
+                  </span>
+                ))}
               </span>
               <a
-                href={osmBrowseUrl(info.latitude!, info.longitude!, info.mapZoom ?? 13)}
+                href={osmBrowseUrl(mapPins[0].latitude, mapPins[0].longitude, info.mapZoom ?? 13)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sky-300 hover:text-sky-200"

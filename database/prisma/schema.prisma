@@ -586,6 +586,8 @@ model CompetitionInfo {
   mapLabel            String?
   /// Override zoom for the event map (OpenStreetMap). Falls back to 13.
   mapZoom             Int      @default(13)
+  /// HQ, takeoff, and landing pins: [{ kind, latitude, longitude }].
+  mapSites            Json?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
