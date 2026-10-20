@@ -1,16 +1,73 @@
+import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import {
+  competitionResultsHref,
+  fetchLatestPublicScore,
+  fetchOverallBoard,
+  fetchPublicCompetitions,
+  fetchTeamBoard,
+} from '@/lib/api';
+import { buildHeroBoard, featuredCompetitionCandidates, type HeroBoard } from '@/lib/hero-board';
 
-const rows = [
-  { rank: 1, name: 'A. Rivera', score: '12', total: '48' },
-  { rank: 2, name: 'M. Chen', score: '0', total: '51', highlight: true },
-  { rank: 3, name: 'S. Okada', score: '18', total: '63' },
-];
+type LoadedBoard = {
+  board: HeroBoard;
+  href: string;
+};
 
 export function HeroProductMock() {
   const reduce = useReducedMotion();
+  const [loaded, setLoaded] = useState<LoadedBoard | null>(null);
+  const [settled, setSettled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const list = await fetchPublicCompetitions();
+        for (const competition of featuredCompetitionCandidates(list).slice(0, 4)) {
+          const slug = competition.publicSlug || competition.id;
+          const [overall, teams, latest] = await Promise.all([
+            fetchOverallBoard(slug).catch(() => null),
+            fetchTeamBoard(slug).catch(() => ({ rankings: [] })),
+            fetchLatestPublicScore(slug).catch(() => null),
+          ]);
+          if (!overall) continue;
+          const board = buildHeroBoard({
+            competition,
+            rankings: overall.rankings,
+            teams: teams.rankings.map((row) => ({
+              rank: row.rank,
+              name: row.team?.name ?? '',
+              pilotNumbers: (row.pilots ?? []).map((pilot) => pilot.pilotNumber),
+            })),
+            latest,
+          });
+          if (!board) continue;
+          if (!cancelled) {
+            setLoaded({ board, href: competitionResultsHref(competition) });
+          }
+          return;
+        }
+      } catch {
+        // Leave the card empty rather than invent a leaderboard.
+      } finally {
+        if (!cancelled) setSettled(true);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (settled && !loaded) return null;
+
+  const board = loaded?.board;
 
   return (
-    <div className="relative mx-auto w-full max-w-lg lg:max-w-none" aria-hidden="true">
+    <div className="relative mx-auto w-full max-w-lg lg:max-w-none">
       <motion.div
         className="absolute -inset-4 rounded-2xl bg-target-ring"
         style={{ opacity: 0.8 }}
@@ -23,15 +80,24 @@ export function HeroProductMock() {
               }
         }
         transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+        aria-hidden
       />
-      <div className="relative overflow-hidden rounded-xl border border-navy/10 bg-white shadow-[0_24px_60px_-24px_rgba(0,36,71,0.45)]">
+      <a
+        href={loaded?.href ?? undefined}
+        className={`relative block overflow-hidden rounded-xl border border-navy/10 bg-white shadow-[0_24px_60px_-24px_rgba(0,36,71,0.45)] ${
+          loaded ? 'transition-transform hover:-translate-y-0.5' : 'pointer-events-none'
+        }`}
+        aria-label={board ? `${board.competitionName} results` : 'Loading competition results'}
+      >
         <div className="flex items-center gap-2 border-b border-border bg-navy px-4 py-3">
           <motion.span
-            className="inline-block h-2.5 w-2.5 rounded-full bg-sky"
+            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-sky"
             animate={reduce ? undefined : { opacity: [1, 0.25, 1], scale: [1, 0.85, 1] }}
             transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
           />
-          <span className="text-xs font-medium tracking-wide text-white/80">Live competition · Round 4</span>
+          <span className="truncate text-xs font-medium tracking-wide text-white/80">
+            {board?.title ?? 'Loading results'}
+          </span>
         </div>
 
         <div className="grid gap-0 sm:grid-cols-[1.1fr_0.9fr]">
@@ -40,9 +106,11 @@ export function HeroProductMock() {
               Current landing
             </p>
             <div className="mt-3 flex items-start justify-between gap-3">
-              <div>
-                <p className="font-display text-2xl font-bold text-navy">#42 · M. Chen</p>
-                <p className="mt-1 text-sm text-muted-foreground">Team North · Round 4</p>
+              <div className="min-w-0">
+                <p className="truncate font-display text-2xl font-bold text-navy">
+                  {board?.pilotLabel ?? '—'}
+                </p>
+                <p className="mt-1 truncate text-sm text-muted-foreground">{board?.detail ?? '—'}</p>
               </div>
               <motion.div
                 className="rounded-lg bg-bullseye px-3 py-2 text-center text-white"
@@ -62,15 +130,15 @@ export function HeroProductMock() {
                 }
               >
                 <p className="text-[10px] uppercase tracking-wider opacity-90">Score</p>
-                <p className="font-display text-3xl font-bold leading-none">0</p>
+                <p className="font-display text-3xl font-bold leading-none">{board?.scoreLabel ?? '—'}</p>
                 <p className="text-[10px] opacity-90">cm</p>
               </motion.div>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
               {[
-                { label: 'Overall', value: '51 cm' },
-                { label: 'Rank', value: '#2' },
-                { label: 'Team', value: '#1' },
+                { label: 'Overall', value: board?.overallLabel ?? '—' },
+                { label: 'Rank', value: board?.rankLabel ?? '—' },
+                { label: 'Team', value: board?.teamLabel ?? '—' },
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -91,22 +159,28 @@ export function HeroProductMock() {
               Leaderboard
             </p>
             <ul className="mt-3 space-y-2">
-              {rows.map((row, i) => (
+              {(board?.rows ?? [1, 2, 3].map((rank) => ({
+                rank,
+                name: '—',
+                score: '—',
+                total: '—',
+                highlight: false,
+              }))).map((row, i) => (
                 <motion.li
                   key={row.rank}
-                  className={`flex items-center justify-between rounded-md px-2.5 py-2 text-sm ${
+                  className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm ${
                     row.highlight ? 'bg-sky/10 ring-1 ring-sky/30' : 'bg-secondary/70'
                   }`}
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.75 + 0.12 * i, duration: 0.4 }}
                 >
-                  <span className="font-medium text-navy">
+                  <span className="min-w-0 truncate font-medium text-navy">
                     <span className="mr-2 inline-block w-4 text-muted-foreground">{row.rank}</span>
                     {row.name}
                   </span>
-                  <span className="tabular-nums text-muted-foreground">
-                    <span className="mr-2 text-navy">{row.score}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                    {row.score !== '—' ? <span className="mr-2 text-navy">{row.score}</span> : null}
                     {row.total}
                   </span>
                 </motion.li>
@@ -114,7 +188,7 @@ export function HeroProductMock() {
             </ul>
           </div>
         </div>
-      </div>
+      </a>
     </div>
   );
 }
