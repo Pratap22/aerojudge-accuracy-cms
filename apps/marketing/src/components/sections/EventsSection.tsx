@@ -50,9 +50,9 @@ function Stat({
 }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-sky">
+      <div className="flex items-center gap-1 text-[10px] font-semibold uppercase leading-tight tracking-wide text-sky sm:gap-1.5 sm:text-[11px] sm:tracking-wider">
         <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        <span className="truncate">{label}</span>
+        <span>{label}</span>
       </div>
       <p className="mt-0.5 font-display text-lg font-bold tabular-nums text-navy">{value}</p>
     </div>
@@ -121,7 +121,7 @@ export function EventsSection() {
         )}
 
         {items && items.length > 0 && (
-          <Stagger as="ul" className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3" stagger={0.05}>
+          <Stagger as="ul" className="mt-6 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3" stagger={0.05}>
             {items.map((competition) => {
               const open = isOpenCompetition(competition.status);
               const rounds = competition.completedRounds || competition.roundCount;
@@ -132,42 +132,40 @@ export function EventsSection() {
               const dates = formatEventDates(competition.startDate, competition.endDate);
 
               return (
-                <StaggerItem key={competition.id} as="li">
+                <StaggerItem key={competition.id} as="li" className="min-w-0">
                   <motion.a
                     href={href}
-                    className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-white p-4 shadow-sm outline-none transition-colors hover:border-sky/40 focus-visible:ring-2 focus-visible:ring-sky"
+                    className="group relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-white p-4 shadow-sm outline-none transition-colors hover:border-sky/40 focus-visible:ring-2 focus-visible:ring-sky"
                     whileHover={reduce ? undefined : { y: -4 }}
                     transition={{ duration: 0.25, ease: easeOut }}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p
-                          className={
-                            open
-                              ? 'text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600'
-                              : 'text-[11px] font-semibold uppercase tracking-[0.16em] text-sky'
-                          }
-                        >
-                          {statusLabel(competition.status)}
-                        </p>
-                        <h3 className="mt-1 font-display text-lg font-bold leading-snug text-navy">
-                          {competition.name}
-                        </h3>
-                        <p className="mt-1 truncate text-sm text-muted-foreground">
-                          {place}
-                          {dates ? ` · ${dates}` : ''}
-                        </p>
-                        <p className="mt-1 truncate text-xs text-muted-foreground/80">
-                          {competition.organizer}
-                        </p>
-                      </div>
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-navy/5 px-3 py-1.5 text-xs font-semibold text-navy transition-colors group-hover:bg-sky/15 group-hover:text-sky">
-                        {open ? 'Live results' : 'Results'}
+                    <div className="flex items-center justify-between gap-2">
+                      <p
+                        className={
+                          open
+                            ? 'text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600'
+                            : 'text-[11px] font-semibold uppercase tracking-[0.16em] text-sky'
+                        }
+                      >
+                        {statusLabel(competition.status)}
+                      </p>
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-navy/5 px-2.5 py-1 text-xs font-semibold text-navy transition-colors group-hover:bg-sky/15 group-hover:text-sky">
+                        {open ? 'Live' : 'Results'}
                         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
                       </span>
                     </div>
+                    <h3 className="mt-1 font-display text-lg font-bold leading-snug text-navy">
+                      {competition.name}
+                    </h3>
+                    <p className="mt-1 text-sm leading-snug text-muted-foreground">
+                      {place}
+                      {dates ? ` · ${dates}` : ''}
+                    </p>
+                    <p className="mt-1 text-xs leading-snug text-muted-foreground/80">
+                      {competition.organizer}
+                    </p>
 
-                    <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border/80 pt-3">
+                    <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border/80 pt-3">
                       <Stat icon={Target} label="Rounds" value={String(rounds)} />
                       <Stat icon={Users} label="Pilots" value={String(pilots)} />
                       {open ? (

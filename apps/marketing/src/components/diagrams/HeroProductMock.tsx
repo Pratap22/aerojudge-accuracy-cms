@@ -67,7 +67,7 @@ export function HeroProductMock() {
   const board = loaded?.board;
 
   return (
-    <div className="relative mx-auto w-full max-w-lg lg:max-w-none">
+    <div className="relative mx-auto w-full max-w-lg overflow-x-clip lg:max-w-none">
       <motion.div
         className="absolute -inset-4 rounded-2xl bg-target-ring"
         style={{ opacity: 0.8 }}
@@ -100,8 +100,8 @@ export function HeroProductMock() {
           </span>
         </div>
 
-        <div className="grid gap-0 sm:grid-cols-[1.1fr_0.9fr]">
-          <div className="border-b border-border p-4 sm:border-b-0 sm:border-r">
+        <div className="grid min-w-0 gap-0 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="min-w-0 border-b border-border p-4 sm:border-b-0 sm:border-r">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Current landing
             </p>
@@ -113,7 +113,7 @@ export function HeroProductMock() {
                 <p className="mt-1 truncate text-sm text-muted-foreground">{board?.detail ?? '—'}</p>
               </div>
               <motion.div
-                className="rounded-lg bg-bullseye px-3 py-2 text-center text-white"
+                className="shrink-0 rounded-lg bg-bullseye px-3 py-2 text-center text-white"
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={
                   reduce
@@ -154,7 +154,7 @@ export function HeroProductMock() {
             </div>
           </div>
 
-          <div className="p-4">
+          <div className="min-w-0 p-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Leaderboard
             </p>
@@ -168,17 +168,15 @@ export function HeroProductMock() {
               }))).map((row, i) => (
                 <motion.li
                   key={row.rank}
-                  className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm ${
+                  className={`flex min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-sm ${
                     row.highlight ? 'bg-sky/10 ring-1 ring-sky/30' : 'bg-secondary/70'
                   }`}
                   initial={{ opacity: 0, x: 16 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.75 + 0.12 * i, duration: 0.4 }}
                 >
-                  <span className="min-w-0 truncate font-medium text-navy">
-                    <span className="mr-2 inline-block w-4 text-muted-foreground">{row.rank}</span>
-                    {row.name}
-                  </span>
+                  <span className="w-4 shrink-0 text-muted-foreground">{row.rank}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium text-navy">{row.name}</span>
                   <span className="shrink-0 tabular-nums text-muted-foreground">
                     {row.score !== '—' ? <span className="mr-2 text-navy">{row.score}</span> : null}
                     {row.total}
