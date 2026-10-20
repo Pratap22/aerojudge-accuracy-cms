@@ -17,7 +17,16 @@ import {
   type AccessTokenUser,
 } from '../auth/jwt.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
-import { resolveMembershipPermissions } from '../auth/permissions.js';
+import {
+  isPlatformOrgAccess,
+  mergeAccessibleOrganizations,
+  PLATFORM_ORG_ACCESS_PREFIX,
+} from '../auth/org-access.js';
+import {
+  canAdministerAllOrganizations,
+  platformOperatorOrgPermissions,
+  resolveMembershipPermissions,
+} from '../auth/permissions.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { sendPasswordResetEmail } from './email.service.js';
@@ -98,33 +107,38 @@ function toTokenUser(user: AuthUser): AccessTokenUser {
 }
 
 /**
- * Lists active organization memberships for a user (with permission bundles).
+ * Lists organizations the user can switch into.
+ * Members see their active and invited memberships. Platform operators also
+ * see every other active tenant.
  */
 export async function listUserOrganizations(
   userId: string,
 ): Promise<AuthOrganizationMembership[]> {
-  const members = await prisma.organizationMember.findMany({
-    where: {
-      userId,
-      status: { in: ['ACTIVE', 'INVITED'] },
-      organization: { isActive: true, status: { not: 'ARCHIVED' } },
-    },
-    include: {
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          shortName: true,
-          slug: true,
-          logoUrl: true,
-        },
+  const [user, members] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { role: true } }),
+    prisma.organizationMember.findMany({
+      where: {
+        userId,
+        status: { in: ['ACTIVE', 'INVITED'] },
+        organization: { isActive: true, status: { not: 'ARCHIVED' } },
       },
-      customRole: { select: { id: true, name: true, permissions: true } },
-    },
-    orderBy: { organization: { name: 'asc' } },
-  });
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+            slug: true,
+            logoUrl: true,
+          },
+        },
+        customRole: { select: { id: true, name: true, permissions: true } },
+      },
+      orderBy: { organization: { name: 'asc' } },
+    }),
+  ]);
 
-  return members.map((m) => {
+  const memberships = members.map((m) => {
     const permissions = resolveMembershipPermissions({
       role: m.role,
       customRole: m.customRole,
@@ -143,6 +157,46 @@ export async function listUserOrganizations(
       status: m.status,
     };
   });
+
+  if (!user || !canAdministerAllOrganizations(user.role)) {
+    return memberships;
+  }
+
+  const activeMemberOrgIds = memberships
+    .filter((membership) => membership.status === 'ACTIVE')
+    .map((membership) => membership.organizationId);
+
+  const extraOrgs = await prisma.organization.findMany({
+    where: {
+      isActive: true,
+      status: { not: 'ARCHIVED' },
+      ...(activeMemberOrgIds.length > 0 ? { id: { notIn: activeMemberOrgIds } } : {}),
+    },
+    select: {
+      id: true,
+      name: true,
+      shortName: true,
+      slug: true,
+      logoUrl: true,
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  const platformAccess = extraOrgs.map((org) => ({
+    id: `${PLATFORM_ORG_ACCESS_PREFIX}${org.id}`,
+    organizationId: org.id,
+    name: org.name,
+    shortName: org.shortName,
+    slug: org.slug,
+    logoUrl: toAbsoluteAssetUrl(org.logoUrl),
+    role: 'ORGANIZATION_OWNER' as const,
+    customRoleId: null,
+    customRoleName: null,
+    permissions: platformOperatorOrgPermissions(),
+    status: 'ACTIVE' as const,
+  }));
+
+  return mergeAccessibleOrganizations(memberships, platformAccess);
 }
 
 async function issueTokens(
@@ -212,10 +266,12 @@ export async function login(
     organizationId = activeOrgs[0].organizationId;
     orgRole = activeOrgs[0].role;
     permissions = activeOrgs[0].permissions as Permission[];
-    await prisma.organizationMember.update({
-      where: { id: activeOrgs[0].id },
-      data: { lastLoginAt: new Date() },
-    });
+    if (!isPlatformOrgAccess(activeOrgs[0].id)) {
+      await prisma.organizationMember.update({
+        where: { id: activeOrgs[0].id },
+        data: { lastLoginAt: new Date() },
+      });
+    }
   }
 
   // Identity-only access token — org context is per-tab via X-Organization-Id
@@ -334,49 +390,27 @@ export async function selectOrganization(
     throw AppError.unauthorized();
   }
 
-  const membership = await prisma.organizationMember.findUnique({
-    where: {
-      organizationId_userId: { organizationId, userId },
-    },
-    include: {
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          shortName: true,
-          slug: true,
-          logoUrl: true,
-          isActive: true,
-          status: true,
-        },
-      },
-      customRole: { select: { id: true, name: true, permissions: true } },
-    },
-  });
-
-  if (!membership || membership.status !== 'ACTIVE') {
+  const organizations = await listUserOrganizations(userId);
+  const access = organizations.find(
+    (org) => org.organizationId === organizationId && org.status === 'ACTIVE',
+  );
+  if (!access) {
     throw AppError.forbidden('Not an active member of this organization');
   }
-  if (!membership.organization.isActive || membership.organization.status === 'ARCHIVED') {
-    throw AppError.forbidden('Organization is not active');
+
+  if (!isPlatformOrgAccess(access.id)) {
+    await prisma.organizationMember.update({
+      where: { id: access.id },
+      data: { lastLoginAt: new Date() },
+    });
   }
 
-  await prisma.organizationMember.update({
-    where: { id: membership.id },
-    data: { lastLoginAt: new Date() },
-  });
-
-  const organizations = await listUserOrganizations(userId);
-  const permissions = resolveMembershipPermissions({
-    role: membership.role,
-    customRole: membership.customRole,
-  });
   const authUser = toAuthUser(
     user,
     {
-      organizationId: membership.organizationId,
-      orgRole: membership.role,
-      permissions,
+      organizationId: access.organizationId,
+      orgRole: access.role,
+      permissions: access.permissions as Permission[],
     },
     organizations,
   );

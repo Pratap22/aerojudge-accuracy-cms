@@ -115,7 +115,7 @@ export function OrganizationsPage() {
     mutationFn: (data: CreateOrganizationInput) => api.post<Organization>('/organizations', data),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
-      // Sidebar dropdown reads AuthContext memberships, not the orgs list query
+      // Sidebar dropdown reads /auth/me organizations, not this list query
       await refreshMemberships();
       setFormOpen(false);
       reset();

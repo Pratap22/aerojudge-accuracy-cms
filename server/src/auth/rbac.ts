@@ -10,7 +10,11 @@ import {
 import { verifyAccessToken } from './jwt.js';
 import { AppError } from '../utils/errors.js';
 import { prisma } from '../config/prisma.js';
-import { resolveMembershipPermissions } from './permissions.js';
+import {
+  canAdministerAllOrganizations,
+  platformOperatorOrgPermissions,
+  resolveMembershipPermissions,
+} from './permissions.js';
 
 function attachUserFromPayload(
   req: Request,
@@ -105,12 +109,37 @@ export async function resolveOrganizationContext(
       },
     });
 
-    if (!membership || membership.status !== 'ACTIVE') {
-      next(AppError.forbidden('Not a member of this organization'));
-      return;
-    }
+    const orgOperable =
+      !!membership &&
+      membership.organization.isActive &&
+      membership.organization.status !== 'ARCHIVED';
 
-    if (!membership.organization.isActive || membership.organization.status === 'ARCHIVED') {
+    if (!membership || membership.status !== 'ACTIVE' || !orgOperable) {
+      if (canAdministerAllOrganizations(req.user.role)) {
+        const org =
+          membership?.organization ??
+          (await prisma.organization.findUnique({
+            where: { id: organizationId },
+            select: { id: true, status: true, isActive: true },
+          }));
+        if (org && org.isActive && org.status !== 'ARCHIVED') {
+          const permissions = platformOperatorOrgPermissions();
+          req.organizationId = organizationId;
+          req.orgRole = 'ORGANIZATION_OWNER';
+          req.permissions = permissions;
+          req.membership = undefined;
+          req.user.organizationId = organizationId;
+          req.user.orgRole = 'ORGANIZATION_OWNER';
+          req.user.permissions = permissions;
+          next();
+          return;
+        }
+      }
+
+      if (!membership || membership.status !== 'ACTIVE') {
+        next(AppError.forbidden('Not a member of this organization'));
+        return;
+      }
       next(AppError.forbidden('Organization is not active'));
       return;
     }
