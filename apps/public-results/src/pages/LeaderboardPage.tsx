@@ -72,7 +72,16 @@ export function LeaderboardPage() {
     <Layout>
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="font-display text-xl font-bold text-foreground sm:text-2xl">{title}</h1>
+          <h1 className="grid font-display text-xl font-bold text-foreground sm:text-2xl">
+            {['Results', 'Live results', 'Final results', "Women's ranking", 'Team ranking', 'Country ranking'].map(
+              (label) => (
+                <span key={label} className="invisible col-start-1 row-start-1" aria-hidden>
+                  {label}
+                </span>
+              ),
+            )}
+            <span className="col-start-1 row-start-1">{title}</span>
+          </h1>
           <FaiCategoryBadge value={competition?.faiCategory} />
           <div className="flex flex-wrap gap-1.5">
             {boards.map((item) => {
@@ -85,8 +94,8 @@ export function LeaderboardPage() {
                   aria-current={active ? 'page' : undefined}
                   className={
                     active
-                      ? 'rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-[#050d1a]'
-                      : 'rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
+                      ? 'rounded-full border border-sky-500 bg-sky-500 px-3 py-1 text-xs font-semibold text-[#050d1a]'
+                      : 'rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
                   }
                 >
                   {item.label}
