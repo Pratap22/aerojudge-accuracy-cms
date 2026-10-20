@@ -85,7 +85,7 @@ function CategoryPage({
                 entries={teamEntries}
                 roundNumbers={results?.roundNumbers}
                 highlightPodium
-                className="min-w-max [&_th]:border-border [&_th]:text-muted-foreground [&_td]:border-border/70 [&_tr]:border-border/70 [&_td]:text-foreground"
+                className="min-w-max [&_th]:h-8 [&_th]:border-border [&_th]:px-1 [&_th]:text-xs [&_th]:text-muted-foreground [&_td]:border-border/70 [&_td]:px-1 [&_td]:py-2 sm:[&_th]:px-3 sm:[&_td]:px-3 [&_tr]:border-border/70 [&_td]:text-foreground"
               />
             </div>
           )

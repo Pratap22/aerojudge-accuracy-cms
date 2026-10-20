@@ -53,6 +53,21 @@ function toFlagEmoji(code2: string | undefined): string | null {
   return String.fromCodePoint(...upper.split('').map((c) => 127397 + c.charCodeAt(0)));
 }
 
+function usePhoneLayout() {
+  const query = '(max-width: 767px)';
+  const [matches, setMatches] = React.useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches,
+  );
+  React.useEffect(() => {
+    const media = window.matchMedia(query);
+    const onChange = () => setMatches(media.matches);
+    onChange();
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
+  return matches;
+}
+
 function scoreByRound(
   scores: LeaderboardRoundScore[] | undefined,
   round: number,
@@ -74,7 +89,7 @@ function RoundScoreCell({
   return (
     <span
       className={cn(
-        'inline-flex min-w-[2.25rem] items-center justify-center rounded px-1 py-0.5 font-mono text-xs tabular-nums sm:text-sm',
+        'inline-flex min-w-[2rem] items-center justify-center rounded px-0 py-0.5 font-mono text-xs tabular-nums sm:min-w-[2.25rem] sm:px-1 sm:text-sm',
         empty && 'bg-muted/40 text-muted-foreground/50',
         !empty && discarded && 'text-red-500 line-through decoration-2 decoration-red-500',
         !empty && provisional && !discarded && 'text-muted-foreground/70',
@@ -99,7 +114,7 @@ function RoundScoreCell({
 
 function ScorePill({ value }: { value: number }) {
   return (
-    <span className="inline-flex min-w-[2.75rem] items-center justify-center rounded-md bg-foreground px-2 py-0.5 font-mono text-sm font-semibold tabular-nums text-background">
+    <span className="inline-flex min-w-[2.25rem] items-center justify-center rounded-md bg-foreground px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums text-background sm:min-w-[2.75rem] sm:px-2 sm:text-sm">
       {formatScoreCm(value)}
     </span>
   );
@@ -144,17 +159,48 @@ export function TeamLeaderboard({
     });
   };
 
+  const phone = usePhoneLayout();
+  const dense = compact || (phone && roundNumbers.length > 0);
+  const detail = roundNumbers.length > 0;
+  // Phone widths: expand, rank, team, and total stay put; rounds use whatever is left.
+  const frozen = 'max-md:sticky max-md:z-20 max-md:!px-1 max-md:py-2 max-md:bg-card';
+  const toggleCol = detail
+    ? 'w-[var(--tb-toggle)] min-w-[var(--tb-toggle)] max-w-[var(--tb-toggle)] md:w-10 md:min-w-10 md:max-w-none'
+    : cn('w-10', compact && 'w-8');
+  const rankCol = detail
+    ? 'w-[var(--tb-rank)] min-w-[var(--tb-rank)] max-w-[var(--tb-rank)] max-md:left-[var(--tb-toggle)] md:w-16 md:min-w-16 md:max-w-none'
+    : cn('w-16', compact && 'w-12');
+  const teamCol = detail
+    ? 'max-md:left-[calc(var(--tb-toggle)+var(--tb-rank))] max-md:w-[var(--tb-team)] max-md:min-w-[var(--tb-team)] max-md:max-w-[var(--tb-team)] max-md:border-r max-md:border-border'
+    : '';
+  const scoreCol = detail
+    ? 'max-md:left-[calc(var(--tb-toggle)+var(--tb-rank)+var(--tb-team))] max-md:w-[var(--tb-score)] max-md:min-w-[var(--tb-score)] max-md:max-w-[var(--tb-score)] max-md:border-r max-md:border-border'
+    : '';
+  const freeze = (col: string) => cn(detail && frozen, col);
+  const roundHeadClass = '!px-0 text-center tabular-nums max-md:w-8 md:min-w-[2.75rem] md:!px-1 md:w-auto';
+  const roundCellClass = '!px-0 text-center md:!px-1';
+
   return (
-    <div className={cn('w-full', className)} {...props}>
-      <Table>
+    <div
+      className={cn(
+        'w-max min-w-full',
+        detail && '[--tb-rank:2.75rem] [--tb-score:3.25rem] [--tb-team:8rem] [--tb-toggle:2rem]',
+        className,
+      )}
+      {...props}
+    >
+      <Table
+        containerClassName="overflow-visible"
+        className="w-max min-w-full border-separate border-spacing-0"
+      >
         <TableHeader>
           <TableRow>
-            <TableHead className={cn('w-10', compact && 'w-8')} aria-label="Expand" />
-            <TableHead className={cn('w-16', compact && 'w-12')}>Rank</TableHead>
-            <TableHead>Team</TableHead>
-            <TableHead className="text-right">Score</TableHead>
+            <TableHead className={cn(freeze(toggleCol), 'max-md:left-0')} aria-label="Expand" />
+            <TableHead className={freeze(rankCol)}>Rank</TableHead>
+            <TableHead className={freeze(teamCol)}>Team</TableHead>
+            <TableHead className={cn(freeze(scoreCol), 'text-right')}>Score</TableHead>
             {roundNumbers.map((n) => (
-              <TableHead key={n} className="min-w-[2.75rem] px-1 text-center tabular-nums">
+              <TableHead key={n} className={roundHeadClass}>
                 {n}.
               </TableHead>
             ))}
@@ -185,7 +231,7 @@ export function TeamLeaderboard({
                   aria-expanded={open}
                   data-state={open ? 'open' : 'closed'}
                 >
-                  <TableCell className="px-2">
+                  <TableCell className={cn(freeze(toggleCol), 'max-md:left-0')}>
                     <ChevronDown
                       className={cn(
                         'h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200',
@@ -194,24 +240,30 @@ export function TeamLeaderboard({
                       aria-hidden
                     />
                   </TableCell>
-                  <TableCell>
-                    <RankBadge rank={entry.rank} size={compact ? 'sm' : 'default'} />
+                  <TableCell className={freeze(rankCol)}>
+                    <RankBadge rank={entry.rank} size={dense ? 'sm' : 'default'} />
                   </TableCell>
-                  <TableCell>
-                    <div className="inline-flex items-center gap-2 font-medium">
+                  <TableCell className={freeze(teamCol)}>
+                    <div
+                      className={
+                        detail
+                          ? 'flex max-md:w-[calc(var(--tb-team)-0.5rem)] max-md:max-w-[calc(var(--tb-team)-0.5rem)] min-w-0 items-center gap-2 overflow-hidden font-medium'
+                          : 'inline-flex items-center gap-2 font-medium'
+                      }
+                    >
                       {flagEmoji && (
-                        <span className="text-base leading-none" aria-hidden>
+                        <span className="shrink-0 text-base leading-none" aria-hidden>
                           {flagEmoji}
                         </span>
                       )}
-                      <span>{entry.name}</span>
+                      <span className="min-w-0 truncate">{entry.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className={cn(freeze(scoreCol), 'text-right')}>
                     <ScorePill value={entry.totalScoreCm} />
                   </TableCell>
                   {roundNumbers.map((n) => (
-                    <TableCell key={n} className="px-1 text-center">
+                    <TableCell key={n} className={roundCellClass}>
                       <RoundScoreCell
                         cell={scoreByRound(entry.roundScores, n)}
                         discardedTitle="Discarded team round (not counted in total)"
@@ -226,35 +278,54 @@ export function TeamLeaderboard({
                       key={`${entry.teamId}-${pilot.pilotId}`}
                       className="bg-muted/20 hover:bg-muted/30"
                     >
-                      <TableCell />
-                      <TableCell />
-                      <TableCell>
-                        {pilot.profileHref ? (
-                          <a
-                            href={pilot.profileHref}
-                            className="inline-flex rounded-lg outline-offset-2 hover:bg-muted/70"
-                          >
+                      <TableCell className={cn(freeze(toggleCol), 'max-md:left-0')} />
+                      <TableCell className={freeze(rankCol)} />
+                      <TableCell className={freeze(teamCol)}>
+                        <div
+                          className={
+                            detail
+                              ? 'max-md:w-[calc(var(--tb-team)-0.5rem)] max-md:max-w-[calc(var(--tb-team)-0.5rem)] max-md:overflow-hidden'
+                              : undefined
+                          }
+                        >
+                          {pilot.profileHref ? (
+                            <a
+                              href={pilot.profileHref}
+                              className="flex w-full min-w-0 max-w-full rounded-lg outline-offset-2 hover:bg-muted/70"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <PilotChip
+                                pilotNumber={pilot.pilotNumber}
+                                firstName={pilot.firstName}
+                                lastName={pilot.lastName}
+                                photoUrl={pilot.photoUrl}
+                                size={dense ? 'sm' : 'default'}
+                                className={
+                                  detail
+                                    ? 'max-md:w-full max-md:!gap-x-1.5 max-md:[&_[data-pilot-photo]]:h-8 max-md:[&_[data-pilot-photo]]:w-8'
+                                    : undefined
+                                }
+                              />
+                            </a>
+                          ) : (
                             <PilotChip
                               pilotNumber={pilot.pilotNumber}
                               firstName={pilot.firstName}
                               lastName={pilot.lastName}
                               photoUrl={pilot.photoUrl}
-                              size={compact ? 'sm' : 'default'}
+                              size={dense ? 'sm' : 'default'}
+                              className={
+                                detail
+                                  ? 'max-md:w-full max-md:!gap-x-1.5 max-md:[&_[data-pilot-photo]]:h-8 max-md:[&_[data-pilot-photo]]:w-8'
+                                  : undefined
+                              }
                             />
-                          </a>
-                        ) : (
-                          <PilotChip
-                            pilotNumber={pilot.pilotNumber}
-                            firstName={pilot.firstName}
-                            lastName={pilot.lastName}
-                            photoUrl={pilot.photoUrl}
-                            size={compact ? 'sm' : 'default'}
-                          />
-                        )}
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell />
+                      <TableCell className={freeze(scoreCol)} />
                       {roundNumbers.map((n) => (
-                        <TableCell key={n} className="px-1 text-center">
+                        <TableCell key={n} className={roundCellClass}>
                           <RoundScoreCell
                             cell={scoreByRound(pilot.roundScores, n)}
                             discardedTitle="Not counted toward team total this round"
@@ -266,12 +337,14 @@ export function TeamLeaderboard({
 
                 {open && entry.pilots.length > 0 && (
                   <TableRow className="border-b-2 bg-muted/30 font-medium">
-                    <TableCell colSpan={3} className="text-right text-muted-foreground">
-                      Round total
+                    <TableCell className={cn(freeze(toggleCol), 'max-md:left-0')} />
+                    <TableCell className={freeze(rankCol)} />
+                    <TableCell className={cn(freeze(teamCol), 'text-right text-muted-foreground')}>
+                      <span className="block truncate">Round total</span>
                     </TableCell>
-                    <TableCell />
+                    <TableCell className={freeze(scoreCol)} />
                     {roundNumbers.map((n) => (
-                      <TableCell key={n} className="px-1 text-center">
+                      <TableCell key={n} className={roundCellClass}>
                         <RoundScoreCell
                           cell={scoreByRound(entry.roundScores, n)}
                           discardedTitle="Discarded team round (not counted in total)"
