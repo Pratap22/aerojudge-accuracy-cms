@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { PublicCompetitionList } from './api';
-import { buildHeroBoard, featuredCompetitionCandidates, type HeroBoardSource } from './hero-board';
+import {
+  buildDisplaySnapshot,
+  buildHeroBoard,
+  featuredCompetitionCandidates,
+  type HeroBoardSource,
+} from './hero-board';
 
 const list: PublicCompetitionList = {
   active: [
@@ -122,5 +127,40 @@ describe('buildHeroBoard', () => {
 
   it('returns nothing when there is no ranking', () => {
     expect(buildHeroBoard({ ...source, rankings: [] })).toBeNull();
+  });
+});
+
+describe('buildDisplaySnapshot', () => {
+  it('uses the venue-display shape for the leading pilot', () => {
+    const snapshot = buildDisplaySnapshot({
+      competition: { name: 'Recent Cup', status: 'COMPLETED' },
+      rankings: [
+        {
+          rank: 1,
+          totalScoreCm: 26,
+          pilot: {
+            pilotNumber: 4,
+            firstName: 'Mohar',
+            lastName: 'Singh',
+            photoUrl: 'https://example.com/mohar.jpg',
+            country: { code: 'IND', code2: 'IN' },
+          },
+          roundScores: [{ round: 9, scoreCm: 0 }],
+        },
+      ],
+      teams: [],
+      latest: null,
+    });
+    expect(snapshot).toMatchObject({
+      pilotName: 'Mohar Singh',
+      pilotNumber: '004',
+      country: 'IND',
+      roundLabel: '9',
+      rankLabel: '#1',
+      totalLabel: '026',
+      scoreLabel: '000',
+      bullseye: true,
+    });
+    expect(snapshot?.flag).toBe('🇮🇳');
   });
 });

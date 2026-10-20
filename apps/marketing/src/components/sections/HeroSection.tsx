@@ -21,30 +21,30 @@ export function HeroSection() {
         animate={{ opacity: 0.7, scale: 1 }}
         transition={{ duration: 1.1, ease: easeOut }}
       />
-      <div className="content-width relative grid items-center gap-12 section-pad lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+      <div className="content-width relative grid items-center gap-8 section-pad lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
         <Stagger onMount stagger={0.14} delay={0.08} className="min-w-0">
           <StaggerItem>
             <p className="eyebrow">Paragliding Accuracy · FAI-aligned workflows</p>
           </StaggerItem>
           <StaggerItem>
-            <p className="mt-4 font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl lg:text-6xl">
+            <p className="mt-3 font-display text-4xl font-bold tracking-tight text-primary sm:text-5xl">
               {siteConfig.productName}
             </p>
           </StaggerItem>
           <StaggerItem>
-            <p className="mt-3 text-lg font-medium text-sky sm:text-xl">{siteConfig.tagline}</p>
+            <p className="mt-2 text-lg font-medium text-sky">{siteConfig.tagline}</p>
           </StaggerItem>
           <h1 id="hero-heading" className="sr-only">
             {siteConfig.productName} — {siteConfig.tagline}
           </h1>
           <StaggerItem>
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground">
               Run your {siteConfig.discipline} competition from registration to official results — without
               managing scores across spreadsheets, displays and printed reports manually.
             </p>
           </StaggerItem>
           <StaggerItem>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <MarketingButton href={admin.href} size="lg">
                 Get Started
               </MarketingButton>

@@ -8,7 +8,7 @@ import {
 } from '@/lib/api';
 import { estimateHoursSaved, formatHoursSaved } from '@/lib/time-saved';
 import { easeOut } from '@/lib/motion';
-import { Reveal, Stagger, StaggerItem } from '../motion/Reveal';
+import { Stagger, StaggerItem } from '../motion/Reveal';
 import { SectionHeading } from '../ui/SectionHeading';
 
 const OPEN_STATUSES = new Set(['REGISTRATION', 'PRACTICE', 'OFFICIAL', 'PAUSED']);
@@ -54,7 +54,7 @@ function Stat({
         <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
         <span className="truncate">{label}</span>
       </div>
-      <p className="mt-1 font-display text-xl font-bold tabular-nums text-navy sm:text-2xl">{value}</p>
+      <p className="mt-0.5 font-display text-lg font-bold tabular-nums text-navy">{value}</p>
     </div>
   );
 }
@@ -101,7 +101,7 @@ export function EventsSection() {
           eyebrow="Competitions"
           title="Open and recent events on AeroJudge."
           id="events-heading"
-          description="Jump straight into live or official results. Latest events appear first."
+          description="Latest events first. Time saved on a finished meet is an estimate against paper and spreadsheet workflows."
         />
 
         {items === null && (
@@ -121,7 +121,7 @@ export function EventsSection() {
         )}
 
         {items && items.length > 0 && (
-          <Stagger as="ul" className="mt-12 grid gap-5 md:grid-cols-2" stagger={0.08}>
+          <Stagger as="ul" className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3" stagger={0.05}>
             {items.map((competition) => {
               const open = isOpenCompetition(competition.status);
               const rounds = competition.completedRounds || competition.roundCount;
@@ -135,7 +135,7 @@ export function EventsSection() {
                 <StaggerItem key={competition.id} as="li">
                   <motion.a
                     href={href}
-                    className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-white p-6 shadow-sm outline-none transition-colors hover:border-sky/40 focus-visible:ring-2 focus-visible:ring-sky"
+                    className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-white p-4 shadow-sm outline-none transition-colors hover:border-sky/40 focus-visible:ring-2 focus-visible:ring-sky"
                     whileHover={reduce ? undefined : { y: -4 }}
                     transition={{ duration: 0.25, ease: easeOut }}
                   >
@@ -150,7 +150,7 @@ export function EventsSection() {
                         >
                           {statusLabel(competition.status)}
                         </p>
-                        <h3 className="mt-2 font-display text-xl font-bold leading-snug text-navy sm:text-2xl">
+                        <h3 className="mt-1 font-display text-lg font-bold leading-snug text-navy">
                           {competition.name}
                         </h3>
                         <p className="mt-1 truncate text-sm text-muted-foreground">
@@ -167,7 +167,7 @@ export function EventsSection() {
                       </span>
                     </div>
 
-                    <div className="mt-8 grid grid-cols-3 gap-4 border-t border-border/80 pt-5">
+                    <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border/80 pt-3">
                       <Stat icon={Target} label="Rounds" value={String(rounds)} />
                       <Stat icon={Users} label="Pilots" value={String(pilots)} />
                       {open ? (
@@ -177,11 +177,6 @@ export function EventsSection() {
                       )}
                     </div>
 
-                    {!open && (
-                      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                        Estimated vs traditional sheets (score entry, rankings, notice boards).
-                      </p>
-                    )}
                   </motion.a>
                 </StaggerItem>
               );
@@ -189,13 +184,6 @@ export function EventsSection() {
           </Stagger>
         )}
 
-        <Reveal className="mt-10" y={16}>
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Time saved on completed events is an estimate based on typical paper and spreadsheet
-            workflows — about three minutes per pilot-round plus twenty-five minutes per round for
-            rankings and venue updates.
-          </p>
-        </Reveal>
       </div>
     </section>
   );

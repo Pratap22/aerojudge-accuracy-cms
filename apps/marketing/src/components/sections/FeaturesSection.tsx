@@ -16,11 +16,11 @@ export function FeaturesSection() {
           description="Everything listed as available ships in AeroJudge today. Upcoming items are labeled clearly — we do not market unfinished work as ready."
         />
 
-        <Stagger as="ul" className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+        <Stagger as="ul" className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4" stagger={0.03}>
           {availableFeatures.map((feature) => (
             <StaggerItem key={feature.id} as="li">
               <motion.div
-                className="h-full rounded-lg border border-border bg-white p-4 shadow-sm"
+                className="h-full rounded-lg border border-border bg-white px-3.5 py-3 shadow-sm"
                 whileHover={reduce ? undefined : { y: -3 }}
               >
                 <p className="font-semibold text-navy">{feature.name}</p>
@@ -31,8 +31,8 @@ export function FeaturesSection() {
         </Stagger>
 
         {plannedFeatures.length > 0 ? (
-          <Reveal className="mt-12" y={20}>
-            <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-6">
+          <Reveal className="mt-6" y={16}>
+            <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-4">
               <h3 className="font-display text-lg font-bold text-navy">On the roadmap</h3>
               <ul className="mt-4 space-y-2">
                 {plannedFeatures.map((feature) => (
@@ -50,7 +50,7 @@ export function FeaturesSection() {
           </Reveal>
         ) : null}
 
-        <p className="mt-8 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground">
           AeroJudge is designed for FAI-style Paragliding Accuracy competition workflows, with scoring
           profiles based on supported FAI Sporting Code rules. It is independently developed by Nepalabs
           and is not presented as official FAI software or FAI-certified.

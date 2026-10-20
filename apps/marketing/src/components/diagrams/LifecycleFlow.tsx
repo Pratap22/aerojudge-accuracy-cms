@@ -19,11 +19,11 @@ export function LifecycleFlow() {
   const reduce = useReducedMotion();
 
   return (
-    <Stagger as="ol" className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" stagger={0.06}>
+    <Stagger as="ol" className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4" stagger={0.04}>
       {stages.map((stage, index) => (
         <StaggerItem key={stage} as="li">
           <motion.div
-            className="relative flex h-full items-start gap-3 rounded-lg border border-border bg-white p-4 shadow-sm"
+            className="relative flex h-full items-center gap-2.5 rounded-lg border border-border bg-white px-3 py-2.5 shadow-sm"
             whileHover={reduce ? undefined : { y: -3, transition: { duration: 0.2 } }}
           >
             <span

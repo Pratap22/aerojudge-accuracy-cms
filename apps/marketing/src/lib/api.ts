@@ -48,6 +48,9 @@ export type PublicBoardRanking = {
     pilotNumber: number;
     firstName: string;
     lastName: string;
+    photoUrl?: string | null;
+    nationality?: string | null;
+    country?: { name?: string; code?: string; code2?: string } | null;
   } | null;
   roundScores?: { round: number; scoreCm: number | null }[];
 };

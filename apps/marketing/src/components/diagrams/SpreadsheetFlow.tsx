@@ -18,7 +18,7 @@ export function SpreadsheetFlow() {
   const reduce = useReducedMotion();
 
   return (
-    <div className="mt-10" aria-label="Traditional scoring workflow with many manual steps">
+    <div className="mt-6" aria-label="Traditional scoring workflow with many manual steps">
       <Stagger as="ol" className="flex flex-col gap-0 sm:hidden" stagger={0.07}>
         {steps.map((step, index) => (
           <StaggerItem key={step} as="li" className="flex flex-col items-center">

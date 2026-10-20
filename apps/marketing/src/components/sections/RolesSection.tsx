@@ -19,7 +19,7 @@ export function RolesSection() {
           description="AeroJudge gives each official the tools for their job — without handing everyone administrative control."
         />
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="mt-6 grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
           <div
             role="tablist"
             aria-label="Competition roles"
@@ -53,14 +53,14 @@ export function RolesSection() {
             })}
           </div>
 
-          <div className="relative min-h-[280px]">
+          <div className="relative min-h-[220px]">
             <AnimatePresence mode="wait">
               <motion.div
                 key={active.id}
                 role="tabpanel"
                 id={`role-panel-${active.id}`}
                 aria-labelledby={`role-tab-${active.id}`}
-                className="rounded-xl border border-border bg-white p-6 shadow-sm sm:p-8"
+                className="rounded-xl border border-border bg-white p-5 shadow-sm"
                 initial={reduce ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduce ? undefined : { opacity: 0, y: -8 }}

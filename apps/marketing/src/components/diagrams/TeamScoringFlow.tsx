@@ -8,7 +8,7 @@ export function TeamScoringFlow() {
   const reduce = useReducedMotion();
 
   return (
-    <div className="mt-8" aria-label="Individual scores feed configured team scoring">
+    <div className="mt-6" aria-label="Individual scores feed configured team scoring">
       <ol className="flex flex-col items-stretch gap-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-2">
         {steps.map((step, index) => (
           <li key={step} className="flex flex-col items-center sm:flex-row sm:gap-2">

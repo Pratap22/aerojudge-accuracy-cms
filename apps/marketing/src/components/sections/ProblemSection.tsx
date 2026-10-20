@@ -29,17 +29,17 @@ export function ProblemSection() {
         />
         <SpreadsheetFlow />
         <motion.ul
-          className="mt-12 columns-1 gap-x-10 space-y-2.5 sm:columns-2"
-          initial={{ opacity: 0, y: 20 }}
+          className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.55 }}
+          transition={{ duration: 0.45 }}
         >
           {problems.map((item) => (
-            <li key={item} className="break-inside-avoid text-sm leading-relaxed text-muted-foreground">
-              <span className="mr-2 text-sky" aria-hidden>
-                ▹
-              </span>
+            <li
+              key={item}
+              className="rounded-lg border border-border bg-white px-3 py-2.5 text-sm leading-snug text-navy"
+            >
               {item}
             </li>
           ))}

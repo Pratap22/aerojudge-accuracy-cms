@@ -17,7 +17,7 @@ export function PrintPreview() {
   const sheetMotion = motionSafe(reduce, fadeRight);
 
   return (
-    <div className="mt-10 grid items-start gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+    <div className="mt-6 grid items-start gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <motion.ol
         className="space-y-2"
         aria-label="Official results print workflow"
@@ -39,8 +39,7 @@ export function PrintPreview() {
       </motion.ol>
 
       <motion.div
-        className="mx-auto w-full max-w-md overflow-hidden rounded-sm border border-border bg-white shadow-[0_20px_50px_-28px_rgba(0,36,71,0.5)]"
-        style={{ aspectRatio: '210 / 297' }}
+        className="mx-auto aspect-[210/297] w-full max-w-[240px] overflow-hidden rounded-sm border border-border bg-white shadow-[0_20px_50px_-28px_rgba(0,36,71,0.5)]"
         aria-hidden="true"
         {...sheetMotion}
         viewport={inView}

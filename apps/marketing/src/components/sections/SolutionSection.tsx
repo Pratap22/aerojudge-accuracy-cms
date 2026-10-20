@@ -25,11 +25,11 @@ export function SolutionSection() {
           description="When a judge or scorer enters a validated score, AeroJudge can update the competition ecosystem that depends on it — rankings, venue displays, public pages and printable reports."
         />
         <ScorePropagation />
-        <Stagger className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" stagger={0.07}>
+        <Stagger className="mt-6 flex flex-wrap gap-2" stagger={0.05}>
           {highlights.map((item) => (
             <StaggerItem key={item}>
               <motion.div
-                className="rounded-lg border border-border bg-white px-4 py-4 text-sm font-medium text-navy shadow-sm"
+                className="rounded-full border border-sky/30 bg-sky/10 px-3 py-1.5 text-sm font-medium text-navy"
                 whileHover={reduce ? undefined : { y: -2 }}
               >
                 {item}

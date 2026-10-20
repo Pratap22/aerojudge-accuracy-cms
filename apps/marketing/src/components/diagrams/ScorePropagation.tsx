@@ -14,7 +14,7 @@ export function ScorePropagation() {
   const reduce = useReducedMotion();
 
   return (
-    <div className="mt-10" aria-label="One validated score updates rankings, displays, public results and reports">
+    <div className="mt-6" aria-label="One validated score updates rankings, displays, public results and reports">
       <div className="flex flex-col items-center gap-4">
         <Reveal y={16}>
           <div className="rounded-md border border-border bg-white px-4 py-3 text-sm font-semibold text-navy shadow-sm">

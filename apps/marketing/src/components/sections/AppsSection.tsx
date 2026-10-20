@@ -17,7 +17,7 @@ export function AppsSection() {
           id="apps-heading"
           description="Jump into the application that matches your role. Authenticated apps redirect to sign-in when required."
         />
-        <Stagger as="ul" className="mt-10 grid gap-4 sm:grid-cols-2" stagger={0.1}>
+        <Stagger as="ul" className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" stagger={0.05}>
           {aeroJudgeApps.map((app) => (
             <StaggerItem key={app.id} as="li">
               <motion.a

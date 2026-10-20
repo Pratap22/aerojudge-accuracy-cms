@@ -6,7 +6,7 @@ export function OrganizationSection() {
 
   return (
     <section id="organizations" className="section-pad bg-navy text-white" aria-labelledby="org-heading">
-      <div className="content-width grid items-center gap-10 lg:grid-cols-2">
+      <div className="content-width grid items-center gap-8 lg:grid-cols-2">
         <motion.div
           className="max-w-2xl"
           initial={reduce ? { opacity: 0 } : { opacity: 0, x: -28 }}
@@ -17,11 +17,11 @@ export function OrganizationSection() {
           <p className="eyebrow mb-3 text-sky">Organizations</p>
           <h2
             id="org-heading"
-            className="font-display text-3xl font-bold tracking-tight text-white text-balance sm:text-4xl lg:text-5xl"
+            className="font-display text-2xl font-bold tracking-tight text-white text-balance sm:text-3xl lg:text-4xl"
           >
             Your competitions. Your officials. Your data.
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-white/70 sm:text-lg">
+          <p className="mt-3 text-sm leading-relaxed text-white/70 sm:text-base">
             Federations, clubs and event companies operate as organizations. Users authenticate once, then
             work inside the organization context they belong to — with roles that can differ per tenant.
           </p>

@@ -20,7 +20,7 @@ export function PricingSection() {
           description={pricingConfig.billingNote}
         />
 
-        <Stagger as="ul" className="mt-12 grid gap-5 lg:grid-cols-3" stagger={0.12}>
+        <Stagger as="ul" className="mt-8 grid gap-4 lg:grid-cols-3" stagger={0.08}>
           {pricingConfig.tiers.map((tier) => (
             <StaggerItem key={tier.id} as="li">
               <motion.div
@@ -67,12 +67,12 @@ export function PricingSection() {
 }
 
 function PricingFaq() {
-  const [open, setOpen] = useState<number | null>(0);
+  const [open, setOpen] = useState<number | null>(null);
   const baseId = useId();
   const reduce = useReducedMotion();
 
   return (
-    <Reveal className="mx-auto mt-16 max-w-3xl" y={20}>
+    <Reveal className="mx-auto mt-10 max-w-3xl" y={16}>
       <h3 className="text-center font-display text-2xl font-bold text-navy">Pricing FAQ</h3>
       <div className="mt-8 divide-y divide-border rounded-xl border border-border bg-white">
         {pricingFaqs.map((faq, index) => {

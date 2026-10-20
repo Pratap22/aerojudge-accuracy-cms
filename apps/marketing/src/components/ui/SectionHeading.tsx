@@ -30,12 +30,12 @@ export function SectionHeading({
       }
       viewport={inView}
     >
-      {eyebrow ? <p className="eyebrow mb-3">{eyebrow}</p> : null}
+      {eyebrow ? <p className="eyebrow mb-2">{eyebrow}</p> : null}
       <h2 id={id} className="display-title text-balance">
         {title}
       </h2>
       {description ? (
-        <p className="mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">{description}</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">{description}</p>
       ) : null}
     </motion.div>
   );

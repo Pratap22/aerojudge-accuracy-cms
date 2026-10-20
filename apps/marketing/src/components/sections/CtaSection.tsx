@@ -17,7 +17,7 @@ export function CtaSection() {
     <section id="get-started" className="section-pad" aria-labelledby="cta-heading">
       <div className="content-width">
         <motion.div
-          className="relative overflow-hidden rounded-2xl bg-navy px-6 py-12 sm:px-10 sm:py-16 lg:px-14"
+          className="relative overflow-hidden rounded-2xl bg-navy px-6 py-10 sm:px-10 sm:py-12"
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 36, scale: 0.97 }}
           whileInView={
             reduce
@@ -44,7 +44,7 @@ export function CtaSection() {
 
           <div className="relative mx-auto max-w-3xl text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky">Next step</p>
-            <h2 id="cta-heading" className="mt-3 font-display text-3xl font-bold text-white sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
+            <h2 id="cta-heading" className="mt-2 font-display text-3xl font-bold text-white sm:text-4xl">
               Ready to run your next competition differently?
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/70 sm:text-lg">
@@ -52,7 +52,7 @@ export function CtaSection() {
               first landing to the printed results sheet.
             </p>
 
-            <div className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <MarketingButton href={mailtoContact('AeroJudge demo request')} variant="onDark" size="lg">
                 Request a Demo
                 <ArrowRight className="h-4 w-4" aria-hidden />
