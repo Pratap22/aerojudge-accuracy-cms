@@ -43,24 +43,24 @@ export function ForgotPasswordPage() {
     <Layout seo="none">
       <div className="mx-auto max-w-md px-6 py-12">
         <AeroJudgeLogo className="h-14 w-auto" />
-        <h1 className="mt-2 font-display text-3xl font-bold text-white">Forgot password</h1>
-        <p className="mt-3 text-sky-300/70">
+        <h1 className="mt-2 font-display text-3xl font-bold text-foreground">Forgot password</h1>
+        <p className="mt-3 text-muted-foreground">
           {sent
             ? 'Check your email for a reset link'
             : 'Enter your account email and we will send a reset link'}
         </p>
 
-        <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="mt-10 rounded-xl border border-border bg-muted/40 p-6">
           {sent ? (
             <div className="space-y-4">
-              <p className="text-sm text-sky-200/80">
+              <p className="text-sm text-muted-foreground">
                 If an account exists for that email, we sent password reset instructions. The link
                 expires in about an hour.
               </p>
               <Button
                 asChild
                 variant="outline"
-                className="w-full border-white/25 bg-transparent text-sky-100"
+                className="w-full border-input bg-transparent text-foreground"
               >
                 <Link to={signInHref}>Back to sign in</Link>
               </Button>
@@ -68,7 +68,7 @@ export function ForgotPasswordPage() {
           ) : (
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-sky-200" htmlFor="forgot-email">
+                <Label className="text-foreground" htmlFor="forgot-email">
                   Email
                 </Label>
                 <Input
@@ -78,7 +78,7 @@ export function ForgotPasswordPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="border-white/10 bg-white/5 text-white"
+                  className="border-border bg-card text-foreground"
                 />
               </div>
               {error && (
@@ -96,7 +96,7 @@ export function ForgotPasswordPage() {
               <Button
                 asChild
                 variant="ghost"
-                className="w-full text-sky-300 hover:bg-white/5 hover:text-sky-100"
+                className="w-full text-sky-700 dark:text-sky-300 hover:bg-muted/70 hover:text-foreground"
               >
                 <Link to={signInHref}>Back to sign in</Link>
               </Button>

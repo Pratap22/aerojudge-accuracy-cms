@@ -67,25 +67,25 @@ function CategoryPage({
           </div>
         ) : category === 'TEAM' ? (
           teamEntries.length === 0 ? (
-            <p className="text-sky-300/70">
+            <p className="text-muted-foreground">
               No rankings available yet. Approve or lock an official round, then recalculate rankings.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/5">
+            <div className="overflow-x-auto rounded-xl border border-border bg-card">
               <TeamLeaderboard
                 entries={teamEntries}
                 roundNumbers={results?.roundNumbers}
                 highlightPodium
-                className="min-w-max [&_th]:border-white/10 [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_tr]:border-white/5 [&_td]:text-white [&_.bg-foreground]:bg-white [&_.text-background]:text-slate-900 [&_.text-muted-foreground]:text-sky-300/60 [&_.bg-muted\/20]:bg-white/[0.03] [&_.bg-muted\/30]:bg-white/[0.06]"
+                className="min-w-max [&_th]:border-border [&_th]:text-muted-foreground [&_td]:border-border/70 [&_tr]:border-border/70 [&_td]:text-foreground"
               />
             </div>
           )
         ) : entries.length === 0 ? (
-          <p className="text-sky-300/70">
+          <p className="text-muted-foreground">
             No rankings available yet. Approve or lock an official round, then recalculate rankings.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/5">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
             <LeaderboardTable
               entries={entries}
               nameColumn={nameColumn}
@@ -94,7 +94,7 @@ function CategoryPage({
               showRoundScores={showRoundScores}
               roundNumbers={results?.roundNumbers}
               highlightPodium
-              className="min-w-max [&_th]:h-8 [&_th]:border-white/10 [&_th]:px-3 [&_th]:text-xs [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_td]:px-3 [&_td]:py-2 [&_.bg-foreground]:bg-white [&_.text-background]:text-slate-900"
+              className="min-w-max [&_th]:h-8 [&_th]:border-border [&_th]:px-3 [&_th]:text-xs [&_th]:text-muted-foreground [&_td]:border-border/70 [&_td]:px-3 [&_td]:py-2"
             />
           </div>
         )}
@@ -106,7 +106,7 @@ function CategoryPage({
   return (
     <Layout>
       <div className="mx-auto max-w-7xl px-6 py-12">
-        <h1 className="mb-8 font-display text-4xl font-bold text-white">{title}</h1>
+        <h1 className="mb-8 font-display text-4xl font-bold text-foreground">{title}</h1>
         {board}
       </div>
     </Layout>

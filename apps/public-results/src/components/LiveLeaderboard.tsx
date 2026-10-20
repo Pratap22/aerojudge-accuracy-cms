@@ -80,24 +80,24 @@ export function LiveLeaderboard({
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {showHeading ? (
-          <h2 className="font-display text-3xl font-bold text-white">{heading}</h2>
+          <h2 className="font-display text-3xl font-bold text-foreground">{heading}</h2>
         ) : (
           <span className="sr-only">{heading}</span>
         )}
         {showSearch && (
           <div className={showHeading ? 'relative max-w-sm' : 'relative ml-auto max-w-sm'}>
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-400/50" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search pilots…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border-white/10 bg-white/5 pl-10 text-white placeholder:text-sky-300/40"
+              className="border-border bg-card pl-10 text-foreground placeholder:text-muted-foreground"
             />
           </div>
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm">
+      <div className="overflow-x-auto rounded-xl border border-border bg-card backdrop-blur-sm">
         <LeaderboardTable
           entries={entries}
           showRoundScores
@@ -105,18 +105,18 @@ export function LiveLeaderboard({
           showBullseyes={false}
           showRounds={false}
           highlightPodium
-          className="min-w-max [&_th]:h-8 [&_th]:border-white/10 [&_th]:px-3 [&_th]:text-xs [&_th]:text-sky-300/70 [&_td]:border-white/5 [&_td]:px-3 [&_td]:py-2 [&_tr]:border-white/5 [&_td]:text-white [&_.bg-foreground]:bg-white [&_.text-background]:text-slate-900"
+          className="min-w-max [&_th]:h-8 [&_th]:border-border [&_th]:px-3 [&_th]:text-xs [&_th]:text-muted-foreground [&_td]:border-border/70 [&_td]:px-3 [&_td]:py-2 [&_tr]:border-border/70 [&_td]:text-foreground"
         />
       </div>
 
-      <p className="text-center text-sm text-sky-400/50">
+      <p className="text-center text-sm text-muted-foreground">
         {completed
           ? 'Competition completed · Official final standings'
           : results?.official
             ? 'Official results · Updated live'
             : 'Provisional results · Updated live'}
         {!completed && windVisible ? (
-          <span className="mt-1 block font-mono text-sky-200/80">
+          <span className="mt-1 block font-mono text-muted-foreground">
             Wind {wind.speedMs.toFixed(1)} m/s · {Math.round(wind.directionDeg)}°
           </span>
         ) : null}

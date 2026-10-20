@@ -9,17 +9,37 @@
     scroll-behavior: smooth;
   }
 
-  body {
-    @apply bg-[#050d1a] font-sans text-white antialiased;
+  /* Keep the existing navy event look when dark mode is on. */
+  .dark {
+    --background: 217 68% 6%;
+    --foreground: 210 40% 98%;
+    --card: 217 42% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 217 48% 10%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 217 68% 8%;
+    --secondary: 217 32% 16%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 32% 15%;
+    --muted-foreground: 210 28% 72%;
+    --accent: 199 89% 48%;
+    --accent-foreground: 217 68% 8%;
+    --border: 214 28% 22%;
+    --input: 214 28% 22%;
+    --ring: 199 89% 48%;
   }
 
-  /* Opaque select menus on this dark surface (Radix portals) */
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+
   [data-radix-select-content] {
-    @apply !bg-[#0a1628] !text-sky-50 border-sky-500/30;
+    @apply border-border !bg-popover !text-popover-foreground;
   }
 
   [data-radix-select-item][data-highlighted] {
-    @apply !bg-sky-500/20 !text-white;
+    @apply !bg-accent/20 !text-foreground;
   }
 }
 

@@ -17,12 +17,12 @@ export function Layout({ children, seo = 'competition' }: LayoutProps) {
   const showPause = seo === 'competition' && pausedRound;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#050d1a] text-white">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       {seo === 'competition' ? <CompetitionSeo /> : null}
       <Navigation />
       <main className="flex-1 pt-20">
         {showPause ? (
-          <div className="border-b border-amber-400/30 bg-amber-500/15 px-6 py-2.5 text-center text-amber-100">
+          <div className="border-b border-amber-400/30 bg-amber-500/15 px-6 py-2.5 text-center text-amber-950 dark:text-amber-100">
             <p className="text-sm font-medium">
               {pausedRound.type === 'PRACTICE'
                 ? 'Practice round'
@@ -35,13 +35,13 @@ export function Layout({ children, seo = 'competition' }: LayoutProps) {
               is paused
             </p>
             {pausedRound.pauseReason ? (
-              <p className="mt-1 whitespace-pre-wrap text-base text-white">{pausedRound.pauseReason}</p>
+              <p className="mt-1 whitespace-pre-wrap text-base text-foreground">{pausedRound.pauseReason}</p>
             ) : null}
           </div>
         ) : null}
         {children}
       </main>
-      <footer className="flex justify-center border-t border-white/10 py-8">
+      <footer className="flex justify-center border-t border-border py-8">
         <AeroJudgeLogo className="h-12 w-auto" />
       </footer>
     </div>

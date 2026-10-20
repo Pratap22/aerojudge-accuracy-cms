@@ -55,7 +55,7 @@ function PartnerCard({
   showType?: boolean;
 }) {
   const logo = (
-    <div className="mx-auto flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0a1628] ring-2 ring-sky-500/20 sm:h-32 sm:w-32">
+    <div className="mx-auto flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted ring-2 ring-sky-500/20 sm:h-32 sm:w-32">
       {partner.logoUrl ? (
         <img
           src={partner.logoUrl}
@@ -63,7 +63,7 @@ function PartnerCard({
           className="h-[85%] w-[85%] object-contain p-2"
         />
       ) : (
-        <Building2 className="h-12 w-12 text-sky-400/35" strokeWidth={1.25} />
+        <Building2 className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.25} />
       )}
     </div>
   );
@@ -71,14 +71,14 @@ function PartnerCard({
   const body = (
     <>
       {logo}
-      <h3 className="mt-5 text-base font-semibold leading-snug text-sky-300 sm:text-lg">
+      <h3 className="mt-5 text-base font-semibold leading-snug text-sky-700 dark:text-sky-300 sm:text-lg">
         {partner.name}
       </h3>
       {showType && visibleTierLabel(partner.type) ? (
-        <p className="mt-1.5 text-sm text-sky-100/50">{visibleTierLabel(partner.type)}</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">{visibleTierLabel(partner.type)}</p>
       ) : null}
       {partner.websiteUrl ? (
-        <span className="mt-3 inline-flex items-center gap-1 text-xs text-sky-400/70">
+        <span className="mt-3 inline-flex items-center gap-1 text-xs text-muted-foreground">
           <ExternalLink className="h-3 w-3" />
           Visit
         </span>
@@ -87,7 +87,7 @@ function PartnerCard({
   );
 
   const className =
-    'flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-8 text-center backdrop-blur-sm transition-colors hover:border-sky-500/25 hover:bg-white/[0.07]';
+    'flex flex-col items-center rounded-2xl border border-border bg-card px-5 py-8 text-center backdrop-blur-sm transition-colors hover:border-sky-500/25 hover:bg-muted';
 
   return (
     <motion.article
@@ -131,7 +131,7 @@ export function PartnersSection({
   if (isLoading) {
     return (
       <section className="mx-auto max-w-7xl px-6 py-12">
-        <p className="text-sky-400/60">Loading {label.toLowerCase()}…</p>
+        <p className="text-muted-foreground">Loading {label.toLowerCase()}…</p>
       </section>
     );
   }
@@ -150,15 +150,15 @@ export function PartnersSection({
 
   return (
     <section className="mx-auto max-w-7xl px-6 py-12 md:py-16">
-      <div className="mb-8 flex items-baseline justify-between gap-4 border-b border-white/15 pb-3">
-        <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">{label}</h2>
+      <div className="mb-8 flex items-baseline justify-between gap-4 border-b border-border pb-3">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{label}</h2>
       </div>
 
       <div className="space-y-10">
         {groups.map((group) => (
           <div key={group.type} className="space-y-4">
             {tiersEnabled && visibleTierLabel(group.type) ? (
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-sky-300/60">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 {visibleTierLabel(group.type)}
               </h3>
             ) : null}

@@ -29,9 +29,18 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
 
   return (
     <section className="relative min-h-[85vh] overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628] via-[#0f2744] to-[#050d1a]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-sky-100 via-white to-slate-50 dark:from-[#0a1628] dark:via-[#0f2744] dark:to-[#050d1a]" />
       <div
-        className="absolute inset-0 opacity-40"
+        className="absolute inset-0 opacity-70 dark:hidden"
+        style={{
+          backgroundImage: `
+            radial-gradient(ellipse 80% 50% at 50% 100%, rgba(14, 165, 233, 0.16) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 20% 80%, rgba(251, 191, 36, 0.14) 0%, transparent 50%)
+          `,
+        }}
+      />
+      <div
+        className="absolute inset-0 hidden opacity-40 dark:block"
         style={{
           backgroundImage: `
             radial-gradient(ellipse 80% 50% at 50% 100%, rgba(56, 189, 248, 0.15) 0%, transparent 60%),
@@ -41,11 +50,10 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
         }}
       />
       <div
-        className="absolute bottom-0 left-0 right-0 h-64 opacity-30"
+        className="absolute bottom-0 left-0 right-0 h-64 bg-sky-200/80 opacity-40 dark:bg-[#0a1628] dark:opacity-30"
         style={{
           clipPath:
             'polygon(0% 100%, 0% 60%, 15% 45%, 30% 55%, 45% 35%, 60% 50%, 75% 30%, 90% 45%, 100% 25%, 100% 100%)',
-          backgroundColor: '#0a1628',
         }}
       />
 
@@ -55,31 +63,31 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <p className="mb-4 font-serif text-lg italic text-sky-300/80">{competition.organizer}</p>
+          <p className="mb-4 font-serif text-lg italic text-muted-foreground">{competition.organizer}</p>
           <FitHeading
             maxPx={titleMaxPx}
             minPx={26}
             maxHeightVh={38}
-            className="mb-2 max-w-full font-display font-bold leading-[1.05] tracking-tight text-white text-balance"
+            className="mb-2 max-w-full font-display font-bold leading-[1.05] tracking-tight text-foreground text-balance"
           >
             {competition.name}
           </FitHeading>
-          <h2 className="mb-8 max-w-3xl font-serif text-2xl font-light text-sky-100 md:text-3xl lg:text-4xl">
+          <h2 className="mb-8 max-w-3xl font-serif text-2xl font-light text-foreground md:text-3xl lg:text-4xl">
             {competition.venue}
             {competition.country ? ` · ${competition.country}` : ''}
           </h2>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <FaiCategoryBadge value={competition.faiCategory} />
-            <p className="text-sky-400/60">
+            <p className="text-muted-foreground">
               {formatDate(competition.startDate)} – {formatDate(competition.endDate)}
             </p>
           </div>
           {completed ? (
-            <p className="mb-12 text-sm uppercase tracking-[0.3em] text-amber-300/80">
+            <p className="mb-12 text-sm uppercase tracking-[0.3em] text-amber-800 dark:text-amber-300/80">
               Competition completed · Official final standings
             </p>
           ) : preEvent ? (
-            <p className="mb-12 text-sm uppercase tracking-[0.3em] text-amber-300/80">
+            <p className="mb-12 text-sm uppercase tracking-[0.3em] text-amber-800 dark:text-amber-300/80">
               Registration open · Competition has not started
             </p>
           ) : (
@@ -100,7 +108,7 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
               )}
               <Link
                 to={competitionPath(competitionId, 'pilots')}
-                className="inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/5 px-8 py-4 text-lg font-semibold text-white transition-all hover:border-sky-400/40 hover:bg-white/10"
+                className="inline-flex items-center gap-3 rounded-full border border-border bg-card px-8 py-4 text-lg font-semibold text-foreground transition-all hover:border-sky-400/40 hover:bg-muted"
               >
                 <Users className="h-5 w-5" />
                 View pilots
@@ -122,18 +130,18 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
-            className="mt-16 border-t border-white/10 pt-12"
+            className="mt-16 border-t border-border pt-12"
           >
-            <p className="mb-6 text-sm uppercase tracking-[0.3em] text-sky-400/70">
+            <p className="mb-6 text-sm uppercase tracking-[0.3em] text-muted-foreground">
               {completed ? 'Final Podium' : 'Live Leaderboard'}
             </p>
             <div className="grid gap-4 sm:grid-cols-3">
               {topPilots.slice(0, 3).map((pilot) => (
                 <div key={pilot.rank} className="flex items-baseline gap-4">
-                  <span className="font-display text-4xl text-sky-400/50">#{pilot.rank}</span>
+                  <span className="font-display text-4xl text-muted-foreground">#{pilot.rank}</span>
                   <div>
-                    <p className="text-xl font-semibold text-white">{pilot.name}</p>
-                    <p className="text-sm text-sky-300/60">
+                    <p className="text-xl font-semibold text-foreground">{pilot.name}</p>
+                    <p className="text-sm text-muted-foreground">
                       {pilot.country} · {pilot.score} cm
                     </p>
                   </div>

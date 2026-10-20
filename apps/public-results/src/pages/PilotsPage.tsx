@@ -40,48 +40,45 @@ export function PilotsPage() {
 
   return (
     <Layout>
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="font-display text-4xl font-bold text-white">Pilots</h1>
-            <p className="mt-2 text-sky-300/70">
-              {data ? `${data.pilots.length} registered` : 'Registered competitors'}
-            </p>
-          </div>
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="font-display text-xl font-bold text-foreground sm:text-2xl">Pilots</h1>
+          <p className="text-sm text-muted-foreground">
+            {data ? `${data.pilots.length} registered` : 'Registered competitors'}
+          </p>
           {registrationOpen && (
             <Link
               to={competitionPath(competitionId, 'register')}
-              className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-[#050d1a] hover:bg-sky-400"
+              className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-[#050d1a] hover:bg-sky-400"
             >
-              <UserPlus className="h-4 w-4" />
+              <UserPlus className="h-3.5 w-3.5" />
               Register
             </Link>
           )}
+          <div className="relative ml-auto w-full max-w-xs sm:w-64">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search pilots…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 border-border bg-card pl-8 text-sm text-foreground placeholder:text-muted-foreground"
+            />
+          </div>
         </div>
 
-        <div className="relative mb-8 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-400/50" />
-          <Input
-            placeholder="Search by name, number, country, or club…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border-white/10 bg-white/5 pl-10 text-white placeholder:text-sky-300/40"
-          />
-        </div>
-
-        {isLoading && <p className="text-sky-400/60">Loading pilots…</p>}
+        {isLoading && <p className="mt-4 text-muted-foreground">Loading pilots…</p>}
         {error && (
           <p className="text-red-400">
             {error instanceof Error ? error.message : 'Could not load pilots'}
           </p>
         )}
         {!isLoading && !error && pilots.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-white/15 px-6 py-16 text-center">
-            <p className="text-lg text-sky-300/70">No pilots registered yet</p>
+          <div className="mt-4 rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+            <p className="text-lg text-muted-foreground">No pilots registered yet</p>
             {registrationOpen && (
               <Link
                 to={competitionPath(competitionId, 'register')}
-                className="mt-4 inline-flex text-sky-400 underline hover:text-sky-300"
+                className="mt-4 inline-flex text-sky-700 dark:text-sky-400 underline hover:text-sky-800 dark:hover:text-sky-300"
               >
                 Be the first to register
               </Link>
@@ -89,50 +86,58 @@ export function PilotsPage() {
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {pilots.map((pilot, index) => (
-            <motion.div
-              key={pilot.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(index * 0.02, 0.4) }}
-            >
-              <Link
-                to={competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))}
-                className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-500/30 hover:bg-white/10"
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {pilots.map((pilot, index) => {
+            const flag = countryCodeToEmoji(pilot.country?.code2 ?? '');
+            return (
+              <motion.div
+                key={pilot.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.02, 0.4) }}
               >
-                {pilot.photoUrl ? (
-                  <img
-                    src={pilot.photoUrl}
-                    alt=""
-                    className="h-10 w-10 shrink-0 rounded-full object-cover object-top ring-1 ring-white/15"
-                  />
-                ) : (
-                  <span className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 px-1 font-mono text-xs font-bold tabular-nums text-sky-300">
-                    {padPilotNumber(pilot.pilotNumber)}
-                  </span>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-white">
-                    {pilot.photoUrl ? (
-                      <span className="mr-2 font-mono text-sm text-sky-400">
-                        #{padPilotNumber(pilot.pilotNumber)}
-                      </span>
-                    ) : null}
+                <Link
+                  to={competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))}
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-card p-3 transition-colors hover:border-sky-500/30 hover:bg-muted"
+                >
+                  {pilot.photoUrl ? (
+                    <img
+                      src={pilot.photoUrl}
+                      alt=""
+                      className="row-span-2 h-14 w-14 shrink-0 rounded-full object-cover object-top ring-1 ring-border"
+                    />
+                  ) : (
+                    <span
+                      className="row-span-2 h-14 w-14 shrink-0 rounded-full bg-muted"
+                      aria-hidden
+                    />
+                  )}
+                  <p className="min-w-0 truncate font-semibold leading-tight text-foreground">
                     {pilotFullName(pilot.firstName, pilot.lastName)}
                   </p>
-                  <p className="text-sm text-sky-300/60">
-                    {countryCodeToEmoji(pilot.country?.code2 ?? '')}{' '}
-                    {pilot.country?.code || '—'}
-                    {pilot.club ? ` · ${pilot.club}` : ''}
+                  <p className="flex min-w-0 items-center gap-1.5">
+                    <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1 font-mono text-xs font-bold tabular-nums text-primary-foreground">
+                      {padPilotNumber(pilot.pilotNumber)}
+                    </span>
+                    {flag ? (
+                      <span className="text-base leading-none" aria-hidden>
+                        {flag}
+                      </span>
+                    ) : null}
+                    <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {pilot.country?.code || '—'}
+                    </span>
+                    {pilot.club ? (
+                      <span className="truncate text-xs text-muted-foreground">· {pilot.club}</span>
+                    ) : null}
                   </p>
-                </div>
-                <span className="text-[10px] uppercase tracking-wider text-sky-500/60">
-                  {pilot.status.replace(/_/g, ' ')}
-                </span>
-              </Link>
-            </motion.div>
-          ))}
+                  <span className="col-start-3 row-span-2 row-start-1 self-center text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {pilot.status.replace(/_/g, ' ')}
+                  </span>
+                </Link>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </Layout>

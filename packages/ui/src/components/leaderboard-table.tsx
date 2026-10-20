@@ -188,7 +188,7 @@ export function LeaderboardTable({
   // When rounds are expanded, "9/9" is redundant unless callers keep it on.
   const showRoundsCount = showRounds && !detailMode;
   const frozen = 'max-md:sticky max-md:z-20 max-md:px-2 max-md:py-2.5';
-  const frozenBg = 'max-md:bg-[#121925]';
+  const frozenBg = 'max-md:bg-card';
 
   return (
     <div className={cn('min-w-full w-max', className)} {...props}>
@@ -222,7 +222,7 @@ export function LeaderboardTable({
                 detailMode && frozen,
                 detailMode && frozenBg,
                 detailMode &&
-                  'max-md:left-[4.75rem] max-md:min-w-[9.5rem] max-md:border-r max-md:border-white/10',
+                  'max-md:left-[4.75rem] max-md:min-w-[9.5rem] max-md:border-r max-md:border-border',
               )}
               aria-sort={
                 sortKey === 'number' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
@@ -288,7 +288,7 @@ export function LeaderboardTable({
                     detailMode && frozen,
                     detailMode && frozenBg,
                     detailMode &&
-                      'max-md:left-[4.75rem] max-md:max-w-[12.5rem] max-md:border-r max-md:border-white/10',
+                      'max-md:left-[4.75rem] max-md:max-w-[12.5rem] max-md:border-r max-md:border-border',
                   )}
                 >
                   {entry.hideNumber ? (

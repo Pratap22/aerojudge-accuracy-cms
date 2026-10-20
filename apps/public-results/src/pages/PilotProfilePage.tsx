@@ -43,10 +43,10 @@ export function PilotProfilePage() {
     return (
       <Layout>
         <div className="mx-auto max-w-7xl px-6 py-12 text-center">
-          <h1 className="font-display text-3xl text-white">Pilot Not Found</h1>
+          <h1 className="font-display text-3xl text-foreground">Pilot Not Found</h1>
           <Link
             to={competitionPath(competitionId ?? '', 'pilots')}
-            className="mt-4 inline-block text-sky-400 hover:underline"
+            className="mt-4 inline-block text-sky-700 dark:text-sky-400 hover:underline"
           >
             Back to pilots
           </Link>
@@ -70,14 +70,14 @@ export function PilotProfilePage() {
       <div className="mx-auto max-w-4xl px-6 py-12">
         <Link
           to={competitionPath(competitionId ?? '', 'pilots')}
-          className="mb-8 inline-flex items-center gap-2 text-sky-400 hover:text-sky-300"
+          className="mb-8 inline-flex items-center gap-2 text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300"
         >
           <ArrowLeft className="h-4 w-4" />
           All Pilots
         </Link>
 
         {justRegistered && (
-          <div className="mb-8 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-200">
+          <div className="mb-8 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-800 dark:text-emerald-200">
             <CheckCircle2 className="h-5 w-5 shrink-0" />
             <p className="text-sm">
               Registration received. You are pilot #{padPilotNumber(profile.pilotNumber)} — organisers can see you
@@ -105,17 +105,17 @@ export function PilotProfilePage() {
             )}
             <div>
               {photoUrl ? (
-                <p className="mb-1 font-mono text-sky-400">#{padPilotNumber(profile.pilotNumber)}</p>
+                <p className="mb-1 font-mono text-sky-700 dark:text-sky-400">#{padPilotNumber(profile.pilotNumber)}</p>
               ) : null}
-              <h1 className="font-display text-4xl font-bold text-white">
+              <h1 className="font-display text-4xl font-bold text-foreground">
                 {pilotFullName(profile.firstName, profile.lastName)}
               </h1>
-              <p className="mt-2 text-lg text-sky-300">
+              <p className="mt-2 text-lg text-sky-700 dark:text-sky-300">
                 {countryCodeToEmoji(profile.country?.code2 ?? '')}{' '}
                 {profile.country?.code || '—'}
               </p>
               {listPilot?.club && (
-                <p className="mt-1 text-sm text-sky-400/70">{listPilot.club}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{listPilot.club}</p>
               )}
             </div>
             {rankingRow && (
@@ -151,12 +151,12 @@ export function PilotProfilePage() {
         </motion.div>
 
         {rankingRow && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <h2 className="mb-4 flex items-center gap-2 font-display text-xl text-white">
-              <Target className="h-5 w-5 text-sky-400" />
+          <div className="rounded-2xl border border-border bg-card p-6">
+            <h2 className="mb-4 flex items-center gap-2 font-display text-xl text-foreground">
+              <Target className="h-5 w-5 text-sky-700 dark:text-sky-400" />
               Scores
             </h2>
-            <p className="text-sky-300/60">
+            <p className="text-muted-foreground">
               Overall standing after {rankingRow.roundsFlown} round
               {rankingRow.roundsFlown !== 1 ? 's' : ''}.
             </p>
@@ -172,9 +172,9 @@ export function PilotProfilePage() {
 
 function StatBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-      <p className="text-xs uppercase tracking-wider text-sky-400/60">{label}</p>
-      <p className="mt-1 font-display text-xl text-white">{value}</p>
+    <div className="rounded-xl border border-border bg-card p-4">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-1 font-display text-xl text-foreground">{value}</p>
     </div>
   );
 }

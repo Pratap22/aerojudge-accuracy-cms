@@ -62,8 +62,8 @@ export function EventPage() {
     return (
       <Layout>
         <div className="flex min-h-[50vh] flex-col items-center justify-center px-6 text-center">
-          <h1 className="font-display text-3xl text-white">Missing competition</h1>
-          <Link to="/" className="mt-4 text-sky-400 hover:underline">
+          <h1 className="font-display text-3xl text-foreground">Missing competition</h1>
+          <Link to="/" className="mt-4 text-sky-700 dark:text-sky-400 hover:underline">
             Browse competitions
           </Link>
         </div>
@@ -75,15 +75,15 @@ export function EventPage() {
     <Layout>
       <div className="mx-auto max-w-7xl px-6 py-12">
         <header className="max-w-3xl">
-          <p className="text-sm font-medium uppercase tracking-wider text-sky-400/70">Event</p>
+          <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Event</p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-4xl font-bold text-white">
+            <h1 className="font-display text-4xl font-bold text-foreground">
               {competition?.name ?? 'Event'}
             </h1>
             <FaiCategoryBadge value={competition?.faiCategory} />
           </div>
           {competition ? (
-            <p className="mt-3 text-sky-100/55">
+            <p className="mt-3 text-muted-foreground">
               {[competition.venue, competition.country].filter(Boolean).join(' · ')}
             </p>
           ) : null}
@@ -100,7 +100,7 @@ export function EventPage() {
                 className={
                   active
                     ? 'rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-[#050d1a]'
-                    : 'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-sky-100/80 transition-colors hover:bg-white/10 hover:text-white'
+                    : 'rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
                 }
               >
                 {item.label}
@@ -111,10 +111,10 @@ export function EventPage() {
 
         {section === 'feed' ? (
         <section id="feed" className="scroll-mt-28 py-10">
-          <h2 className="font-display text-2xl font-semibold text-white sm:text-3xl">Feed</h2>
-          <p className="mt-2 text-sm text-sky-300/70">Scores, reflights, and photos from this event</p>
+          <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">Feed</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Scores, reflights, and photos from this event</p>
           <div className="mt-6 max-w-3xl">
-            {feedLoading ? <p className="text-sm text-sky-200/60">Loading updates…</p> : null}
+            {feedLoading ? <p className="text-sm text-muted-foreground">Loading updates…</p> : null}
             {feedError ? <p className="text-sm text-rose-300">Updates are unavailable right now.</p> : null}
             {!feedLoading && !feedError ? <EventFeedList items={feed} /> : null}
           </div>
@@ -123,12 +123,12 @@ export function EventPage() {
 
         {section === 'info' ? (
         <section id="info" className="scroll-mt-28 py-10">
-          <h2 className="font-display text-2xl font-semibold text-white sm:text-3xl">Info</h2>
+          <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">Info</h2>
           <div className="mt-6">
-            {infoLoading ? <p className="text-sm text-sky-200/60">Loading event info…</p> : null}
+            {infoLoading ? <p className="text-sm text-muted-foreground">Loading event info…</p> : null}
             {!infoLoading && info?.hasContent ? <CompetitionInfoSections info={info} /> : null}
             {!infoLoading && !info?.hasContent ? (
-              <p className="text-sky-300/70">Detailed event information has not been published yet.</p>
+              <p className="text-muted-foreground">Detailed event information has not been published yet.</p>
             ) : null}
           </div>
         </section>
@@ -136,17 +136,17 @@ export function EventPage() {
 
         {section === 'officials' ? (
         <section id="officials" className="scroll-mt-28 py-10">
-          <h2 className="font-display text-2xl font-semibold text-white sm:text-3xl">Officials</h2>
-          <p className="mt-2 text-sm text-sky-300/70">Judges and officials for this competition</p>
+          <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">Officials</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Judges and officials for this competition</p>
           <div className="mt-6">
-            {officialsLoading ? <p className="text-sky-400/60">Loading organizing team…</p> : null}
+            {officialsLoading ? <p className="text-muted-foreground">Loading organizing team…</p> : null}
             {officialsError ? (
               <p className="text-red-400">
                 {officialsError instanceof Error ? officialsError.message : 'Could not load team'}
               </p>
             ) : null}
             {!officialsLoading && !officialsError && officials.length === 0 && !hasOrganiser ? (
-              <p className="text-sky-300/70">No organizing team listed yet.</p>
+              <p className="text-muted-foreground">No organizing team listed yet.</p>
             ) : null}
             {!officialsLoading && !officialsError && (officials.length > 0 || hasOrganiser) ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -165,8 +165,8 @@ export function EventPage() {
         </section>
         ) : null}
 
-        <p className="border-t border-white/10 pt-8">
-          <Link to={competitionPath(competitionId)} className="text-sm font-medium text-sky-400 hover:text-sky-300">
+        <p className="border-t border-border pt-8">
+          <Link to={competitionPath(competitionId)} className="text-sm font-medium text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300">
             Back to home
           </Link>
         </p>

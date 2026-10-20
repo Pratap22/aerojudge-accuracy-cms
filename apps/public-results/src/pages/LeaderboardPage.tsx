@@ -72,7 +72,7 @@ export function LeaderboardPage() {
     <Layout>
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="font-display text-xl font-bold text-white sm:text-2xl">{title}</h1>
+          <h1 className="font-display text-xl font-bold text-foreground sm:text-2xl">{title}</h1>
           <FaiCategoryBadge value={competition?.faiCategory} />
           <div className="flex flex-wrap gap-1.5">
             {boards.map((item) => {
@@ -86,7 +86,7 @@ export function LeaderboardPage() {
                   className={
                     active
                       ? 'rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-[#050d1a]'
-                      : 'rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-sky-100/80 transition-colors hover:bg-white/10 hover:text-white'
+                      : 'rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
                   }
                 >
                   {item.label}
@@ -96,12 +96,12 @@ export function LeaderboardPage() {
           </div>
           {board === 'overall' ? (
             <div className="relative ml-auto w-full max-w-[14rem] sm:w-52">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sky-400/50" />
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search pilots…"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="h-8 border-white/10 bg-white/5 pl-8 text-sm text-white placeholder:text-sky-300/40"
+                className="h-8 border-border bg-card pl-8 text-sm text-foreground placeholder:text-muted-foreground"
               />
             </div>
           ) : null}

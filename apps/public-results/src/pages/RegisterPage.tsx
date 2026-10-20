@@ -240,13 +240,13 @@ export function RegisterPage() {
     return (
       <Layout>
         <div className="mx-auto max-w-lg px-6 py-24 text-center">
-          <h1 className="font-display text-3xl text-white">Registration closed</h1>
-          <p className="mt-3 text-sky-300/70">
+          <h1 className="font-display text-3xl text-foreground">Registration closed</h1>
+          <p className="mt-3 text-muted-foreground">
             Pilot self-registration is not open for this competition right now.
           </p>
           <Link
             to={competitionPath(competitionId, 'pilots')}
-            className="mt-8 inline-block text-sky-400 underline hover:text-sky-300"
+            className="mt-8 inline-block text-sky-700 dark:text-sky-400 underline hover:text-sky-800 dark:hover:text-sky-300"
           >
             View registered pilots
           </Link>
@@ -258,18 +258,18 @@ export function RegisterPage() {
   return (
     <Layout>
       <div className="mx-auto max-w-2xl px-6 py-12">
-        <p className="text-sm uppercase tracking-[0.3em] text-sky-400/70">
+        <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground">
           {competition?.name}
         </p>
-        <h1 className="mt-2 font-display text-4xl font-bold text-white">Pilot registration</h1>
-        <p className="mt-3 text-sky-300/70">
+        <h1 className="mt-2 font-display text-4xl font-bold text-foreground">Pilot registration</h1>
+        <p className="mt-3 text-muted-foreground">
           Create an AeroJudge account or sign in. If organisers already added you, claim that
           profile with your AJ-… or CIVL ID, then enter only this competition&apos;s details.
         </p>
 
         {/* Step 1: Auth */}
         {!isAuthenticated ? (
-          <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.03] p-6">
+          <div className="mt-10 rounded-xl border border-border bg-muted/40 p-6">
             <div className="mb-6 flex gap-2">
               <Button
                 type="button"
@@ -277,7 +277,7 @@ export function RegisterPage() {
                 className={
                   authMode === 'login'
                     ? 'bg-sky-500 text-[#050d1a] hover:bg-sky-400'
-                    : 'border-white/25 bg-transparent text-sky-100'
+                    : 'border-input bg-transparent text-foreground'
                 }
                 onClick={() => setAuthMode('login')}
               >
@@ -289,7 +289,7 @@ export function RegisterPage() {
                 className={
                   authMode === 'signup'
                     ? 'bg-sky-500 text-[#050d1a] hover:bg-sky-400'
-                    : 'border-white/25 bg-transparent text-sky-100'
+                    : 'border-input bg-transparent text-foreground'
                 }
                 onClick={() => setAuthMode('signup')}
               >
@@ -300,39 +300,39 @@ export function RegisterPage() {
               {authMode === 'signup' && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label className="text-sky-200">First name *</Label>
+                    <Label className="text-foreground">First name *</Label>
                     <Input
                       required
                       value={authForm.firstName}
                       onChange={(e) => setAuthForm((f) => ({ ...f, firstName: e.target.value }))}
-                      className="border-white/10 bg-white/5 text-white"
+                      className="border-border bg-card text-foreground"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sky-200">Last name *</Label>
+                    <Label className="text-foreground">Last name *</Label>
                     <Input
                       required
                       value={authForm.lastName}
                       onChange={(e) => setAuthForm((f) => ({ ...f, lastName: e.target.value }))}
-                      className="border-white/10 bg-white/5 text-white"
+                      className="border-border bg-card text-foreground"
                     />
                   </div>
                 </div>
               )}
               <div className="space-y-2">
-                <Label className="text-sky-200">Email *</Label>
+                <Label className="text-foreground">Email *</Label>
                 <Input
                   type="email"
                   required
                   autoComplete="email"
                   value={authForm.email}
                   onChange={(e) => setAuthForm((f) => ({ ...f, email: e.target.value }))}
-                  className="border-white/10 bg-white/5 text-white"
+                  className="border-border bg-card text-foreground"
                 />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <Label className="text-sky-200">Password *</Label>
+                  <Label className="text-foreground">Password *</Label>
                   {authMode === 'login' ? (
                     <Link
                       to={`/forgot-password?${new URLSearchParams({
@@ -341,7 +341,7 @@ export function RegisterPage() {
                           ? { email: authForm.email.trim() }
                           : {}),
                       }).toString()}`}
-                      className="text-xs font-medium text-sky-400 hover:underline"
+                      className="text-xs font-medium text-sky-700 dark:text-sky-400 hover:underline"
                     >
                       Forgot password?
                     </Link>
@@ -354,7 +354,7 @@ export function RegisterPage() {
                   autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                   value={authForm.password}
                   onChange={(e) => setAuthForm((f) => ({ ...f, password: e.target.value }))}
-                  className="border-white/10 bg-white/5 text-white"
+                  className="border-border bg-card text-foreground"
                 />
               </div>
               {authError && (
@@ -378,10 +378,10 @@ export function RegisterPage() {
         ) : (
           <>
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
-              <div className="text-sm text-sky-100">
-                Signed in as <span className="font-medium text-white">{user?.email}</span>
+              <div className="text-sm text-foreground">
+                Signed in as <span className="font-medium text-foreground">{user?.email}</span>
                 {person && (
-                  <span className="mt-1 block text-sky-300/80">
+                  <span className="mt-1 block text-muted-foreground">
                     Profile: {person.firstName} {person.lastName} · {person.aeroJudgeId}
                     {person.civlId ? ` · CIVL ${person.civlId}` : ''}
                   </span>
@@ -392,7 +392,7 @@ export function RegisterPage() {
                 variant="outline"
                 size="sm"
                 onClick={logout}
-                className="border-white/25 bg-transparent text-sky-100"
+                className="border-input bg-transparent text-foreground"
               >
                 Sign out
               </Button>
@@ -400,9 +400,9 @@ export function RegisterPage() {
 
             {/* Step 2: Claim existing profile if not linked */}
             {!hasPerson && (
-              <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-6">
-                <h2 className="text-lg font-semibold text-white">Claim an existing profile?</h2>
-                <p className="mt-1 text-sm text-sky-300/70">
+              <div className="mt-6 rounded-xl border border-border bg-muted/40 p-6">
+                <h2 className="text-lg font-semibold text-foreground">Claim an existing profile?</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
                   Already in the pilot list (added by organisers)? Enter your AeroJudge ID (AJ-…) or
                   CIVL ID to link that Person instead of creating a duplicate. Instant claim works
                   when the profile email matches your login email; otherwise an organiser must
@@ -413,21 +413,21 @@ export function RegisterPage() {
                     placeholder="AJ-XXXXXX or CIVL ID"
                     value={claimId}
                     onChange={(e) => setClaimId(e.target.value)}
-                    className="max-w-xs border-white/10 bg-white/5 text-white"
+                    className="max-w-xs border-border bg-card text-foreground"
                   />
                   <Button
                     type="submit"
                     disabled={claimBusy || !claimId.trim()}
                     variant="outline"
-                    className="border-sky-500/40 bg-transparent text-sky-100"
+                    className="border-sky-500/40 bg-transparent text-foreground"
                   >
                     {claimBusy ? 'Looking up…' : 'Find & claim'}
                   </Button>
                 </form>
                 {claimMsg && (
-                  <p className="mt-3 text-sm text-sky-200/90">{claimMsg}</p>
+                  <p className="mt-3 text-sm text-foreground/90">{claimMsg}</p>
                 )}
-                <p className="mt-4 text-xs text-sky-400/60">
+                <p className="mt-4 text-xs text-muted-foreground">
                   New to AeroJudge? Skip this and we&apos;ll create your profile when you submit
                   registration below.
                 </p>
@@ -436,10 +436,10 @@ export function RegisterPage() {
 
             {/* Step 3: Competition registration */}
             <form onSubmit={onSubmit} className="mt-10 space-y-6">
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-semibold text-foreground">
                 {hasPerson ? 'Competition details' : 'Create profile & competition details'}
               </h2>
-              <p className="text-sm text-sky-300/70">
+              <p className="text-sm text-muted-foreground">
                 {hasPerson
                   ? 'Identity is taken from your AeroJudge profile. Enter only event-specific information.'
                   : 'We’ll create your AeroJudge Person profile, then register you in this competition.'}
@@ -449,27 +449,27 @@ export function RegisterPage() {
                 <>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label className="text-sky-200">First name *</Label>
+                      <Label className="text-foreground">First name *</Label>
                       <Input
                         required
                         value={form.firstName || user?.firstName || ''}
                         onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                        className="border-white/10 bg-white/5 text-white"
+                        className="border-border bg-card text-foreground"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sky-200">Last name *</Label>
+                      <Label className="text-foreground">Last name *</Label>
                       <Input
                         required
                         value={form.lastName || user?.lastName || ''}
                         onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                        className="border-white/10 bg-white/5 text-white"
+                        className="border-border bg-card text-foreground"
                       />
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label className="text-sky-200">Gender *</Label>
+                      <Label className="text-foreground">Gender *</Label>
                       <Select
                         value={form.gender}
                         onValueChange={(v) =>
@@ -479,10 +479,10 @@ export function RegisterPage() {
                           }))
                         }
                       >
-                        <SelectTrigger className="border-white/10 bg-white/5 text-white">
+                        <SelectTrigger className="border-border bg-card text-foreground">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="border-sky-500/30 bg-[#0a1628] text-sky-50 shadow-xl">
+                        <SelectContent className="border-sky-500/30 bg-muted text-popover-foreground shadow-xl">
                           <SelectItem value="MALE">Male</SelectItem>
                           <SelectItem value="FEMALE">Female</SelectItem>
                           <SelectItem value="OTHER">Other</SelectItem>
@@ -490,7 +490,7 @@ export function RegisterPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sky-200">Country</Label>
+                      <Label className="text-foreground">Country</Label>
                       <Select
                         value={form.countryCode || '__none__'}
                         onValueChange={(v) =>
@@ -500,10 +500,10 @@ export function RegisterPage() {
                           }))
                         }
                       >
-                        <SelectTrigger className="border-white/10 bg-white/5 text-white">
+                        <SelectTrigger className="border-border bg-card text-foreground">
                           <SelectValue placeholder="Select country" />
                         </SelectTrigger>
-                        <SelectContent className="border-sky-500/30 bg-[#0a1628] text-sky-50 shadow-xl">
+                        <SelectContent className="border-sky-500/30 bg-muted text-popover-foreground shadow-xl">
                           <SelectItem value="__none__">Not specified</SelectItem>
                           {countries.map((c) => (
                             <SelectItem key={c.id} value={c.code}>
@@ -516,19 +516,19 @@ export function RegisterPage() {
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label className="text-sky-200">CIVL ID</Label>
+                      <Label className="text-foreground">CIVL ID</Label>
                       <Input
                         value={form.civlId}
                         onChange={(e) => setForm((f) => ({ ...f, civlId: e.target.value }))}
-                        className="border-white/10 bg-white/5 text-white"
+                        className="border-border bg-card text-foreground"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sky-200">FAI license</Label>
+                      <Label className="text-foreground">FAI license</Label>
                       <Input
                         value={form.faiLicense}
                         onChange={(e) => setForm((f) => ({ ...f, faiLicense: e.target.value }))}
-                        className="border-white/10 bg-white/5 text-white"
+                        className="border-border bg-card text-foreground"
                       />
                     </div>
                   </div>
@@ -536,11 +536,11 @@ export function RegisterPage() {
               )}
 
               {hasPerson && (
-                <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-sky-100">
-                  <p className="font-medium text-white">
+                <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground">
+                  <p className="font-medium text-foreground">
                     {person!.firstName} {person!.lastName}
                   </p>
-                  <p className="text-sky-300/80">
+                  <p className="text-muted-foreground">
                     {person!.aeroJudgeId}
                     {person!.civlId ? ` · CIVL ${person!.civlId}` : ''}
                     {person!.nationalityCountry?.code
@@ -551,8 +551,8 @@ export function RegisterPage() {
               )}
 
               <div className="space-y-2">
-                <Label className="text-sky-200">Photo (optional)</Label>
-                <p className="text-xs text-sky-400/60">
+                <Label className="text-foreground">Photo (optional)</Label>
+                <p className="text-xs text-muted-foreground">
                   {photoFile
                     ? 'New photo will be used for leaderboards and venue display · PNG, JPEG, WebP, GIF, or HEIC · max 2 MB'
                     : profilePhotoUrl
@@ -567,14 +567,14 @@ export function RegisterPage() {
                       className="h-16 w-16 rounded-full object-cover object-top ring-1 ring-white/20"
                     />
                   ) : (
-                    <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-xs text-sky-400/60">
+                    <span className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">
                       {photoFile ? 'Added' : 'None'}
                     </span>
                   )}
                   <Input
                     type="file"
                     accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
-                    className="border-white/10 bg-white/5 text-white file:mr-3 file:rounded-md file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#050d1a]"
+                    className="border-border bg-card text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#050d1a]"
                     onChange={(e) => onPhotoChange(e.target.files?.[0] ?? null)}
                   />
                 </div>
@@ -582,60 +582,60 @@ export function RegisterPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-sky-200">Club / team</Label>
+                  <Label className="text-foreground">Club / team</Label>
                   <Input
                     value={form.club}
                     onChange={(e) => setForm((f) => ({ ...f, club: e.target.value }))}
-                    className="border-white/10 bg-white/5 text-white"
+                    className="border-border bg-card text-foreground"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sky-200">Date of birth</Label>
+                  <Label className="text-foreground">Date of birth</Label>
                   <Input
                     type="date"
                     value={form.dateOfBirth}
                     onChange={(e) => setForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
-                    className="border-white/10 bg-white/5 text-white"
+                    className="border-border bg-card text-foreground"
                   />
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-sky-200">Glider</Label>
+                  <Label className="text-foreground">Glider</Label>
                   <Input
                     value={form.glider}
                     onChange={(e) => setForm((f) => ({ ...f, glider: e.target.value }))}
-                    className="border-white/10 bg-white/5 text-white"
+                    className="border-border bg-card text-foreground"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sky-200">Harness</Label>
+                  <Label className="text-foreground">Harness</Label>
                   <Input
                     value={form.harness}
                     onChange={(e) => setForm((f) => ({ ...f, harness: e.target.value }))}
-                    className="border-white/10 bg-white/5 text-white"
+                    className="border-border bg-card text-foreground"
                   />
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-sky-200">Emergency contact</Label>
+                  <Label className="text-foreground">Emergency contact</Label>
                   <Input
                     value={form.emergencyContact}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, emergencyContact: e.target.value }))
                     }
-                    className="border-white/10 bg-white/5 text-white"
+                    className="border-border bg-card text-foreground"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sky-200">Emergency phone</Label>
+                  <Label className="text-foreground">Emergency phone</Label>
                   <Input
                     value={form.emergencyPhone}
                     onChange={(e) => setForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
-                    className="border-white/10 bg-white/5 text-white"
+                    className="border-border bg-card text-foreground"
                   />
                 </div>
               </div>
@@ -661,7 +661,7 @@ export function RegisterPage() {
                   type="button"
                   variant="outline"
                   asChild
-                  className="border-white/25 bg-transparent text-sky-100 hover:bg-white/10 hover:text-white"
+                  className="border-input bg-transparent text-foreground hover:bg-muted hover:text-foreground"
                 >
                   <Link to={competitionPath(competitionId, 'pilots')}>Cancel</Link>
                 </Button>

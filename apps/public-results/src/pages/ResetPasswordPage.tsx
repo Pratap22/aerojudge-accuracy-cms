@@ -52,8 +52,8 @@ export function ResetPasswordPage() {
     return (
       <Layout seo="none">
         <div className="mx-auto max-w-md px-6 py-12">
-          <h1 className="font-display text-3xl font-bold text-white">Invalid reset link</h1>
-          <p className="mt-3 text-sky-300/70">This link is missing a reset token.</p>
+          <h1 className="font-display text-3xl font-bold text-foreground">Invalid reset link</h1>
+          <p className="mt-3 text-muted-foreground">This link is missing a reset token.</p>
           <div className="mt-8">
             <Button asChild className="bg-sky-500 text-[#050d1a] hover:bg-sky-400">
               <Link to="/forgot-password">Request a new link</Link>
@@ -68,14 +68,14 @@ export function ResetPasswordPage() {
     <Layout seo="none">
       <div className="mx-auto max-w-md px-6 py-12">
         <AeroJudgeLogo className="h-14 w-auto" />
-        <h1 className="mt-2 font-display text-3xl font-bold text-white">Choose a new password</h1>
-        <p className="mt-3 text-sky-300/70">
+        <h1 className="mt-2 font-display text-3xl font-bold text-foreground">Choose a new password</h1>
+        <p className="mt-3 text-muted-foreground">
           {done
             ? 'Password updated — redirecting to sign in…'
             : 'Enter a new password for your account'}
         </p>
 
-        <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="mt-10 rounded-xl border border-border bg-muted/40 p-6">
           {done ? (
             <Button asChild className="w-full bg-sky-500 text-[#050d1a] hover:bg-sky-400">
               <Link to={signInHref}>Sign in</Link>
@@ -83,7 +83,7 @@ export function ResetPasswordPage() {
           ) : (
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-sky-200" htmlFor="new-password">
+                <Label className="text-foreground" htmlFor="new-password">
                   New password
                 </Label>
                 <Input
@@ -94,11 +94,11 @@ export function ResetPasswordPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="border-white/10 bg-white/5 text-white"
+                  className="border-border bg-card text-foreground"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-sky-200" htmlFor="confirm-password">
+                <Label className="text-foreground" htmlFor="confirm-password">
                   Confirm password
                 </Label>
                 <Input
@@ -109,7 +109,7 @@ export function ResetPasswordPage() {
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="border-white/10 bg-white/5 text-white"
+                  className="border-border bg-card text-foreground"
                 />
               </div>
               {error && (
@@ -127,7 +127,7 @@ export function ResetPasswordPage() {
               <Button
                 asChild
                 variant="ghost"
-                className="w-full text-sky-300 hover:bg-white/5 hover:text-sky-100"
+                className="w-full text-sky-700 dark:text-sky-300 hover:bg-muted/70 hover:text-foreground"
               >
                 <Link to={signInHref}>Back to sign in</Link>
               </Button>

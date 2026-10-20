@@ -45,8 +45,8 @@ export function HomePage() {
     return (
       <Layout>
         <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-          <h1 className="font-display text-4xl text-white">Missing competition</h1>
-          <Link to="/" className="mt-4 text-sky-400 hover:underline">
+          <h1 className="font-display text-4xl text-foreground">Missing competition</h1>
+          <Link to="/" className="mt-4 text-sky-700 dark:text-sky-400 hover:underline">
             Browse competitions
           </Link>
         </div>
@@ -68,9 +68,9 @@ export function HomePage() {
     return (
       <Layout>
         <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-          <h1 className="font-display text-4xl text-white">Competition Not Found</h1>
-          <p className="mt-4 text-sky-300/70">This competition may not be published or does not exist.</p>
-          <Link to="/" className="mt-6 text-sky-400 hover:underline">
+          <h1 className="font-display text-4xl text-foreground">Competition Not Found</h1>
+          <p className="mt-4 text-muted-foreground">This competition may not be published or does not exist.</p>
+          <Link to="/" className="mt-6 text-sky-700 dark:text-sky-400 hover:underline">
             Browse competitions
           </Link>
         </div>
@@ -101,16 +101,16 @@ export function HomePage() {
       {aboutHtml ? (
         <section className="mx-auto max-w-7xl px-6 py-14">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <h2 className="font-display text-2xl font-semibold text-white sm:text-3xl">About</h2>
+            <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">About</h2>
             <Link
               to={`${competitionPath(competitionId, 'event')}#info`}
-              className="text-sm font-medium text-sky-400 hover:text-sky-300"
+              className="text-sm font-medium text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300"
             >
               Full event info →
             </Link>
           </div>
           <div
-            className="rich-html mt-5 max-w-3xl text-[15px] leading-relaxed text-sky-100/75 line-clamp-[12] [&_a]:text-sky-300 [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-white [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
+            className="rich-html mt-5 max-w-3xl text-[15px] leading-relaxed text-muted-foreground line-clamp-[12] [&_a]:text-sky-700 dark:[&_a]:text-sky-700 dark:text-sky-300 [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
             dangerouslySetInnerHTML={{ __html: aboutHtml }}
           />
         </section>

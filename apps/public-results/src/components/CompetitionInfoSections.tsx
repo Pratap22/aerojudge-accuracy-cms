@@ -19,8 +19,8 @@ function InfoSection({
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-28 border-t border-white/10 py-12 first:border-t-0 first:pt-0">
-      <h2 className="font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+    <section id={id} className="scroll-mt-28 border-t border-border py-12 first:border-t-0 first:pt-0">
+      <h2 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
         {title}
       </h2>
       <div className="mt-5">{children}</div>
@@ -33,7 +33,7 @@ function RichHtml({ html }: { html: string }) {
   if (!clean) return null;
   return (
     <div
-      className="rich-html max-w-3xl text-[15px] leading-relaxed text-sky-100/75 [&_a]:text-sky-300 [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-sky-200 [&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-white [&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-sky-100 [&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_strong]:font-semibold [&_strong]:text-sky-50 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5"
+      className="rich-html max-w-3xl text-[15px] leading-relaxed text-muted-foreground [&_a]:text-sky-700 dark:[&_a]:text-sky-700 dark:text-sky-300 [&_a]:underline [&_a]:underline-offset-2 hover:[&_a]:text-sky-900 dark:hover:[&_a]:text-foreground [&_h2]:mb-2 [&_h2]:mt-6 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:mb-2 [&_h3]:mt-5 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-foreground [&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-3 [&_strong]:font-semibold [&_strong]:text-foreground [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5"
       dangerouslySetInnerHTML={{ __html: clean }}
     />
   );
@@ -89,7 +89,7 @@ export function CompetitionInfoSections({ info }: CompetitionInfoSectionsProps) 
             {info.gallery.map((image) => (
               <figure
                 key={image.id}
-                className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]"
+                className="overflow-hidden rounded-xl border border-border bg-muted/40"
               >
                 <img
                   src={image.url}
@@ -98,7 +98,7 @@ export function CompetitionInfoSections({ info }: CompetitionInfoSectionsProps) 
                   loading="lazy"
                 />
                 {image.caption ? (
-                  <figcaption className="px-3 py-2 text-sm text-sky-100/55">
+                  <figcaption className="px-3 py-2 text-sm text-muted-foreground">
                     {image.caption}
                   </figcaption>
                 ) : null}
@@ -110,11 +110,11 @@ export function CompetitionInfoSections({ info }: CompetitionInfoSectionsProps) 
 
       {hasMap ? (
         <InfoSection id="map" title="Event map">
-          <div className="overflow-hidden rounded-xl border border-white/10">
+          <div className="overflow-hidden rounded-xl border border-border">
             <EventMap pins={mapPins} zoom={info.mapZoom ?? 13} />
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-sky-100/65">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
               <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-                <MapPin className="h-3.5 w-3.5 text-sky-400/60" />
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                 {info.mapLabel || info.location || info.venue}
                 {mapPins.map((pin) => (
                   <span key={pin.label} className="inline-flex items-center gap-1.5">
@@ -130,7 +130,7 @@ export function CompetitionInfoSections({ info }: CompetitionInfoSectionsProps) 
                 href={osmBrowseUrl(mapPins[0].latitude, mapPins[0].longitude, info.mapZoom ?? 13)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sky-300 hover:text-sky-200"
+                className="inline-flex items-center gap-1.5 text-sky-700 dark:text-sky-300 hover:text-foreground"
               >
                 Open in OpenStreetMap
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -149,9 +149,9 @@ export function CompetitionInfoSections({ info }: CompetitionInfoSectionsProps) 
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sky-100 transition-colors hover:border-sky-500/30 hover:bg-white/[0.07] hover:text-white"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-foreground transition-colors hover:border-sky-500/30 hover:bg-muted hover:text-foreground"
                 >
-                  <ExternalLink className="h-4 w-4 shrink-0 text-sky-400/60" />
+                  <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span>{link.label}</span>
                 </a>
               </li>
@@ -166,26 +166,26 @@ export function CompetitionInfoSections({ info }: CompetitionInfoSectionsProps) 
             {info.contacts.map((contact) => (
               <article
                 key={contact.id}
-                className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-5"
+                className="rounded-xl border border-border bg-card px-5 py-5"
               >
-                <h3 className="font-semibold text-sky-100">{contact.name}</h3>
-                <p className="mt-1 text-sm text-sky-100/50">{contact.role}</p>
-                <div className="mt-4 space-y-2 text-sm text-sky-100/70">
+                <h3 className="font-semibold text-foreground">{contact.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{contact.role}</p>
+                <div className="mt-4 space-y-2 text-sm text-muted-foreground">
                   {contact.phone ? (
                     <a
                       href={`tel:${contact.phone}`}
-                      className="flex items-center gap-2 hover:text-sky-300"
+                      className="flex items-center gap-2 hover:text-sky-800 dark:hover:text-sky-300"
                     >
-                      <Phone className="h-3.5 w-3.5 text-sky-400/50" />
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                       {contact.phone}
                     </a>
                   ) : null}
                   {contact.email ? (
                     <a
                       href={`mailto:${contact.email}`}
-                      className="flex items-center gap-2 hover:text-sky-300"
+                      className="flex items-center gap-2 hover:text-sky-800 dark:hover:text-sky-300"
                     >
-                      <Mail className="h-3.5 w-3.5 text-sky-400/50" />
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="truncate">{contact.email}</span>
                     </a>
                   ) : null}

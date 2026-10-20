@@ -31,12 +31,12 @@ export function PilotSearch() {
   return (
     <div className="space-y-6">
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-400/50" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search by name, number, or country…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border-white/10 bg-white/5 pl-10 text-white placeholder:text-sky-300/40"
+          className="border-border bg-card pl-10 text-foreground placeholder:text-muted-foreground"
         />
       </div>
 
@@ -52,23 +52,23 @@ export function PilotSearch() {
           >
             <Link
               to={competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))}
-              className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-500/30 hover:bg-white/10"
+              className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-colors hover:border-sky-500/30 hover:bg-muted"
             >
-              <span className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 px-1 font-mono text-xs font-bold tabular-nums text-sky-300">
+              <span className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-sky-500/20 px-1 font-mono text-xs font-bold tabular-nums text-sky-700 dark:text-sky-300">
                 {padPilotNumber(pilot.pilotNumber)}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-white">
+                <p className="truncate font-semibold text-foreground">
                   {pilotFullName(pilot.firstName, pilot.lastName)}
                 </p>
-                <p className="text-sm text-sky-300/60">
+                <p className="text-sm text-muted-foreground">
                   {countryCodeToEmoji(pilot.country?.code2 ?? '')}{' '}
                   {pilot.country?.code || '—'}
                 </p>
               </div>
               <div className="text-right">
-                <p className="font-mono font-bold text-white">#{row.rank}</p>
-                <p className="text-sm text-sky-400">{formatScore(row.totalScoreCm)} cm</p>
+                <p className="font-mono font-bold text-foreground">#{row.rank}</p>
+                <p className="text-sm text-sky-700 dark:text-sky-400">{formatScore(row.totalScoreCm)} cm</p>
               </div>
             </Link>
           </motion.div>

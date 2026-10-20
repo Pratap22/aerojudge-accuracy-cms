@@ -16,7 +16,7 @@ function Avatar({
   isLogo?: boolean;
 }) {
   return (
-    <div className="mx-auto flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#0a1628] ring-2 ring-sky-500/20 sm:h-32 sm:w-32">
+    <div className="mx-auto flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted ring-2 ring-sky-500/20 sm:h-32 sm:w-32">
       {imageUrl ? (
         <img
           src={imageUrl}
@@ -28,9 +28,9 @@ function Avatar({
           }
         />
       ) : isLogo ? (
-        <Building2 className="h-12 w-12 text-sky-400/35" strokeWidth={1.25} />
+        <Building2 className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.25} />
       ) : (
-        <UserRound className="h-12 w-12 text-sky-400/35" strokeWidth={1.25} />
+        <UserRound className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.25} />
       )}
     </div>
   );
@@ -64,30 +64,30 @@ function PersonCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.35) }}
-      className="flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-8 text-center backdrop-blur-sm transition-colors hover:border-sky-500/25 hover:bg-white/[0.07]"
+      className="flex flex-col items-center rounded-2xl border border-border bg-card px-5 py-8 text-center backdrop-blur-sm transition-colors hover:border-sky-500/25 hover:bg-muted"
     >
       <Avatar name={name} imageUrl={imageUrl} isLogo={isLogo} />
-      <h3 className="mt-5 text-base font-semibold leading-snug text-sky-300 sm:text-lg">
+      <h3 className="mt-5 text-base font-semibold leading-snug text-sky-700 dark:text-sky-300 sm:text-lg">
         {name}
       </h3>
-      <p className="mt-1.5 text-sm text-sky-100/50">{role}</p>
+      <p className="mt-1.5 text-sm text-muted-foreground">{role}</p>
       {hasContact && (
-        <div className="mt-4 w-full space-y-2.5 border-t border-white/10 pt-4 text-sm text-sky-100/65">
+        <div className="mt-4 w-full space-y-2.5 border-t border-border pt-4 text-sm text-muted-foreground">
           {email && (
             <a
               href={`mailto:${email}`}
-              className="flex items-center justify-center gap-2 transition-colors hover:text-sky-300"
+              className="flex items-center justify-center gap-2 transition-colors hover:text-sky-800 dark:hover:text-sky-300"
             >
-              <Mail className="h-3.5 w-3.5 shrink-0 text-sky-400/50" />
+              <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{email}</span>
             </a>
           )}
           {phone && (
             <a
               href={`tel:${phone}`}
-              className="flex items-center justify-center gap-2 transition-colors hover:text-sky-300"
+              className="flex items-center justify-center gap-2 transition-colors hover:text-sky-800 dark:hover:text-sky-300"
             >
-              <Phone className="h-3.5 w-3.5 shrink-0 text-sky-400/50" />
+              <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span>{phone}</span>
             </a>
           )}
@@ -160,7 +160,7 @@ export function OrganizingTeamSection({
   if (isLoading) {
     return (
       <section className="mx-auto max-w-7xl px-6 py-12">
-        <p className="text-sky-400/60">Loading organizing team…</p>
+        <p className="text-muted-foreground">Loading organizing team…</p>
       </section>
     );
   }
@@ -177,8 +177,8 @@ export function OrganizingTeamSection({
   if (officials.length === 0 && !hasOrganiser) {
     if (!showHeader) {
       return (
-        <div className="rounded-2xl border border-dashed border-white/15 px-6 py-16 text-center">
-          <p className="text-lg text-sky-300/70">No organizing team listed yet</p>
+        <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+          <p className="text-lg text-muted-foreground">No organizing team listed yet</p>
         </div>
       );
     }
@@ -196,14 +196,14 @@ export function OrganizingTeamSection({
   return (
     <section className="mx-auto max-w-7xl px-6 py-12 md:py-16">
       {showHeader && (
-        <div className="mb-8 flex items-baseline justify-between gap-4 border-b border-white/15 pb-3">
-          <h2 className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+        <div className="mb-8 flex items-baseline justify-between gap-4 border-b border-border pb-3">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
             Organizing Team
           </h2>
           {limit != null && (
             <Link
               to={`${competitionPath(competitionId, 'event')}#officials`}
-              className="shrink-0 text-sm font-medium text-sky-400 underline-offset-4 hover:text-sky-300 hover:underline"
+              className="shrink-0 text-sm font-medium text-sky-700 dark:text-sky-400 underline-offset-4 hover:text-sky-800 dark:hover:text-sky-300 hover:underline"
             >
               Show all
             </Link>
