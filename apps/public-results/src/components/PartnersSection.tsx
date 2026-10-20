@@ -55,7 +55,7 @@ function PartnerCard({
   showType?: boolean;
 }) {
   const logo = (
-    <div className="mx-auto flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted ring-2 ring-sky-500/20 sm:h-32 sm:w-32">
+    <div className="mx-auto flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted ring-2 ring-sky-500/20">
       {partner.logoUrl ? (
         <img
           src={partner.logoUrl}
@@ -63,7 +63,7 @@ function PartnerCard({
           className="h-[85%] w-[85%] object-contain p-2"
         />
       ) : (
-        <Building2 className="h-12 w-12 text-muted-foreground/50" strokeWidth={1.25} />
+        <Building2 className="h-7 w-7 text-muted-foreground/50" strokeWidth={1.25} />
       )}
     </div>
   );
@@ -71,7 +71,7 @@ function PartnerCard({
   const body = (
     <>
       {logo}
-      <h3 className="mt-5 text-base font-semibold leading-snug text-sky-700 dark:text-sky-300 sm:text-lg">
+      <h3 className="mt-3 text-sm font-semibold leading-snug text-sky-700 dark:text-sky-300">
         {partner.name}
       </h3>
       {showType && visibleTierLabel(partner.type) ? (
@@ -87,7 +87,7 @@ function PartnerCard({
   );
 
   const className =
-    'flex flex-col items-center rounded-2xl border border-border bg-card px-5 py-8 text-center backdrop-blur-sm transition-colors hover:border-sky-500/25 hover:bg-muted';
+    'flex flex-col items-center rounded-xl border border-border bg-card px-3 py-4 text-center transition-colors hover:border-sky-500/25 hover:bg-muted';
 
   return (
     <motion.article
@@ -149,12 +149,12 @@ export function PartnersSection({
   const groups = tiersEnabled ? groupByType(partners) : [{ type: 'ALL', label: '', items: partners }];
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-12 md:py-16">
-      <div className="mb-8 flex items-baseline justify-between gap-4 border-b border-border pb-3">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{label}</h2>
+    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mb-4 flex items-baseline justify-between gap-4 border-b border-border pb-2">
+        <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">{label}</h2>
       </div>
 
-      <div className="space-y-10">
+      <div className="space-y-6">
         {groups.map((group) => (
           <div key={group.type} className="space-y-4">
             {tiersEnabled && visibleTierLabel(group.type) ? (
@@ -162,7 +162,7 @@ export function PartnersSection({
                 {visibleTierLabel(group.type)}
               </h3>
             ) : null}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {group.items.map((partner, index) => (
                 <PartnerCard
                   key={partner.id}

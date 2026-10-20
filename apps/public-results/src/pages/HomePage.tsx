@@ -99,9 +99,9 @@ export function HomePage() {
       <Hero competition={competition} competitionId={competitionId} topPilots={topPilots} />
       <EventFeedPreview competitionId={competitionId} items={feed} />
       {aboutHtml ? (
-        <section className="mx-auto max-w-7xl px-6 py-14">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">About</h2>
+        <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 className="font-display text-xl font-semibold text-foreground sm:text-2xl">About</h2>
             <Link
               to={`${competitionPath(competitionId, 'event')}#info`}
               className="text-sm font-medium text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300"

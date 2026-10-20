@@ -21,12 +21,12 @@ function PilotFace({
       <img
         src={photoUrl}
         alt=""
-        className="h-14 w-14 shrink-0 rounded-full object-cover object-top ring-1 ring-border"
+        className="h-10 w-10 shrink-0 rounded-full object-cover object-top ring-1 ring-border"
       />
     );
   }
   return (
-    <span className="flex h-14 min-w-14 shrink-0 items-center justify-center rounded-full bg-sky-500 px-1.5 font-mono text-sm font-bold tabular-nums text-foreground">
+    <span className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-sky-500 px-1.5 font-mono text-xs font-bold tabular-nums text-foreground">
       {pilotNumber != null ? padPilotNumber(pilotNumber) : '·'}
     </span>
   );
@@ -38,8 +38,8 @@ function FeedCard({ item }: { item: PublicFeedItem }) {
     isPilotPost && item.roundNumber != null ? `Round ${item.roundNumber}` : kindLabel(item.kind);
 
   return (
-    <li className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-wide text-muted-foreground">
+    <li className="rounded-xl border border-border bg-card px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-wide text-muted-foreground">
         <span>{heading}</span>
         <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
       </div>
@@ -53,13 +53,13 @@ function FeedCard({ item }: { item: PublicFeedItem }) {
       ) : null}
 
       {isPilotPost ? (
-        <div className="mt-4 flex items-center gap-4">
+        <div className="mt-2 flex items-center gap-3">
           <PilotFace photoUrl={item.pilotPhotoUrl} pilotNumber={item.pilotNumber} />
           <div className="min-w-0 flex-1">
             {item.pilotName ? (
-              <p className="truncate text-lg font-semibold text-foreground">
+              <p className="truncate font-semibold text-foreground">
                 {item.pilotPhotoUrl && item.pilotNumber != null ? (
-                  <span className="mr-2 font-mono text-base text-sky-700 dark:text-sky-400">
+                  <span className="mr-2 font-mono text-sm text-sky-700 dark:text-sky-400">
                     #{padPilotNumber(item.pilotNumber)}
                   </span>
                 ) : null}
@@ -75,7 +75,7 @@ function FeedCard({ item }: { item: PublicFeedItem }) {
           {item.kind === 'SCORE' && item.scoreText ? (
             <div className="shrink-0 text-right">
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Score</p>
-              <p className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">{item.scoreText}</p>
+              <p className="text-lg font-semibold tabular-nums tracking-tight text-foreground">{item.scoreText}</p>
             </div>
           ) : null}
           {item.kind === 'REFLIGHT' ? (
@@ -100,7 +100,7 @@ export function EventFeedList({ items }: { items: PublicFeedItem[] }) {
   }
 
   return (
-    <ol className="flex flex-col gap-4">
+    <ol className="flex flex-col gap-2">
       {items.map((item) => (
         <FeedCard key={item.id} item={item} />
       ))}
@@ -117,9 +117,9 @@ export function EventFeedPreview({
 }) {
   const preview = items.slice(0, 4);
   return (
-    <section className="mx-auto max-w-7xl px-6 py-14">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">Feed</h2>
+    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 className="font-display text-xl font-semibold text-foreground sm:text-2xl">Feed</h2>
         <Link
           to={`${competitionPath(competitionId, 'event')}#feed`}
           className="text-sm font-medium text-sky-700 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300"
@@ -127,7 +127,7 @@ export function EventFeedPreview({
           All updates →
         </Link>
       </div>
-      <div className="mt-6">
+      <div className="mt-3">
         <EventFeedList items={preview} />
       </div>
     </section>
