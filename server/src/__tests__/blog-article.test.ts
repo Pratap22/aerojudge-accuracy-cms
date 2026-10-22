@@ -16,6 +16,7 @@ function place(partial: Partial<BlogPlace> & Pick<BlogPlace, 'place' | 'name' | 
     roundsFlown: 6,
     bullseyes: 0,
     imageUrl: '',
+    profileUrl: '',
     ...partial,
   };
 }
@@ -39,6 +40,7 @@ const facts: CompetitionBlogFacts = {
       country: 'Exampleland',
       bullseyes: 2,
       imageUrl: 'https://images.example/ada.jpg',
+      profileUrl: 'https://results.example/competition/spring-open/pilots/6',
     }),
     place({ place: 2, name: 'Bo Pilot', scoreCm: 88 }),
     place({ place: 3, name: 'Cee Wing', scoreCm: 101, country: 'Elsewhere' }),
@@ -50,7 +52,14 @@ const facts: CompetitionBlogFacts = {
   womenPilotCount: 2,
   womenCategoryEnabled: true,
   teamRanking: [place({ place: 1, name: 'North Team', scoreCm: 210, country: 'Exampleland', bullseyes: 0 })],
-  officials: [{ name: 'Eve Judge', role: 'Meet Director', imageUrl: 'https://images.example/eve.jpg' }],
+  officials: [
+    {
+      name: 'Eve Judge',
+      role: 'Meet Director',
+      imageUrl: 'https://images.example/eve.jpg',
+      profileUrl: 'https://results.example/competition/spring-open/profile/EVE',
+    },
+  ],
   countries: [
     { name: 'Exampleland', pilotCount: 18 },
     { name: 'Elsewhere', pilotCount: 6 },
@@ -134,6 +143,8 @@ describe('composeCompetitionBlog', () => {
     expect(html).toContain('/blog/other-open');
     expect(html).toContain('https://images.example/eve.jpg');
     expect(html).toContain('https://images.example/ada.jpg');
+    expect(html).toContain('href="https://results.example/competition/spring-open/pilots/6"');
+    expect(html).toContain('href="https://results.example/competition/spring-open/profile/EVE"');
     expect(html).toContain('https://images.example/meet.jpg');
     expect(html).toContain('Target &lt;view&gt;');
     expect(html).not.toContain('<script');
@@ -191,9 +202,14 @@ describe('composeCompetitionBlog', () => {
     const article = composeCompetitionBlog({
       ...facts,
       officials: [
-        { name: 'Pratap Sharma', role: 'Scorer', imageUrl: 'https://images.example/pratap.jpg' },
-        { name: 'Pratap Sharma', role: 'Target Judge', imageUrl: '' },
-        { name: 'Eve Judge', role: 'Meet Director', imageUrl: '' },
+        {
+          name: 'Pratap Sharma',
+          role: 'Scorer',
+          imageUrl: 'https://images.example/pratap.jpg',
+          profileUrl: 'https://results.example/competition/spring-open/profile/PS',
+        },
+        { name: 'Pratap Sharma', role: 'Target Judge', imageUrl: '', profileUrl: '' },
+        { name: 'Eve Judge', role: 'Meet Director', imageUrl: '', profileUrl: '' },
       ],
     });
     const section = article.sections.find((item) => item.id === 'officials');
@@ -203,6 +219,7 @@ describe('composeCompetitionBlog', () => {
     ]);
     expect(articleText(article)).not.toContain('Scorer');
     expect(section?.figures?.map((figure) => figure.caption)).toEqual(['Pratap Sharma — Target Judge']);
+    expect(section?.figures?.[0]?.href).toBe('https://results.example/competition/spring-open/profile/PS');
   });
 
   it('does not call a sole female pilot the winner of the women classification', () => {

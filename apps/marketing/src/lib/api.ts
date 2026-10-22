@@ -51,6 +51,7 @@ export type BlogFigure = {
   src: string;
   alt: string;
   caption: string;
+  href?: string;
 };
 
 export type BlogSection = {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { fetchBlogPost, type BlogArticle, type BlogSection } from '@/lib/api';
+import { fetchBlogPost, type BlogArticle, type BlogFigure, type BlogSection } from '@/lib/api';
 import { usePageMeta } from '@/lib/page-meta';
 
 export default function BlogPostPage() {
@@ -118,6 +118,30 @@ export default function BlogPostPage() {
   );
 }
 
+function FigureCard({ figure, photo }: { figure: BlogFigure; photo: boolean }) {
+  const body = (
+    <>
+      <img
+        src={figure.src}
+        alt={figure.alt}
+        className={photo ? 'aspect-[4/3] w-full object-cover' : 'aspect-square w-full object-cover'}
+      />
+      <p className="px-3 py-2 text-xs font-medium text-navy">{figure.caption}</p>
+    </>
+  );
+  const className = 'block overflow-hidden rounded-xl border border-border bg-white';
+  const href = figure.href && /^https?:\/\//i.test(figure.href) ? figure.href : '';
+  if (!href) return <div className={className}>{body}</div>;
+  return (
+    <a
+      href={href}
+      className={`${className} outline-none transition-colors hover:border-sky focus-visible:ring-2 focus-visible:ring-sky`}
+    >
+      {body}
+    </a>
+  );
+}
+
 function SectionBlock({ section }: { section: BlogSection }) {
   return (
     <section>
@@ -138,17 +162,8 @@ function SectionBlock({ section }: { section: BlogSection }) {
           }
         >
           {section.figures.map((figure) => (
-            <li key={`${figure.src}-${figure.caption}`} className="overflow-hidden rounded-xl border border-border bg-white">
-              <img
-                src={figure.src}
-                alt={figure.alt}
-                className={
-                  section.id === 'photos'
-                    ? 'aspect-[4/3] w-full object-cover'
-                    : 'aspect-square w-full object-cover'
-                }
-              />
-              <p className="px-3 py-2 text-xs font-medium text-navy">{figure.caption}</p>
+            <li key={`${figure.src}-${figure.caption}`}>
+              <FigureCard figure={figure} photo={section.id === 'photos'} />
             </li>
           ))}
         </ul>

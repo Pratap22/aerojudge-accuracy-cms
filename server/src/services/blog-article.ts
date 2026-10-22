@@ -9,12 +9,14 @@ export type BlogPlace = {
   roundsFlown: number;
   bullseyes: number;
   imageUrl: string;
+  profileUrl: string;
 };
 
 export type BlogFigure = {
   src: string;
   alt: string;
   caption: string;
+  href?: string;
 };
 
 export type BlogPhotoSource = 'feed' | 'gallery' | 'both' | 'none';
@@ -57,6 +59,7 @@ export type BlogOfficial = {
   name: string;
   role: string;
   imageUrl: string;
+  profileUrl: string;
 };
 
 export type CompetitionBlogFacts = {
@@ -373,6 +376,7 @@ function portraitFigures(rows: BlogPlace[], role: string): BlogFigure[] {
         src,
         alt: `${row.name}, ${place} ${role}`,
         caption: `${row.place}. ${who(row)} — ${row.scoreLabel}`,
+        href: safeImageUrl(row.profileUrl) || undefined,
       },
     ];
   });
@@ -464,9 +468,17 @@ function keepHighestOfficialRole(officials: BlogOfficial[]): BlogOfficial[] {
     if (!key) continue;
     const current = best.get(key);
     if (!current || officialRoleRank(official.role) < officialRoleRank(current.role)) {
-      best.set(key, { ...official, imageUrl: official.imageUrl || current?.imageUrl || '' });
-    } else if (!current.imageUrl && official.imageUrl) {
-      best.set(key, { ...current, imageUrl: official.imageUrl });
+      best.set(key, {
+        ...official,
+        imageUrl: official.imageUrl || current?.imageUrl || '',
+        profileUrl: official.profileUrl || current?.profileUrl || '',
+      });
+    } else if ((!current.imageUrl && official.imageUrl) || (!current.profileUrl && official.profileUrl)) {
+      best.set(key, {
+        ...current,
+        imageUrl: current.imageUrl || official.imageUrl,
+        profileUrl: current.profileUrl || official.profileUrl,
+      });
     }
   }
   return [...best.values()].sort(
@@ -490,6 +502,7 @@ function officialsSection(officials: BlogOfficial[]): BlogSection | null {
           src,
           alt: `${official.name}, ${official.role}`,
           caption: `${official.name} — ${official.role}`,
+          href: safeImageUrl(official.profileUrl) || undefined,
         },
       ];
     }),
@@ -504,7 +517,7 @@ function officialsSection(officials: BlogOfficial[]): BlogSection | null {
 function namedPortrait(row: BlogPlace, role: string): BlogFigure[] {
   const src = safeImageUrl(row.imageUrl);
   if (!src) return [];
-  return [{ src, alt: `${row.name}, ${role}`, caption: who(row) }];
+  return [{ src, alt: `${row.name}, ${role}`, caption: who(row), href: safeImageUrl(row.profileUrl) || undefined }];
 }
 
 function classificationSection(
@@ -729,9 +742,9 @@ function renderFigures(figures: BlogFigure[]): string {
     .flatMap((figure) => {
       const src = safeImageUrl(figure.src);
       if (!src) return [];
-      return [
-        `<figure><img src="${escapeHtml(src)}" alt="${escapeHtml(figure.alt)}" /><figcaption>${escapeHtml(figure.caption)}</figcaption></figure>`,
-      ];
+      const figureHtml = `<figure><img src="${escapeHtml(src)}" alt="${escapeHtml(figure.alt)}" /><figcaption>${escapeHtml(figure.caption)}</figcaption></figure>`;
+      const href = safeImageUrl(figure.href);
+      return [href ? `<a href="${escapeHtml(href)}">${figureHtml}</a>` : figureHtml];
     })
     .join('\n');
 }

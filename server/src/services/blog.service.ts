@@ -165,16 +165,23 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
     loadStoryPictures(row.id, row.name),
     prisma.competitionOfficial.findMany({
       where: { competitionId: row.id, isPublic: true },
-      select: { name: true, role: true, imageUrl: true, displayOrder: true },
+      select: {
+        name: true,
+        role: true,
+        imageUrl: true,
+        displayOrder: true,
+        person: { select: { aeroJudgeId: true, status: true } },
+      },
     }),
   ]);
 
   const bestSingle = await loadBestScore(row.id);
+  const publicSlug = row.publicSlug || row.id;
 
   return composeCompetitionBlog(
     factsFromRow(row, {
-      rankings: overall.map(placeFromPilot),
-      womenRanking: women.map(placeFromPilot),
+      rankings: overall.map((ranking) => withProfile(publicSlug, placeFromPilot(ranking), ranking.pilot)),
+      womenRanking: women.map((ranking) => withProfile(publicSlug, placeFromPilot(ranking), ranking.pilot)),
       womenPilotCount: pilots.filter((pilot) => pilot.gender === 'FEMALE' || pilot.isWomen).length,
       womenCategoryEnabled: row.settings?.womenCategoryEnabled ?? false,
       teamRanking: preferredTeamRankings(teams).map((team) => ({
@@ -186,12 +193,17 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
         roundsFlown: team.roundsScored,
         bullseyes: 0,
         imageUrl: toAbsoluteAssetUrl(team.team.logoUrl) ?? '',
+        profileUrl: '',
       })),
       countries: countriesFromPilots(pilots),
       officials: officials.sort(compareOfficials).map((official) => ({
         name: official.name.trim(),
         role: officialRoleLabel(official.role),
         imageUrl: toAbsoluteAssetUrl(official.imageUrl) ?? '',
+        profileUrl:
+          official.person?.status === 'ACTIVE'
+            ? competitionProfileUrl(publicSlug, { aeroJudgeId: official.person.aeroJudgeId })
+            : '',
       })),
       rounds,
       totalBullseyes: rounds.reduce((sum, round) => sum + round.bullseyes, 0),
@@ -346,7 +358,7 @@ function factsFromRow(
 const pilotStoryInclude = {
   include: {
     country: true,
-    person: { select: { photoUrl: true } },
+    person: { select: { photoUrl: true, aeroJudgeId: true, status: true } },
   },
 } as const;
 
@@ -431,7 +443,35 @@ function placeFromPilot(row: RankingRow & {
     roundsFlown: row.roundsFlown ?? row.roundsScored ?? 0,
     bullseyes: row.bullseyes ?? 0,
     imageUrl: toAbsoluteAssetUrl(displayedPilotPhotoUrl(row.pilot)) ?? '',
+    profileUrl: '',
   };
+}
+
+function withProfile(
+  slug: string,
+  place: BlogPlace,
+  pilot: {
+    pilotNumber: number | null;
+    person?: { aeroJudgeId: string; status: string } | null;
+  },
+): BlogPlace {
+  return {
+    ...place,
+    profileUrl: competitionProfileUrl(slug, {
+      pilotNumber: pilot.pilotNumber,
+      aeroJudgeId: pilot.person?.status === 'ACTIVE' ? pilot.person.aeroJudgeId : null,
+    }),
+  };
+}
+
+function competitionProfileUrl(
+  slug: string,
+  identity: { pilotNumber?: number | null; aeroJudgeId?: string | null },
+): string {
+  const base = `${publicResultsBase()}/competition/${encodeURIComponent(slug)}`;
+  if (identity.pilotNumber != null) return `${base}/pilots/${identity.pilotNumber}`;
+  if (identity.aeroJudgeId) return `${base}/profile/${encodeURIComponent(identity.aeroJudgeId)}`;
+  return '';
 }
 
 function countryLabel(
