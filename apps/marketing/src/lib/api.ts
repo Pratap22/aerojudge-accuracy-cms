@@ -41,11 +41,34 @@ export async function fetchPublicCompetitions(): Promise<PublicCompetitionList> 
   return fetchPublic<PublicCompetitionList>('/competitions');
 }
 
-export type BlogPlace = {
-  place: number;
-  name: string;
-  scoreLabel: string;
-  country: string;
+export type BlogTable = {
+  caption: string;
+  headers: string[];
+  rows: string[][];
+};
+
+export type BlogFigure = {
+  src: string;
+  alt: string;
+  caption: string;
+};
+
+export type BlogSection = {
+  id: string;
+  heading: string;
+  paragraphs: string[];
+  figures?: BlogFigure[];
+  table?: BlogTable;
+};
+
+export type BlogFaq = {
+  question: string;
+  answer: string;
+};
+
+export type BlogLink = {
+  slug: string;
+  title: string;
 };
 
 export type BlogSummary = {
@@ -58,13 +81,14 @@ export type BlogSummary = {
   country: string;
   startDate: string;
   endDate: string;
+  coverImage: string;
 };
 
 export type BlogArticle = BlogSummary & {
   paragraphs: string[];
-  podium: BlogPlace[];
-  womenWinner: BlogPlace | null;
-  teamWinner: BlogPlace | null;
+  sections: BlogSection[];
+  faqs: BlogFaq[];
+  related: BlogLink[];
   resultsUrl: string;
 };
 

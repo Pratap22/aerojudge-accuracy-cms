@@ -54,7 +54,13 @@ export default function BlogIndexPage() {
             const place = [post.venue, post.country].filter(Boolean).join(' · ');
             return (
               <li key={post.slug}>
-                <article className="rounded-xl border border-border bg-white p-5 shadow-sm">
+                <article className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+                  {post.coverImage ? (
+                    <Link to={`/blog/${encodeURIComponent(post.slug)}`} className="block">
+                      <img src={post.coverImage} alt="" className="aspect-[16/7] w-full object-cover" />
+                    </Link>
+                  ) : null}
+                  <div className="p-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky">
                     <time dateTime={post.publishedAt}>{formatStoryDate(post.startDate, post.endDate)}</time>
                   </p>
@@ -68,6 +74,7 @@ export default function BlogIndexPage() {
                     {post.organizer ? ` · ${post.organizer}` : ''}
                   </p>
                   <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{post.description}</p>
+                  </div>
                 </article>
               </li>
             );

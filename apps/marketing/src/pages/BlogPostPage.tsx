@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { fetchBlogPost, type BlogArticle } from '@/lib/api';
+import { fetchBlogPost, type BlogArticle, type BlogSection } from '@/lib/api';
 import { usePageMeta } from '@/lib/page-meta';
 
 export default function BlogPostPage() {
@@ -27,6 +27,7 @@ export default function BlogPostPage() {
   usePageMeta(
     article ? `${article.title} · AeroJudge` : 'Competition story · AeroJudge',
     article?.description ?? 'A completed paragliding accuracy competition on AeroJudge.',
+    article?.coverImage || undefined,
   );
 
   if (error) {
@@ -66,31 +67,47 @@ export default function BlogPostPage() {
         {article.organizer ? ` · ${article.organizer}` : ''}
       </p>
 
-      <div className="prose-marketing mt-8 space-y-4 text-sm leading-relaxed text-muted-foreground">
+      <div className="mt-8 space-y-10 text-sm leading-relaxed text-muted-foreground">
         {article.paragraphs.map((paragraph) => (
           <p key={paragraph}>{paragraph}</p>
         ))}
 
-        {article.podium.length > 0 && (
-          <ol className="list-decimal space-y-2 pl-5 text-navy">
-            {article.podium.map((row) => (
-              <li key={`${row.place}-${row.name}`}>
-                <span className="font-semibold">{row.name}</span>
-                {row.country ? <span className="text-muted-foreground"> ({row.country})</span> : null}
-                <span className="text-muted-foreground"> — {row.scoreLabel}</span>
-              </li>
-            ))}
-          </ol>
+        {article.sections.map((section) => (
+          <SectionBlock key={section.id} section={section} />
+        ))}
+
+        {article.faqs.length > 0 && (
+          <section>
+            <h2 className="font-display text-2xl font-bold text-navy">Common questions</h2>
+            <dl className="mt-4 space-y-4">
+              {article.faqs.map((faq) => (
+                <div key={faq.question}>
+                  <dt className="font-semibold text-navy">{faq.question}</dt>
+                  <dd className="mt-1">{faq.answer}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         )}
 
-        <p>
-          <a
-            className="font-medium text-navy underline-offset-2 hover:underline"
-            href={article.resultsUrl}
-          >
-            Official results
-          </a>
-        </p>
+        {article.related.length > 0 && (
+          <section>
+            <h2 className="font-display text-2xl font-bold text-navy">More competition stories</h2>
+            <ul className="mt-4 space-y-2">
+              {article.related.map((link) => (
+                <li key={link.slug}>
+                  <Link
+                    to={`/blog/${encodeURIComponent(link.slug)}`}
+                    className="font-medium text-navy underline-offset-2 hover:underline"
+                  >
+                    {link.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <p>
           <Link to="/blog" className="font-medium text-navy underline-offset-2 hover:underline">
             ← All stories
@@ -98,6 +115,96 @@ export default function BlogPostPage() {
         </p>
       </div>
     </article>
+  );
+}
+
+function SectionBlock({ section }: { section: BlogSection }) {
+  return (
+    <section>
+      <h2 className="font-display text-2xl font-bold text-navy">{section.heading}</h2>
+      <div className="mt-3 space-y-3">
+        {section.paragraphs.map((paragraph) => (
+          <p key={paragraph}>
+            <LinkedText text={paragraph} />
+          </p>
+        ))}
+      </div>
+      {section.figures && section.figures.length > 0 && (
+        <ul
+          className={
+            section.id === 'photos'
+              ? 'mt-4 grid gap-3 sm:grid-cols-2'
+              : 'mt-4 grid gap-3 sm:grid-cols-3'
+          }
+        >
+          {section.figures.map((figure) => (
+            <li key={`${figure.src}-${figure.caption}`} className="overflow-hidden rounded-xl border border-border bg-white">
+              <img
+                src={figure.src}
+                alt={figure.alt}
+                className={
+                  section.id === 'photos'
+                    ? 'aspect-[4/3] w-full object-cover'
+                    : 'aspect-square w-full object-cover'
+                }
+              />
+              <p className="px-3 py-2 text-xs font-medium text-navy">{figure.caption}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      {section.table && (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[32rem] border-collapse text-left text-sm">
+            <caption className="sr-only">{section.table.caption}</caption>
+            <thead className="bg-secondary/60 text-xs uppercase tracking-wide text-navy">
+              <tr>
+                {section.table.headers.map((header) => (
+                  <th key={header} className="px-3 py-2 font-semibold">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {section.table.rows.map((row) => (
+                <tr key={row.join('|')} className="border-t border-border">
+                  {row.map((cell, index) => (
+                    <td
+                      key={`${index}-${cell}`}
+                      className={index === 1 ? 'px-3 py-2 font-medium text-navy' : 'px-3 py-2'}
+                    >
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LinkedText({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s)]+)/g);
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (!part.startsWith('http')) return <span key={`${index}-text`}>{part}</span>;
+        const url = part.replace(/[.,;:!?]+$/, '');
+        const tail = part.slice(url.length);
+        return (
+          <span key={`${index}-link`}>
+            <a href={url} className="font-medium text-navy underline-offset-2 hover:underline break-all">
+              {url}
+            </a>
+            {tail}
+          </span>
+        );
+      })}
+    </>
   );
 }
 

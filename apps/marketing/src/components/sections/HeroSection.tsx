@@ -54,6 +54,9 @@ export function HeroSection() {
               <MarketingButton href={events.href} variant="ghost" size="lg">
                 Browse Events
               </MarketingButton>
+              <MarketingButton to="/blog" variant="ghost" size="lg">
+                Blog
+              </MarketingButton>
             </div>
           </StaggerItem>
         </Stagger>

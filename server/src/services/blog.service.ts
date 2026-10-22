@@ -1,18 +1,28 @@
 import { COMPETING_PILOT_STATUSES } from '@aero-judge/shared';
 import { displayCountryCode, formatPilotName, formatScoreCm } from '@aero-judge/utils';
+import { displayedPilotPhotoUrl } from './person.service.js';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
+import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { AppError } from '../utils/errors.js';
 import {
+  blogTitle,
   composeCompetitionBlog,
+  plainTextFromHtml,
   toBlogSummary,
+  type BlogBestScore,
+  type BlogCountry,
+  type BlogFigure,
+  type BlogPhotoSource,
   type BlogPlace,
+  type BlogRound,
   type CompetitionBlogArticle,
   type CompetitionBlogFacts,
   type CompetitionBlogSummary,
 } from './blog-article.js';
 
 const OFFICIAL_COUNTED_ROUND_STATUSES = ['CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'] as const;
+const PUBLIC_SCORE_STATUSES = ['ENTERED', 'CONFIRMED', 'APPROVED', 'LOCKED'] as const;
 
 const publicStoryWhere = {
   status: 'COMPLETED' as const,
@@ -29,10 +39,22 @@ const storySelect = {
   startDate: true,
   endDate: true,
   publicSlug: true,
-  settings: { select: { womenCategoryEnabled: true } },
+  targetDiameterCm: true,
+  settings: {
+    select: {
+      womenCategoryEnabled: true,
+      maximumScoreCm: true,
+      discardWorstRounds: true,
+      discardAfterRounds: true,
+      teamSize: true,
+      teamScoringPilots: true,
+      partnersLabel: true,
+    },
+  },
   _count: {
     select: {
       pilots: { where: { status: { in: [...COMPETING_PILOT_STATUSES] } } },
+      teams: true,
       rounds: {
         where: {
           type: 'OFFICIAL' as const,
@@ -44,6 +66,13 @@ const storySelect = {
 };
 
 type StoryRow = Awaited<ReturnType<typeof findStories>>[number];
+type RankingRow = {
+  rank: number;
+  totalScoreCm: number;
+  roundsFlown?: number;
+  roundsScored?: number;
+  bullseyes?: number;
+};
 
 /**
  * Public stories are derived from completed competitions that already publish
@@ -52,7 +81,29 @@ type StoryRow = Awaited<ReturnType<typeof findStories>>[number];
  */
 export async function listCompetitionBlogSummaries(): Promise<CompetitionBlogSummary[]> {
   const rows = await findStories();
-  return rows.map((row) => toBlogSummary(composeCompetitionBlog(factsFromRow(row, [], null, null))));
+  if (rows.length === 0) return [];
+  const winners = await prisma.individualRanking.findMany({
+    where: {
+      competitionId: { in: rows.map((row) => row.id) },
+      category: 'OVERALL',
+      rank: 1,
+      roundsFlown: { gt: 0 },
+    },
+    include: { pilot: pilotStoryInclude },
+  });
+  const winnersByCompetition = new Map<string, BlogPlace[]>();
+  for (const winner of winners) {
+    const list = winnersByCompetition.get(winner.competitionId) ?? [];
+    list.push(placeFromPilot(winner));
+    winnersByCompetition.set(winner.competitionId, list);
+  }
+  return rows.map((row) =>
+    toBlogSummary(
+      composeCompetitionBlog(
+        factsFromRow(row, { rankings: winnersByCompetition.get(row.id) ?? [] }),
+      ),
+    ),
+  );
 }
 
 export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogArticle> {
@@ -65,41 +116,80 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
   });
   if (!row) throw AppError.notFound('Competition story not found');
 
-  const [podiumRows, womenRow, teamRow] = await Promise.all([
+  const [overall, women, teams, pilots, rounds, info, partners, related, pictures] = await Promise.all([
     prisma.individualRanking.findMany({
       where: { competitionId: row.id, category: 'OVERALL', roundsFlown: { gt: 0 } },
       orderBy: { rank: 'asc' },
-      take: 3,
-      include: { pilot: { include: { country: true } } },
+      take: 10,
+      include: { pilot: pilotStoryInclude },
     }),
     row.settings?.womenCategoryEnabled
-      ? prisma.individualRanking.findFirst({
+      ? prisma.individualRanking.findMany({
           where: { competitionId: row.id, category: 'WOMEN', roundsFlown: { gt: 0 } },
           orderBy: { rank: 'asc' },
-          include: { pilot: { include: { country: true } } },
+          take: 8,
+          include: { pilot: pilotStoryInclude },
         })
-      : Promise.resolve(null),
-    prisma.teamRanking.findFirst({
-      where: { competitionId: row.id, category: 'OVERALL', roundsScored: { gt: 0 } },
+      : Promise.resolve([]),
+    prisma.teamRanking.findMany({
+      where: { competitionId: row.id, roundsScored: { gt: 0 } },
       orderBy: { rank: 'asc' },
       include: { team: { include: { country: true } } },
     }),
+    prisma.pilot.findMany({
+      where: { competitionId: row.id, status: { in: [...COMPETING_PILOT_STATUSES] } },
+      select: { nationality: true, country: { select: { name: true, code: true } } },
+    }),
+    loadRounds(row.id),
+    prisma.competitionInfo.findUnique({
+      where: { competitionId: row.id },
+      select: { aboutHtml: true, flyingSiteHtml: true },
+    }),
+    prisma.sponsor.findMany({
+      where: { competitionId: row.id, isActive: true },
+      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+      take: 12,
+      select: { name: true },
+    }),
+    prisma.competition.findMany({
+      where: { ...publicStoryWhere, NOT: { id: row.id } },
+      orderBy: { endDate: 'desc' },
+      take: 4,
+      select: { name: true, publicSlug: true },
+    }),
+    loadStoryPictures(row.id, row.name),
   ]);
 
+  const bestSingle = await loadBestScore(row.id);
+
   return composeCompetitionBlog(
-    factsFromRow(
-      row,
-      podiumRows.map(placeFromPilot),
-      womenRow ? placeFromPilot(womenRow) : null,
-      teamRow
-        ? {
-            place: teamRow.rank,
-            name: teamRow.team.name,
-            scoreLabel: scoreLabel(teamRow.totalScoreCm),
-            country: countryLabel(teamRow.team.country, null),
-          }
-        : null,
-    ),
+    factsFromRow(row, {
+      rankings: overall.map(placeFromPilot),
+      womenRanking: women.map(placeFromPilot),
+      teamRanking: preferredTeamRankings(teams).map((team) => ({
+        place: team.rank,
+        name: team.team.name,
+        scoreCm: team.totalScoreCm,
+        scoreLabel: scoreLabel(team.totalScoreCm),
+        country: countryLabel(team.team.country, null),
+        roundsFlown: team.roundsScored,
+        bullseyes: 0,
+        imageUrl: toAbsoluteAssetUrl(team.team.logoUrl) ?? '',
+      })),
+      countries: countriesFromPilots(pilots),
+      rounds,
+      totalBullseyes: rounds.reduce((sum, round) => sum + round.bullseyes, 0),
+      bestSingle,
+      aboutParagraphs: plainTextFromHtml(info?.aboutHtml),
+      flyingSiteParagraphs: plainTextFromHtml(info?.flyingSiteHtml),
+      partnerNames: partners.map((partner) => partner.name.trim()).filter(Boolean),
+      photos: pictures.photos,
+      photoSource: pictures.source,
+      related: related.map((item) => ({
+        slug: item.publicSlug,
+        title: blogTitle(item.name),
+      })),
+    }),
   );
 }
 
@@ -112,13 +202,86 @@ function findStories() {
   });
 }
 
+async function loadRounds(competitionId: string): Promise<BlogRound[]> {
+  const rounds = await prisma.round.findMany({
+    where: {
+      competitionId,
+      type: 'OFFICIAL',
+      status: { in: [...OFFICIAL_COUNTED_ROUND_STATUSES] },
+    },
+    orderBy: { number: 'asc' },
+    select: { id: true, number: true, name: true, scheduledAt: true, closedAt: true },
+  });
+  if (rounds.length === 0) return [];
+  const roundIds = rounds.map((round) => round.id);
+  const [averages, bullseyes] = await Promise.all([
+    prisma.score.groupBy({
+      by: ['roundId'],
+      where: {
+        roundId: { in: roundIds },
+        finalScoreCm: { not: null },
+        status: { in: [...PUBLIC_SCORE_STATUSES] },
+      },
+      _avg: { finalScoreCm: true },
+    }),
+    prisma.score.groupBy({
+      by: ['roundId'],
+      where: {
+        roundId: { in: roundIds },
+        isBullseye: true,
+        status: { in: [...PUBLIC_SCORE_STATUSES] },
+      },
+      _count: { _all: true },
+    }),
+  ]);
+  const averageByRound = new Map(averages.map((row) => [row.roundId, row._avg.finalScoreCm]));
+  const bullseyesByRound = new Map(bullseyes.map((row) => [row.roundId, row._count._all]));
+  return rounds.map((round) => {
+    const average = averageByRound.get(round.id);
+    const name = round.name?.trim();
+    return {
+      number: round.number,
+      label: name && name.toLowerCase() !== `round ${round.number}` ? name : `Round ${round.number}`,
+      dateLabel: formatRoundDate(round.scheduledAt ?? round.closedAt),
+      averageLabel: average == null ? '' : averageLabel(average),
+      bullseyes: bullseyesByRound.get(round.id) ?? 0,
+    };
+  });
+}
+
+async function loadBestScore(competitionId: string): Promise<BlogBestScore | null> {
+  const score = await prisma.score.findFirst({
+    where: {
+      finalScoreCm: { not: null },
+      status: { in: [...PUBLIC_SCORE_STATUSES] },
+      round: {
+        competitionId,
+        type: 'OFFICIAL',
+        status: { in: [...OFFICIAL_COUNTED_ROUND_STATUSES] },
+      },
+    },
+    orderBy: [{ finalScoreCm: 'asc' }, { id: 'asc' }],
+    select: {
+      finalScoreCm: true,
+      round: { select: { number: true } },
+      pilot: { select: { firstName: true, lastName: true } },
+    },
+  });
+  if (!score || score.finalScoreCm == null) return null;
+  return {
+    name: formatPilotName(score.pilot.firstName, score.pilot.lastName),
+    scoreCm: score.finalScoreCm,
+    scoreLabel: scoreLabel(score.finalScoreCm),
+    roundNumber: score.round.number,
+  };
+}
+
 function factsFromRow(
   row: StoryRow,
-  podium: BlogPlace[],
-  womenWinner: BlogPlace | null,
-  teamWinner: BlogPlace | null,
+  extra: Partial<CompetitionBlogFacts> = {},
 ): CompetitionBlogFacts {
   const slug = row.publicSlug || row.id;
+  const base = publicResultsBase();
   return {
     name: row.name,
     slug,
@@ -128,29 +291,127 @@ function factsFromRow(
     startDate: row.startDate,
     endDate: row.endDate,
     pilotCount: row._count.pilots,
+    teamCount: row._count.teams,
     officialRoundCount: row._count.rounds,
-    podium,
-    womenWinner,
-    teamWinner,
-    resultsUrl: `${env.PUBLIC_RESULTS_URL.replace(/\/+$/, '')}/competition/${encodeURIComponent(slug)}/results`,
+    rankings: [],
+    womenRanking: [],
+    teamRanking: [],
+    countries: [],
+    rounds: [],
+    totalBullseyes: 0,
+    bestSingle: null,
+    scoring: row.settings
+      ? {
+          maximumScoreCm: row.settings.maximumScoreCm,
+          discardWorstRounds: row.settings.discardWorstRounds,
+          discardAfterRounds: row.settings.discardAfterRounds,
+          targetDiameterCm: row.targetDiameterCm,
+          teamSize: row.settings.teamSize,
+          teamScoringPilots: row.settings.teamScoringPilots,
+        }
+      : null,
+    aboutParagraphs: [],
+    flyingSiteParagraphs: [],
+    partnersLabel: row.settings?.partnersLabel?.trim() || 'Partners',
+    partnerNames: [],
+    photos: [],
+    photoSource: 'none',
+    related: [],
+    resultsUrl: `${base}/competition/${encodeURIComponent(slug)}/results`,
+    womenUrl: `${base}/competition/${encodeURIComponent(slug)}/women`,
+    teamsUrl: `${base}/competition/${encodeURIComponent(slug)}/teams`,
+    ...extra,
   };
 }
 
-function placeFromPilot(row: {
-  rank: number;
-  totalScoreCm: number;
+const pilotStoryInclude = {
+  include: {
+    country: true,
+    person: { select: { photoUrl: true } },
+  },
+} as const;
+
+async function loadStoryPictures(
+  competitionId: string,
+  competitionName: string,
+): Promise<{ photos: BlogFigure[]; source: BlogPhotoSource }> {
+  const [feed, gallery] = await Promise.all([
+    prisma.eventFeedItem.findMany({
+      where: { competitionId, kind: 'PHOTO', imageUrl: { not: null } },
+      orderBy: { createdAt: 'asc' },
+      take: 12,
+      select: { imageUrl: true, caption: true },
+    }),
+    prisma.competitionGalleryImage.findMany({
+      where: { competitionId },
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
+      take: 12,
+      select: { url: true, caption: true },
+    }),
+  ]);
+
+  const seen = new Set<string>();
+  const photos: BlogFigure[] = [];
+  let fromFeed = 0;
+  let fromGallery = 0;
+  const push = (raw: string | null, caption: string | null, source: 'feed' | 'gallery') => {
+    const src = toAbsoluteAssetUrl(raw);
+    if (!src || !/^https?:\/\//i.test(src) || seen.has(src) || photos.length >= 12) return;
+    seen.add(src);
+    const text = caption?.trim() || `Photo from ${competitionName}`;
+    photos.push({ src, alt: text, caption: text });
+    if (source === 'feed') fromFeed += 1;
+    else fromGallery += 1;
+  };
+  for (const item of feed) push(item.imageUrl, item.caption, 'feed');
+  for (const item of gallery) push(item.url, item.caption, 'gallery');
+
+  const source: BlogPhotoSource =
+    fromFeed > 0 && fromGallery > 0 ? 'both' : fromFeed > 0 ? 'feed' : fromGallery > 0 ? 'gallery' : 'none';
+  return { photos, source };
+}
+
+function preferredTeamRankings<T extends { category: string }>(rows: T[]): T[] {
+  const category = rows.some((row) => row.category === 'TEAM') ? 'TEAM' : 'OVERALL';
+  return rows.filter((row) => row.category === category).slice(0, 8);
+}
+
+function countriesFromPilots(
+  pilots: Array<{
+    nationality: string | null;
+    country: { name: string; code: string } | null;
+  }>,
+): BlogCountry[] {
+  const counts = new Map<string, number>();
+  for (const pilot of pilots) {
+    const name = countryLabel(pilot.country, pilot.nationality);
+    if (!name) continue;
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([name, pilotCount]) => ({ name, pilotCount }))
+    .sort((a, b) => b.pilotCount - a.pilotCount || a.name.localeCompare(b.name));
+}
+
+function placeFromPilot(row: RankingRow & {
   pilot: {
     firstName: string;
     lastName: string;
     nationality: string | null;
+    photoUrl?: string | null;
+    person?: { photoUrl?: string | null } | null;
     country: { name: string; code: string } | null;
   };
 }): BlogPlace {
   return {
     place: row.rank,
     name: formatPilotName(row.pilot.firstName, row.pilot.lastName),
+    scoreCm: row.totalScoreCm,
     scoreLabel: scoreLabel(row.totalScoreCm),
     country: countryLabel(row.pilot.country, row.pilot.nationality),
+    roundsFlown: row.roundsFlown ?? row.roundsScored ?? 0,
+    bullseyes: row.bullseyes ?? 0,
+    imageUrl: toAbsoluteAssetUrl(displayedPilotPhotoUrl(row.pilot)) ?? '',
   };
 }
 
@@ -165,4 +426,23 @@ function countryLabel(
 
 function scoreLabel(scoreCm: number): string {
   return `${formatScoreCm(scoreCm)} cm`;
+}
+
+function averageLabel(scoreCm: number): string {
+  const rounded = Math.round(scoreCm * 10) / 10;
+  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return `${text} cm`;
+}
+
+function formatRoundDate(value: Date | null): string {
+  if (!value) return '';
+  try {
+    return value.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return '';
+  }
+}
+
+function publicResultsBase(): string {
+  return env.PUBLIC_RESULTS_URL.replace(/\/+$/, '');
 }

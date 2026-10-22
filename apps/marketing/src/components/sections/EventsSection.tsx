@@ -107,7 +107,7 @@ export function EventsSection() {
               Latest events first. Time saved on a finished meet is an estimate against paper and spreadsheet
               workflows.{' '}
               <Link to="/blog" className="font-medium text-navy underline-offset-2 hover:underline">
-                Read stories from completed competitions
+                Read the competition blog
               </Link>
               .
             </>

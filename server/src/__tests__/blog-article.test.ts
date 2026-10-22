@@ -3,9 +3,22 @@ import {
   blogSlugFromPath,
   composeCompetitionBlog,
   renderBlogArticleHtml,
+  type BlogPlace,
+  type CompetitionBlogArticle,
   type CompetitionBlogFacts,
 } from '../services/blog-article.js';
 import { normalizePublicPath } from '../services/seo.service.js';
+
+function place(partial: Partial<BlogPlace> & Pick<BlogPlace, 'place' | 'name' | 'scoreCm'>): BlogPlace {
+  return {
+    scoreLabel: `${String(partial.scoreCm).padStart(3, '0')} cm`,
+    country: '',
+    roundsFlown: 6,
+    bullseyes: 0,
+    imageUrl: '',
+    ...partial,
+  };
+}
 
 const facts: CompetitionBlogFacts = {
   name: 'Spring Accuracy Open',
@@ -16,15 +29,63 @@ const facts: CompetitionBlogFacts = {
   startDate: new Date('2026-05-01T00:00:00.000Z'),
   endDate: new Date('2026-05-03T00:00:00.000Z'),
   pilotCount: 24,
+  teamCount: 4,
   officialRoundCount: 6,
-  podium: [
-    { place: 1, name: 'Ada Flyer', scoreLabel: '042 cm', country: 'Exampleland' },
-    { place: 2, name: 'Bo Pilot', scoreLabel: '088 cm', country: '' },
+  rankings: [
+    place({
+      place: 1,
+      name: 'Ada Flyer',
+      scoreCm: 42,
+      country: 'Exampleland',
+      bullseyes: 2,
+      imageUrl: 'https://images.example/ada.jpg',
+    }),
+    place({ place: 2, name: 'Bo Pilot', scoreCm: 88 }),
+    place({ place: 3, name: 'Cee Wing', scoreCm: 101, country: 'Elsewhere' }),
   ],
-  womenWinner: { place: 1, name: 'Cee Wing', scoreLabel: '101 cm', country: 'Elsewhere' },
-  teamWinner: { place: 1, name: 'North Team', scoreLabel: '210 cm', country: 'Exampleland' },
+  womenRanking: [place({ place: 1, name: 'Cee Wing', scoreCm: 101, country: 'Elsewhere' })],
+  teamRanking: [place({ place: 1, name: 'North Team', scoreCm: 210, country: 'Exampleland', bullseyes: 0 })],
+  countries: [
+    { name: 'Exampleland', pilotCount: 18 },
+    { name: 'Elsewhere', pilotCount: 6 },
+  ],
+  rounds: [
+    { number: 1, label: 'Round 1', dateLabel: '1 May 2026', averageLabel: '140.5 cm', bullseyes: 1 },
+    { number: 2, label: 'Round 2', dateLabel: '2 May 2026', averageLabel: '90 cm', bullseyes: 4 },
+  ],
+  totalBullseyes: 5,
+  bestSingle: { name: 'Ada Flyer', scoreCm: 0, scoreLabel: '000 cm', roundNumber: 2 },
+  scoring: {
+    maximumScoreCm: 500,
+    discardWorstRounds: 1,
+    discardAfterRounds: 5,
+    targetDiameterCm: 200,
+    teamSize: 5,
+    teamScoringPilots: 3,
+  },
+  aboutParagraphs: ['The meet uses the valley landing field below the west ridge.'],
+  flyingSiteParagraphs: ['The target sits in the main landing meadow.'],
+  partnersLabel: 'Supporters',
+  partnerNames: ['Northwind', 'Ridge Co'],
+  photos: [{ src: 'https://images.example/meet.jpg', alt: 'Target <view>', caption: 'Target <view>' }],
+  photoSource: 'feed',
+  related: [{ slug: 'other-open', title: 'Other Open results' }],
   resultsUrl: 'https://results.example/competition/spring-open/results',
+  womenUrl: 'https://results.example/competition/spring-open/women',
+  teamsUrl: 'https://results.example/competition/spring-open/teams',
 };
+
+function articleText(article: CompetitionBlogArticle): string {
+  return [
+    ...article.paragraphs,
+    ...article.sections.flatMap((section) => [
+      section.heading,
+      ...section.paragraphs,
+      ...(section.table?.rows.flat() ?? []),
+    ]),
+    ...article.faqs.flatMap((faq) => [faq.question, faq.answer]),
+  ].join('\n');
+}
 
 describe('blogSlugFromPath', () => {
   it('keeps blog paths out of the competition parser', () => {
@@ -38,40 +99,78 @@ describe('blogSlugFromPath', () => {
 });
 
 describe('composeCompetitionBlog', () => {
-  it('writes the event, podium, classifications and results link from competition data', () => {
+  it('writes a full results story from the official competition record', () => {
     const article = composeCompetitionBlog(facts);
+    const text = articleText(article);
     expect(article.title).toBe('Spring Accuracy Open results');
-    expect(article.slug).toBe('spring-open');
-    expect(article.paragraphs[0]).toContain('Spring Accuracy Open is complete');
-    expect(article.paragraphs[0]).toContain('Ridge Club');
-    expect(article.paragraphs[0]).toContain('Hill Field, Exampleland');
-    expect(article.paragraphs[0]).toContain('24 pilots flew 6 official rounds');
-    expect(article.paragraphs.join(' ')).toContain('Ada Flyer (Exampleland) finished first');
-    expect(article.paragraphs.join(' ')).toContain('Bo Pilot finished second');
-    expect(article.paragraphs.join(' ')).toContain(
-      "Cee Wing (Elsewhere) won the women's classification",
-    );
-    expect(article.paragraphs.join(' ')).toContain('North Team (Exampleland) won the team classification');
-    expect(article.resultsUrl).toContain('/competition/spring-open/results');
+    expect(text).toContain('Ridge Club');
+    expect(text).toContain('Hill Field, Exampleland');
+    expect(text).toContain('24 pilots and 4 teams competed across 6 official rounds');
+    expect(text).toContain('24 pilots from 2 countries');
+    expect(text).toContain('Ada Flyer (Exampleland) finished first');
+    expect(text).toContain('46 cm ahead of Bo Pilot');
+    expect(text).toContain("Cee Wing (Elsewhere) won the women's classification");
+    expect(text).toContain('North Team (Exampleland) won the team classification');
+    expect(text).toContain('best 3 of 5 pilots');
+    expect(text).toContain('Round 2 was the tightest round');
+    expect(text).toContain('worst score was discarded');
+    expect(text).toContain('valley landing field');
+    expect(text).toContain('Supporters of Spring Accuracy Open: Northwind and Ridge Co.');
+    expect(text).toContain('Who won Spring Accuracy Open?');
+    expect(text.length).toBeGreaterThan(1200);
 
     const html = renderBlogArticleHtml(article);
-    expect(html).toContain('Official results');
+    expect(html).toContain('<h2>Overall results</h2>');
+    expect(html).toContain('<table>');
+    expect(html).toContain('Who won Spring Accuracy Open?');
     expect(html).toContain('https://results.example/competition/spring-open/results');
+    expect(html).toContain('/blog/other-open');
+    expect(html).toContain('https://images.example/ada.jpg');
+    expect(html).toContain('https://images.example/meet.jpg');
+    expect(html).toContain('Target &lt;view&gt;');
     expect(html).not.toContain('<script');
+    expect(article.coverImage).toBe('https://images.example/ada.jpg');
+  });
+
+  it('ignores portrait and feed urls that are not http(s)', () => {
+    const article = composeCompetitionBlog({
+      ...facts,
+      rankings: [place({ place: 1, name: 'Ada Flyer', scoreCm: 42, imageUrl: 'javascript:alert(1)' })],
+      womenRanking: [],
+      teamRanking: [],
+      photos: [{ src: 'javascript:alert(1)', alt: 'bad', caption: 'bad' }],
+      photoSource: 'feed',
+    });
+    const html = renderBlogArticleHtml(article);
+    expect(html).not.toContain('javascript:');
+    expect(article.coverImage).toBe('');
+    expect(article.sections.find((section) => section.id === 'photos')).toBeUndefined();
   });
 
   it('still publishes a story when rankings are not available', () => {
     const article = composeCompetitionBlog({
       ...facts,
       name: 'Open <Final>',
-      podium: [],
-      womenWinner: null,
-      teamWinner: null,
+      rankings: [],
+      womenRanking: [],
+      teamRanking: [],
+      countries: [],
+      rounds: [],
+      totalBullseyes: 0,
+      bestSingle: null,
+      scoring: null,
+      aboutParagraphs: [],
+      flyingSiteParagraphs: [],
+      partnerNames: [],
+      photos: [],
+      photoSource: 'none',
       pilotCount: 0,
+      teamCount: 0,
       officialRoundCount: 0,
     });
-    expect(article.paragraphs).toHaveLength(2);
-    expect(article.paragraphs[0]).not.toContain('finished first');
+    const text = articleText(article);
+    expect(text).not.toContain('finished first');
+    expect(article.sections.some((section) => section.id === 'results')).toBe(true);
     const html = renderBlogArticleHtml(article);
     expect(html).toContain('Open &lt;Final&gt;');
     expect(html).not.toContain('<Final>');

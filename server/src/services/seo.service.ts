@@ -214,36 +214,53 @@ async function resolveBlogSeo(path: string): Promise<SeoMeta> {
       title: `${article.title} · AeroJudge`,
       description: article.description,
       url: canonical,
-      image,
+      image: article.coverImage || image,
       siteName,
       type: 'article',
       articleHtml: renderBlogArticleHtml(article),
       jsonLd: {
         '@context': 'https://schema.org',
-        '@type': 'BlogPosting',
-        headline: article.title,
-        description: article.description,
-        datePublished: article.publishedAt,
-        dateModified: article.publishedAt,
-        mainEntityOfPage: canonical,
-        author: article.organizer
-          ? { '@type': 'Organization', name: article.organizer }
-          : { '@type': 'Organization', name: siteName },
-        publisher: { '@type': 'Organization', name: siteName, url: origin },
-        about: {
-          '@type': 'SportsEvent',
-          name: article.title.replace(/ results$/i, ''),
-          startDate: article.startDate,
-          endDate: article.endDate,
-          eventStatus: 'https://schema.org/EventCompleted',
-          location:
-            article.venue || article.country
-              ? { '@type': 'Place', name: article.venue, address: article.country || undefined }
-              : undefined,
-          organizer: article.organizer
-            ? { '@type': 'Organization', name: article.organizer }
-            : undefined,
-        },
+        '@graph': [
+          {
+            '@type': 'BlogPosting',
+            headline: article.title,
+            description: article.description,
+            datePublished: article.publishedAt,
+            dateModified: article.publishedAt,
+            mainEntityOfPage: canonical,
+            author: article.organizer
+              ? { '@type': 'Organization', name: article.organizer }
+              : { '@type': 'Organization', name: siteName },
+            image: article.coverImage || image,
+            publisher: { '@type': 'Organization', name: siteName, url: origin },
+            about: {
+              '@type': 'SportsEvent',
+              name: article.title.replace(/ results$/i, ''),
+              startDate: article.startDate,
+              endDate: article.endDate,
+              eventStatus: 'https://schema.org/EventCompleted',
+              location:
+                article.venue || article.country
+                  ? { '@type': 'Place', name: article.venue, address: article.country || undefined }
+                  : undefined,
+              organizer: article.organizer
+                ? { '@type': 'Organization', name: article.organizer }
+                : undefined,
+            },
+          },
+          ...(article.faqs.length
+            ? [
+                {
+                  '@type': 'FAQPage',
+                  mainEntity: article.faqs.map((faq) => ({
+                    '@type': 'Question',
+                    name: faq.question,
+                    acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+                  })),
+                },
+              ]
+            : []),
+        ],
       },
     };
   } catch (error) {
@@ -422,7 +439,7 @@ export function renderSeoHtml(meta: SeoMeta): string {
   <meta name="twitter:description" content="${description}" />
   <meta name="twitter:image" content="${image}" />
   <meta name="theme-color" content="#0a1628" />
-  <style>main p,main li{color:#334155;line-height:1.6}main a{color:#0284c7}main ol,main ul{padding-left:1.25rem}</style>
+  <style>main p,main li{color:#334155;line-height:1.6}main a{color:#0284c7}main ol,main ul{padding-left:1.25rem}main h2{font-size:1.25rem;margin:1.5rem 0 0.5rem}main h3{font-size:1rem;margin:1rem 0 0.25rem}main table{width:100%;border-collapse:collapse;margin:1rem 0}main th,main td{border-bottom:1px solid #e2e8f0;padding:0.35rem 0.5rem;text-align:left}</style>
   ${jsonLd}
 </head>
 <body>
