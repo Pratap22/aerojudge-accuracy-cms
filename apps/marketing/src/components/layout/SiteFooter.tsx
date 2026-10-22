@@ -6,7 +6,6 @@ import { AeroJudgeLogo } from '@aero-judge/ui';
 const productLinks = [
   { href: '/#features', label: 'Features' },
   { href: '/#events', label: 'Events' },
-  { href: '/#pricing', label: 'Pricing' },
   { href: siteConfig.docsUrl, label: 'Documentation', external: true },
   { href: `mailto:${siteConfig.contactEmail}`, label: 'Contact', external: true },
 ];

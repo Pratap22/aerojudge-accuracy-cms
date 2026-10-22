@@ -6,7 +6,6 @@ import { FeaturesSection } from '../components/sections/FeaturesSection';
 import { HeroSection } from '../components/sections/HeroSection';
 import { LifecycleSection } from '../components/sections/LifecycleSection';
 import { OrganizationSection } from '../components/sections/OrganizationSection';
-import { PricingSection } from '../components/sections/PricingSection';
 import { PrintingSection } from '../components/sections/PrintingSection';
 import { ProblemSection } from '../components/sections/ProblemSection';
 import { RolesSection } from '../components/sections/RolesSection';
@@ -28,7 +27,6 @@ export default function HomePage() {
       <PrintingSection />
       <TeamScoringSection />
       <AppsSection />
-      <PricingSection />
       <CtaSection />
     </>
   );

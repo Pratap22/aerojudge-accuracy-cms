@@ -19,9 +19,8 @@ export default function TermsPage() {
           authority and appointed officials.
         </p>
         <p>
-          Plan features, support levels and commercial terms are defined by your agreement with{' '}
-          {siteConfig.companyName}. Community / free usage remains subject to fair-use and configured plan
-          limits.
+          {siteConfig.productName} is free to use. Continued use of the service remains subject to these
+          terms and your organization&apos;s competition rules.
         </p>
         <p>
           Questions:{' '}

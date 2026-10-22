@@ -15,7 +15,6 @@ const navLinks = [
   { href: '/#roles', label: 'Roles' },
   { href: '/#features', label: 'Features' },
   { href: '/#apps', label: 'Apps' },
-  { href: '/#pricing', label: 'Pricing' },
 ];
 
 export function SiteHeader() {
