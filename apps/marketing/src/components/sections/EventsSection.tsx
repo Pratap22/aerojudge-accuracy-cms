@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowUpRight, Clock3, Target, Users, UsersRound } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -101,7 +102,16 @@ export function EventsSection() {
           eyebrow="Competitions"
           title="Open and recent events on AeroJudge."
           id="events-heading"
-          description="Latest events first. Time saved on a finished meet is an estimate against paper and spreadsheet workflows."
+          description={
+            <>
+              Latest events first. Time saved on a finished meet is an estimate against paper and spreadsheet
+              workflows.{' '}
+              <Link to="/blog" className="font-medium text-navy underline-offset-2 hover:underline">
+                Read stories from completed competitions
+              </Link>
+              .
+            </>
+          }
         />
 
         {items === null && (

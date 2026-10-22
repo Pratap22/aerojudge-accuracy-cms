@@ -11,6 +11,8 @@ router.get('/seo/meta', ...ctrl.seoMetaJson);
 router.get('/sitemap.xml', ...ctrl.sitemapXml);
 router.get('/robots.txt', ...ctrl.robotsTxt);
 
+router.get('/blog', ...ctrl.listBlog);
+router.get('/blog/:slug', ...ctrl.getBlog);
 router.get('/competitions', ...ctrl.listCompetitions);
 router.get('/countries', ...ctrl.listCountries);
 router.get('/profiles/:aeroJudgeId', ...ctrl.publicProfile);

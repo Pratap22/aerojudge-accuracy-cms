@@ -439,6 +439,7 @@ export async function advanceCompetitionForRoundStart(
  * Mark the competition finished.
  * A live round that was not finished is cancelled and does not count.
  * A live round in which every pilot already has a score is closed and counts.
+ * A public story is then available on the marketing site once results are published.
  */
 export async function completeCompetition(id: string) {
   const competition = await getCompetition(id);

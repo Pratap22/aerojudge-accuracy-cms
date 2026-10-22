@@ -11,6 +11,7 @@ import { MarketingButton } from '../ui/MarketingButton';
 const navLinks = [
   { href: '/#problem', label: 'Why AeroJudge' },
   { href: '/#events', label: 'Events' },
+  { href: '/blog', label: 'Stories', route: true },
   { href: '/#solution', label: 'How it works' },
   { href: '/#roles', label: 'Roles' },
   { href: '/#features', label: 'Features' },
@@ -52,15 +53,25 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Primary">
-          {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) =>
+            link.route ? (
+              <Link
+                key={link.href}
+                to={link.href}
+                className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <a
+                key={link.href}
+                href={link.href}
+                className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
+              >
+                {link.label}
+              </a>
+            ),
+          )}
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
@@ -98,19 +109,30 @@ export function SiteHeader() {
           >
             <div className="py-4">
               <nav className="flex flex-col gap-1" aria-label="Mobile primary">
-                {navLinks.map((link, i) => (
-                  <motion.a
-                    key={link.href}
-                    href={link.href}
-                    className="rounded-md px-3 py-3 text-base font-medium text-navy"
-                    onClick={() => setOpen(false)}
-                    initial={reduce ? false : { opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.04 * i, duration: 0.25 }}
-                  >
-                    {link.label}
-                  </motion.a>
-                ))}
+                {navLinks.map((link, i) =>
+                  link.route ? (
+                    <Link
+                      key={link.href}
+                      to={link.href}
+                      className="rounded-md px-3 py-3 text-base font-medium text-navy"
+                      onClick={() => setOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ) : (
+                    <motion.a
+                      key={link.href}
+                      href={link.href}
+                      className="rounded-md px-3 py-3 text-base font-medium text-navy"
+                      onClick={() => setOpen(false)}
+                      initial={reduce ? false : { opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.04 * i, duration: 0.25 }}
+                    >
+                      {link.label}
+                    </motion.a>
+                  ),
+                )}
               </nav>
               <div className="mt-4 flex flex-col gap-2">
                 <MarketingButton href={adminHref} variant="secondary" size="lg" className="w-full">

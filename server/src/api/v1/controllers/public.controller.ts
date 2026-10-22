@@ -6,6 +6,7 @@ import {
 import { z } from 'zod';
 import { asyncHandler, AppError } from '../../../utils/errors.js';
 import { sendSuccess } from '../../../utils/response.js';
+import * as blogService from '../../../services/blog.service.js';
 import * as publicService from '../../../services/public.service.js';
 import * as seoService from '../../../services/seo.service.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
@@ -20,6 +21,20 @@ const roundQuery = z.object({ round: z.coerce.number().int().positive() });
 const categoryQuery = z.object({
   category: z.enum(['OVERALL', 'WOMEN', 'JUNIOR', 'TEAM', 'COUNTRY']).default('OVERALL'),
 });
+
+export const listBlog = [
+  asyncHandler(async (_req: Request, res: Response) => {
+    sendSuccess(res, await blogService.listCompetitionBlogSummaries());
+  }),
+];
+
+export const getBlog = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { slug } = req.params as z.infer<typeof slugParams>;
+    sendSuccess(res, await blogService.getCompetitionBlog(slug));
+  }),
+];
 
 export const listCompetitions = [
   asyncHandler(async (_req: Request, res: Response) => {

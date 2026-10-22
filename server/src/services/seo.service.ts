@@ -1,5 +1,12 @@
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
+import { AppError } from '../utils/errors.js';
+import {
+  blogSlugFromPath,
+  renderBlogArticleHtml,
+  renderBlogIndexHtml,
+} from './blog-article.js';
+import { getCompetitionBlog, listCompetitionBlogSummaries } from './blog.service.js';
 
 export type SeoMeta = {
   title: string;
@@ -9,6 +16,8 @@ export type SeoMeta = {
   siteName: string;
   type: 'website' | 'article';
   robots?: string;
+  /** Trusted HTML built by the blog renderer. Callers must not pass raw user HTML. */
+  articleHtml?: string;
   jsonLd?: Record<string, unknown>;
 };
 
@@ -167,8 +176,97 @@ function formatDateRange(start: Date, end: Date): string {
 const DEFAULT_DESCRIPTION =
   'Live and official Paragliding Accuracy results on AeroJudge — rankings, pilots, teams and statistics.';
 
+async function resolveBlogSeo(path: string): Promise<SeoMeta> {
+  const siteName = 'AeroJudge';
+  const image = defaultOgImageUrl();
+  const origin = publicSiteOrigin();
+  const kind = blogSlugFromPath(path);
+
+  if (kind === 'index') {
+    const posts = await listCompetitionBlogSummaries();
+    const url = `${origin}/blog`;
+    const description =
+      'Stories from completed paragliding accuracy competitions — winners, venues and official results on AeroJudge.';
+    return {
+      title: 'Competition stories · AeroJudge',
+      description,
+      url,
+      image,
+      siteName,
+      type: 'website',
+      articleHtml: renderBlogIndexHtml(posts),
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'Blog',
+        name: 'AeroJudge competition stories',
+        description,
+        url,
+      },
+    };
+  }
+
+  const slug = kind ?? '';
+  const url = `${origin}/blog/${encodeURIComponent(slug)}`;
+  try {
+    const article = await getCompetitionBlog(slug);
+    const canonical = `${origin}/blog/${encodeURIComponent(article.slug)}`;
+    return {
+      title: `${article.title} · AeroJudge`,
+      description: article.description,
+      url: canonical,
+      image,
+      siteName,
+      type: 'article',
+      articleHtml: renderBlogArticleHtml(article),
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: article.title,
+        description: article.description,
+        datePublished: article.publishedAt,
+        dateModified: article.publishedAt,
+        mainEntityOfPage: canonical,
+        author: article.organizer
+          ? { '@type': 'Organization', name: article.organizer }
+          : { '@type': 'Organization', name: siteName },
+        publisher: { '@type': 'Organization', name: siteName, url: origin },
+        about: {
+          '@type': 'SportsEvent',
+          name: article.title.replace(/ results$/i, ''),
+          startDate: article.startDate,
+          endDate: article.endDate,
+          eventStatus: 'https://schema.org/EventCompleted',
+          location:
+            article.venue || article.country
+              ? { '@type': 'Place', name: article.venue, address: article.country || undefined }
+              : undefined,
+          organizer: article.organizer
+            ? { '@type': 'Organization', name: article.organizer }
+            : undefined,
+        },
+      },
+    };
+  } catch (error) {
+    if (error instanceof AppError && error.statusCode === 404) {
+      return {
+        title: 'Story not found · AeroJudge',
+        description: 'This competition story is not published.',
+        url,
+        image,
+        siteName,
+        type: 'article',
+        robots: 'noindex, nofollow',
+      };
+    }
+    throw error;
+  }
+}
+
 export async function resolveSeoMeta(rawPath: string): Promise<SeoMeta> {
   const path = normalizePublicPath(rawPath);
+  if (blogSlugFromPath(path)) {
+    return resolveBlogSeo(path);
+  }
   const page = parsePublicPage(path);
   const siteName = 'AeroJudge';
   const image = defaultOgImageUrl();
@@ -324,13 +422,17 @@ export function renderSeoHtml(meta: SeoMeta): string {
   <meta name="twitter:description" content="${description}" />
   <meta name="twitter:image" content="${image}" />
   <meta name="theme-color" content="#0a1628" />
+  <style>main p,main li{color:#334155;line-height:1.6}main a{color:#0284c7}main ol,main ul{padding-left:1.25rem}</style>
   ${jsonLd}
 </head>
 <body>
   <main style="font-family:system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;color:#0a1628">
     <p style="color:#0369a1;font-size:0.75rem;font-weight:600;letter-spacing:0.12em;text-transform:uppercase">${siteName}</p>
     <h1 style="font-size:1.75rem;line-height:1.2">${title}</h1>
-    <p style="color:#334155;line-height:1.55">${description}</p>
+    ${
+      meta.articleHtml ??
+      `<p style="color:#334155;line-height:1.55">${description}</p>`
+    }
     <p><a href="${url}" style="color:#0284c7">Open live page →</a></p>
   </main>
 </body>
@@ -353,10 +455,21 @@ export async function buildSitemapXml(): Promise<string> {
     take: 500,
   });
 
+  const stories = await listCompetitionBlogSummaries();
   const urls: Array<{ loc: string; lastmod?: string; priority: string; changefreq: string }> = [
     { loc: `${site}/`, priority: '1.0', changefreq: 'weekly', lastmod: now },
+    { loc: `${site}/blog`, priority: '0.7', changefreq: 'weekly', lastmod: now },
     { loc: `${resultsBase}/`, priority: '0.9', changefreq: 'hourly', lastmod: now },
   ];
+
+  for (const story of stories) {
+    urls.push({
+      loc: `${site}/blog/${encodeURIComponent(story.slug)}`,
+      lastmod: story.publishedAt,
+      priority: '0.7',
+      changefreq: 'monthly',
+    });
+  }
 
   for (const c of competitions) {
     const slug = c.publicSlug || c.id;
@@ -400,6 +513,7 @@ export function robotsTxt(): string {
   const site = publicSiteOrigin();
   return `User-agent: *
 Allow: /
+Allow: /blog/
 Allow: /events/
 Allow: /results/
 Disallow: /admin/

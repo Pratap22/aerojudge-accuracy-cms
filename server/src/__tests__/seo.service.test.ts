@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { blogSlugFromPath } from '../services/blog-article.js';
 import { normalizePublicPath } from '../services/seo.service.js';
 
 describe('normalizePublicPath', () => {
@@ -20,6 +21,12 @@ describe('normalizePublicPath', () => {
 
   it('keeps competition paths without prefix', () => {
     expect(normalizePublicPath('/competition/abc')).toBe('/competition/abc');
+  });
+
+  it('leaves /blog paths for the story resolver', () => {
+    expect(blogSlugFromPath(normalizePublicPath('/blog'))).toBe('index');
+    expect(blogSlugFromPath(normalizePublicPath('/blog/spring-open/'))).toBe('spring-open');
+    expect(normalizePublicPath('/blog/spring-open')).toBe('/blog/spring-open');
   });
 
   it('strips query and trailing slash', () => {
