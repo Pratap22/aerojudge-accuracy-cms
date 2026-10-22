@@ -187,6 +187,24 @@ describe('composeCompetitionBlog', () => {
     expect(html).not.toContain('<Final>');
   });
 
+  it('lists an official once, under the higher role', () => {
+    const article = composeCompetitionBlog({
+      ...facts,
+      officials: [
+        { name: 'Pratap Sharma', role: 'Scorer', imageUrl: 'https://images.example/pratap.jpg' },
+        { name: 'Pratap Sharma', role: 'Target Judge', imageUrl: '' },
+        { name: 'Eve Judge', role: 'Meet Director', imageUrl: '' },
+      ],
+    });
+    const section = article.sections.find((item) => item.id === 'officials');
+    expect(section?.table?.rows).toEqual([
+      ['Meet Director', 'Eve Judge'],
+      ['Target Judge', 'Pratap Sharma'],
+    ]);
+    expect(articleText(article)).not.toContain('Scorer');
+    expect(section?.figures?.map((figure) => figure.caption)).toEqual(['Pratap Sharma — Target Judge']);
+  });
+
   it('does not call a sole female pilot the winner of the women classification', () => {
     const alone = composeCompetitionBlog({
       ...facts,

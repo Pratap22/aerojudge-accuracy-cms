@@ -1,3 +1,5 @@
+import { officialRoleRank } from '@aero-judge/shared';
+
 export type BlogPlace = {
   place: number;
   name: string;
@@ -455,14 +457,32 @@ function womenSection(facts: CompetitionBlogFacts): BlogSection | null {
   };
 }
 
+function keepHighestOfficialRole(officials: BlogOfficial[]): BlogOfficial[] {
+  const best = new Map<string, BlogOfficial>();
+  for (const official of officials) {
+    const key = official.name.trim().toLowerCase();
+    if (!key) continue;
+    const current = best.get(key);
+    if (!current || officialRoleRank(official.role) < officialRoleRank(current.role)) {
+      best.set(key, { ...official, imageUrl: official.imageUrl || current?.imageUrl || '' });
+    } else if (!current.imageUrl && official.imageUrl) {
+      best.set(key, { ...current, imageUrl: official.imageUrl });
+    }
+  }
+  return [...best.values()].sort(
+    (a, b) => officialRoleRank(a.role) - officialRoleRank(b.role) || a.name.localeCompare(b.name),
+  );
+}
+
 function officialsSection(officials: BlogOfficial[]): BlogSection | null {
-  if (officials.length === 0) return null;
-  const listed = officials.map((official) => `${official.name} (${official.role})`);
+  const unique = keepHighestOfficialRole(officials);
+  if (unique.length === 0) return null;
+  const listed = unique.map((official) => `${official.name} (${official.role})`);
   return {
     id: 'officials',
     heading: 'Officials',
     paragraphs: [`The published officials were ${joinList(listed)}.`],
-    figures: officials.flatMap((official) => {
+    figures: unique.flatMap((official) => {
       const src = safeImageUrl(official.imageUrl);
       if (!src) return [];
       return [
@@ -476,7 +496,7 @@ function officialsSection(officials: BlogOfficial[]): BlogSection | null {
     table: {
       caption: 'Competition officials',
       headers: ['Role', 'Name'],
-      rows: officials.map((official) => [official.role, official.name]),
+      rows: unique.map((official) => [official.role, official.name]),
     },
   };
 }
