@@ -51,6 +51,12 @@ export type BlogLink = {
   title: string;
 };
 
+export type BlogOfficial = {
+  name: string;
+  role: string;
+  imageUrl: string;
+};
+
 export type CompetitionBlogFacts = {
   name: string;
   slug: string;
@@ -64,7 +70,10 @@ export type CompetitionBlogFacts = {
   officialRoundCount: number;
   rankings: BlogPlace[];
   womenRanking: BlogPlace[];
+  womenPilotCount: number;
+  womenCategoryEnabled: boolean;
   teamRanking: BlogPlace[];
+  officials: BlogOfficial[];
   countries: BlogCountry[];
   rounds: BlogRound[];
   totalBullseyes: number;
@@ -209,15 +218,10 @@ export function composeCompetitionBlog(facts: CompetitionBlogFacts): Competition
     overallSection(name, facts.rankings),
     photosSection(name, facts.photos, facts.photoSource),
     standoutSection(facts),
-    classificationSection(
-      "Women's classification",
-      'women',
-      facts.womenRanking,
-      facts.womenUrl,
-      "women's",
-    ),
+    womenSection(facts),
     teamSection(facts),
     fieldSection(facts),
+    officialsSection(facts.officials),
     roundsSection(facts.rounds),
     scoringSection(name, facts.scoring),
     copySection('about', 'About the competition', facts.aboutParagraphs),
@@ -404,6 +408,83 @@ function standoutSection(facts: CompetitionBlogFacts): BlogSection | null {
   }
   if (paragraphs.length === 0) return null;
   return { id: 'standout', heading: 'Closest landings', paragraphs };
+}
+
+function womenSection(facts: CompetitionBlogFacts): BlogSection | null {
+  const count = Math.max(facts.womenPilotCount, facts.womenRanking.length);
+  if (!facts.womenCategoryEnabled && count === 0) return null;
+
+  if (count > 1 && facts.womenRanking.length > 1) {
+    return classificationSection(
+      "Women's classification",
+      'women',
+      facts.womenRanking,
+      facts.womenUrl,
+      "women's",
+    );
+  }
+
+  if (count === 1) {
+    const pilot = facts.womenRanking[0];
+    return {
+      id: 'women',
+      heading: "Women's classification",
+      paragraphs: [
+        pilot
+          ? `Only one female pilot competed, ${who(pilot)}. She is not recorded as the winner of a women's classification.`
+          : "Only one female pilot competed, so a women's classification was not awarded.",
+      ],
+      figures: pilot ? namedPortrait(pilot, 'female pilot') : [],
+    };
+  }
+
+  if (count > 1) {
+    return {
+      id: 'women',
+      heading: "Women's classification",
+      paragraphs: [
+        `${count} female pilots competed. A women's classification is published when more than one of them has a scored result.`,
+      ],
+    };
+  }
+
+  return {
+    id: 'women',
+    heading: "Women's classification",
+    paragraphs: ["No female pilots competed, so a women's classification was not awarded."],
+  };
+}
+
+function officialsSection(officials: BlogOfficial[]): BlogSection | null {
+  if (officials.length === 0) return null;
+  const listed = officials.map((official) => `${official.name} (${official.role})`);
+  return {
+    id: 'officials',
+    heading: 'Officials',
+    paragraphs: [`The published officials were ${joinList(listed)}.`],
+    figures: officials.flatMap((official) => {
+      const src = safeImageUrl(official.imageUrl);
+      if (!src) return [];
+      return [
+        {
+          src,
+          alt: `${official.name}, ${official.role}`,
+          caption: `${official.name} — ${official.role}`,
+        },
+      ];
+    }),
+    table: {
+      caption: 'Competition officials',
+      headers: ['Role', 'Name'],
+      rows: officials.map((official) => [official.role, official.name]),
+    },
+  };
+}
+
+function namedPortrait(row: BlogPlace, role: string): BlogFigure[] {
+  const src = safeImageUrl(row.imageUrl);
+  if (!src) return [];
+  return [{ src, alt: `${row.name}, ${role}`, caption: who(row) }];
 }
 
 function classificationSection(

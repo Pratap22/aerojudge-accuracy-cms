@@ -1,4 +1,4 @@
-import { COMPETING_PILOT_STATUSES } from '@aero-judge/shared';
+import { COMPETING_PILOT_STATUSES, compareOfficials, officialRoleLabel } from '@aero-judge/shared';
 import { displayCountryCode, formatPilotName, formatScoreCm } from '@aero-judge/utils';
 import { displayedPilotPhotoUrl } from './person.service.js';
 import { env } from '../config/env.js';
@@ -116,7 +116,7 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
   });
   if (!row) throw AppError.notFound('Competition story not found');
 
-  const [overall, women, teams, pilots, rounds, info, partners, related, pictures] = await Promise.all([
+  const [overall, women, teams, pilots, rounds, info, partners, related, pictures, officials] = await Promise.all([
     prisma.individualRanking.findMany({
       where: { competitionId: row.id, category: 'OVERALL', roundsFlown: { gt: 0 } },
       orderBy: { rank: 'asc' },
@@ -138,7 +138,12 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
     }),
     prisma.pilot.findMany({
       where: { competitionId: row.id, status: { in: [...COMPETING_PILOT_STATUSES] } },
-      select: { nationality: true, country: { select: { name: true, code: true } } },
+      select: {
+        nationality: true,
+        gender: true,
+        isWomen: true,
+        country: { select: { name: true, code: true } },
+      },
     }),
     loadRounds(row.id),
     prisma.competitionInfo.findUnique({
@@ -158,6 +163,10 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
       select: { name: true, publicSlug: true },
     }),
     loadStoryPictures(row.id, row.name),
+    prisma.competitionOfficial.findMany({
+      where: { competitionId: row.id, isPublic: true },
+      select: { name: true, role: true, imageUrl: true, displayOrder: true },
+    }),
   ]);
 
   const bestSingle = await loadBestScore(row.id);
@@ -166,6 +175,8 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
     factsFromRow(row, {
       rankings: overall.map(placeFromPilot),
       womenRanking: women.map(placeFromPilot),
+      womenPilotCount: pilots.filter((pilot) => pilot.gender === 'FEMALE' || pilot.isWomen).length,
+      womenCategoryEnabled: row.settings?.womenCategoryEnabled ?? false,
       teamRanking: preferredTeamRankings(teams).map((team) => ({
         place: team.rank,
         name: team.team.name,
@@ -177,6 +188,11 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
         imageUrl: toAbsoluteAssetUrl(team.team.logoUrl) ?? '',
       })),
       countries: countriesFromPilots(pilots),
+      officials: officials.sort(compareOfficials).map((official) => ({
+        name: official.name.trim(),
+        role: officialRoleLabel(official.role),
+        imageUrl: toAbsoluteAssetUrl(official.imageUrl) ?? '',
+      })),
       rounds,
       totalBullseyes: rounds.reduce((sum, round) => sum + round.bullseyes, 0),
       bestSingle,
@@ -295,7 +311,10 @@ function factsFromRow(
     officialRoundCount: row._count.rounds,
     rankings: [],
     womenRanking: [],
+    womenPilotCount: 0,
+    womenCategoryEnabled: row.settings?.womenCategoryEnabled ?? false,
     teamRanking: [],
+    officials: [],
     countries: [],
     rounds: [],
     totalBullseyes: 0,

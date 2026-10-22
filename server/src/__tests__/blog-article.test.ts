@@ -43,8 +43,14 @@ const facts: CompetitionBlogFacts = {
     place({ place: 2, name: 'Bo Pilot', scoreCm: 88 }),
     place({ place: 3, name: 'Cee Wing', scoreCm: 101, country: 'Elsewhere' }),
   ],
-  womenRanking: [place({ place: 1, name: 'Cee Wing', scoreCm: 101, country: 'Elsewhere' })],
+  womenRanking: [
+    place({ place: 1, name: 'Cee Wing', scoreCm: 101, country: 'Elsewhere' }),
+    place({ place: 2, name: 'Dee Ridge', scoreCm: 140, country: 'Exampleland' }),
+  ],
+  womenPilotCount: 2,
+  womenCategoryEnabled: true,
   teamRanking: [place({ place: 1, name: 'North Team', scoreCm: 210, country: 'Exampleland', bullseyes: 0 })],
+  officials: [{ name: 'Eve Judge', role: 'Meet Director', imageUrl: 'https://images.example/eve.jpg' }],
   countries: [
     { name: 'Exampleland', pilotCount: 18 },
     { name: 'Elsewhere', pilotCount: 6 },
@@ -110,6 +116,7 @@ describe('composeCompetitionBlog', () => {
     expect(text).toContain('Ada Flyer (Exampleland) finished first');
     expect(text).toContain('46 cm ahead of Bo Pilot');
     expect(text).toContain("Cee Wing (Elsewhere) won the women's classification");
+    expect(text).toContain('Eve Judge (Meet Director)');
     expect(text).toContain('North Team (Exampleland) won the team classification');
     expect(text).toContain('best 3 of 5 pilots');
     expect(text).toContain('Round 2 was the tightest round');
@@ -125,6 +132,7 @@ describe('composeCompetitionBlog', () => {
     expect(html).toContain('Who won Spring Accuracy Open?');
     expect(html).toContain('https://results.example/competition/spring-open/results');
     expect(html).toContain('/blog/other-open');
+    expect(html).toContain('https://images.example/eve.jpg');
     expect(html).toContain('https://images.example/ada.jpg');
     expect(html).toContain('https://images.example/meet.jpg');
     expect(html).toContain('Target &lt;view&gt;');
@@ -153,7 +161,10 @@ describe('composeCompetitionBlog', () => {
       name: 'Open <Final>',
       rankings: [],
       womenRanking: [],
+      womenPilotCount: 0,
+      womenCategoryEnabled: false,
       teamRanking: [],
+      officials: [],
       countries: [],
       rounds: [],
       totalBullseyes: 0,
@@ -174,6 +185,26 @@ describe('composeCompetitionBlog', () => {
     const html = renderBlogArticleHtml(article);
     expect(html).toContain('Open &lt;Final&gt;');
     expect(html).not.toContain('<Final>');
+  });
+
+  it('does not call a sole female pilot the winner of the women classification', () => {
+    const alone = composeCompetitionBlog({
+      ...facts,
+      womenPilotCount: 1,
+      womenRanking: [place({ place: 1, name: 'Cee Wing', scoreCm: 101, country: 'Elsewhere' })],
+    });
+    const text = articleText(alone);
+    expect(text).toContain('Only one female pilot competed, Cee Wing (Elsewhere)');
+    expect(text).not.toContain("won the women's classification");
+    expect(alone.sections.find((section) => section.id === 'women')?.table).toBeUndefined();
+
+    const none = composeCompetitionBlog({
+      ...facts,
+      womenPilotCount: 0,
+      womenRanking: [],
+      womenCategoryEnabled: true,
+    });
+    expect(articleText(none)).toContain('No female pilots competed');
   });
 
   it('does not repeat the results word when the competition name already ends with it', () => {
