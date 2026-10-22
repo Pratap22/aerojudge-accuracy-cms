@@ -81,16 +81,18 @@ export function Navigation() {
           <Link to="/" className="inline-flex" aria-label="AeroJudge">
             <AeroJudgeLogo className="h-10 w-auto" />
           </Link>
-          <Link
-            to={competitionPath(id)}
-            className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
-          >
-            Results
-          </Link>
+          {competitionId ? (
+            <Link
+              to={competitionPath(id)}
+              className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
+            >
+              Results
+            </Link>
+          ) : null}
         </div>
 
         <div className="hidden items-center gap-1 md:flex">
-          {navItems.map(({ path, label }) => {
+          {competitionId ? navItems.map(({ path, label }) => {
             const href = path ? competitionPath(id, path) : competitionPath(id);
             const active = path
               ? location.pathname === href || location.pathname.startsWith(`${href}/`)
@@ -109,11 +111,11 @@ export function Navigation() {
                 {label}
               </Link>
             );
-          })}
+          }) : null}
         </div>
 
         <div className="flex items-center gap-2">
-          {statusBadge}
+          {competitionId ? statusBadge : null}
           <button
             type="button"
             onClick={toggleTheme}
@@ -128,6 +130,7 @@ export function Navigation() {
             aria-expanded={menuOpen}
             aria-controls="public-nav-menu"
             aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            hidden={!competitionId}
             onClick={() => setMenuOpen((open) => !open)}
           >
             {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -135,7 +138,7 @@ export function Navigation() {
         </div>
       </div>
 
-      {menuOpen ? (
+      {menuOpen && competitionId ? (
         <div id="public-nav-menu" className="border-t border-border px-4 py-3 md:hidden">
           <div className="flex flex-col">
             {navItems.map(({ path, label }) => {

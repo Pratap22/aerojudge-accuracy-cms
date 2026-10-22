@@ -180,8 +180,18 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
 
   return composeCompetitionBlog(
     factsFromRow(row, {
-      rankings: overall.map((ranking) => withProfile(publicSlug, placeFromPilot(ranking), ranking.pilot)),
-      womenRanking: women.map((ranking) => withProfile(publicSlug, placeFromPilot(ranking), ranking.pilot)),
+      rankings: overall.map((ranking) =>
+        withProfile(placeFromPilot(ranking), ranking.pilot, {
+          storySlug: publicSlug,
+          competitionId: row.id,
+        }),
+      ),
+      womenRanking: women.map((ranking) =>
+        withProfile(placeFromPilot(ranking), ranking.pilot, {
+          storySlug: publicSlug,
+          competitionId: row.id,
+        }),
+      ),
       womenPilotCount: pilots.filter((pilot) => pilot.gender === 'FEMALE' || pilot.isWomen).length,
       womenCategoryEnabled: row.settings?.womenCategoryEnabled ?? false,
       teamRanking: preferredTeamRankings(teams).map((team) => ({
@@ -202,7 +212,10 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
         imageUrl: toAbsoluteAssetUrl(official.imageUrl) ?? '',
         profileUrl:
           official.person?.status === 'ACTIVE'
-            ? competitionProfileUrl(publicSlug, { aeroJudgeId: official.person.aeroJudgeId })
+            ? pilotCareerUrl(official.person.aeroJudgeId, {
+                storySlug: publicSlug,
+                competitionId: row.id,
+              })
             : '',
       })),
       rounds,
@@ -448,30 +461,54 @@ function placeFromPilot(row: RankingRow & {
 }
 
 function withProfile(
-  slug: string,
   place: BlogPlace,
   pilot: {
-    pilotNumber: number | null;
     person?: { aeroJudgeId: string; status: string } | null;
   },
+  context: { storySlug: string; competitionId: string },
 ): BlogPlace {
+  const aeroJudgeId = pilot.person?.status === 'ACTIVE' ? pilot.person.aeroJudgeId : '';
   return {
     ...place,
-    profileUrl: competitionProfileUrl(slug, {
-      pilotNumber: pilot.pilotNumber,
-      aeroJudgeId: pilot.person?.status === 'ACTIVE' ? pilot.person.aeroJudgeId : null,
-    }),
+    profileUrl: aeroJudgeId ? pilotCareerUrl(aeroJudgeId, context) : '',
   };
 }
 
-function competitionProfileUrl(
-  slug: string,
-  identity: { pilotNumber?: number | null; aeroJudgeId?: string | null },
+/** Public career page. The results base already includes `/events` in production. */
+export function pilotCareerUrl(
+  aeroJudgeId: string,
+  context?: { storySlug?: string; competitionId?: string },
 ): string {
-  const base = `${publicResultsBase()}/competition/${encodeURIComponent(slug)}`;
-  if (identity.pilotNumber != null) return `${base}/pilots/${identity.pilotNumber}`;
-  if (identity.aeroJudgeId) return `${base}/profile/${encodeURIComponent(identity.aeroJudgeId)}`;
-  return '';
+  const url = new URL(`${publicResultsBase()}/pilots/${encodeURIComponent(aeroJudgeId.trim())}`);
+  const storySlug = context?.storySlug?.trim();
+  const competitionId = context?.competitionId?.trim();
+  if (storySlug) url.searchParams.set('story', storyPageUrl(storySlug));
+  if (competitionId) url.searchParams.set('competition', competitionId);
+  return url.toString();
+}
+
+function storyPageUrl(slug: string): string {
+  const origin = marketingOrigin();
+  return `${origin}/blog/${encodeURIComponent(slug)}`;
+}
+
+function marketingOrigin(): string {
+  try {
+    const results = new URL(publicResultsBase());
+    const origin =
+      results.pathname && results.pathname !== '/'
+        ? `${results.protocol}//${results.host}`
+        : results.origin;
+    if (
+      (results.hostname === 'localhost' || results.hostname === '127.0.0.1') &&
+      results.port === '3003'
+    ) {
+      return `${results.protocol}//${results.hostname}:3004`;
+    }
+    return origin;
+  } catch {
+    return publicResultsBase();
+  }
 }
 
 function countryLabel(

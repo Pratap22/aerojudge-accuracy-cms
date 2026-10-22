@@ -4,6 +4,29 @@ import { padPilotNumber } from '@aero-judge/utils';
 import { competitionPath, type PublicCareer } from '../lib/api';
 import { countryCodeToEmoji, formatScore } from '../lib/utils';
 
+function BackLink({ to, label }: { to: string; label: string }) {
+  const className =
+    'mb-8 inline-flex items-center gap-2 text-sm font-medium text-sky-700 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300';
+  const content = (
+    <>
+      <ArrowLeft className="h-4 w-4" />
+      {label}
+    </>
+  );
+  if (/^https?:\/\//i.test(to)) {
+    return (
+      <a href={to} className={className}>
+        {content}
+      </a>
+    );
+  }
+  return (
+    <Link to={to} className={className}>
+      {content}
+    </Link>
+  );
+}
+
 function formatRange(startIso: string, endIso: string): string {
   const start = new Date(startIso);
   const end = new Date(endIso);
@@ -19,7 +42,7 @@ function placeLabel(venue: string, country: string): string {
 
 interface PilotCareerProps {
   career: PublicCareer;
-  back: { to: string; label: string };
+  back?: { to: string; label: string };
   /** Competition the visitor came from, marked in the list. */
   highlightCompetitionId?: string;
   notice?: string | null;
@@ -31,13 +54,9 @@ export function PilotCareer({ career, back, highlightCompetitionId, notice }: Pi
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-      <Link
-        to={back.to}
-        className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-sky-700 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {back.label}
-      </Link>
+      {back ? (
+        <BackLink to={back.to} label={back.label} />
+      ) : null}
 
       {notice ? (
         <p className="mb-8 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">

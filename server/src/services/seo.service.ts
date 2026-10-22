@@ -7,6 +7,7 @@ import {
   renderBlogIndexHtml,
 } from './blog-article.js';
 import { getCompetitionBlog, listCompetitionBlogSummaries } from './blog.service.js';
+import { getPublicCareer } from './public.service.js';
 
 export type SeoMeta = {
   title: string;
@@ -135,6 +136,43 @@ function parsePublicPage(path: string): PageKind {
   }
 
   return { kind: 'list' };
+}
+
+async function resolvePilotSeo(aeroJudgeId: string): Promise<SeoMeta> {
+  const siteName = 'AeroJudge';
+  const url = absolutePublicUrl(`/pilots/${encodeURIComponent(aeroJudgeId)}`);
+  try {
+    const career = await getPublicCareer(aeroJudgeId);
+    const description = `${career.displayName} — paragliding accuracy on AeroJudge.`;
+    return {
+      title: `${career.displayName} · AeroJudge`,
+      description,
+      url,
+      image: career.photoUrl || defaultOgImageUrl(),
+      siteName,
+      type: 'website',
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'Person',
+        name: career.displayName,
+        url,
+        image: career.photoUrl || undefined,
+      },
+    };
+  } catch (error) {
+    if (error instanceof AppError && error.statusCode === 404) {
+      return {
+        title: 'Pilot not found · AeroJudge',
+        description: 'This pilot profile is not published.',
+        url,
+        image: defaultOgImageUrl(),
+        siteName,
+        type: 'website',
+        robots: 'noindex, nofollow',
+      };
+    }
+    throw error;
+  }
 }
 
 function sectionLabel(section: string): string {
@@ -279,11 +317,24 @@ async function resolveBlogSeo(path: string): Promise<SeoMeta> {
   }
 }
 
+/** `/pilots/:aeroJudgeId` on the events app. Not a competition slug. */
+export function pilotIdFromPath(path: string): string | null {
+  const match = path.match(/^\/pilots\/([^/]+)$/);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 export async function resolveSeoMeta(rawPath: string): Promise<SeoMeta> {
   const path = normalizePublicPath(rawPath);
   if (blogSlugFromPath(path)) {
     return resolveBlogSeo(path);
   }
+  const pilotId = pilotIdFromPath(path);
+  if (pilotId) return resolvePilotSeo(pilotId);
   const page = parsePublicPage(path);
   const siteName = 'AeroJudge';
   const image = defaultOgImageUrl();
