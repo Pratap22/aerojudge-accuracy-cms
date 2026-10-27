@@ -60,11 +60,7 @@ export const uploadGalleryImage = [
         ? req.body.caption.trim()
         : undefined;
     const parsed = createGalleryImageSchema.parse({ caption });
-    const image = await infoService.createGalleryImage(
-      req.params.competitionId,
-      req.file,
-      parsed,
-    );
+    const image = await infoService.createGalleryImage(req.params.competitionId, req.file, parsed);
     sendSuccess(res, image, 201);
   }),
 ];
@@ -79,6 +75,29 @@ export const updateGalleryImage = [
       req.body,
     );
     sendSuccess(res, image);
+  }),
+];
+
+export const uploadHeroImage = [
+  validateParams(competitionParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Image file required', code: 'BAD_REQUEST' },
+      });
+      return;
+    }
+    const info = await infoService.setHeroImage(req.params.competitionId, req.file);
+    sendSuccess(res, info);
+  }),
+];
+
+export const removeHeroImage = [
+  validateParams(competitionParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const info = await infoService.clearHeroImage(req.params.competitionId);
+    sendSuccess(res, info);
   }),
 ];
 

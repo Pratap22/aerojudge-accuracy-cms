@@ -5,18 +5,22 @@ import {
   authenticatedPilotRegistrationSchema,
   type AuthenticatedPilotRegistrationInput,
 } from '@aero-judge/shared';
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@aero-judge/ui';
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@aero-judge/ui';
 import { Layout } from '../components/Layout';
 import { claimPerson, lookupPersonForClaim } from '../lib/auth-api';
 import { useAuth } from '../lib/auth';
-import {
-  competitionPath,
-  fetchCountries,
-  registerPilot,
-  uploadPilotPhoto,
-} from '../lib/api';
+import { competitionPath, fetchCountries, registerPilot, uploadPilotPhoto } from '../lib/api';
 import { useCompetition, useSlug } from '../hooks/useCompetition';
-import { isRegistrationOpen } from '../lib/competitionStatus';
+import { showPublicRegistration } from '../lib/competitionStatus';
 
 type AuthMode = 'login' | 'signup';
 
@@ -57,9 +61,17 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: competition, isLoading: compLoading } = useCompetition();
-  const registrationOpen = isRegistrationOpen(competition?.status);
-  const { user, isLoading: authLoading, isAuthenticated, login, register, logout, refreshMe } =
-    useAuth();
+  const registrationOpen = showPublicRegistration(competition);
+  const registrationExternal = competition?.settings?.publicRegistrationEnabled === false;
+  const {
+    user,
+    isLoading: authLoading,
+    isAuthenticated,
+    login,
+    register,
+    logout,
+    refreshMe,
+  } = useAuth();
 
   const { data: countries = [] } = useQuery({
     queryKey: ['public-countries'],
@@ -130,7 +142,9 @@ export function RegisterPage() {
     setPhotoFile(file);
     const type = file.type.toLowerCase();
     const heic =
-      type.startsWith('image/heic') || type.startsWith('image/heif') || /\.hei[cf]$/i.test(file.name);
+      type.startsWith('image/heic') ||
+      type.startsWith('image/heif') ||
+      /\.hei[cf]$/i.test(file.name);
     setPhotoPreview(heic ? null : URL.createObjectURL(file));
   };
   const onAuthSubmit = async (e: FormEvent) => {
@@ -166,9 +180,7 @@ export function RegisterPage() {
     setClaimBusy(true);
     try {
       const q = claimId.trim();
-      const params = q.toUpperCase().startsWith('AJ-')
-        ? { aeroJudgeId: q }
-        : { civlId: q };
+      const params = q.toUpperCase().startsWith('AJ-') ? { aeroJudgeId: q } : { civlId: q };
       const lookup = await lookupPersonForClaim(params);
       if (!lookup.matches.length) {
         setClaimMsg('No profile found for that AeroJudge ID or CIVL ID.');
@@ -178,7 +190,9 @@ export function RegisterPage() {
       const result = await claimPerson({ personId: match.person.id });
       if (result.status === 'CLAIMED' || result.status === 'ALREADY_LINKED') {
         await refreshMe();
-        setClaimMsg(`Linked to ${result.person.firstName} ${result.person.lastName} (${result.person.aeroJudgeId}).`);
+        setClaimMsg(
+          `Linked to ${result.person.firstName} ${result.person.lastName} (${result.person.aeroJudgeId}).`,
+        );
       } else {
         setClaimMsg(
           result.message ??
@@ -240,9 +254,13 @@ export function RegisterPage() {
     return (
       <Layout>
         <div className="mx-auto max-w-lg px-6 py-24 text-center">
-          <h1 className="font-display text-3xl text-foreground">Registration closed</h1>
+          <h1 className="font-display text-3xl text-foreground">
+            {registrationExternal ? 'Registration is handled elsewhere' : 'Registration closed'}
+          </h1>
           <p className="mt-3 text-muted-foreground">
-            Pilot self-registration is not open for this competition right now.
+            {registrationExternal
+              ? 'Pilots for this competition are entered from the organiser’s own list.'
+              : 'Pilot self-registration is not open for this competition right now.'}
           </p>
           <Link
             to={competitionPath(competitionId, 'pilots')}
@@ -337,9 +355,7 @@ export function RegisterPage() {
                     <Link
                       to={`/forgot-password?${new URLSearchParams({
                         returnTo: competitionPath(competitionId, 'register'),
-                        ...(authForm.email.trim()
-                          ? { email: authForm.email.trim() }
-                          : {}),
+                        ...(authForm.email.trim() ? { email: authForm.email.trim() } : {}),
                       }).toString()}`}
                       className="text-xs font-medium text-sky-700 dark:text-sky-400 hover:underline"
                     >
@@ -401,7 +417,9 @@ export function RegisterPage() {
             {/* Step 2: Claim existing profile if not linked */}
             {!hasPerson && (
               <div className="mt-6 rounded-xl border border-border bg-muted/40 p-6">
-                <h2 className="text-lg font-semibold text-foreground">Claim an existing profile?</h2>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Claim an existing profile?
+                </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Already in the pilot list (added by organisers)? Enter your AeroJudge ID (AJ-…) or
                   CIVL ID to link that Person instead of creating a duplicate. Instant claim works
@@ -424,9 +442,7 @@ export function RegisterPage() {
                     {claimBusy ? 'Looking up…' : 'Find & claim'}
                   </Button>
                 </form>
-                {claimMsg && (
-                  <p className="mt-3 text-sm text-foreground/90">{claimMsg}</p>
-                )}
+                {claimMsg && <p className="mt-3 text-sm text-foreground/90">{claimMsg}</p>}
                 <p className="mt-4 text-xs text-muted-foreground">
                   New to AeroJudge? Skip this and we&apos;ll create your profile when you submit
                   registration below.
@@ -624,9 +640,7 @@ export function RegisterPage() {
                   <Label className="text-foreground">Emergency contact</Label>
                   <Input
                     value={form.emergencyContact}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, emergencyContact: e.target.value }))
-                    }
+                    onChange={(e) => setForm((f) => ({ ...f, emergencyContact: e.target.value }))}
                     className="border-border bg-card text-foreground"
                   />
                 </div>

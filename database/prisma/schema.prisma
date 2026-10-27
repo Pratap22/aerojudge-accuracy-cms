@@ -586,6 +586,8 @@ model CompetitionInfo {
   mapLabel            String?
   /// Override zoom for the event map (OpenStreetMap). Falls back to 13.
   mapZoom             Int      @default(13)
+  /// Wide photo shown at the top of the public event home page.
+  heroImageUrl        String?
   /// HQ, takeoff, and landing pins: [{ kind, latitude, longitude }].
   mapSites            Json?
   createdAt           DateTime @default(now())
@@ -671,6 +673,8 @@ model CompetitionSettings {
   offlineModeEnabled      Boolean @default(true)
   /// Hide venue and public wind when the last reading is older than this. 0 keeps it visible.
   windDisplayMaxAgeMinutes Int    @default(30)
+  /// When false, the public register page stays hidden. Pilots are entered elsewhere (CIVL, spreadsheet).
+  publicRegistrationEnabled Boolean @default(true)
   // UI/public label for partners, e.g. Sponsors or Supporters
   partnersLabel           String  @default("Sponsors")
   // When false, partner type/tier is unused (govt / supporters-style events)

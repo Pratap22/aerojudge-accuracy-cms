@@ -34,7 +34,10 @@ export async function listCompetitions(query: {
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
       orderBy: { startDate: 'desc' },
-      include: { settings: true, organization: { select: { id: true, name: true, shortName: true, slug: true } } },
+      include: {
+        settings: true,
+        organization: { select: { id: true, name: true, shortName: true, slug: true } },
+      },
     }),
     prisma.competition.count({ where }),
   ]);
@@ -48,7 +51,9 @@ export async function getCompetition(id: string, organizationId?: string) {
     include: {
       settings: true,
       sponsors: true,
-      organization: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true } },
+      organization: {
+        select: { id: true, name: true, shortName: true, slug: true, logoUrl: true },
+      },
     },
   });
   if (!competition) throw AppError.notFound('Competition not found');
@@ -90,8 +95,7 @@ export async function createCompetition(data: {
 }) {
   const { maximumScoreCm, organizationId: orgIdInput, ...competitionData } = data;
   // Prefer explicit caller context; fall back to resolve for legacy clients
-  const organizationId =
-    orgIdInput ?? (await organizationService.resolveOrganizationId(undefined));
+  const organizationId = orgIdInput ?? (await organizationService.resolveOrganizationId(undefined));
 
   const slug = slugify(`${data.code}-${data.name}`);
   const existing = await prisma.competition.findFirst({
@@ -177,8 +181,7 @@ export async function updateCompetition(id: string, data: Record<string, unknown
     ...rest,
   };
 
-  const nextStart =
-    startDate != null ? new Date(startDate as string | Date) : existing.startDate;
+  const nextStart = startDate != null ? new Date(startDate as string | Date) : existing.startDate;
   const nextEnd = endDate != null ? new Date(endDate as string | Date) : existing.endDate;
   if (Number.isNaN(nextStart.getTime()) || Number.isNaN(nextEnd.getTime())) {
     throw AppError.badRequest('Invalid start or end date');
@@ -231,10 +234,7 @@ export async function officialRoundHasStarted(competitionId: string): Promise<bo
     where: {
       competitionId,
       type: 'OFFICIAL',
-      OR: [
-        { startedAt: { not: null } },
-        { status: { in: [...STARTED_ROUND_STATUSES] } },
-      ],
+      OR: [{ startedAt: { not: null } }, { status: { in: [...STARTED_ROUND_STATUSES] } }],
     },
     select: { id: true },
   });
@@ -248,9 +248,7 @@ async function assertMaximumScoreCanChange(
 ) {
   if (!Number.isFinite(nextMaximum) || nextMaximum === currentMaximum) return;
   if (await officialRoundHasStarted(competitionId)) {
-    throw AppError.badRequest(
-      'Maximum score cannot be changed after the first round has started',
-    );
+    throw AppError.badRequest('Maximum score cannot be changed after the first round has started');
   }
 }
 
@@ -292,6 +290,7 @@ export async function updateSettings(
     'feedPublishReflights',
     'offlineModeEnabled',
     'windDisplayMaxAgeMinutes',
+    'publicRegistrationEnabled',
     'partnersLabel',
     'partnerTiersEnabled',
   ] as const;
@@ -408,10 +407,7 @@ export async function syncCompetitionStatusFromRounds(competitionId: string) {
 }
 
 /** When a round starts scoring, bump competition lifecycle if still pre-event. */
-export async function advanceCompetitionForRoundStart(
-  competitionId: string,
-  roundType: string,
-) {
+export async function advanceCompetitionForRoundStart(competitionId: string, roundType: string) {
   const competition = await prisma.competition.findUnique({ where: { id: competitionId } });
   if (!competition || TERMINAL_COMPETITION_STATUSES.has(competition.status)) {
     return competition;

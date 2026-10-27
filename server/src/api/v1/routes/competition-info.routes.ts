@@ -14,6 +14,14 @@ router.put('/', requirePermission('competition:update'), ...ctrl.update);
 router.patch('/', requirePermission('competition:update'), ...ctrl.update);
 
 router.post(
+  '/hero',
+  requirePermission('competition:update'),
+  singleFileUpload('image', { maxBytes: GALLERY_MAX_BYTES, label: 'Hero image' }),
+  ...ctrl.uploadHeroImage,
+);
+router.delete('/hero', requirePermission('competition:update'), ...ctrl.removeHeroImage);
+
+router.post(
   '/gallery',
   requirePermission('competition:update'),
   singleFileUpload('image', { maxBytes: GALLERY_MAX_BYTES, label: 'Gallery image' }),

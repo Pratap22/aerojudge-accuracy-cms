@@ -9,12 +9,12 @@ import { competitionPath, fetchPilots, pilotProfilePath } from '../lib/api';
 import { useCompetition, useSlug } from '../hooks/useCompetition';
 import { countryCodeToEmoji, pilotFullName } from '../lib/utils';
 import { padPilotNumber } from '@aero-judge/utils';
-import { isRegistrationOpen } from '../lib/competitionStatus';
+import { showPublicRegistration } from '../lib/competitionStatus';
 
 export function PilotsPage() {
   const competitionId = useSlug();
   const { data: competition } = useCompetition();
-  const registrationOpen = isRegistrationOpen(competition?.status);
+  const registrationOpen = showPublicRegistration(competition);
   const [search, setSearch] = useState('');
 
   const { data, isLoading, error } = useQuery({

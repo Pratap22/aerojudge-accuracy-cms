@@ -8,8 +8,8 @@ import { formatDate } from '../lib/utils';
 import {
   hasCompetitionStarted,
   isCompetitionCompleted,
-  isPreEvent,
-  isRegistrationOpen,
+  isRegistrationPhase,
+  showPublicRegistration,
 } from '../lib/competitionStatus';
 import { FitHeading } from './FitHeading';
 import { FaiCategoryBadge } from './FaiCategoryBadge';
@@ -23,40 +23,54 @@ interface HeroProps {
 export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) {
   const completed = isCompetitionCompleted(competition.status);
   const started = hasCompetitionStarted(competition.status);
-  const preEvent = isPreEvent(competition.status);
-  const registrationOpen = isRegistrationOpen(competition.status);
+  const preEvent = isRegistrationPhase(competition);
+  const registrationOpen = showPublicRegistration(competition);
+  const photo = Boolean(competition.heroImageUrl);
   const titleLength = competition.name.trim().length;
   const titleMaxPx = titleLength > 70 ? 36 : titleLength > 45 ? 44 : titleLength > 28 ? 56 : 64;
 
   return (
-    <section className="relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-sky-100 via-white to-slate-50 dark:from-[#0a1628] dark:via-[#0f2744] dark:to-[#050d1a]" />
-      <div
-        className="absolute inset-0 opacity-70 dark:hidden"
-        style={{
-          backgroundImage: `
+    <section className={`relative overflow-hidden ${photo ? 'min-h-[28rem] bg-slate-950' : ''}`}>
+      {photo ? (
+        <>
+          <img
+            src={competition.heroImageUrl ?? undefined}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/45 to-black/25" />
+        </>
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-gradient-to-b from-sky-100 via-white to-slate-50 dark:from-[#0a1628] dark:via-[#0f2744] dark:to-[#050d1a]" />
+          <div
+            className="absolute inset-0 opacity-70 dark:hidden"
+            style={{
+              backgroundImage: `
             radial-gradient(ellipse 80% 50% at 50% 100%, rgba(14, 165, 233, 0.16) 0%, transparent 60%),
             radial-gradient(ellipse 60% 40% at 20% 80%, rgba(251, 191, 36, 0.14) 0%, transparent 50%)
           `,
-        }}
-      />
-      <div
-        className="absolute inset-0 hidden opacity-40 dark:block"
-        style={{
-          backgroundImage: `
+            }}
+          />
+          <div
+            className="absolute inset-0 hidden opacity-40 dark:block"
+            style={{
+              backgroundImage: `
             radial-gradient(ellipse 80% 50% at 50% 100%, rgba(56, 189, 248, 0.15) 0%, transparent 60%),
             radial-gradient(ellipse 60% 40% at 20% 80%, rgba(251, 191, 36, 0.08) 0%, transparent 50%),
             linear-gradient(180deg, transparent 60%, rgba(5, 13, 26, 0.9) 100%)
           `,
-        }}
-      />
-      <div
-        className="absolute bottom-0 left-0 right-0 h-32 bg-sky-200/80 opacity-40 dark:bg-[#0a1628] dark:opacity-30"
-        style={{
-          clipPath:
-            'polygon(0% 100%, 0% 60%, 15% 45%, 30% 55%, 45% 35%, 60% 50%, 75% 30%, 90% 45%, 100% 25%, 100% 100%)',
-        }}
-      />
+            }}
+          />
+          <div
+            className="absolute bottom-0 left-0 right-0 h-32 bg-sky-200/80 opacity-40 dark:bg-[#0a1628] dark:opacity-30"
+            style={{
+              clipPath:
+                'polygon(0% 100%, 0% 60%, 15% 45%, 30% 55%, 45% 35%, 60% 50%, 75% 30%, 90% 45%, 100% 25%, 100% 100%)',
+            }}
+          />
+        </>
+      )}
 
       <div className="relative mx-auto flex max-w-7xl flex-col justify-center px-4 py-10 sm:px-6 sm:py-14">
         <motion.div
@@ -64,32 +78,44 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <p className="mb-2 font-serif text-base italic text-muted-foreground">{competition.organizer}</p>
+          <p
+            className={`mb-2 font-serif text-base italic ${photo ? 'text-white/80' : 'text-muted-foreground'}`}
+          >
+            {competition.organizer}
+          </p>
           <FitHeading
             maxPx={titleMaxPx}
             minPx={26}
             maxHeightVh={24}
-            className="mb-1 max-w-full font-display font-bold leading-[1.05] tracking-tight text-foreground text-balance"
+            className={`mb-1 max-w-full font-display font-bold leading-[1.05] tracking-tight text-balance ${photo ? 'text-white' : 'text-foreground'}`}
           >
             {competition.name}
           </FitHeading>
-          <h2 className="mb-4 max-w-3xl font-serif text-xl font-light text-foreground md:text-2xl">
+          <h2
+            className={`mb-4 max-w-3xl font-serif text-xl font-light md:text-2xl ${photo ? 'text-white/90' : 'text-foreground'}`}
+          >
             {competition.venue}
             {competition.country ? ` · ${competition.country}` : ''}
           </h2>
           <div className="mb-4 flex flex-wrap items-center gap-3">
-            <FaiCategoryBadge value={competition.faiCategory} />
-            <p className="text-muted-foreground">
+            <FaiCategoryBadge value={competition.faiCategory} onPhoto={photo} />
+            <p className={photo ? 'text-white/80' : 'text-muted-foreground'}>
               {formatDate(competition.startDate)} – {formatDate(competition.endDate)}
             </p>
           </div>
           {completed ? (
-            <p className="mb-5 text-xs uppercase tracking-[0.2em] text-amber-800 dark:text-amber-300/80">
+            <p
+              className={`mb-5 text-xs uppercase tracking-[0.2em] ${photo ? 'text-amber-200' : 'text-amber-800 dark:text-amber-300/80'}`}
+            >
               Competition completed · Official final standings
             </p>
           ) : preEvent ? (
-            <p className="mb-5 text-xs uppercase tracking-[0.2em] text-amber-800 dark:text-amber-300/80">
-              Registration open · Competition has not started
+            <p
+              className={`mb-5 text-xs uppercase tracking-[0.2em] ${photo ? 'text-amber-200' : 'text-amber-800 dark:text-amber-300/80'}`}
+            >
+              {registrationOpen
+                ? 'Registration open · Competition has not started'
+                : 'Competition has not started'}
             </p>
           ) : (
             <div className="mb-5" />
@@ -142,18 +168,26 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
-            className="mt-8 border-t border-border pt-6"
+            className={`mt-8 border-t pt-6 ${photo ? 'border-white/20' : 'border-border'}`}
           >
-            <p className="mb-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <p
+              className={`mb-3 text-xs uppercase tracking-[0.2em] ${photo ? 'text-white/70' : 'text-muted-foreground'}`}
+            >
               {completed ? 'Final Podium' : 'Live Leaderboard'}
             </p>
             <div className="grid gap-4 sm:grid-cols-3">
               {topPilots.slice(0, 3).map((pilot) => (
                 <div key={pilot.rank} className="flex items-baseline gap-4">
-                  <span className="font-display text-2xl text-muted-foreground">#{pilot.rank}</span>
+                  <span
+                    className={`font-display text-2xl ${photo ? 'text-white/50' : 'text-muted-foreground'}`}
+                  >
+                    #{pilot.rank}
+                  </span>
                   <div>
-                    <p className="font-semibold text-foreground">{pilot.name}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className={`font-semibold ${photo ? 'text-white' : 'text-foreground'}`}>
+                      {pilot.name}
+                    </p>
+                    <p className={`text-sm ${photo ? 'text-white/70' : 'text-muted-foreground'}`}>
                       {pilot.country} · {pilot.score} cm
                     </p>
                   </div>

@@ -9,8 +9,8 @@ import { useCompetition, useRoundsStatus } from '../hooks/useCompetition';
 import {
   hasCompetitionStarted,
   isCompetitionCompleted,
-  isPreEvent,
-  isRegistrationOpen,
+  isRegistrationPhase,
+  showPublicRegistration,
 } from '../lib/competitionStatus';
 
 export function Navigation() {
@@ -23,8 +23,8 @@ export function Navigation() {
   const [menuOpen, setMenuOpen] = useState(false);
   const completed = isCompetitionCompleted(competition?.status);
   const started = hasCompetitionStarted(competition?.status);
-  const preEvent = isPreEvent(competition?.status);
-  const registrationOpen = isRegistrationOpen(competition?.status);
+  const preEvent = isRegistrationPhase(competition);
+  const registrationOpen = showPublicRegistration(competition);
 
   const navItems = [
     { path: '', label: 'Home' },
@@ -48,7 +48,9 @@ export function Navigation() {
   ) : pausedRound ? (
     <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3 py-1.5">
       <Pause className="h-3 w-3 text-amber-800 dark:text-amber-300" />
-      <span className="text-xs font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-200">Paused</span>
+      <span className="text-xs font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-200">
+        Paused
+      </span>
     </div>
   ) : preEvent ? (
     <div className="flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1.5">
@@ -64,7 +66,9 @@ export function Navigation() {
       className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5"
     >
       <Radio className="h-3 w-3 text-emerald-700 dark:text-emerald-400" />
-      <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Live</span>
+      <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+        Live
+      </span>
     </motion.div>
   ) : (
     <div className="flex items-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1.5">
@@ -92,26 +96,28 @@ export function Navigation() {
         </div>
 
         <div className="hidden items-center gap-1 md:flex">
-          {competitionId ? navItems.map(({ path, label }) => {
-            const href = path ? competitionPath(id, path) : competitionPath(id);
-            const active = path
-              ? location.pathname === href || location.pathname.startsWith(`${href}/`)
-              : location.pathname === href;
-            return (
-              <Link
-                key={path || 'home'}
-                to={href}
-                aria-current={active ? 'page' : undefined}
-                className={
-                  active
-                    ? 'rounded-lg bg-muted px-3 py-2 text-sm font-medium text-foreground'
-                    : 'rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground'
-                }
-              >
-                {label}
-              </Link>
-            );
-          }) : null}
+          {competitionId
+            ? navItems.map(({ path, label }) => {
+                const href = path ? competitionPath(id, path) : competitionPath(id);
+                const active = path
+                  ? location.pathname === href || location.pathname.startsWith(`${href}/`)
+                  : location.pathname === href;
+                return (
+                  <Link
+                    key={path || 'home'}
+                    to={href}
+                    aria-current={active ? 'page' : undefined}
+                    className={
+                      active
+                        ? 'rounded-lg bg-muted px-3 py-2 text-sm font-medium text-foreground'
+                        : 'rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground'
+                    }
+                  >
+                    {label}
+                  </Link>
+                );
+              })
+            : null}
         </div>
 
         <div className="flex items-center gap-2">

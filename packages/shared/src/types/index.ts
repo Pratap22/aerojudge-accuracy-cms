@@ -75,24 +75,10 @@ export type FlightStatus =
   | 'DSQ';
 
 export type ScoreResultType =
-  | 'MEASURED'
-  | 'BULLSEYE'
-  | 'MAXIMUM'
-  | 'DNF'
-  | 'ABS'
-  | 'DNS'
-  | 'DSQ'
-  | 'REFLIGHT'
-  | 'PENALTY';
+  'MEASURED' | 'BULLSEYE' | 'MAXIMUM' | 'DNF' | 'ABS' | 'DNS' | 'DSQ' | 'REFLIGHT' | 'PENALTY';
 
 export type ScoreStatus =
-  | 'DRAFT'
-  | 'ENTERED'
-  | 'CONFIRMED'
-  | 'DISPUTED'
-  | 'APPROVED'
-  | 'LOCKED'
-  | 'VOID';
+  'DRAFT' | 'ENTERED' | 'CONFIRMED' | 'DISPUTED' | 'APPROVED' | 'LOCKED' | 'VOID';
 
 export type TeamType = 'NATIONAL' | 'CLUB' | 'WOMEN' | 'MIXED' | 'OPEN' | 'CUSTOM';
 
@@ -108,13 +94,7 @@ export type PilotStatus =
   | 'DISQUALIFIED'
   | 'DNS';
 
-export type RankingCategory =
-  | 'OVERALL'
-  | 'WOMEN'
-  | 'JUNIOR'
-  | 'COUNTRY'
-  | 'TEAM'
-  | 'CUSTOM';
+export type RankingCategory = 'OVERALL' | 'WOMEN' | 'JUNIOR' | 'COUNTRY' | 'TEAM' | 'CUSTOM';
 
 export type PrintFormat = 'A4_PORTRAIT' | 'A4_LANDSCAPE' | 'LETTER_PORTRAIT' | 'LETTER_LANDSCAPE';
 
@@ -483,6 +463,8 @@ export interface CompetitionInfoContent {
   travelInfoHtml: string | null;
   mapLabel: string | null;
   mapZoom: number;
+  /** Wide photo for the public event home page. */
+  heroImageUrl: string | null;
 }
 
 export interface CompetitionGalleryImage {
@@ -598,7 +580,8 @@ export function faiCategoryLabel(
   const raw = (value ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
   if (raw === '1' || raw === 'CAT 1' || raw === 'CAT1' || raw === 'CAT_1') return 'Cat 1';
   if (raw === '2' || raw === 'CAT 2' || raw === 'CAT2' || raw === 'CAT_2') return 'Cat 2';
-  if (raw === 'NONE' || raw === 'NO CAT' || raw === 'NO_CAT' || raw === 'NOCAT') return 'No category';
+  if (raw === 'NONE' || raw === 'NO CAT' || raw === 'NO_CAT' || raw === 'NOCAT')
+    return 'No category';
   return null;
 }
 

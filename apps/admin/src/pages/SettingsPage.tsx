@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_FAI_2022_RULES, type RuleConfig } from '@aero-judge/shared';
-import { Calendar, Newspaper, Save, Settings, Wind } from 'lucide-react';
+import { Calendar, ClipboardList, Newspaper, Save, Settings, Wind } from 'lucide-react';
 import {
   Button,
   Card,
@@ -42,14 +42,16 @@ export function SettingsPage() {
           windDisplayMaxAgeMinutes?: number;
           feedPublishScores?: boolean;
           feedPublishReflights?: boolean;
+          publicRegistrationEnabled?: boolean;
         } | null;
-      }>(`/competitions/${activeCompetitionId}`,),
+      }>(`/competitions/${activeCompetitionId}`),
     enabled: !!activeCompetitionId,
   });
   const [eventCategory, setEventCategory] = useState<'1' | '2' | 'NONE' | ''>('');
   const [windMaxAgeMinutes, setWindMaxAgeMinutes] = useState('30');
   const [feedPublishScores, setFeedPublishScores] = useState(true);
   const [feedPublishReflights, setFeedPublishReflights] = useState(true);
+  const [publicRegistrationEnabled, setPublicRegistrationEnabled] = useState(true);
   useEffect(() => {
     const stored = competition?.faiCategory;
     setEventCategory(stored === 'NONE' ? 'NONE' : stored === '1' ? '1' : stored === '2' ? '2' : '');
@@ -63,6 +65,7 @@ export function SettingsPage() {
     if (!competition?.settings) return;
     setFeedPublishScores(competition.settings.feedPublishScores !== false);
     setFeedPublishReflights(competition.settings.feedPublishReflights !== false);
+    setPublicRegistrationEnabled(competition.settings.publicRegistrationEnabled !== false);
   }, [competition?.settings]);
 
   const categoryMutation = useMutation({
@@ -83,6 +86,16 @@ export function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
       queryClient.invalidateQueries({ queryKey: ['event-feed', activeCompetitionId] });
+    },
+  });
+
+  const registrationMutation = useMutation({
+    mutationFn: () =>
+      api.put(`/competitions/${activeCompetitionId}/rules`, {
+        publicRegistrationEnabled,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
     },
   });
 
@@ -124,7 +137,14 @@ export function SettingsPage() {
   });
 
   if (!activeCompetitionId) {
-    return <p className="text-muted-foreground"><Link to="/competitions" className="text-primary underline">Open a competition</Link> from the Competitions list.</p>;
+    return (
+      <p className="text-muted-foreground">
+        <Link to="/competitions" className="text-primary underline">
+          Open a competition
+        </Link>{' '}
+        from the Competitions list.
+      </p>
+    );
   }
 
   if (isLoading) {
@@ -168,7 +188,8 @@ export function SettingsPage() {
             className="flex flex-wrap items-end gap-3"
             onSubmit={(event) => {
               event.preventDefault();
-              if (eventCategory !== '1' && eventCategory !== '2' && eventCategory !== 'NONE') return;
+              if (eventCategory !== '1' && eventCategory !== '2' && eventCategory !== 'NONE')
+                return;
               categoryMutation.mutate(eventCategory);
             }}
           >
@@ -193,6 +214,48 @@ export function SettingsPage() {
               Save category
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5" />
+            Pilot registration
+          </CardTitle>
+          <CardDescription>
+            The public register page stays available until a round starts. Turn it off when pilots
+            are entered from a CIVL event or another list, such as a QR code that opens a
+            spreadsheet. Organisers can still add pilots here.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              registrationMutation.mutate();
+            }}
+          >
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={publicRegistrationEnabled}
+                onChange={(event) => setPublicRegistrationEnabled(event.target.checked)}
+              />
+              Accept pilot registration on the public site
+            </label>
+            <Button type="submit" disabled={registrationMutation.isPending}>
+              <Save className="mr-2 h-4 w-4" />
+              {registrationMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </form>
+          {registrationMutation.isError ? (
+            <p className="mt-2 text-sm text-destructive">
+              Could not save the registration setting.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -236,7 +299,9 @@ export function SettingsPage() {
             </Button>
           </form>
           {windMutation.isError && (
-            <p className="mt-2 text-sm text-destructive">Could not save the wind display setting.</p>
+            <p className="mt-2 text-sm text-destructive">
+              Could not save the wind display setting.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -249,8 +314,8 @@ export function SettingsPage() {
           </CardTitle>
           <CardDescription>
             Choose whether scores entered during a round are posted to the public feed. Text and
-            photo posts are unchanged. Turning a post type off removes the ones already created
-            from scoring.
+            photo posts are unchanged. Turning a post type off removes the ones already created from
+            scoring.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -290,7 +355,10 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="grid gap-6 lg:grid-cols-2">
+      <form
+        onSubmit={handleSubmit((d) => saveMutation.mutate(d))}
+        className="grid gap-6 lg:grid-cols-2"
+      >
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -337,13 +405,16 @@ export function SettingsPage() {
                   {...register('discardAfterRounds', { valueAsNumber: true })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  The worst score is removed once this round has started. Section 7 uses 5, so
-                  every score counts through round 4 and the worst score drops from round 5.
+                  The worst score is removed once this round has started. Section 7 uses 5, so every
+                  score counts through round 4 and the worst score drops from round 5.
                 </p>
               </div>
               <div className="space-y-2">
                 <Label>Max Reflights / Round</Label>
-                <Input type="number" {...register('maxReflightsPerRound', { valueAsNumber: true })} />
+                <Input
+                  type="number"
+                  {...register('maxReflightsPerRound', { valueAsNumber: true })}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Junior Max Age</Label>
@@ -407,9 +478,7 @@ export function SettingsPage() {
             onClick={() =>
               reset({
                 ...DEFAULT_FAI_2022_RULES,
-                ...(maximumScoreLocked && rules
-                  ? { maximumScoreCm: rules.maximumScoreCm }
-                  : {}),
+                ...(maximumScoreLocked && rules ? { maximumScoreCm: rules.maximumScoreCm } : {}),
               })
             }
           >

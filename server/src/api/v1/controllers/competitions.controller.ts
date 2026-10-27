@@ -50,6 +50,7 @@ const settingsSchema = z.object({
   feedPublishScores: z.boolean().optional(),
   feedPublishReflights: z.boolean().optional(),
   windDisplayMaxAgeMinutes: z.number().int().min(0).max(1440).optional(),
+  publicRegistrationEnabled: z.boolean().optional(),
   partnersLabel: z.string().min(1).max(40).optional(),
   partnerTiersEnabled: z.boolean().optional(),
 });
@@ -76,10 +77,7 @@ export const list = [
 export const get = [
   validateParams(idParams),
   asyncHandler(async (req: Request, res: Response) => {
-    const competition = await competitionService.getCompetition(
-      req.params.id,
-      req.organizationId,
-    );
+    const competition = await competitionService.getCompetition(req.params.id, req.organizationId);
     sendSuccess(res, competition);
   }),
 ];
@@ -114,10 +112,7 @@ export const updateMaxRounds = [
   validateBody(updateMaxRoundsSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const before = await competitionService.getCompetition(req.params.id, req.organizationId);
-    const competition = await competitionService.updateMaxRounds(
-      req.params.id,
-      req.body.maxRounds,
-    );
+    const competition = await competitionService.updateMaxRounds(req.params.id, req.body.maxRounds);
     await writeAuditLog({
       ...auditFromRequest(req),
       competitionId: competition.id,

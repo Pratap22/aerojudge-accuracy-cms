@@ -21,12 +21,20 @@ export interface PublicCompetition {
   organiser?: PublicOrganiser | null;
   /** True when brochure content (about, gallery, map, etc.) is available. */
   hasInfo?: boolean;
+  /** Wide photo for the event home page. */
+  heroImageUrl?: string | null;
+  /** True once any round has started. Registration is assumed until then. */
+  roundsStarted?: boolean;
+  /** True when the public register screen should be shown. */
+  registrationOpen?: boolean;
   settings?: {
     livePublicResults: boolean;
     partnersLabel?: string;
     partnerTiersEnabled?: boolean;
     /** Minutes before a wind reading is hidden. 0 keeps the latest reading visible. */
     windDisplayMaxAgeMinutes?: number;
+    /** When false, pilots are entered outside AeroJudge and the register screen stays hidden. */
+    publicRegistrationEnabled?: boolean;
   };
   pilotCount?: number;
   teamCount?: number;

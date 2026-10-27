@@ -19,17 +19,7 @@ import {
   type MapSiteKind,
   type UpdateCompetitionInfoInput,
 } from '@aero-judge/shared';
-import {
-  Eye,
-  EyeOff,
-  ImagePlus,
-  Link2,
-  MapPin,
-  Pencil,
-  Plus,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { Eye, EyeOff, ImagePlus, Link2, MapPin, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import {
   Button,
   Card,
@@ -132,6 +122,7 @@ export function EventInfoPage() {
   const competitionId = useCompetitionId();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
+  const heroFileRef = useRef<HTMLInputElement>(null);
 
   const { data: info, isLoading } = useQuery({
     queryKey: ['competition-info', competitionId],
@@ -140,9 +131,8 @@ export function EventInfoPage() {
   });
 
   const [draft, setDraft] = useState<UpdateCompetitionInfoInput>({});
-  const [siteDraft, setSiteDraft] = useState<Record<MapSiteKind, { latitude: string; longitude: string }>>(
-    emptySiteDraft,
-  );
+  const [siteDraft, setSiteDraft] =
+    useState<Record<MapSiteKind, { latitude: string; longitude: string }>>(emptySiteDraft);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
@@ -176,7 +166,38 @@ export function EventInfoPage() {
       setDirty(false);
       toast({ title: 'Event info saved' });
     },
-    onError: (err: Error) => toast({ title: 'Save failed', description: err.message, variant: 'destructive' }),
+    onError: (err: Error) =>
+      toast({ title: 'Save failed', description: err.message, variant: 'destructive' }),
+  });
+
+  const heroUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (file.size > GALLERY_MAX_BYTES) {
+        throw new Error('Image is too large. Maximum size is 8 MB.');
+      }
+      const formData = new FormData();
+      formData.append('image', file);
+      return apiRequest<CompetitionEventInfo>(`/competitions/${competitionId}/info/hero`, {
+        method: 'POST',
+        formData,
+      });
+    },
+    onSuccess: () => {
+      invalidate();
+      toast({ title: 'Hero image saved' });
+    },
+    onError: (err: Error) =>
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' }),
+  });
+
+  const heroDeleteMutation = useMutation({
+    mutationFn: () => api.delete(`/competitions/${competitionId}/info/hero`),
+    onSuccess: () => {
+      invalidate();
+      toast({ title: 'Hero image removed' });
+    },
+    onError: (err: Error) =>
+      toast({ title: 'Could not remove image', description: err.message, variant: 'destructive' }),
   });
 
   const uploadMutation = useMutation({
@@ -186,10 +207,10 @@ export function EventInfoPage() {
       }
       const formData = new FormData();
       formData.append('image', file);
-      return apiRequest<CompetitionGalleryImage>(
-        `/competitions/${competitionId}/info/gallery`,
-        { method: 'POST', formData },
-      );
+      return apiRequest<CompetitionGalleryImage>(`/competitions/${competitionId}/info/gallery`, {
+        method: 'POST',
+        formData,
+      });
     },
     onSuccess: () => {
       invalidate();
@@ -259,210 +280,266 @@ export function EventInfoPage() {
       {isLoading || !info ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
-        <Tabs defaultValue="about">
-          <TabsList className="flex h-auto flex-wrap justify-start gap-1">
-            {RICH_SECTIONS.map((s) => (
-              <TabsTrigger key={s.key} value={s.key.replace('Html', '')}>
-                {s.label}
-              </TabsTrigger>
-            ))}
-            <TabsTrigger value="gallery">Gallery</TabsTrigger>
-            <TabsTrigger value="map">Event map</TabsTrigger>
-            <TabsTrigger value="links">Links</TabsTrigger>
-            <TabsTrigger value="contacts">Contacts</TabsTrigger>
-          </TabsList>
-
-          {RICH_SECTIONS.map((section) => (
-            <TabsContent key={section.key} value={section.key.replace('Html', '')} className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{section.label}</CardTitle>
-                  <CardDescription>{section.hint}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <RichTextEditor
-                    value={(draft[section.key] as string | null | undefined) ?? ''}
-                    onChange={(html) => setHtml(section.key, html)}
-                    placeholder={`Write ${section.label.toLowerCase()}…`}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          ))}
-
-          <TabsContent value="gallery" className="mt-4 space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4">
-                <div>
-                  <CardTitle>Gallery</CardTitle>
-                  <CardDescription>
-                    Take-off, landing, and competition photos. Shown only when images exist.
-                  </CardDescription>
-                </div>
-                <div>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) uploadMutation.mutate(file);
-                      e.target.value = '';
-                    }}
-                  />
+        <>
+          <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>Home hero image</CardTitle>
+                <CardDescription>
+                  Wide photo shown across the top of the public event home page. PNG, JPEG, WebP, or
+                  HEIC, up to 8 MB.
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  ref={heroFileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) heroUploadMutation.mutate(file);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={heroUploadMutation.isPending}
+                  onClick={() => heroFileRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {info.heroImageUrl ? 'Replace' : 'Upload'}
+                </Button>
+                {info.heroImageUrl ? (
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={uploadMutation.isPending}
+                    disabled={heroDeleteMutation.isPending}
+                    onClick={() => heroDeleteMutation.mutate()}
                   >
-                    <Upload className="mr-2 h-4 w-4" />
-                    {uploadMutation.isPending ? 'Uploading…' : 'Upload image'}
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Remove
                   </Button>
-                </div>
-              </CardHeader>
+                ) : null}
+              </div>
+            </CardHeader>
+            {info.heroImageUrl ? (
               <CardContent>
-                {info.gallery.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center text-muted-foreground">
-                    <ImagePlus className="mb-2 h-8 w-8 opacity-40" />
-                    <p className="text-sm">No gallery images yet.</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {info.gallery.map((image) => (
-                      <GalleryCard
-                        key={image.id}
-                        image={image}
-                        onSaveCaption={(caption) =>
-                          updateImageMutation.mutate({ imageId: image.id, caption })
-                        }
-                        onDelete={() => deleteImageMutation.mutate(image.id)}
-                      />
-                    ))}
-                  </div>
-                )}
+                <img
+                  src={info.heroImageUrl}
+                  alt=""
+                  className="aspect-[21/9] w-full rounded-md object-cover"
+                />
               </CardContent>
-            </Card>
-          </TabsContent>
+            ) : null}
+          </Card>
 
-          <TabsContent value="map" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Event map</CardTitle>
-                <CardDescription>
-                  Add HQ, takeoff, and landing. Leave a site blank to hide its pin. Both latitude
-                  and longitude are required for a pin to appear.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
-                {MAP_SITE_ORDER.map((kind) => (
-                  <div key={kind} className="space-y-3 rounded-lg border p-3 sm:col-span-2">
-                    <p className="flex items-center gap-2 text-sm font-medium">
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: MAP_SITE_COLORS[kind] }}
-                      />
-                      {MAP_SITE_LABELS[kind]}
-                    </p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor={`${kind}-latitude`}>Latitude</Label>
-                        <Input
-                          id={`${kind}-latitude`}
-                          type="number"
-                          step="any"
-                          value={siteDraft[kind].latitude}
-                          onChange={(e) => updateSite(kind, 'latitude', e.target.value)}
-                          placeholder="e.g. 28.209"
+          <Tabs defaultValue="about">
+            <TabsList className="flex h-auto flex-wrap justify-start gap-1">
+              {RICH_SECTIONS.map((s) => (
+                <TabsTrigger key={s.key} value={s.key.replace('Html', '')}>
+                  {s.label}
+                </TabsTrigger>
+              ))}
+              <TabsTrigger value="gallery">Gallery</TabsTrigger>
+              <TabsTrigger value="map">Event map</TabsTrigger>
+              <TabsTrigger value="links">Links</TabsTrigger>
+              <TabsTrigger value="contacts">Contacts</TabsTrigger>
+            </TabsList>
+
+            {RICH_SECTIONS.map((section) => (
+              <TabsContent
+                key={section.key}
+                value={section.key.replace('Html', '')}
+                className="mt-4"
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{section.label}</CardTitle>
+                    <CardDescription>{section.hint}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <RichTextEditor
+                      value={(draft[section.key] as string | null | undefined) ?? ''}
+                      onChange={(html) => setHtml(section.key, html)}
+                      placeholder={`Write ${section.label.toLowerCase()}…`}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            ))}
+
+            <TabsContent value="gallery" className="mt-4 space-y-4">
+              <Card>
+                <CardHeader className="flex flex-row items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>Gallery</CardTitle>
+                    <CardDescription>
+                      Take-off, landing, and competition photos. Shown only when images exist.
+                    </CardDescription>
+                  </div>
+                  <div>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadMutation.mutate(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={uploadMutation.isPending}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      {uploadMutation.isPending ? 'Uploading…' : 'Upload image'}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {info.gallery.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center text-muted-foreground">
+                      <ImagePlus className="mb-2 h-8 w-8 opacity-40" />
+                      <p className="text-sm">No gallery images yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {info.gallery.map((image) => (
+                        <GalleryCard
+                          key={image.id}
+                          image={image}
+                          onSaveCaption={(caption) =>
+                            updateImageMutation.mutate({ imageId: image.id, caption })
+                          }
+                          onDelete={() => deleteImageMutation.mutate(image.id)}
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`${kind}-longitude`}>Longitude</Label>
-                        <Input
-                          id={`${kind}-longitude`}
-                          type="number"
-                          step="any"
-                          value={siteDraft[kind].longitude}
-                          onChange={(e) => updateSite(kind, 'longitude', e.target.value)}
-                          placeholder="e.g. 83.985"
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="map" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Event map</CardTitle>
+                  <CardDescription>
+                    Add HQ, takeoff, and landing. Leave a site blank to hide its pin. Both latitude
+                    and longitude are required for a pin to appear.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  {MAP_SITE_ORDER.map((kind) => (
+                    <div key={kind} className="space-y-3 rounded-lg border p-3 sm:col-span-2">
+                      <p className="flex items-center gap-2 text-sm font-medium">
+                        <span
+                          className="inline-block h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: MAP_SITE_COLORS[kind] }}
                         />
+                        {MAP_SITE_LABELS[kind]}
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor={`${kind}-latitude`}>Latitude</Label>
+                          <Input
+                            id={`${kind}-latitude`}
+                            type="number"
+                            step="any"
+                            value={siteDraft[kind].latitude}
+                            onChange={(e) => updateSite(kind, 'latitude', e.target.value)}
+                            placeholder="e.g. 28.209"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`${kind}-longitude`}>Longitude</Label>
+                          <Input
+                            id={`${kind}-longitude`}
+                            type="number"
+                            step="any"
+                            value={siteDraft[kind].longitude}
+                            onChange={(e) => updateSite(kind, 'longitude', e.target.value)}
+                            placeholder="e.g. 83.985"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                <div className="space-y-2">
-                  <Label htmlFor="mapZoom">Zoom (1–19)</Label>
-                  <Input
-                    id="mapZoom"
-                    type="number"
-                    min={1}
-                    max={19}
-                    value={draft.mapZoom ?? 13}
-                    onChange={(e) => setMapField('mapZoom', Number(e.target.value) || 13)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mapLabel">Map label</Label>
-                  <Input
-                    id="mapLabel"
-                    value={draft.mapLabel ?? ''}
-                    onChange={(e) => setMapField('mapLabel', e.target.value || undefined)}
-                    placeholder={info.venue}
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="location">Location detail</Label>
-                  <Input
-                    id="location"
-                    value={draft.location ?? ''}
-                    onChange={(e) => setMapField('location', e.target.value || undefined)}
-                    placeholder="Optional address or area description"
-                  />
-                </div>
-                {(draft.mapSites?.length ?? 0) > 0 ? (
-                  <div className="sm:col-span-2 overflow-hidden rounded-lg border">
-                    <EventMap
-                      className="h-64 sm:h-64"
-                      pins={(draft.mapSites ?? []).map((site) => ({
-                        label: MAP_SITE_LABELS[site.kind],
-                        latitude: site.latitude,
-                        longitude: site.longitude,
-                        color: MAP_SITE_COLORS[site.kind],
-                      }))}
-                      zoom={draft.mapZoom ?? 13}
+                  ))}
+                  <div className="space-y-2">
+                    <Label htmlFor="mapZoom">Zoom (1–19)</Label>
+                    <Input
+                      id="mapZoom"
+                      type="number"
+                      min={1}
+                      max={19}
+                      value={draft.mapZoom ?? 13}
+                      onChange={(e) => setMapField('mapZoom', Number(e.target.value) || 13)}
                     />
-                    <p className="flex items-center gap-1.5 border-t px-3 py-2 text-xs text-muted-foreground">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {draft.mapLabel || info.venue}
-                    </p>
                   </div>
-                ) : (
-                  <p className="sm:col-span-2 text-sm text-muted-foreground">
-                    Set latitude and longitude for HQ, takeoff, or landing to preview the map. The
-                    section stays hidden on the public page until at least one site is complete.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  <div className="space-y-2">
+                    <Label htmlFor="mapLabel">Map label</Label>
+                    <Input
+                      id="mapLabel"
+                      value={draft.mapLabel ?? ''}
+                      onChange={(e) => setMapField('mapLabel', e.target.value || undefined)}
+                      placeholder={info.venue}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="location">Location detail</Label>
+                    <Input
+                      id="location"
+                      value={draft.location ?? ''}
+                      onChange={(e) => setMapField('location', e.target.value || undefined)}
+                      placeholder="Optional address or area description"
+                    />
+                  </div>
+                  {(draft.mapSites?.length ?? 0) > 0 ? (
+                    <div className="sm:col-span-2 overflow-hidden rounded-lg border">
+                      <EventMap
+                        className="h-64 sm:h-64"
+                        pins={(draft.mapSites ?? []).map((site) => ({
+                          label: MAP_SITE_LABELS[site.kind],
+                          latitude: site.latitude,
+                          longitude: site.longitude,
+                          color: MAP_SITE_COLORS[site.kind],
+                        }))}
+                        zoom={draft.mapZoom ?? 13}
+                      />
+                      <p className="flex items-center gap-1.5 border-t px-3 py-2 text-xs text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {draft.mapLabel || info.venue}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="sm:col-span-2 text-sm text-muted-foreground">
+                      Set latitude and longitude for HQ, takeoff, or landing to preview the map. The
+                      section stays hidden on the public page until at least one site is complete.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          <TabsContent value="links" className="mt-4">
-            <LinksPanel
-              competitionId={competitionId}
-              links={info.links}
-              onChange={invalidate}
-            />
-          </TabsContent>
+            <TabsContent value="links" className="mt-4">
+              <LinksPanel competitionId={competitionId} links={info.links} onChange={invalidate} />
+            </TabsContent>
 
-          <TabsContent value="contacts" className="mt-4">
-            <ContactsPanel
-              competitionId={competitionId}
-              contacts={info.contacts}
-              onChange={invalidate}
-            />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="contacts" className="mt-4">
+              <ContactsPanel
+                competitionId={competitionId}
+                contacts={info.contacts}
+                onChange={invalidate}
+              />
+            </TabsContent>
+          </Tabs>
+        </>
       )}
     </div>
   );
@@ -572,7 +649,9 @@ function LinksPanel({
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle>Links</CardTitle>
-          <CardDescription>WhatsApp groups, local rules PDFs, external event pages.</CardDescription>
+          <CardDescription>
+            WhatsApp groups, local rules PDFs, external event pages.
+          </CardDescription>
         </div>
         <Button type="button" onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
@@ -809,11 +888,7 @@ function ContactsPanel({
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact-role">Role</Label>
-              <Input
-                id="contact-role"
-                placeholder="e.g. Event Coordinator"
-                {...register('role')}
-              />
+              <Input id="contact-role" placeholder="e.g. Event Coordinator" {...register('role')} />
               {errors.role ? (
                 <p className="text-xs text-destructive">{errors.role.message}</p>
               ) : null}

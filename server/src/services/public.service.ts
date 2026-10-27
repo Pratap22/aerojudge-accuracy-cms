@@ -60,10 +60,12 @@ const publicCompetitionSelect = {
       partnersLabel: true,
       partnerTiersEnabled: true,
       windDisplayMaxAgeMinutes: true,
+      publicRegistrationEnabled: true,
     },
   },
   info: {
     select: {
+      heroImageUrl: true,
       aboutHtml: true,
       dailyScheduleHtml: true,
       selectionRulesHtml: true,
@@ -143,8 +145,10 @@ function mapPublicCompetition(competition: {
     partnersLabel: string | null;
     partnerTiersEnabled: boolean;
     windDisplayMaxAgeMinutes: number;
+    publicRegistrationEnabled: boolean;
   } | null;
   info?: {
+    heroImageUrl?: string | null;
     aboutHtml: string | null;
     dailyScheduleHtml: string | null;
     selectionRulesHtml: string | null;
@@ -186,6 +190,7 @@ function mapPublicCompetition(competition: {
     status: competition.status,
     publicSlug: competition.publicSlug,
     faiCategory: competition.faiCategory,
+    heroImageUrl: toAbsoluteAssetUrl(competition.info?.heroImageUrl),
     settings: competition.settings,
     organiser: toPublicOrganiser(competition),
     hasInfo,
@@ -216,16 +221,51 @@ export async function getPublicCompetition(slugOrId: string) {
     select: publicCompetitionSelect,
   });
   if (!competition) throw AppError.notFound('Competition not found');
-  return mapPublicCompetition(competition);
+  const roundsStarted = await competitionHasStartedRound(competition.id);
+  return {
+    ...mapPublicCompetition(competition),
+    roundsStarted,
+    registrationOpen: isSelfRegistrationOpen(competition, roundsStarted),
+  };
+}
+
+const UNSTARTED_ROUND_STATUSES = ['SCHEDULED', 'CANCELLED'] as const;
+const CLOSED_PUBLIC_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'ARCHIVED', 'DRAFT']);
+
+/**
+ * True once any round has a start time or has left the schedule.
+ * A cancelled round that never started does not count.
+ */
+export async function competitionHasStartedRound(competitionId: string): Promise<boolean> {
+  const started = await prisma.round.findFirst({
+    where: {
+      competitionId,
+      OR: [{ startedAt: { not: null } }, { status: { notIn: [...UNSTARTED_ROUND_STATUSES] } }],
+    },
+    select: { id: true },
+  });
+  return started != null;
+}
+
+/**
+ * Public self-registration stays open until a round starts, unless the competition
+ * turns it off (pilots entered from CIVL or another list).
+ */
+export function isSelfRegistrationOpen(
+  competition: {
+    status: string;
+    settings: { publicRegistrationEnabled?: boolean } | null;
+  },
+  roundsStarted: boolean,
+): boolean {
+  if (roundsStarted) return false;
+  if (CLOSED_PUBLIC_STATUSES.has(competition.status)) return false;
+  if (competition.settings?.publicRegistrationEnabled === false) return false;
+  return true;
 }
 
 export async function listPublicCompetitions() {
-  const completedRoundStatuses = [
-    'CLOSED',
-    'PENDING_APPROVAL',
-    'APPROVED',
-    'LOCKED',
-  ] as const;
+  const completedRoundStatuses = ['CLOSED', 'PENDING_APPROVAL', 'APPROVED', 'LOCKED'] as const;
   const scoringRoundStatuses = [
     'ACTIVE',
     'PAUSED',
@@ -306,11 +346,7 @@ export async function listPublicCompetitions() {
     const scoringRounds = scoringByCompetition.get(c.id) ?? 0;
     // Public "X rounds" must match results: use completed/scoring counts, not draft SCHEDULED rows.
     const roundCount =
-      completedRounds > 0
-        ? completedRounds
-        : scoringRounds > 0
-          ? scoringRounds
-          : c._count.rounds;
+      completedRounds > 0 ? completedRounds : scoringRounds > 0 ? scoringRounds : c._count.rounds;
 
     return {
       id: c.id,
@@ -560,9 +596,7 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
 
       const roundScores = scoringRoundRows.map((round) => {
         const key = `${r.teamId}:${round.id}`;
-        const counted = [...(contribByTeamRound.get(key)?.values() ?? [])].filter(
-          (c) => c.counted,
-        );
+        const counted = [...(contribByTeamRound.get(key)?.values() ?? [])].filter((c) => c.counted);
         const total = totalByRoundId.get(round.id);
         const hasRealScores = counted.length > 0 && total != null;
         return {
@@ -663,13 +697,15 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
 
   if (category === 'COUNTRY') {
     let countryResult = result;
-    let payload = Array.isArray(countryResult?.payloadJson) ? (countryResult.payloadJson as Array<{
-      countryId: string;
-      rank: number;
-      totalScoreCm: number;
-      pilotIds?: string[];
-      roundsScored?: number;
-    }>) : [];
+    let payload = Array.isArray(countryResult?.payloadJson)
+      ? (countryResult.payloadJson as Array<{
+          countryId: string;
+          rank: number;
+          totalScoreCm: number;
+          pilotIds?: string[];
+          roundsScored?: number;
+        }>)
+      : [];
 
     // Older payloads stored the counted-pilot list and had no per-round total.
     const staleCountryRanking =
@@ -832,7 +868,10 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
       },
     });
     const roundNumberById = new Map(
-      scoringRoundRows.map((row) => [row.id, displayedOfficialNumber(officialRoundRows, row.number)]),
+      scoringRoundRows.map((row) => [
+        row.id,
+        displayedOfficialNumber(officialRoundRows, row.number),
+      ]),
     );
     for (const s of scoreRows) {
       const round = roundNumberById.get(s.roundId);
@@ -1142,8 +1181,6 @@ export async function getPublicEventInfo(slugOrId: string) {
   return getEventInfo(competition.id, { publicOnly: true });
 }
 
-const PUBLIC_REGISTRATION_STATUSES = new Set(['REGISTRATION', 'PRACTICE']);
-
 export async function listPublicCountries() {
   return prisma.country.findMany({
     select: { id: true, code: true, code2: true, name: true },
@@ -1179,7 +1216,7 @@ export async function listPublicPilots(slugOrId: string) {
   return {
     competitionId: competition.id,
     competitionName: competition.name,
-    registrationOpen: PUBLIC_REGISTRATION_STATUSES.has(competition.status),
+    registrationOpen: competition.registrationOpen,
     pilots: pilots.map((p) => ({
       ...p,
       photoUrl: displayedPilotPhotoUrl(p),
@@ -1300,9 +1337,7 @@ export async function getPublicCareer(aeroJudgeId: string): Promise<PublicCareer
     firstName: person.firstName,
     lastName: person.lastName,
     photoUrl: toAbsoluteAssetUrl(photo),
-    nationality: country
-      ? { code: country.code, code2: country.code2, name: country.name }
-      : null,
+    nationality: country ? { code: country.code, code2: country.code2, name: country.name } : null,
     civlId: person.civlId ?? pilotRows.find((row) => row.civlId)?.civlId ?? null,
     competitions: pilotRows.map((row) => {
       const standing = ranking(row);
@@ -1570,9 +1605,11 @@ async function enrollPilotInCompetition(
 ) {
   const competition = await getPublicCompetition(slugOrId);
 
-  if (!PUBLIC_REGISTRATION_STATUSES.has(competition.status)) {
+  if (!competition.registrationOpen) {
     throw AppError.badRequest(
-      'Pilot registration is closed for this competition',
+      competition.settings?.publicRegistrationEnabled === false
+        ? 'Pilot registration for this competition is handled outside AeroJudge'
+        : 'Pilot registration is closed for this competition',
       'REGISTRATION_CLOSED',
     );
   }
@@ -1590,10 +1627,7 @@ async function enrollPilotInCompetition(
   const branding = (full?.brandingJson ?? null) as { maxPilots?: number } | null;
   const cap = branding?.maxPilots;
   if (cap != null && Number.isFinite(cap) && pilotCount >= cap) {
-    throw AppError.badRequest(
-      `Registration is full (${cap} pilots maximum)`,
-      'REGISTRATION_FULL',
-    );
+    throw AppError.badRequest(`Registration is full (${cap} pilots maximum)`, 'REGISTRATION_FULL');
   }
 
   let countryId: string | undefined | null = input.countryId;
@@ -1620,9 +1654,7 @@ async function enrollPilotInCompetition(
   let dateOfBirth: Date | undefined;
   if (input.dateOfBirth) {
     dateOfBirth =
-      input.dateOfBirth instanceof Date
-        ? input.dateOfBirth
-        : new Date(input.dateOfBirth);
+      input.dateOfBirth instanceof Date ? input.dateOfBirth : new Date(input.dateOfBirth);
     if (Number.isNaN(dateOfBirth.getTime())) {
       throw AppError.badRequest('Invalid date of birth');
     }

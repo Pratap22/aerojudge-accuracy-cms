@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   isEmptyHtml,
@@ -16,7 +16,7 @@ import {
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
-import { buildUploadUrl, toAbsoluteAssetUrl } from '../utils/assets.js';
+import { buildUploadUrl, resolveLocalUploadPath, toAbsoluteAssetUrl } from '../utils/assets.js';
 import { convertHeicUpload } from '../utils/feed-photo.js';
 import { sanitizeRichHtml } from '../utils/sanitize-html.js';
 import { getCompetition } from './competition.service.js';
@@ -161,6 +161,7 @@ export async function getEventInfo(competitionId: string, opts?: { publicOnly?: 
     travelInfoHtml,
     mapLabel: info?.mapLabel ?? null,
     mapZoom: info?.mapZoom ?? 13,
+    heroImageUrl: toAbsoluteAssetUrl(info?.heroImageUrl),
     latitude: competition.latitude,
     longitude: competition.longitude,
     mapSites,
@@ -190,9 +191,7 @@ export async function updateEventInfo(competitionId: string, input: UpdateCompet
   await getCompetition(competitionId);
 
   const htmlFields = {
-    ...(input.aboutHtml !== undefined
-      ? { aboutHtml: sanitizeRichHtml(input.aboutHtml) }
-      : {}),
+    ...(input.aboutHtml !== undefined ? { aboutHtml: sanitizeRichHtml(input.aboutHtml) } : {}),
     ...(input.dailyScheduleHtml !== undefined
       ? { dailyScheduleHtml: sanitizeRichHtml(input.dailyScheduleHtml) }
       : {}),
@@ -244,6 +243,71 @@ export async function updateEventInfo(competitionId: string, input: UpdateCompet
     }
   });
 
+  return getEventInfo(competitionId);
+}
+
+const HERO_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+
+function heroImageExtension(mimetype: string): string {
+  if (mimetype === 'image/png') return '.png';
+  if (mimetype === 'image/webp') return '.webp';
+  return '.jpg';
+}
+
+async function removeStoredUpload(url: string | null | undefined) {
+  const localPath = resolveLocalUploadPath(url);
+  if (!localPath) return;
+  await unlink(localPath).catch(() => undefined);
+}
+
+/**
+ * Store the wide photo shown on the public event home page.
+ * Replaces any previous hero image for this competition.
+ */
+export async function setHeroImage(competitionId: string, file: Express.Multer.File) {
+  await getCompetition(competitionId);
+
+  const image = await convertHeicUpload(file);
+  if (!HERO_IMAGE_TYPES.includes(image.mimetype as (typeof HERO_IMAGE_TYPES)[number])) {
+    throw AppError.badRequest('Image must be PNG, JPEG, WebP, or HEIC');
+  }
+
+  const existing = await prisma.competitionInfo.findUnique({
+    where: { competitionId },
+    select: { heroImageUrl: true },
+  });
+
+  const imageId = randomUUID().replace(/-/g, '').slice(0, 16);
+  const dir = path.join(env.uploadDir, 'hero', competitionId);
+  await mkdir(dir, { recursive: true });
+  const filename = `${imageId}${heroImageExtension(image.mimetype)}`;
+  await writeFile(path.join(dir, filename), image.buffer);
+  const url = buildUploadUrl('hero', competitionId, filename);
+
+  await prisma.competitionInfo.upsert({
+    where: { competitionId },
+    create: { competitionId, heroImageUrl: url },
+    update: { heroImageUrl: url },
+  });
+  await removeStoredUpload(existing?.heroImageUrl);
+
+  return getEventInfo(competitionId);
+}
+
+/** Remove the public event home hero image. */
+export async function clearHeroImage(competitionId: string) {
+  await getCompetition(competitionId);
+  const existing = await prisma.competitionInfo.findUnique({
+    where: { competitionId },
+    select: { heroImageUrl: true },
+  });
+  if (!existing?.heroImageUrl) return getEventInfo(competitionId);
+
+  await prisma.competitionInfo.update({
+    where: { competitionId },
+    data: { heroImageUrl: null },
+  });
+  await removeStoredUpload(existing.heroImageUrl);
   return getEventInfo(competitionId);
 }
 
@@ -361,10 +425,7 @@ export async function deleteLink(competitionId: string, linkId: string) {
   return { deleted: true };
 }
 
-export async function createContact(
-  competitionId: string,
-  input: CreateCompetitionContactInput,
-) {
+export async function createContact(competitionId: string, input: CreateCompetitionContactInput) {
   await getCompetition(competitionId);
   const maxOrder = await prisma.competitionContact.aggregate({
     where: { competitionId },

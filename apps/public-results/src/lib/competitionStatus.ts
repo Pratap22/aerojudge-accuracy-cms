@@ -5,9 +5,6 @@ const COMPLETED_LIKE = new Set(['COMPLETED', 'CANCELLED']);
 /** Scoring / live results have started (practice day or official). */
 const SCORING_STARTED = new Set(['PRACTICE', 'OFFICIAL', 'PAUSED']);
 
-/** Self-registration is open. */
-const REGISTRATION_OPEN = new Set(['REGISTRATION', 'PRACTICE']);
-
 export function isCompetitionCompleted(status: string | undefined | null): boolean {
   return Boolean(status && COMPLETED_LIKE.has(status));
 }
@@ -17,11 +14,44 @@ export function hasCompetitionStarted(status: string | undefined | null): boolea
   return Boolean(status && SCORING_STARTED.has(status));
 }
 
-export function isRegistrationOpen(status: string | undefined | null): boolean {
-  return Boolean(status && REGISTRATION_OPEN.has(status));
+const CLOSED_PUBLIC_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'ARCHIVED', 'DRAFT']);
+
+/**
+ * Registration is the phase before any round starts.
+ * Completed and cancelled competitions stay out of that phase.
+ */
+export function isRegistrationPhase(
+  competition:
+    | {
+        status?: string | null;
+        roundsStarted?: boolean;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!competition) return false;
+  if (competition.roundsStarted) return false;
+  if (competition.status && CLOSED_PUBLIC_STATUSES.has(competition.status)) return false;
+  return true;
 }
 
-/** Pre-event: published but no scoring yet. */
-export function isPreEvent(status: string | undefined | null): boolean {
-  return status === 'REGISTRATION';
+/**
+ * Public register screen. Open until a round starts, unless the competition
+ * turns self-registration off.
+ */
+export function showPublicRegistration(
+  competition:
+    | {
+        status?: string | null;
+        roundsStarted?: boolean;
+        registrationOpen?: boolean;
+        settings?: { publicRegistrationEnabled?: boolean } | null;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!competition) return false;
+  if (typeof competition.registrationOpen === 'boolean') return competition.registrationOpen;
+  if (competition.settings?.publicRegistrationEnabled === false) return false;
+  return isRegistrationPhase(competition);
 }
