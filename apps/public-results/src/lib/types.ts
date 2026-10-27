@@ -27,6 +27,8 @@ export interface PublicCompetition {
   roundsStarted?: boolean;
   /** True when the public register screen should be shown. */
   registrationOpen?: boolean;
+  /** External registration links. Each is shown with a QR code when AeroJudge registration is off. */
+  registrationLinks?: { id: string; label: string; url: string }[];
   settings?: {
     livePublicResults: boolean;
     partnersLabel?: string;

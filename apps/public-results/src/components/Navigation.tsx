@@ -10,7 +10,7 @@ import {
   hasCompetitionStarted,
   isCompetitionCompleted,
   isRegistrationPhase,
-  showPublicRegistration,
+  showRegistrationPage,
 } from '../lib/competitionStatus';
 
 export function Navigation() {
@@ -24,7 +24,7 @@ export function Navigation() {
   const completed = isCompetitionCompleted(competition?.status);
   const started = hasCompetitionStarted(competition?.status);
   const preEvent = isRegistrationPhase(competition);
-  const registrationOpen = showPublicRegistration(competition);
+  const registrationOpen = showRegistrationPage(competition);
 
   const navItems = [
     { path: '', label: 'Home' },

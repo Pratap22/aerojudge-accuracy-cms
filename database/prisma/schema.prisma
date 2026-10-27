@@ -608,17 +608,26 @@ model CompetitionGalleryImage {
   @@index([competitionId, displayOrder])
 }
 
+enum CompetitionLinkKind {
+  /// Shown in the public event brochure.
+  EVENT
+  /// Shown on the public register page, with a QR code, when AeroJudge registration is off.
+  REGISTRATION
+}
+
 model CompetitionLink {
   id            String   @id @default(cuid())
   competitionId String
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   label         String
   url           String
+  kind          CompetitionLinkKind @default(EVENT)
   displayOrder  Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([competitionId])
+  @@index([competitionId, kind])
   @@index([competitionId, displayOrder])
 }
 

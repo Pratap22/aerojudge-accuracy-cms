@@ -42,6 +42,7 @@ function mapLink(row: {
   competitionId: string;
   label: string;
   url: string;
+  kind: 'EVENT' | 'REGISTRATION';
   displayOrder: number;
 }) {
   return {
@@ -49,6 +50,7 @@ function mapLink(row: {
     competitionId: row.competitionId,
     label: row.label,
     url: row.url,
+    kind: row.kind,
     displayOrder: row.displayOrder,
   };
 }
@@ -148,7 +150,7 @@ export async function getEventInfo(competitionId: string, opts?: { publicOnly?: 
   }
 
   const mappedGallery = gallery.map(mapGalleryImage);
-  const mappedLinks = links.map(mapLink);
+  const mappedLinks = links.filter((row) => !publicOnly || row.kind === 'EVENT').map(mapLink);
   const mappedContacts = contacts.map(mapContact);
 
   return {
@@ -390,6 +392,7 @@ export async function createLink(competitionId: string, input: CreateCompetition
       competitionId,
       label: input.label,
       url: input.url,
+      kind: input.kind ?? 'EVENT',
       displayOrder: input.displayOrder ?? (maxOrder._max.displayOrder ?? 0) + 1,
     },
   });
@@ -410,6 +413,7 @@ export async function updateLink(
     data: {
       ...(input.label != null ? { label: input.label } : {}),
       ...(input.url != null ? { url: input.url } : {}),
+      ...(input.kind != null ? { kind: input.kind } : {}),
       ...(input.displayOrder != null ? { displayOrder: input.displayOrder } : {}),
     },
   });

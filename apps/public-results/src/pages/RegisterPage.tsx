@@ -1,5 +1,6 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import QRCode from 'qrcode';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   authenticatedPilotRegistrationSchema,
@@ -15,12 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@aero-judge/ui';
+import { ExternalLink } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { claimPerson, lookupPersonForClaim } from '../lib/auth-api';
 import { useAuth } from '../lib/auth';
 import { competitionPath, fetchCountries, registerPilot, uploadPilotPhoto } from '../lib/api';
 import { useCompetition, useSlug } from '../hooks/useCompetition';
-import { showPublicRegistration } from '../lib/competitionStatus';
+import { isRegistrationPhase, showPublicRegistration } from '../lib/competitionStatus';
 
 type AuthMode = 'login' | 'signup';
 
@@ -55,6 +57,32 @@ const competitionFieldsEmpty: CompetitionRegistrationForm = {
 };
 
 const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
+function RegistrationQr({ url, label }: { url: string; label: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void QRCode.toDataURL(url, { width: 280, margin: 1, errorCorrectionLevel: 'M' })
+      .then((data) => {
+        if (!cancelled) setSrc(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  if (!src) {
+    return <div className="h-44 w-44 rounded-lg bg-muted" aria-hidden />;
+  }
+
+  return (
+    <img src={src} alt={`QR code for ${label}`} className="h-44 w-44 rounded-lg bg-white p-2" />
+  );
+}
 
 export function RegisterPage() {
   const competitionId = useSlug();
@@ -250,21 +278,65 @@ export function RegisterPage() {
     );
   }
 
+  if (!registrationOpen && registrationExternal && isRegistrationPhase(competition)) {
+    const links = competition?.registrationLinks ?? [];
+    return (
+      <Layout>
+        <div className="mx-auto max-w-5xl px-6 py-16">
+          <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Registration
+          </p>
+          <h1 className="mt-2 font-display text-4xl font-bold text-foreground">
+            Pilot registration
+          </h1>
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            Use a link or scan a QR code. Pilots for this competition are entered from the
+            organiser’s list.
+          </p>
+          {links.length === 0 ? (
+            <p className="mt-10 text-muted-foreground">
+              Registration links have not been published yet.
+            </p>
+          ) : (
+            <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {links.map((link) => (
+                <li
+                  key={link.id}
+                  className="flex flex-col items-center rounded-2xl border border-border bg-card px-6 py-8 text-center"
+                >
+                  <RegistrationQr url={link.url} label={link.label} />
+                  <h2 className="mt-5 font-display text-xl font-semibold text-foreground">
+                    {link.label}
+                  </h2>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400"
+                  >
+                    Open link
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Layout>
+    );
+  }
+
   if (!registrationOpen) {
     return (
       <Layout>
         <div className="mx-auto max-w-lg px-6 py-24 text-center">
-          <h1 className="font-display text-3xl text-foreground">
-            {registrationExternal ? 'Registration is handled elsewhere' : 'Registration closed'}
-          </h1>
+          <h1 className="font-display text-3xl text-foreground">Registration closed</h1>
           <p className="mt-3 text-muted-foreground">
-            {registrationExternal
-              ? 'Pilots for this competition are entered from the organiser’s own list.'
-              : 'Pilot self-registration is not open for this competition right now.'}
+            Pilot self-registration is not open for this competition right now.
           </p>
           <Link
             to={competitionPath(competitionId, 'pilots')}
-            className="mt-8 inline-block text-sky-700 dark:text-sky-400 underline hover:text-sky-800 dark:hover:text-sky-300"
+            className="mt-8 inline-block text-sky-700 underline hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300"
           >
             View registered pilots
           </Link>

@@ -2,8 +2,22 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DEFAULT_FAI_2022_RULES, type RuleConfig } from '@aero-judge/shared';
-import { Calendar, ClipboardList, Newspaper, Save, Settings, Wind } from 'lucide-react';
+import {
+  createCompetitionLinkSchema,
+  DEFAULT_FAI_2022_RULES,
+  type CompetitionEventInfo,
+  type RuleConfig,
+} from '@aero-judge/shared';
+import {
+  Calendar,
+  ClipboardList,
+  Newspaper,
+  Plus,
+  Save,
+  Settings,
+  Trash2,
+  Wind,
+} from 'lucide-react';
 import {
   Button,
   Card,
@@ -22,6 +36,127 @@ import {
 import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { CompetitionDatesForm } from '../components/CompetitionDatesForm';
+
+function RegistrationLinksEditor({ competitionId }: { competitionId: string }) {
+  const queryClient = useQueryClient();
+  const { data: info, isLoading: linksLoading } = useQuery({
+    queryKey: ['competition-info', competitionId],
+    queryFn: () => api.get<CompetitionEventInfo>(`/competitions/${competitionId}/info`),
+  });
+  const links = (info?.links ?? []).filter((link) => link.kind === 'REGISTRATION');
+  const [label, setLabel] = useState('');
+  const [url, setUrl] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['competition-info', competitionId] });
+  };
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const parsed = createCompetitionLinkSchema.safeParse({
+        label: label.trim(),
+        url: url.trim(),
+        kind: 'REGISTRATION',
+      });
+      if (!parsed.success) {
+        throw new Error(parsed.error.issues[0]?.message ?? 'Enter a label and a valid URL');
+      }
+      return api.post(`/competitions/${competitionId}/info/links`, parsed.data);
+    },
+    onSuccess: () => {
+      invalidate();
+      setLabel('');
+      setUrl('');
+      setFormError(null);
+    },
+    onError: (err: Error) => setFormError(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (linkId: string) =>
+      api.delete(`/competitions/${competitionId}/info/links/${linkId}`),
+    onSuccess: () => invalidate(),
+  });
+
+  return (
+    <div className="mt-6 space-y-4 border-t pt-6">
+      <div>
+        <h3 className="text-sm font-medium">Registration links</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          CIVL pages, spreadsheets, and other entry links. Shown on the public register page with a
+          QR code when AeroJudge sign-up is off.
+        </p>
+      </div>
+      {linksLoading ? <p className="text-sm text-muted-foreground">Loading links…</p> : null}
+      {!linksLoading && links.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No registration links yet.</p>
+      ) : null}
+      {links.length > 0 ? (
+        <ul className="divide-y rounded-lg border">
+          {links.map((link) => (
+            <li key={link.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{link.label}</p>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate text-xs text-primary hover:underline"
+                >
+                  {link.url}
+                </a>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Remove ${link.label}`}
+                onClick={() => deleteMutation.mutate(link.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setFormError(null);
+          addMutation.mutate();
+        }}
+      >
+        <div className="space-y-2">
+          <Label htmlFor="registration-link-label">Label</Label>
+          <Input
+            id="registration-link-label"
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+            placeholder="CIVL entry"
+            className="w-48"
+          />
+        </div>
+        <div className="min-w-[16rem] flex-1 space-y-2">
+          <Label htmlFor="registration-link-url">URL</Label>
+          <Input
+            id="registration-link-url"
+            type="url"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            placeholder="https://"
+          />
+        </div>
+        <Button type="submit" variant="outline" disabled={addMutation.isPending}>
+          <Plus className="mr-2 h-4 w-4" />
+          {addMutation.isPending ? 'Adding…' : 'Add link'}
+        </Button>
+      </form>
+      {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
+    </div>
+  );
+}
 
 export function SettingsPage() {
   const activeCompetitionId = useCompetitionId();
@@ -224,9 +359,9 @@ export function SettingsPage() {
             Pilot registration
           </CardTitle>
           <CardDescription>
-            The public register page stays available until a round starts. Turn it off when pilots
-            are entered from a CIVL event or another list, such as a QR code that opens a
-            spreadsheet. Organisers can still add pilots here.
+            The public register page stays available until a round starts. Turn AeroJudge sign-up
+            off when pilots register through CIVL or another list. Add those links below — each one
+            is shown with a QR code. Organisers can still add pilots here.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -256,6 +391,7 @@ export function SettingsPage() {
               Could not save the registration setting.
             </p>
           ) : null}
+          <RegistrationLinksEditor competitionId={activeCompetitionId} />
         </CardContent>
       </Card>
 

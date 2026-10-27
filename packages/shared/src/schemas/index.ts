@@ -68,18 +68,18 @@ export const authenticatedPilotRegistrationSchema = z.object({
   dateOfBirth: z.preprocess(
     (v) => (v == null || v === '' ? undefined : v),
     z
-      .union([
-        z.string().datetime(),
-        z.coerce.date(),
-        z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      ])
+      .union([z.string().datetime(), z.coerce.date(), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)])
       .optional(),
   ),
 });
 
 export const createCompetitionSchema = z.object({
   name: z.string().min(3).max(200),
-  code: z.string().min(3).max(50).regex(/^[A-Z0-9-]+$/i),
+  code: z
+    .string()
+    .min(3)
+    .max(50)
+    .regex(/^[A-Z0-9-]+$/i),
   organizer: z.string().min(2),
   venue: z.string().min(2),
   country: z.string().min(2),
@@ -117,15 +117,12 @@ export const createPilotBaseSchema = z.object({
   /**
    * Blank or null clears the bib. A missing field leaves the current number unchanged.
    */
-  pilotNumber: z.preprocess(
-    (v) => {
-      if (v === undefined) return undefined;
-      if (v === null || v === '') return null;
-      if (typeof v === 'number' && !Number.isFinite(v)) return null;
-      return v;
-    },
-    z.number().int().positive().nullable().optional(),
-  ),
+  pilotNumber: z.preprocess((v) => {
+    if (v === undefined) return undefined;
+    if (v === null || v === '') return null;
+    if (typeof v === 'number' && !Number.isFinite(v)) return null;
+    return v;
+  }, z.number().int().positive().nullable().optional()),
   /** Link to existing Person (returning participant). When set, identity can be omitted. */
   personId: optionalString,
   faiLicense: optionalString,
@@ -219,11 +216,7 @@ export const publicPilotRegistrationSchema = z.object({
   dateOfBirth: z.preprocess(
     (v) => (v == null || v === '' ? undefined : v),
     z
-      .union([
-        z.string().datetime(),
-        z.coerce.date(),
-        z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      ])
+      .union([z.string().datetime(), z.coerce.date(), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)])
       .optional(),
   ),
   glider: optionalString,
@@ -421,7 +414,9 @@ export const createOrganizationSchema = z.object({
   secondaryColor: hexColorSchema,
   accentColor: hexColorSchema,
   brandingJson: z.record(z.unknown()).optional(),
-  defaultRuleProfile: z.enum(['FAI_2022', 'FAI_FUTURE', 'NPHA_LOCAL', 'CUSTOM']).default('FAI_2022'),
+  defaultRuleProfile: z
+    .enum(['FAI_2022', 'FAI_FUTURE', 'NPHA_LOCAL', 'CUSTOM'])
+    .default('FAI_2022'),
   plan: organizationPlanSchema.default('FREE'),
   featureFlags: z.record(z.unknown()).optional(),
   maxCompetitions: z.number().int().min(1).max(10000).default(10),
@@ -583,7 +578,7 @@ export const OFFICIAL_ROLE_OPTIONS = [
   'Scorer',
   'Recorder',
   'Wind Monitor',
-  'Video Recorder'
+  'Video Recorder',
 ] as const;
 
 /** Older stored labels that should display as the current role name. */
@@ -607,9 +602,10 @@ export function officialRoleRank(role: string): number {
 }
 
 /** Stable list order: role hierarchy, then manual displayOrder, then name. */
-export function compareOfficials<
-  T extends { role: string; displayOrder: number; name: string },
->(a: T, b: T): number {
+export function compareOfficials<T extends { role: string; displayOrder: number; name: string }>(
+  a: T,
+  b: T,
+): number {
   const byRole = officialRoleRank(a.role) - officialRoleRank(b.role);
   if (byRole !== 0) return byRole;
   if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
@@ -740,9 +736,7 @@ export function parseMapSites(value: unknown): MapSite[] {
     seen.add(parsed.data.kind);
     sites.push(parsed.data);
   }
-  return sites.sort(
-    (a, b) => MAP_SITE_ORDER.indexOf(a.kind) - MAP_SITE_ORDER.indexOf(b.kind),
-  );
+  return sites.sort((a, b) => MAP_SITE_ORDER.indexOf(a.kind) - MAP_SITE_ORDER.indexOf(b.kind));
 }
 
 export const updateCompetitionInfoSchema = z.object({
@@ -780,10 +774,14 @@ export const updateGalleryImageSchema = z.object({
   displayOrder: z.number().int().min(0).optional(),
 });
 
+export const competitionLinkKindSchema = z.enum(['EVENT', 'REGISTRATION']);
+
 export const createCompetitionLinkSchema = z.object({
   label: z.string().min(1).max(200),
   url: z.string().url().max(2000),
   displayOrder: z.number().int().min(0).optional(),
+  /** Event brochure links stay on the event page. Registration links are shown with a QR code. */
+  kind: competitionLinkKindSchema.optional(),
 });
 
 export const updateCompetitionLinkSchema = createCompetitionLinkSchema.partial();

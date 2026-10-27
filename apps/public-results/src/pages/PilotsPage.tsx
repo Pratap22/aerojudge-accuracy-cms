@@ -9,12 +9,13 @@ import { competitionPath, fetchPilots, pilotProfilePath } from '../lib/api';
 import { useCompetition, useSlug } from '../hooks/useCompetition';
 import { countryCodeToEmoji, pilotFullName } from '../lib/utils';
 import { padPilotNumber } from '@aero-judge/utils';
-import { showPublicRegistration } from '../lib/competitionStatus';
+import { showPublicRegistration, showRegistrationPage } from '../lib/competitionStatus';
 
 export function PilotsPage() {
   const competitionId = useSlug();
   const { data: competition } = useCompetition();
   const registrationOpen = showPublicRegistration(competition);
+  const registrationPage = showRegistrationPage(competition);
   const [search, setSearch] = useState('');
 
   const { data, isLoading, error } = useQuery({
@@ -46,7 +47,7 @@ export function PilotsPage() {
           <p className="text-sm text-muted-foreground">
             {data ? `${data.pilots.length} registered` : 'Registered competitors'}
           </p>
-          {registrationOpen && (
+          {registrationPage && (
             <Link
               to={competitionPath(competitionId, 'register')}
               className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-[#050d1a] hover:bg-sky-400"
@@ -78,9 +79,17 @@ export function PilotsPage() {
             {registrationOpen && (
               <Link
                 to={competitionPath(competitionId, 'register')}
-                className="mt-4 inline-flex text-sky-700 dark:text-sky-400 underline hover:text-sky-800 dark:hover:text-sky-300"
+                className="mt-4 inline-flex text-sky-700 underline hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300"
               >
                 Be the first to register
+              </Link>
+            )}
+            {!registrationOpen && registrationPage && (
+              <Link
+                to={competitionPath(competitionId, 'register')}
+                className="mt-4 inline-flex text-sky-700 underline hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300"
+              >
+                How to register
               </Link>
             )}
           </div>

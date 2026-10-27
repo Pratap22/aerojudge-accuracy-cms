@@ -528,7 +528,11 @@ export function EventInfoPage() {
             </TabsContent>
 
             <TabsContent value="links" className="mt-4">
-              <LinksPanel competitionId={competitionId} links={info.links} onChange={invalidate} />
+              <LinksPanel
+                competitionId={competitionId}
+                links={info.links.filter((link) => link.kind !== 'REGISTRATION')}
+                onChange={invalidate}
+              />
             </TabsContent>
 
             <TabsContent value="contacts" className="mt-4">

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ExternalLink, UserPlus, Users } from 'lucide-react';
+import { ArrowRight, ExternalLink, QrCode, UserPlus, Users } from 'lucide-react';
 import type { PublicCompetition } from '../lib/types';
 import { competitionPath } from '../lib/api';
 import { venueDisplayUrl } from '../lib/display-url';
@@ -10,6 +10,7 @@ import {
   isCompetitionCompleted,
   isRegistrationPhase,
   showPublicRegistration,
+  showRegistrationPage,
 } from '../lib/competitionStatus';
 import { FitHeading } from './FitHeading';
 import { FaiCategoryBadge } from './FaiCategoryBadge';
@@ -25,6 +26,8 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
   const started = hasCompetitionStarted(competition.status);
   const preEvent = isRegistrationPhase(competition);
   const registrationOpen = showPublicRegistration(competition);
+  const registrationPage = showRegistrationPage(competition);
+  const externalRegistration = registrationPage && !registrationOpen;
   const photo = Boolean(competition.heroImageUrl);
   const titleLength = competition.name.trim().length;
   const titleMaxPx = titleLength > 70 ? 36 : titleLength > 45 ? 44 : titleLength > 28 ? 56 : 64;
@@ -131,6 +134,16 @@ export function Hero({ competition, competitionId, topPilots = [] }: HeroProps) 
                   >
                     <UserPlus className="h-4 w-4" />
                     Register as pilot
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                )}
+                {externalRegistration && (
+                  <Link
+                    to={competitionPath(competitionId, 'register')}
+                    className="group inline-flex items-center gap-2 rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-[#050d1a] transition-all hover:bg-sky-400 hover:shadow-lg hover:shadow-sky-500/25"
+                  >
+                    <QrCode className="h-4 w-4" />
+                    Registration
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 )}

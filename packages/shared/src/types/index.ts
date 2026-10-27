@@ -480,6 +480,8 @@ export interface CompetitionLink {
   competitionId: string;
   label: string;
   url: string;
+  /** Event brochure link, or a public registration link shown with a QR code. */
+  kind: 'EVENT' | 'REGISTRATION';
   displayOrder: number;
 }
 

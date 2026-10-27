@@ -80,7 +80,7 @@ const publicCompetitionSelect = {
   _count: {
     select: {
       galleryImages: true,
-      links: true,
+      links: { where: { kind: 'EVENT' } },
       contacts: { where: { isPublic: true } },
       teams: true,
     },
@@ -221,11 +221,19 @@ export async function getPublicCompetition(slugOrId: string) {
     select: publicCompetitionSelect,
   });
   if (!competition) throw AppError.notFound('Competition not found');
-  const roundsStarted = await competitionHasStartedRound(competition.id);
+  const [roundsStarted, registrationLinks] = await Promise.all([
+    competitionHasStartedRound(competition.id),
+    prisma.competitionLink.findMany({
+      where: { competitionId: competition.id, kind: 'REGISTRATION' },
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, label: true, url: true },
+    }),
+  ]);
   return {
     ...mapPublicCompetition(competition),
     roundsStarted,
     registrationOpen: isSelfRegistrationOpen(competition, roundsStarted),
+    registrationLinks,
   };
 }
 
