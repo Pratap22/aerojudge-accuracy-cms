@@ -19,6 +19,14 @@ const queryClient = new QueryClient({
   },
 });
 
+// Back/forward can restore this page from memory with the previous competition
+// payload. Refetch so registration mode and the hero match the server.
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    void queryClient.invalidateQueries();
+  }
+});
+
 const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined;
 
 createRoot(document.getElementById('root')!).render(

@@ -26,7 +26,10 @@ async function publicFetch<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(url, { ...init, headers });
+  // Live competition data (registration mode, hero, scores) must not come from
+  // the browser HTTP cache. A normal visit from the marketing site would
+  // otherwise keep the previous payload until a hard refresh.
+  const response = await fetch(url, { ...init, cache: 'no-store', headers });
   const json = (await response.json()) as ApiResponse<T>;
 
   if (!response.ok || !json.success || json.data === undefined) {

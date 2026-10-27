@@ -24,7 +24,7 @@ export function useCompetition() {
   return useQuery({
     queryKey: ['competition', slug],
     queryFn: () => fetchCompetition(slug),
-    staleTime: 60_000,
+    staleTime: 0,
     enabled: Boolean(slug),
   });
 }

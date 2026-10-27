@@ -29,7 +29,7 @@ type ApiResponse<T> = {
 };
 
 async function fetchPublic<T>(path: string): Promise<T> {
-  const response = await fetch(`/api/${API_VERSION}/public${path}`);
+  const response = await fetch(`/api/${API_VERSION}/public${path}`, { cache: 'no-store' });
   const json = (await response.json()) as ApiResponse<T>;
   if (!response.ok || !json.success || json.data === undefined) {
     throw new Error(json.error?.message ?? `Failed to load (${response.status})`);

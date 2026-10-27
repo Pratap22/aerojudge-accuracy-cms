@@ -5,6 +5,16 @@ import * as ctrl from '../controllers/public.controller.js';
 
 const router = Router();
 
+// Browsers may reuse a GET with no cache headers. That kept an older
+// registration mode and hero on a normal navigation until a hard refresh.
+// SEO handlers below replace this with their own public cache policy.
+router.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    res.setHeader('Cache-Control', 'private, no-store');
+  }
+  next();
+});
+
 // SEO crawler / social preview endpoints (must stay before /:slug)
 router.get('/seo/render', ...ctrl.renderSeoHtml);
 router.get('/seo/meta', ...ctrl.seoMetaJson);
