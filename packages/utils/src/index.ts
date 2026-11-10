@@ -60,8 +60,10 @@ export function formatPilotName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`.trim();
 }
 
-export function padPilotNumber(n: number, width = 3): string {
-  return String(n).padStart(width, '0');
+/** Format a bib for display. Missing numbers stay blank (never the string "null"). */
+export function padPilotNumber(n: number | null | undefined, width = 3): string {
+  if (n == null || !Number.isFinite(Number(n))) return '—';
+  return String(Math.trunc(Number(n))).padStart(width, '0');
 }
 
 export function shuffleArray<T>(items: T[], seed?: number): T[] {

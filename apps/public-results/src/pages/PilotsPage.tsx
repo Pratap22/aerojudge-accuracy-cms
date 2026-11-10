@@ -108,7 +108,7 @@ export function PilotsPage() {
                 <Link
                   to={
                     pilotProfilePath(competitionId, pilot) ??
-                    competitionPath(competitionId, 'pilots', String(pilot.pilotNumber))
+                    competitionPath(competitionId, 'pilots')
                   }
                   className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-card p-3 transition-colors hover:border-sky-500/30 hover:bg-muted"
                 >
@@ -129,7 +129,7 @@ export function PilotsPage() {
                   </p>
                   <p className="flex min-w-0 items-center gap-1.5">
                     <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1 font-mono text-xs font-bold tabular-nums text-primary-foreground">
-                      {padPilotNumber(pilot.pilotNumber)}
+                      {pilot.pilotNumber != null ? padPilotNumber(pilot.pilotNumber) : '—'}
                     </span>
                     {flag ? (
                       <span className="text-base leading-none" aria-hidden>

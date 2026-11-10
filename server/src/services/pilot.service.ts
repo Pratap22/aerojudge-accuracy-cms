@@ -45,6 +45,47 @@ function mapParticipantStatus(status: PilotStatus): CompetitionParticipationStat
   }
 }
 
+/** Next free bib in this competition (fills gaps from 1 upward). */
+export async function nextAvailablePilotNumber(competitionId: string): Promise<number> {
+  const taken = await prisma.pilot.findMany({
+    where: { competitionId, pilotNumber: { not: null } },
+    select: { pilotNumber: true },
+  });
+  const used = new Set(
+    taken
+      .map((row) => row.pilotNumber)
+      .filter((n): n is number => n != null),
+  );
+  let candidate = 1;
+  while (used.has(candidate)) candidate += 1;
+  return candidate;
+}
+
+/**
+ * Accepted pilots need a bib. Assign the next free number when missing
+ * (public registration usually already has one; accept covers the rest).
+ */
+async function ensurePilotNumber(
+  competitionId: string,
+  pilotId: string,
+  current: number | null | undefined,
+): Promise<number | null> {
+  if (current != null) return current;
+  const pilotNumber = await nextAvailablePilotNumber(competitionId);
+  const competition = await prisma.competition.findUnique({
+    where: { id: competitionId },
+    select: { publicSlug: true },
+  });
+  const qrCode = competition
+    ? generateQrPayload(env.PUBLIC_RESULTS_URL, competition.publicSlug, `/pilot/${pilotNumber}`)
+    : undefined;
+  await prisma.pilot.update({
+    where: { id: pilotId },
+    data: { pilotNumber, ...(qrCode ? { qrCode } : {}) },
+  });
+  return pilotNumber;
+}
+
 async function syncParticipantStatus(
   competitionId: string,
   personId: string | null | undefined,
@@ -479,8 +520,14 @@ export async function setPilotStatus(
   status: PilotStatus,
 ) {
   const pilot = await getPilot(competitionId, pilotId);
+  const competingWithoutBib =
+    (status === 'CONFIRMED' || status === 'CHECKED_IN' || status === 'ACTIVE') &&
+    pilot.pilotNumber == null;
+  if (competingWithoutBib) {
+    await ensurePilotNumber(competitionId, pilotId, null);
+  }
   if (pilot.status === status) {
-    return pilot;
+    return competingWithoutBib ? getPilot(competitionId, pilotId) : pilot;
   }
 
   const updated = await prisma.pilot.update({
@@ -493,7 +540,7 @@ export async function setPilotStatus(
   });
 
   await syncParticipantStatus(competitionId, updated.personId, status);
-  return updated;
+  return competingWithoutBib ? getPilot(competitionId, pilotId) : updated;
 }
 
 export async function acceptPilot(competitionId: string, pilotId: string) {
@@ -555,6 +602,7 @@ export async function bulkPilotAction(
       lastName: true,
       status: true,
       personId: true,
+      pilotNumber: true,
       _count: { select: { scores: true } },
     },
   });
@@ -611,6 +659,11 @@ export async function bulkPilotAction(
   if (!eligible.length) return { action, succeeded, skipped };
 
   const nextStatus: PilotStatus = action === 'accept' ? 'CONFIRMED' : 'REJECTED';
+  if (action === 'accept') {
+    for (const pilot of eligible) {
+      await ensurePilotNumber(competitionId, pilot.id, pilot.pilotNumber);
+    }
+  }
   await prisma.pilot.updateMany({
     where: { id: { in: eligible.map((pilot) => pilot.id) } },
     data: { status: nextStatus },
