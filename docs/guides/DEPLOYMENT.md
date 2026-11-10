@@ -53,6 +53,8 @@ Set the public URLs to `https://paraglidingaccuracy.org` (`PUBLIC_RESULTS_URL` i
 
 The canonical host is paraglidingaccuracy.org. AeroJudge stays the product name. Nginx permanently redirects page requests on `aerojudge.nepalabs.com` and `www` to the same path on `https://paraglidingaccuracy.org`. `/api/`, `/socket.io/`, and `/uploads/` stay available on the legacy host so an open tab and already stored file URLs keep working. DNS for the legacy name has to keep pointing at this server.
 
+Migration `20261110083000_rewrite_legacy_upload_host_urls` rewrites any DB value that still contains `https://aerojudge.nepalabs.com/uploads/...` (or http/www variants) to a host-relative `/uploads/...` path. New uploads are stored the same way; the API prefixes `PUBLIC_API_URL` when returning them. After that migration has applied, retiring the old hostname no longer breaks hero images or logos.
+
 ### 4. First pull (optional smoke test)
 
 After images exist in GHCR (run the workflow once):

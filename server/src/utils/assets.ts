@@ -1,13 +1,17 @@
 import path from 'node:path';
 import { env } from '../config/env.js';
 
-/** Build a full URL for a path under /uploads/... */
+/**
+ * Build a stored path under /uploads/... (host-relative).
+ * Absolute URLs are applied at read time via toAbsoluteAssetUrl so a domain
+ * move does not leave the previous host baked into the database.
+ */
 export function buildUploadUrl(...segments: string[]): string {
   const uploadPath = ['uploads', ...segments]
     .map((s) => s.replace(/^\/+|\/+$/g, ''))
     .filter(Boolean)
     .join('/');
-  return `${env.publicApiUrl}/${uploadPath}`;
+  return `/${uploadPath}`;
 }
 
 /**
