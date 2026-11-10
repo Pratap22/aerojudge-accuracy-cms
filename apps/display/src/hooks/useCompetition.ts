@@ -1,8 +1,16 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import type { RankingCategory } from '@aero-judge/shared';
-import { fetchCompetition, fetchLatestScore, fetchLatestWind, fetchResults, fetchRoundsStatus, fetchSponsors } from '../lib/api';
-import type { PublicResults, Sponsor } from '../lib/types';
+import { compareOfficials, type RankingCategory } from '@aero-judge/shared';
+import {
+  fetchCompetition,
+  fetchLatestScore,
+  fetchLatestWind,
+  fetchOfficials,
+  fetchResults,
+  fetchRoundsStatus,
+  fetchSponsors,
+} from '../lib/api';
+import type { DisplayOfficial, PublicResults, Sponsor } from '../lib/types';
 import { useEffect } from 'react';
 import { connectDisplaySocket, onSocketEvent, onSocketReconnect } from '../lib/socket';
 
@@ -61,6 +69,27 @@ export function useSponsors() {
   }, [roomKey, competitionId, queryClient]);
 
   return query;
+}
+
+export function useOfficials() {
+  const competitionId = useCompetitionId();
+  return useQuery({
+    queryKey: ['officials', competitionId],
+    queryFn: async (): Promise<DisplayOfficial[]> => {
+      const rows = await fetchOfficials(competitionId);
+      return rows
+        .map((row) => ({
+          id: row.id,
+          name: row.name,
+          role: row.role,
+          imageUrl: row.imageUrl,
+          displayOrder: row.displayOrder,
+        }))
+        .sort(compareOfficials);
+    },
+    staleTime: 30_000,
+    enabled: Boolean(competitionId),
+  });
 }
 
 export function useLatestWind() {

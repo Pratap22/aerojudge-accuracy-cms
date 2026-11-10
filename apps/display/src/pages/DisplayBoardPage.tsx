@@ -16,7 +16,18 @@ import { TopTeamsLayout } from '../layouts/TopTeamsLayout';
 import { CountryLayout } from '../layouts/CountryLayout';
 import { NextPilotsLayout } from '../layouts/NextPilotsLayout';
 import { SponsorsLayout } from '../layouts/SponsorsLayout';
-import { useCompetition, useLatestScore, useLatestWind, useResults, useRoundsStatus, useSponsors, toLeaderboardEntries } from '../hooks/useCompetition';
+import { OfficialsLayout } from '../layouts/OfficialsLayout';
+import { PreEventHeroLayout } from '../layouts/PreEventHeroLayout';
+import {
+  useCompetition,
+  useLatestScore,
+  useLatestWind,
+  useOfficials,
+  useResults,
+  useRoundsStatus,
+  useSponsors,
+  toLeaderboardEntries,
+} from '../hooks/useCompetition';
 import { useDisplaySocket } from '../hooks/useDisplaySocket';
 import { buildOnDeck } from '../lib/on-deck';
 import { AUTO_LAYOUT_SEQUENCE, type DisplayLayoutType, type PublicRankingRow } from '../lib/types';
@@ -24,7 +35,8 @@ import { getAutoInterval, getLayoutFromQuery, getScoreHoldSeconds, isKioskMode }
 import { isOfficialRound, isWindReadingCurrent, officialDisplayNumber, type RoundNumberSource } from '@aero-judge/utils';
 import { FaiCategoryBadge } from '../components/FaiCategoryBadge';
 
-const PRE_ROUND_LAYOUTS: DisplayLayoutType[] = ['sponsors', 'women', 'teams'];
+/** Screens worth showing before Round 1 — empty lists are skipped. */
+const PRE_ROUND_LAYOUTS: DisplayLayoutType[] = ['sponsors', 'officials', 'women', 'teams'];
 
 const LIVE_ROUND_STATUSES = new Set(['ACTIVE', 'OPEN', 'PAUSED', 'BRIEFING']);
 const CLOSED_LIKE_STATUSES = new Set([
@@ -140,10 +152,11 @@ export function DisplayBoardPage() {
   const { data: teamResults, isLoading: teamsLoading } = useResults('TEAM');
   const { data: countryResults, isLoading: countryLoading } = useResults('COUNTRY');
   const { data: sponsors = [], isLoading: sponsorsLoading } = useSponsors();
+  const { data: officials = [], isLoading: officialsLoading } = useOfficials();
   const { data: persistedLatest, isLoading: latestScoreLoading } = useLatestScore();
   const { data: latestWind } = useLatestWind();
   const { data: roundsStatus, isLoading: roundsLoading, invalidate: refreshRoundsStatus } = useRoundsStatus();
-  // Tab set depends on rounds, rankings, and sponsors. Hold the board until that first fetch settles.
+  // Tab set depends on rounds, rankings, sponsors, and officials. Hold the board until that first fetch settles.
   const boardLoading =
     compLoading ||
     overallLoading ||
@@ -151,6 +164,7 @@ export function DisplayBoardPage() {
     teamsLoading ||
     countryLoading ||
     sponsorsLoading ||
+    officialsLoading ||
     roundsLoading ||
     latestScoreLoading;
 
@@ -288,6 +302,8 @@ export function DisplayBoardPage() {
       teams: teamEntries.length > 0,
       country: countryEntries.length > 1,
       sponsors: sponsors.length > 0,
+      // Officials are a pre-event screen only — hide once flying starts.
+      officials: beforeFirstRound && officials.length > 0,
     }),
     [
       beforeFirstRound,
@@ -295,6 +311,7 @@ export function DisplayBoardPage() {
       teamEntries.length,
       countryEntries.length,
       sponsors.length,
+      officials.length,
     ],
   );
 
@@ -304,6 +321,7 @@ export function DisplayBoardPage() {
       if (layoutId === 'teams') return tabVisibility.teams;
       if (layoutId === 'country') return tabVisibility.country;
       if (layoutId === 'sponsors') return tabVisibility.sponsors;
+      if (layoutId === 'officials') return tabVisibility.officials;
       return true;
     },
     [tabVisibility],
@@ -321,10 +339,12 @@ export function DisplayBoardPage() {
 
   const baseLayout = socketState.layoutOverride ?? layout;
   const inAuto = !beforeFirstRound && !scoreFocusActive && baseLayout === 'auto';
+  const preRoundPinned = beforeFirstRound && preRoundLayouts.includes(baseLayout);
   const activeLayout: DisplayLayoutType = (() => {
     if (beforeFirstRound) {
-      if (preRoundLayouts.includes(baseLayout)) return baseLayout;
-      return preRoundLayouts[0] ?? 'sponsors';
+      if (preRoundLayouts.length === 0) return 'sponsors';
+      if (preRoundPinned) return baseLayout;
+      return preRoundLayouts[autoIndex % preRoundLayouts.length] ?? preRoundLayouts[0]!;
     }
     if (scoreFocusActive) return 'current';
     if (baseLayout === 'auto') {
@@ -366,6 +386,15 @@ export function DisplayBoardPage() {
     }, getAutoInterval() * 1000);
     return () => window.clearTimeout(timer);
   }, [inAuto, autoSequence.length, autoIndex, rankingDrivesAuto]);
+
+  // Before Round 1, rotate sponsors / officials / any other filled pre-round screens.
+  useEffect(() => {
+    if (!beforeFirstRound || preRoundPinned || preRoundLayouts.length <= 1) return;
+    const timer = window.setTimeout(() => {
+      setAutoIndex((i) => (i + 1) % preRoundLayouts.length);
+    }, getAutoInterval() * 1000);
+    return () => window.clearTimeout(timer);
+  }, [beforeFirstRound, preRoundPinned, preRoundLayouts.length, autoIndex]);
 
   // Leave empty optional layouts if URL/socket still points there.
   // Before round 1, scoring tabs stay in the URL so they return when flying starts.
@@ -568,14 +597,10 @@ export function DisplayBoardPage() {
 
     if (beforeFirstRound && preRoundLayouts.length === 0) {
       return (
-        <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-          <p className="font-display text-4xl uppercase tracking-wide text-white sm:text-6xl">
-            Round 1
-          </p>
-          <p className="mt-4 text-sm uppercase tracking-[0.25em] text-sky-300 sm:text-2xl">
-            Has not started
-          </p>
-        </div>
+        <PreEventHeroLayout
+          heroImageUrl={competition.heroImageUrl}
+          nextRoundLabel="Round 1"
+        />
       );
     }
 
@@ -669,6 +694,8 @@ export function DisplayBoardPage() {
         return <NextPilotsLayout current={onDeck.nowFlying} queue={onDeck.queue} />;
       case 'sponsors':
         return <SponsorsLayout />;
+      case 'officials':
+        return <OfficialsLayout />;
       default:
         return <CurrentPilotLayout {...currentLayoutProps} />;
     }
@@ -708,7 +735,9 @@ export function DisplayBoardPage() {
             competitionCompleted
               ? 'completed-podium'
               : beforeFirstRound
-                ? `pre-round-${activeLayout}`
+                ? preRoundLayouts.length === 0
+                  ? 'pre-round-hero'
+                  : `pre-round-${activeLayout}`
                 : awaitingFirstScore
                   ? `awaiting-r${roundPhase.activeRoundNumber}`
                   : roundPhase.phase === 'cancelled'

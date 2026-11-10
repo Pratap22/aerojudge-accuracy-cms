@@ -1186,7 +1186,7 @@ export async function getPublicOfficials(slugOrId: string) {
         competitionId: row.competitionId,
         name: liveName || row.name,
         role: officialRoleLabel(row.role),
-        imageUrl: row.imageUrl,
+        imageUrl: toAbsoluteAssetUrl(row.imageUrl),
         phone: row.phone,
         email: row.email,
         displayOrder: row.displayOrder,

@@ -11,6 +11,8 @@ export interface PublicCompetition {
   publicSlug: string;
   /** `1` or `2` for an FAI category event, `NONE` when it is not a category event. */
   faiCategory?: string | null;
+  /** Wide photo for the event home / pre-round venue board. */
+  heroImageUrl?: string | null;
   settings?: {
     livePublicResults: boolean;
     partnersLabel?: string;
@@ -96,7 +98,16 @@ export type DisplayLayoutType =
   | 'country'
   | 'next'
   | 'sponsors'
+  | 'officials'
   | 'auto';
+
+export interface DisplayOfficial {
+  id: string;
+  name: string;
+  role: string;
+  imageUrl: string | null;
+  displayOrder: number;
+}
 
 export interface LiveScore {
   pilotId: string;

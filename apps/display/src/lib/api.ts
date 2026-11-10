@@ -119,3 +119,20 @@ export interface PublicSponsor {
 export function fetchSponsors(idOrSlug: string): Promise<PublicSponsor[]> {
   return publicFetch<PublicSponsor[]>(`/${idOrSlug}/sponsors`);
 }
+
+export interface PublicOfficial {
+  id: string;
+  competitionId: string;
+  name: string;
+  role: string;
+  imageUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  displayOrder: number;
+  isPublic: boolean;
+  aeroJudgeId?: string | null;
+}
+
+export function fetchOfficials(idOrSlug: string): Promise<PublicOfficial[]> {
+  return publicFetch<PublicOfficial[]>(`/${idOrSlug}/officials`);
+}

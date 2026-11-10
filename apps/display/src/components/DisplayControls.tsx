@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Maximize, Minimize, Eye, EyeOff } from 'lucide-react';
 import type { DisplayLayoutType } from '../lib/types';
 
-export type OptionalDisplayLayout = 'women' | 'teams' | 'country' | 'sponsors';
+export type OptionalDisplayLayout = 'women' | 'teams' | 'country' | 'sponsors' | 'officials';
 
 interface DisplayControlsProps {
   layout: DisplayLayoutType;
@@ -35,6 +35,7 @@ export function DisplayControls({
     { id: 'country', label: 'Country' },
     { id: 'next', label: 'Next' },
     { id: 'sponsors', label: partnersLabel },
+    { id: 'officials', label: 'Officials' },
     { id: 'auto', label: 'Auto' },
   ];
 
