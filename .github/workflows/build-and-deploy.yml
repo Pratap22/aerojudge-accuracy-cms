@@ -84,7 +84,7 @@ jobs:
                 judge: "APP_NAME=judge\nBASE_PATH=/judge/",
                 display: "APP_NAME=display\nBASE_PATH=/display/",
                 "public-results": "APP_NAME=public-results\nBASE_PATH=/events/",
-                marketing: "APP_NAME=marketing\nBASE_PATH=/\nVITE_SITE_URL=https://aerojudge.nepalabs.com\nVITE_CONTACT_EMAIL=hello@nepalabs.com",
+                marketing: "APP_NAME=marketing\nBASE_PATH=/\nVITE_SITE_URL=https://paraglidingaccuracy.org\nVITE_CONTACT_EMAIL=hello@nepalabs.com",
               };
               const dockerfile = (app) => (app === "api" ? "docker/Dockerfile.api" : "docker/Dockerfile.web");
               const include = apps.map((app) => ({

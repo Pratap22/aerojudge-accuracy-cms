@@ -49,7 +49,9 @@ cp docker/.env.deploy.example docker/.env.deploy
 nano docker/.env.deploy
 ```
 
-Replace `YOUR_HOST` with `http://<elastic-ip>` (or your domain), set strong `POSTGRES_PASSWORD` / JWT secrets, and set seed admin credentials. After the first successful boot with seed, set `RUN_SEED=false`.
+Set the public URLs to `https://paraglidingaccuracy.org` (`PUBLIC_RESULTS_URL` includes `/events`), keep `https://aerojudge.nepalabs.com` in `CORS_ORIGINS` as well, and set strong `POSTGRES_PASSWORD` / JWT secrets and seed admin credentials. After the first successful boot with seed, set `RUN_SEED=false`.
+
+The canonical host is paraglidingaccuracy.org. AeroJudge stays the product name. Nginx permanently redirects page requests on `aerojudge.nepalabs.com` and `www` to the same path on `https://paraglidingaccuracy.org`. `/api/`, `/socket.io/`, and `/uploads/` stay available on the legacy host so an open tab and already stored file URLs keep working. DNS for the legacy name has to keep pointing at this server.
 
 ### 4. First pull (optional smoke test)
 
@@ -161,7 +163,7 @@ docker buildx build --platform linux/amd64 -f docker/Dockerfile.web \
 
 docker buildx build --platform linux/amd64 -f docker/Dockerfile.web \
   --build-arg APP_NAME=marketing --build-arg BASE_PATH=/ \
-  --build-arg VITE_SITE_URL=https://aerojudge.nepalabs.com \
+  --build-arg VITE_SITE_URL=https://paraglidingaccuracy.org \
   --build-arg VITE_CONTACT_EMAIL=hello@nepalabs.com \
   -t $REGISTRY/marketing:$TAG --push .
 ```

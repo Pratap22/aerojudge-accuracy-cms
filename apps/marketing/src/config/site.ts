@@ -11,7 +11,7 @@ export const siteConfig = {
   companyName: 'Nepalabs',
   tagline: 'Professional Competition Management for Air Sports',
   discipline: 'Paragliding Accuracy',
-  siteUrl: (envSiteUrl || 'https://aerojudge.nepalabs.com').replace(/\/$/, ''),
+  siteUrl: (envSiteUrl || 'https://paraglidingaccuracy.org').replace(/\/$/, ''),
   contactEmail: envEmail || 'hello@nepalabs.com',
   githubUrl: 'https://github.com/Pratap22/aerojudge-accuracy-cms',
   docsUrl: 'https://github.com/Pratap22/aerojudge-accuracy-cms/tree/main/docs',
