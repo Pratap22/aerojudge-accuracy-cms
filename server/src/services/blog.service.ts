@@ -1,6 +1,6 @@
 import { COMPETING_PILOT_STATUSES, compareOfficials, officialRoleLabel } from '@aero-judge/shared';
 import { displayCountryCode, formatPilotName, formatScoreCm } from '@aero-judge/utils';
-import { displayedPilotPhotoUrl } from './person.service.js';
+import { displayedPilotPhotoUrl, personDisplayName } from './person.service.js';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
@@ -170,7 +170,17 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
         role: true,
         imageUrl: true,
         displayOrder: true,
-        person: { select: { aeroJudgeId: true, status: true } },
+        person: {
+          select: {
+            aeroJudgeId: true,
+            status: true,
+            firstName: true,
+            middleName: true,
+            lastName: true,
+            preferredName: true,
+            displayName: true,
+          },
+        },
       },
     }),
   ]);
@@ -206,18 +216,21 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
         profileUrl: '',
       })),
       countries: countriesFromPilots(pilots),
-      officials: officials.sort(compareOfficials).map((official) => ({
-        name: official.name.trim(),
-        role: officialRoleLabel(official.role),
-        imageUrl: toAbsoluteAssetUrl(official.imageUrl) ?? '',
-        profileUrl:
-          official.person?.status === 'ACTIVE'
-            ? pilotCareerUrl(official.person.aeroJudgeId, {
-                storySlug: publicSlug,
-                competitionId: row.id,
-              })
-            : '',
-      })),
+      officials: officials.sort(compareOfficials).map((official) => {
+        const liveName = official.person ? personDisplayName(official.person) : '';
+        return {
+          name: (liveName || official.name).trim(),
+          role: officialRoleLabel(official.role),
+          imageUrl: toAbsoluteAssetUrl(official.imageUrl) ?? '',
+          profileUrl:
+            official.person?.status === 'ACTIVE'
+              ? pilotCareerUrl(official.person.aeroJudgeId, {
+                  storySlug: publicSlug,
+                  competitionId: row.id,
+                })
+              : '',
+        };
+      }),
       rounds,
       totalBullseyes: rounds.reduce((sum, round) => sum + round.bullseyes, 0),
       bestSingle,

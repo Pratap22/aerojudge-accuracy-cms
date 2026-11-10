@@ -273,6 +273,8 @@ export function PilotDirectoryPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['pilot-directory'] });
       await queryClient.invalidateQueries({ queryKey: ['people-directory'] });
+      await queryClient.invalidateQueries({ queryKey: ['people-directory-officials'] });
+      await queryClient.invalidateQueries({ queryKey: ['officials'] });
       closeEditor();
     },
     onError: (err) => {

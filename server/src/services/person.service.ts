@@ -434,6 +434,18 @@ export async function updatePerson(
     include: { nationalityCountry: true },
   });
 
+  const nameChanged =
+    existing.firstName !== updated.firstName ||
+    existing.lastName !== updated.lastName ||
+    existing.middleName !== updated.middleName ||
+    existing.preferredName !== updated.preferredName ||
+    existing.displayName !== updated.displayName;
+
+  if (nameChanged) {
+    const { syncOfficialNamesForPerson } = await import('./official.service.js');
+    await syncOfficialNamesForPerson(personId);
+  }
+
   if (opts?.actorUserId) {
     await prisma.auditLog.create({
       data: {

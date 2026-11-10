@@ -354,11 +354,14 @@ export function PilotsPage() {
         competitionId: activeCompetitionId,
       }),
     enabled: formOpen && !editing && !!activeCompetitionId && directoryQ.trim().length >= 2,
+    staleTime: 0,
   });
 
   const invalidatePilots = () => {
-    queryClient.invalidateQueries({ queryKey: ['pilots'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    void queryClient.invalidateQueries({ queryKey: ['pilots'] });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    void queryClient.invalidateQueries({ queryKey: ['people-directory'] });
+    void queryClient.invalidateQueries({ queryKey: ['people-directory-officials'] });
   };
 
   const saveMutation = useMutation({

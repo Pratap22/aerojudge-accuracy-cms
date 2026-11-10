@@ -134,6 +134,8 @@ export function OfficialsPage() {
     queryFn: () =>
       api.get<PersonDirectoryEntry[]>('/people', { q: directoryQ, pageSize: 8 }),
     enabled: formOpen && !editing && directoryQ.trim().length >= 2,
+    // Always refetch — a person created moments ago for another role must appear.
+    staleTime: 0,
   });
 
   const {
@@ -174,7 +176,10 @@ export function OfficialsPage() {
   }, [photoFile]);
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['officials', competitionId] });
+    void queryClient.invalidateQueries({ queryKey: ['officials', competitionId] });
+    // Keep "Find returning person" current after creating someone for another role.
+    void queryClient.invalidateQueries({ queryKey: ['people-directory-officials'] });
+    void queryClient.invalidateQueries({ queryKey: ['people-directory'] });
   };
 
   const resetPhoto = () => {

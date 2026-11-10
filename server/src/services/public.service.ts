@@ -1161,25 +1161,39 @@ export async function getPublicSponsors(slugOrId: string) {
 
 export async function getPublicOfficials(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
+  const { personDisplayName } = await import('./person.service.js');
   const rows = await prisma.competitionOfficial.findMany({
     where: { competitionId: competition.id, isPublic: true },
     include: {
-      person: { select: { aeroJudgeId: true, status: true } },
+      person: {
+        select: {
+          aeroJudgeId: true,
+          status: true,
+          firstName: true,
+          middleName: true,
+          lastName: true,
+          preferredName: true,
+          displayName: true,
+        },
+      },
     },
   });
   return rows
-    .map((row) => ({
-      id: row.id,
-      competitionId: row.competitionId,
-      name: row.name,
-      role: officialRoleLabel(row.role),
-      imageUrl: row.imageUrl,
-      phone: row.phone,
-      email: row.email,
-      displayOrder: row.displayOrder,
-      isPublic: row.isPublic,
-      aeroJudgeId: row.person?.status === 'ACTIVE' ? row.person.aeroJudgeId : null,
-    }))
+    .map((row) => {
+      const liveName = row.person ? personDisplayName(row.person) : '';
+      return {
+        id: row.id,
+        competitionId: row.competitionId,
+        name: liveName || row.name,
+        role: officialRoleLabel(row.role),
+        imageUrl: row.imageUrl,
+        phone: row.phone,
+        email: row.email,
+        displayOrder: row.displayOrder,
+        isPublic: row.isPublic,
+        aeroJudgeId: row.person?.status === 'ACTIVE' ? row.person.aeroJudgeId : null,
+      };
+    })
     .sort(compareOfficials);
 }
 

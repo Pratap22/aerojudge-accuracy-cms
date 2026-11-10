@@ -18,6 +18,16 @@ import {
   resolvePersonPhotoUrl,
 } from './person.service.js';
 
+const officialPersonSelect = {
+  id: true,
+  aeroJudgeId: true,
+  firstName: true,
+  middleName: true,
+  lastName: true,
+  preferredName: true,
+  displayName: true,
+} as const;
+
 function mapOfficial(row: {
   id: string;
   competitionId: string;
@@ -34,13 +44,19 @@ function mapOfficial(row: {
     id: string;
     aeroJudgeId: string;
     firstName: string;
+    middleName?: string | null;
     lastName: string;
+    preferredName?: string | null;
+    displayName?: string | null;
   } | null;
 }) {
+  const liveName = row.person ? personDisplayName(row.person) : '';
   return {
     id: row.id,
     competitionId: row.competitionId,
-    name: row.name,
+    // Prefer the linked Person so a directory rename shows without editing the
+    // competition-time name snapshot by hand.
+    name: liveName || row.name,
     role: officialRoleLabel(row.role),
     imageUrl: row.imageUrl,
     phone: row.phone,
@@ -67,7 +83,7 @@ export async function listOfficials(competitionId: string, opts?: { publicOnly?:
       ...(opts?.publicOnly ? { isPublic: true } : {}),
     },
     include: {
-      person: { select: { id: true, aeroJudgeId: true, firstName: true, lastName: true } },
+      person: { select: officialPersonSelect },
     },
   });
   return rows.map(mapOfficial).sort(compareOfficials);
@@ -77,7 +93,7 @@ export async function getOfficial(competitionId: string, officialId: string) {
   const row = await prisma.competitionOfficial.findFirst({
     where: { id: officialId, competitionId },
     include: {
-      person: { select: { id: true, aeroJudgeId: true, firstName: true, lastName: true } },
+      person: { select: officialPersonSelect },
     },
   });
   if (!row) throw AppError.notFound('Official not found');
@@ -140,7 +156,7 @@ export async function createOfficial(
       isPublic: input.isPublic ?? true,
     },
     include: {
-      person: { select: { id: true, aeroJudgeId: true, firstName: true, lastName: true } },
+      person: { select: officialPersonSelect },
     },
   });
   void participant;
@@ -152,11 +168,28 @@ export async function updateOfficial(
   officialId: string,
   input: UpdateOfficialInput,
 ) {
-  await getOfficial(competitionId, officialId);
+  const existing = await prisma.competitionOfficial.findFirst({
+    where: { id: officialId, competitionId },
+    select: { id: true, personId: true },
+  });
+  if (!existing) throw AppError.notFound('Official not found');
+
+  const nextName = input.name?.trim();
+  if (nextName && existing.personId) {
+    const parts = nextName.split(/\s+/).filter(Boolean);
+    await prisma.person.update({
+      where: { id: existing.personId },
+      data: {
+        firstName: parts[0] || 'Unknown',
+        lastName: parts.slice(1).join(' ') || '-',
+      },
+    });
+  }
+
   const row = await prisma.competitionOfficial.update({
     where: { id: officialId },
     data: {
-      ...(input.name != null ? { name: input.name.trim() } : {}),
+      ...(nextName != null ? { name: nextName } : {}),
       ...(input.role != null ? { role: input.role.trim() } : {}),
       ...(input.competitionRole != null ? { competitionRole: input.competitionRole } : {}),
       ...(input.phone !== undefined ? { phone: input.phone?.trim() || null } : {}),
@@ -166,10 +199,35 @@ export async function updateOfficial(
       ...(input.isPublic != null ? { isPublic: input.isPublic } : {}),
     },
     include: {
-      person: { select: { id: true, aeroJudgeId: true, firstName: true, lastName: true } },
+      person: { select: officialPersonSelect },
     },
   });
   return mapOfficial(row);
+}
+
+/**
+ * Keep competition-time official name snapshots aligned with the Person
+ * directory after a rename.
+ */
+export async function syncOfficialNamesForPerson(personId: string): Promise<number> {
+  const person = await prisma.person.findUnique({
+    where: { id: personId },
+    select: {
+      firstName: true,
+      middleName: true,
+      lastName: true,
+      preferredName: true,
+      displayName: true,
+    },
+  });
+  if (!person) return 0;
+  const name = personDisplayName(person);
+  if (!name) return 0;
+  const result = await prisma.competitionOfficial.updateMany({
+    where: { personId },
+    data: { name },
+  });
+  return result.count;
 }
 
 export async function deleteOfficial(
@@ -210,7 +268,7 @@ export async function uploadOfficialPhoto(
     where: { id: officialId },
     data: { imageUrl: url },
     include: {
-      person: { select: { id: true, aeroJudgeId: true, firstName: true, lastName: true } },
+      person: { select: officialPersonSelect },
     },
   });
 
