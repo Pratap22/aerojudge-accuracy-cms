@@ -53,6 +53,7 @@ const settingsSchema = z.object({
   publicRegistrationEnabled: z.boolean().optional(),
   partnersLabel: z.string().min(1).max(40).optional(),
   partnerTiersEnabled: z.boolean().optional(),
+  aeroJudgeAsPartner: z.boolean().optional(),
 });
 
 export const list = [

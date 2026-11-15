@@ -53,6 +53,7 @@ interface CompetitionWithPartners {
   settings?: {
     partnersLabel?: string;
     partnerTiersEnabled?: boolean;
+    aeroJudgeAsPartner?: boolean;
   } | null;
 }
 
@@ -208,6 +209,7 @@ export function SponsorsPage() {
 
   const partnersLabel = competition?.settings?.partnersLabel?.trim() || 'Sponsors';
   const tiersEnabled = competition?.settings?.partnerTiersEnabled ?? true;
+  const aeroJudgeAsPartner = competition?.settings?.aeroJudgeAsPartner ?? true;
   const singular = singularLabel(partnersLabel);
 
   const { data: sponsors = [], isLoading } = useQuery({
@@ -244,8 +246,11 @@ export function SponsorsPage() {
   };
 
   const partnersSettingsMutation = useMutation({
-    mutationFn: (data: { partnersLabel: string; partnerTiersEnabled: boolean }) =>
-      api.put(`/competitions/${competitionId}/settings`, data),
+    mutationFn: (data: {
+      partnersLabel: string;
+      partnerTiersEnabled: boolean;
+      aeroJudgeAsPartner: boolean;
+    }) => api.put(`/competitions/${competitionId}/settings`, data),
     onSuccess: invalidate,
   });
 
@@ -374,6 +379,7 @@ export function SponsorsPage() {
                 partnersSettingsMutation.mutate({
                   partnersLabel: v,
                   partnerTiersEnabled: tiersEnabled,
+                  aeroJudgeAsPartner,
                 });
               }}
             >
@@ -398,10 +404,26 @@ export function SponsorsPage() {
                 partnersSettingsMutation.mutate({
                   partnersLabel,
                   partnerTiersEnabled: e.target.checked,
+                  aeroJudgeAsPartner,
                 });
               }}
             />
             Show tier names (Title, Gold, Silver…). Standard is not labeled.
+          </label>
+          <label className="flex items-center gap-2 pb-2 text-sm">
+            <input
+              type="checkbox"
+              className="rounded"
+              checked={aeroJudgeAsPartner}
+              onChange={(e) => {
+                partnersSettingsMutation.mutate({
+                  partnersLabel,
+                  partnerTiersEnabled: tiersEnabled,
+                  aeroJudgeAsPartner: e.target.checked,
+                });
+              }}
+            />
+            List AeroJudge as a {singular.toLowerCase()} on the public site and venue display
           </label>
         </CardContent>
       </Card>

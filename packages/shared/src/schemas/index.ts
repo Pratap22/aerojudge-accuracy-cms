@@ -667,6 +667,8 @@ export const updateOfficialSchema = createOfficialBaseSchema.partial();
 export const partnersDisplaySettingsSchema = z.object({
   partnersLabel: z.string().min(1).max(40).optional(),
   partnerTiersEnabled: z.boolean().optional(),
+  /** When false, AeroJudge is omitted from public + venue partner lists. Default true. */
+  aeroJudgeAsPartner: z.boolean().optional(),
 });
 
 export type SelectOrganizationInput = z.infer<typeof selectOrganizationSchema>;

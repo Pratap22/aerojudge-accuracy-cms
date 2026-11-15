@@ -688,6 +688,8 @@ model CompetitionSettings {
   partnersLabel           String  @default("Sponsors")
   // When false, partner type/tier is unused (govt / supporters-style events)
   partnerTiersEnabled     Boolean @default(true)
+  /// When true (default), AeroJudge appears on public + venue partner lists.
+  aeroJudgeAsPartner      Boolean @default(true)
   customRulesJson         Json?
   tieBreakRulesJson       Json?
   penaltyRulesJson        Json?

@@ -59,6 +59,7 @@ const publicCompetitionSelect = {
       livePublicResults: true,
       partnersLabel: true,
       partnerTiersEnabled: true,
+      aeroJudgeAsPartner: true,
       windDisplayMaxAgeMinutes: true,
       publicRegistrationEnabled: true,
     },
@@ -144,6 +145,7 @@ function mapPublicCompetition(competition: {
     livePublicResults: boolean;
     partnersLabel: string | null;
     partnerTiersEnabled: boolean;
+    aeroJudgeAsPartner?: boolean;
     windDisplayMaxAgeMinutes: number;
     publicRegistrationEnabled: boolean;
   } | null;
@@ -1143,11 +1145,18 @@ export async function getLatestPublicScore(slugOrId: string) {
 
 export async function getPublicSponsors(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
-  const rows = await prisma.sponsor.findMany({
-    where: { competitionId: competition.id, isActive: true },
-    orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
-  });
-  return rows.map((row) => ({
+  const [rows, settings] = await Promise.all([
+    prisma.sponsor.findMany({
+      where: { competitionId: competition.id, isActive: true },
+      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+    }),
+    prisma.competitionSettings.findUnique({
+      where: { competitionId: competition.id },
+      select: { aeroJudgeAsPartner: true },
+    }),
+  ]);
+  const { withAeroJudgePartner } = await import('../utils/aerojudge-partner.js');
+  const mapped = rows.map((row) => ({
     id: row.id,
     competitionId: row.competitionId,
     name: row.name,
@@ -1157,6 +1166,10 @@ export async function getPublicSponsors(slugOrId: string) {
     displayOrder: row.displayOrder,
     isActive: row.isActive,
   }));
+  return withAeroJudgePartner(mapped, {
+    competitionId: competition.id,
+    enabled: settings?.aeroJudgeAsPartner ?? true,
+  });
 }
 
 export async function getPublicOfficials(slugOrId: string) {

@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
@@ -14,6 +15,8 @@ import { errorHandler } from './utils/errors.js';
 import { initSocket } from './socket/index.js';
 
 const app = express();
+const serverDir = path.dirname(fileURLToPath(import.meta.url));
+const brandingDir = path.resolve(serverDir, '../public/branding');
 
 app.set('trust proxy', 1);
 
@@ -46,6 +49,14 @@ app.use(
     next();
   },
   express.static(env.uploadDir),
+);
+app.use(
+  '/branding',
+  (_req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(brandingDir, { maxAge: '7d', fallthrough: true }),
 );
 
 app.use(

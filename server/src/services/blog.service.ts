@@ -49,6 +49,7 @@ const storySelect = {
       teamSize: true,
       teamScoringPilots: true,
       partnersLabel: true,
+      aeroJudgeAsPartner: true,
     },
   },
   _count: {
@@ -236,7 +237,13 @@ export async function getCompetitionBlog(slug: string): Promise<CompetitionBlogA
       bestSingle,
       aboutParagraphs: plainTextFromHtml(info?.aboutHtml),
       flyingSiteParagraphs: plainTextFromHtml(info?.flyingSiteHtml),
-      partnerNames: partners.map((partner) => partner.name.trim()).filter(Boolean),
+      partnerNames: (() => {
+        const names = partners.map((partner) => partner.name.trim()).filter(Boolean);
+        if ((row.settings?.aeroJudgeAsPartner ?? true) && !names.some((n) => n.toLowerCase() === 'aerojudge')) {
+          names.push('AeroJudge');
+        }
+        return names;
+      })(),
       photos: pictures.photos,
       photoSource: pictures.source,
       related: related.map((item) => ({

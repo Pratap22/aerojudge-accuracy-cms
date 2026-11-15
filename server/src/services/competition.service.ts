@@ -293,6 +293,7 @@ export async function updateSettings(
     'publicRegistrationEnabled',
     'partnersLabel',
     'partnerTiersEnabled',
+    'aeroJudgeAsPartner',
   ] as const;
 
   const settingsFields: Record<string, unknown> = {};
