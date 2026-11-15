@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { SPONSOR_TYPES } from '@aero-judge/shared';
-import { TransparentLogo } from './TransparentLogo';
 import { useCompetition, useSponsors } from '../hooks/useCompetition';
 import type { Sponsor } from '../lib/types';
 
@@ -50,11 +49,11 @@ function groupSponsorsByType(items: Sponsor[]): { type: string; label: string; s
 function SponsorMark({ sponsor }: { sponsor: Sponsor }) {
   if (sponsor.logoUrl) {
     return (
-      <div className="flex h-9 w-28 shrink-0 items-center justify-center overflow-hidden px-2">
-        <TransparentLogo
+      <div className="flex h-10 w-32 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white px-2 py-1">
+        <img
           src={sponsor.logoUrl}
           alt={sponsor.name}
-          className="max-h-7 max-w-full object-contain drop-shadow-[0_0_1px_rgba(255,255,255,0.85)]"
+          className="max-h-8 max-w-full object-contain"
         />
       </div>
     );
@@ -115,15 +114,15 @@ export function SponsorStrip({ sponsors, variant = 'strip' }: SponsorStripProps)
         <div className="flex flex-wrap items-center justify-center gap-8">
           {items.map((sponsor) => (
             <div key={sponsor.id} className="flex flex-col items-center gap-2">
-              <div className="flex h-28 w-56 items-center justify-center overflow-hidden px-4">
+              <div className="flex h-28 w-56 items-center justify-center overflow-hidden rounded-2xl bg-white px-4 py-3">
                 {sponsor.logoUrl ? (
-                  <TransparentLogo
+                  <img
                     src={sponsor.logoUrl}
                     alt={sponsor.name}
-                    className="max-h-20 max-w-full object-contain drop-shadow-[0_0_1px_rgba(255,255,255,0.85)]"
+                    className="max-h-full max-w-full object-contain"
                   />
                 ) : (
-                  <span className="font-display text-2xl tracking-wider text-white">
+                  <span className="font-display text-2xl tracking-wider text-broadcast-navy">
                     {sponsor.name}
                   </span>
                 )}

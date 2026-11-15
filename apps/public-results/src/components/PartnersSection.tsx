@@ -54,23 +54,16 @@ function PartnerCard({
   index?: number;
   showType?: boolean;
 }) {
-  const containLogo = partner.id === 'aerojudge-platform';
   const logo = (
-    <div className="mx-auto h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-muted ring-2 ring-sky-500/20">
+    <div className="mx-auto flex h-16 w-full max-w-[10rem] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-border">
       {partner.logoUrl ? (
         <img
           src={partner.logoUrl}
           alt={partner.name}
-          className={
-            containLogo
-              ? 'h-full w-full bg-white object-contain p-1'
-              : 'h-full w-full object-cover'
-          }
+          className="max-h-full max-w-full object-contain p-2"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center">
-          <Building2 className="h-8 w-8 text-muted-foreground/50" strokeWidth={1.25} />
-        </span>
+        <Building2 className="h-8 w-8 text-muted-foreground/50" strokeWidth={1.25} />
       )}
     </div>
   );

@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { SPONSOR_TYPES } from '@aero-judge/shared';
-import { TransparentLogo } from '../components/TransparentLogo';
 import { useCompetition, useSponsors } from '../hooks/useCompetition';
 import type { Sponsor } from '../lib/types';
 
@@ -124,14 +123,16 @@ export function SponsorsLayout() {
             {current.sponsors.map((sponsor) => (
               <div
                 key={sponsor.id}
-                className="flex min-h-0 min-w-0 items-center justify-center overflow-hidden px-2"
+                className="flex min-h-0 min-w-0 flex-col items-center justify-center gap-2 overflow-hidden px-2"
               >
                 {sponsor.logoUrl ? (
-                  <TransparentLogo
-                    src={sponsor.logoUrl}
-                    alt={sponsor.name}
-                    className="h-full w-full object-contain drop-shadow-[0_0_1px_rgba(255,255,255,0.9)]"
-                  />
+                  <div className="flex min-h-0 w-full flex-1 items-center justify-center rounded-2xl bg-white p-3 sm:p-4">
+                    <img
+                      src={sponsor.logoUrl}
+                      alt={sponsor.name}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
                 ) : (
                   <p
                     className={`line-clamp-3 text-center font-display uppercase leading-tight tracking-wide text-white ${nameSize}`}

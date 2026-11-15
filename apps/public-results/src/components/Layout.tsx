@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { AeroJudgeLogo } from '@aero-judge/ui';
 import { Navigation } from './Navigation';
 import { CompetitionSeo } from './Seo';
 import { officialDisplayNumber } from '@aero-judge/utils';
@@ -41,8 +40,10 @@ export function Layout({ children, seo = 'competition' }: LayoutProps) {
         ) : null}
         {children}
       </main>
-      <footer className="flex justify-center border-t border-border py-8">
-        <AeroJudgeLogo className="h-12 w-auto" />
+      <footer className="flex justify-center border-t border-border px-4 py-8">
+        <p className="text-center text-sm text-muted-foreground">
+          © {new Date().getFullYear()} AeroJudge. All rights reserved.
+        </p>
       </footer>
     </div>
   );

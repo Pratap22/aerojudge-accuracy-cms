@@ -244,8 +244,10 @@ export function CompetitionListPage() {
           </div>
         </motion.section>
 
-        <footer className="mt-10 flex flex-col items-center gap-2 border-t border-border pt-6">
-          <AeroJudgeLogo className="h-10 w-auto" />
+        <footer className="mt-10 flex flex-col items-center gap-1 border-t border-border pt-6">
+          <p className="text-sm text-muted-foreground">
+            © {new Date().getFullYear()} AeroJudge. All rights reserved.
+          </p>
           <p className="text-sm text-muted-foreground">Professional competition management for air sports</p>
         </footer>
       </div>
