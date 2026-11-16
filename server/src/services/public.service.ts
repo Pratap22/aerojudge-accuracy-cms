@@ -1175,11 +1175,15 @@ export async function getPublicSponsors(slugOrId: string) {
 export async function getPublicOfficials(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
   const { personDisplayName } = await import('./person.service.js');
+  const { displayedOfficialImageUrl, resolveMissingPersonPhotoUrls } = await import(
+    './person.service.js'
+  );
   const rows = await prisma.competitionOfficial.findMany({
     where: { competitionId: competition.id, isPublic: true },
     include: {
       person: {
         select: {
+          id: true,
           aeroJudgeId: true,
           status: true,
           firstName: true,
@@ -1187,24 +1191,38 @@ export async function getPublicOfficials(slugOrId: string) {
           lastName: true,
           preferredName: true,
           displayName: true,
+          photoUrl: true,
         },
       },
     },
   });
+
+  const linkedPeople = rows
+    .filter((row) => row.person)
+    .map((row) => ({ id: row.person!.id, photoUrl: row.person!.photoUrl }));
+  const uniquePeople = [...new Map(linkedPeople.map((p) => [p.id, p])).values()];
+  const photoByPerson = await resolveMissingPersonPhotoUrls(uniquePeople);
+
   return rows
     .map((row) => {
       const liveName = row.person ? personDisplayName(row.person) : '';
+      const person = row.person
+        ? {
+            ...row.person,
+            photoUrl: photoByPerson.get(row.person.id) ?? row.person.photoUrl,
+          }
+        : null;
       return {
         id: row.id,
         competitionId: row.competitionId,
         name: liveName || row.name,
         role: officialRoleLabel(row.role),
-        imageUrl: toAbsoluteAssetUrl(row.imageUrl),
+        imageUrl: toAbsoluteAssetUrl(displayedOfficialImageUrl({ ...row, person })),
         phone: row.phone,
         email: row.email,
         displayOrder: row.displayOrder,
         isPublic: row.isPublic,
-        aeroJudgeId: row.person?.status === 'ACTIVE' ? row.person.aeroJudgeId : null,
+        aeroJudgeId: person?.status === 'ACTIVE' ? person.aeroJudgeId : null,
       };
     })
     .sort(compareOfficials);

@@ -13,8 +13,10 @@ import {
 import { getCompetition } from './competition.service.js';
 import {
   createPerson,
+  displayedOfficialImageUrl,
   getPerson,
   personDisplayName,
+  resolveMissingPersonPhotoUrls,
   resolvePersonPhotoUrl,
 } from './person.service.js';
 
@@ -26,6 +28,7 @@ const officialPersonSelect = {
   lastName: true,
   preferredName: true,
   displayName: true,
+  photoUrl: true,
 } as const;
 
 function mapOfficial(row: {
@@ -48,6 +51,7 @@ function mapOfficial(row: {
     lastName: string;
     preferredName?: string | null;
     displayName?: string | null;
+    photoUrl?: string | null;
   } | null;
 }) {
   const liveName = row.person ? personDisplayName(row.person) : '';
@@ -58,7 +62,7 @@ function mapOfficial(row: {
     // competition-time name snapshot by hand.
     name: liveName || row.name,
     role: officialRoleLabel(row.role),
-    imageUrl: row.imageUrl,
+    imageUrl: displayedOfficialImageUrl(row),
     phone: row.phone,
     email: row.email,
     displayOrder: row.displayOrder,
@@ -75,6 +79,20 @@ function mapOfficial(row: {
   };
 }
 
+/** Keep every role row for this person on the same headshot. */
+async function syncOfficialPhotosForPerson(personId: string, imageUrl: string): Promise<void> {
+  await prisma.$transaction([
+    prisma.person.update({
+      where: { id: personId },
+      data: { photoUrl: imageUrl },
+    }),
+    prisma.competitionOfficial.updateMany({
+      where: { personId },
+      data: { imageUrl },
+    }),
+  ]);
+}
+
 export async function listOfficials(competitionId: string, opts?: { publicOnly?: boolean }) {
   await getCompetition(competitionId);
   const rows = await prisma.competitionOfficial.findMany({
@@ -86,7 +104,24 @@ export async function listOfficials(competitionId: string, opts?: { publicOnly?:
       person: { select: officialPersonSelect },
     },
   });
-  return rows.map(mapOfficial).sort(compareOfficials);
+
+  // Share one headshot across every role for the same person (and backfill Person.photoUrl).
+  const linkedPeople = rows
+    .filter((row) => row.personId && row.person)
+    .map((row) => ({ id: row.personId!, photoUrl: row.person!.photoUrl }));
+  const uniquePeople = [...new Map(linkedPeople.map((p) => [p.id, p])).values()];
+  const photoByPerson = await resolveMissingPersonPhotoUrls(uniquePeople);
+
+  return rows
+    .map((row) => {
+      if (!row.personId || !row.person) return mapOfficial(row);
+      const sharedPhoto = photoByPerson.get(row.personId) ?? row.person.photoUrl;
+      return mapOfficial({
+        ...row,
+        person: { ...row.person, photoUrl: sharedPhoto },
+      });
+    })
+    .sort(compareOfficials);
 }
 
 export async function getOfficial(competitionId: string, officialId: string) {
@@ -186,6 +221,9 @@ export async function updateOfficial(
     });
   }
 
+  const nextImageUrl =
+    input.imageUrl !== undefined ? input.imageUrl?.trim() || null : undefined;
+
   const row = await prisma.competitionOfficial.update({
     where: { id: officialId },
     data: {
@@ -194,7 +232,7 @@ export async function updateOfficial(
       ...(input.competitionRole != null ? { competitionRole: input.competitionRole } : {}),
       ...(input.phone !== undefined ? { phone: input.phone?.trim() || null } : {}),
       ...(input.email !== undefined ? { email: input.email?.trim() || null } : {}),
-      ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl?.trim() || null } : {}),
+      ...(nextImageUrl !== undefined ? { imageUrl: nextImageUrl } : {}),
       ...(input.displayOrder != null ? { displayOrder: input.displayOrder } : {}),
       ...(input.isPublic != null ? { isPublic: input.isPublic } : {}),
     },
@@ -202,6 +240,12 @@ export async function updateOfficial(
       person: { select: officialPersonSelect },
     },
   });
+
+  if (nextImageUrl && existing.personId) {
+    await syncOfficialPhotosForPerson(existing.personId, nextImageUrl);
+    return getOfficial(competitionId, officialId);
+  }
+
   return mapOfficial(row);
 }
 
@@ -262,23 +306,18 @@ export async function uploadOfficialPhoto(
   const existing = await getOfficial(competitionId, officialId);
   const { url } = await uploadImageToCloudinary(file, {
     folder: `officials/${competitionId}`,
-    publicId: officialId,
-  });
-  const row = await prisma.competitionOfficial.update({
-    where: { id: officialId },
-    data: { imageUrl: url },
-    include: {
-      person: { select: officialPersonSelect },
-    },
+    publicId: existing.personId ?? officialId,
   });
 
-  // Keep Person profile photo in sync (same pattern as pilot headshots).
   if (existing.personId) {
-    await prisma.person.update({
-      where: { id: existing.personId },
-      data: { photoUrl: url },
+    // One photo for the person — every role row (Safety Director, Launch Marshal, …) shares it.
+    await syncOfficialPhotosForPerson(existing.personId, url);
+  } else {
+    await prisma.competitionOfficial.update({
+      where: { id: officialId },
+      data: { imageUrl: url },
     });
   }
 
-  return mapOfficial(row);
+  return getOfficial(competitionId, officialId);
 }

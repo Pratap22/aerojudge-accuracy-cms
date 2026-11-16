@@ -243,6 +243,18 @@ export function displayedPilotPhotoUrl(pilot: {
   return pilot.person?.photoUrl ?? pilot.photoUrl ?? null;
 }
 
+/**
+ * Display photo for a competition official role row.
+ * Person.photoUrl is shared across every role for the same person (e.g. Safety
+ * Director + Launch Marshal); the row snapshot is a fallback for unlinked rows.
+ */
+export function displayedOfficialImageUrl(official: {
+  imageUrl?: string | null;
+  person?: { photoUrl?: string | null } | null;
+}): string | null {
+  return official.person?.photoUrl ?? official.imageUrl ?? null;
+}
+
 /** Prisma select fragment when returning pilot photos publicly / to clients. */
 export const pilotPhotoWithPersonSelect = {
   photoUrl: true,
