@@ -60,6 +60,17 @@ function Stat({
   );
 }
 
+/** Registration / not yet flying — rounds and teams are noise. */
+function isPreStart(status: string): boolean {
+  return status === 'REGISTRATION';
+}
+
+function cardCta(status: string, open: boolean): string {
+  if (!open) return 'Results';
+  if (isPreStart(status)) return 'Open';
+  return 'Live';
+}
+
 /** Open + completed public competitions — latest first, near the top of the home page. */
 export function EventsSection() {
   const reduce = useReducedMotion();
@@ -134,8 +145,10 @@ export function EventsSection() {
           <Stagger as="ul" className="mt-6 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3" stagger={0.05}>
             {items.map((competition) => {
               const open = isOpenCompetition(competition.status);
+              const preStart = isPreStart(competition.status);
               const rounds = competition.completedRounds || competition.roundCount;
               const pilots = competition.pilotCount;
+              const teams = competition.teamCount;
               const hours = estimateHoursSaved(pilots, rounds);
               const href = competitionResultsHref(competition);
               const place = [competition.venue, competition.country].filter(Boolean).join(' · ');
@@ -160,7 +173,7 @@ export function EventsSection() {
                         {statusLabel(competition.status)}
                       </p>
                       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-navy/5 px-2.5 py-1 text-xs font-semibold text-navy transition-colors group-hover:bg-sky/15 group-hover:text-sky">
-                        {open ? 'Live' : 'Results'}
+                        {cardCta(competition.status, open)}
                         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
                       </span>
                     </div>
@@ -175,16 +188,46 @@ export function EventsSection() {
                       {competition.organizer}
                     </p>
 
-                    <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border/80 pt-3">
-                      <Stat icon={Target} label="Rounds" value={String(rounds)} />
-                      <Stat icon={Users} label="Pilots" value={String(pilots)} />
-                      {open ? (
-                        <Stat icon={UsersRound} label="Teams" value={String(competition.teamCount)} />
-                      ) : (
-                        <Stat icon={Clock3} label="Time saved" value={formatHoursSaved(hours)} />
-                      )}
-                    </div>
-
+                    {preStart ? (
+                      <div className="mt-auto border-t border-border/80 pt-3">
+                        {pilots > 0 ? (
+                          <div className="flex items-end justify-between gap-3">
+                            <Stat
+                              icon={Users}
+                              label="Pilots registered"
+                              value={String(pilots)}
+                            />
+                            <p className="pb-0.5 text-right text-xs text-muted-foreground">
+                              Flying has not started
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Registration open · flying has not started
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        className={`mt-auto grid gap-2 border-t border-border/80 pt-3 ${
+                          open
+                            ? teams > 0
+                              ? 'grid-cols-3'
+                              : 'grid-cols-2'
+                            : 'grid-cols-3'
+                        }`}
+                      >
+                        <Stat icon={Target} label="Rounds" value={String(rounds)} />
+                        <Stat icon={Users} label="Pilots" value={String(pilots)} />
+                        {open ? (
+                          teams > 0 ? (
+                            <Stat icon={UsersRound} label="Teams" value={String(teams)} />
+                          ) : null
+                        ) : (
+                          <Stat icon={Clock3} label="Time saved" value={formatHoursSaved(hours)} />
+                        )}
+                      </div>
+                    )}
                   </motion.a>
                 </StaggerItem>
               );
