@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -43,8 +44,8 @@ import {
 } from '@aero-judge/ui';
 import { api, apiRequest } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
-import { PageHeader } from '../components/PageHeader';
 import { RichTextEditor } from '../components/RichTextEditor';
+import { CompetitionSettingsPanel } from './SettingsPage';
 
 const GALLERY_MAX_BYTES = 8 * 1024 * 1024;
 
@@ -121,8 +122,22 @@ function sitesFromDraft(
 export function EventInfoPage() {
   const competitionId = useCompetitionId();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const section = searchParams.get('tab') === 'settings' ? 'settings' : 'brochure';
   const fileRef = useRef<HTMLInputElement>(null);
   const heroFileRef = useRef<HTMLInputElement>(null);
+
+  const setSection = (next: 'brochure' | 'settings') => {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (next === 'settings') params.set('tab', 'settings');
+        else params.delete('tab');
+        return params;
+      },
+      { replace: true },
+    );
+  };
 
   const { data: info, isLoading } = useQuery({
     queryKey: ['competition-info', competitionId],
@@ -264,19 +279,42 @@ export function EventInfoPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Event info"
-        description="Public brochure content shown on the competition info page. Empty sections are hidden."
-        actions={
-          <Button
-            onClick={() => saveMutation.mutate(draft)}
-            disabled={!dirty || saveMutation.isPending}
-          >
-            {saveMutation.isPending ? 'Saving…' : 'Save changes'}
-          </Button>
-        }
-      />
+      <div className="sticky top-14 z-20 -mx-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-8 lg:px-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold tracking-tight sm:text-xl">Event info</h1>
+            <p className="text-sm text-muted-foreground">
+              {section === 'settings'
+                ? 'Dates, rules, registration, and scoring for this competition.'
+                : 'Public brochure content. Empty sections stay hidden.'}
+            </p>
+          </div>
+          {section === 'brochure' ? (
+            <Button
+              className="w-full shrink-0 sm:w-auto"
+              onClick={() => saveMutation.mutate(draft)}
+              disabled={!dirty || saveMutation.isPending}
+            >
+              {saveMutation.isPending ? 'Saving…' : 'Save changes'}
+            </Button>
+          ) : null}
+        </div>
+      </div>
 
+      <Tabs
+        value={section}
+        onValueChange={(value) => setSection(value === 'settings' ? 'settings' : 'brochure')}
+      >
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 sm:w-auto">
+          <TabsTrigger value="brochure">Brochure</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="settings" className="mt-4">
+          {competitionId ? <CompetitionSettingsPanel competitionId={competitionId} /> : null}
+        </TabsContent>
+
+        <TabsContent value="brochure" className="mt-4 space-y-6">
       {isLoading || !info ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
@@ -545,6 +583,8 @@ export function EventInfoPage() {
           </Tabs>
         </>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

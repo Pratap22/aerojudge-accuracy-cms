@@ -19,7 +19,6 @@ import {
   Menu,
   Moon,
   Scale,
-  Settings,
   Shield,
   Sun,
   Target,
@@ -166,13 +165,6 @@ const competitionNavGroups: Array<{
     title: 'Admin',
     items: [
       { segment: 'audit', label: 'Audit log', icon: ClipboardList, end: false, anyOf: ['audit:view'] },
-      {
-        segment: 'settings',
-        label: 'Settings',
-        icon: Settings,
-        end: false,
-        anyOf: ['competition:update'],
-      },
     ],
   },
 ];

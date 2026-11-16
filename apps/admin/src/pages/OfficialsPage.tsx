@@ -8,6 +8,7 @@ import {
   officialRoleLabel,
   type CompetitionOfficial,
   type CreateOfficialInput,
+  type Gender,
   type PersonDirectoryEntry,
 } from '@aero-judge/shared';
 import {
@@ -153,11 +154,16 @@ export function OfficialsPage() {
       phone: undefined,
       email: undefined,
       isPublic: true,
+      gender: undefined,
+      civlId: undefined,
+      faiLicenseNumber: undefined,
     },
   });
 
   const isPublic = watch('isPublic');
   const nameValue = watch('name');
+  const gender = watch('gender');
+  const identityLocked = Boolean(selectedPerson);
 
   useEffect(() => {
     if (!photoFile) return undefined;
@@ -195,7 +201,14 @@ export function OfficialsPage() {
     setSelectedPerson(null);
     setDirectoryQ('');
     resetPhoto();
-    reset({ name: '', role: 'Target Judge', isPublic: true });
+    reset({
+      name: '',
+      role: 'Target Judge',
+      isPublic: true,
+      gender: undefined,
+      civlId: undefined,
+      faiLicenseNumber: undefined,
+    });
     setRoleMode('Target Judge');
   };
 
@@ -247,7 +260,17 @@ export function OfficialsPage() {
     setSelectedPerson(null);
     setDirectoryQ('');
     resetPhoto();
-    reset({ name: '', role: 'Target Judge', phone: undefined, email: undefined, isPublic: true });
+    reset({
+      name: '',
+      role: 'Target Judge',
+      phone: undefined,
+      email: undefined,
+      isPublic: true,
+      gender: undefined,
+      civlId: undefined,
+      faiLicenseNumber: undefined,
+      personId: undefined,
+    });
     setRoleMode('Target Judge');
     setFormOpen(true);
   };
@@ -280,6 +303,9 @@ export function OfficialsPage() {
     setDirectoryQ('');
     setValue('personId', person.id);
     setValue('name', `${person.firstName} ${person.lastName}`.trim());
+    setValue('gender', person.gender);
+    setValue('civlId', person.civlId ?? undefined);
+    setValue('faiLicenseNumber', person.faiLicenseNumber ?? undefined);
     if (!photoFile) {
       setPhotoPreview(person.photoUrl ?? null);
     }
@@ -288,6 +314,9 @@ export function OfficialsPage() {
   const clearSelectedPerson = () => {
     setSelectedPerson(null);
     setValue('personId', undefined);
+    setValue('gender', undefined);
+    setValue('civlId', undefined);
+    setValue('faiLicenseNumber', undefined);
     if (!photoFile) {
       setPhotoPreview(null);
     }
@@ -583,7 +612,7 @@ export function OfficialsPage() {
                 id="official-name"
                 {...register('name')}
                 placeholder="Full name"
-                disabled={!!selectedPerson}
+                disabled={identityLocked}
               />
               {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
@@ -615,6 +644,50 @@ export function OfficialsPage() {
               )}
               {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
             </div>
+            {!editing ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label>Gender</Label>
+                  <Select
+                    value={gender}
+                    onValueChange={(v) =>
+                      setValue('gender', v as Gender, { shouldValidate: true })
+                    }
+                    disabled={identityLocked}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MALE">Male</SelectItem>
+                      <SelectItem value="FEMALE">Female</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.gender ? (
+                    <p className="text-sm text-destructive">{errors.gender.message}</p>
+                  ) : null}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="official-civl">CIVL ID (optional)</Label>
+                  <Input
+                    id="official-civl"
+                    {...register('civlId')}
+                    placeholder="CIVL ID"
+                    disabled={identityLocked}
+                  />
+                </div>
+                <div className="flex flex-col gap-2 sm:col-span-2">
+                  <Label htmlFor="official-fai">FAI license (optional)</Label>
+                  <Input
+                    id="official-fai"
+                    {...register('faiLicenseNumber')}
+                    placeholder="FAI license number"
+                    disabled={identityLocked}
+                  />
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="official-phone">Phone (optional)</Label>

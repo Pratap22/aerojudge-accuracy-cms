@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RequirePermission } from './components/RequirePermission';
@@ -29,7 +29,6 @@ import { ReportsPage } from './pages/ReportsPage';
 import { ProtestsPage } from './pages/ProtestsPage';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { AuditPage } from './pages/AuditPage';
-import { SettingsPage } from './pages/SettingsPage';
 import { OrganizationsPage } from './pages/organizations/OrganizationsPage';
 import { ArchivedOrganizationsPage } from './pages/organizations/ArchivedOrganizationsPage';
 import { OrganizationDetailPage } from './pages/organizations/OrganizationDetailPage';
@@ -192,7 +191,7 @@ function CompetitionRoutes() {
         path=":organizationId/competitions/:competitionId/settings"
         element={
           <RequirePermission anyOf={['competition:update']}>
-            <SettingsPage />
+            <Navigate to="../info?tab=settings" replace relative="path" />
           </RequirePermission>
         }
       />

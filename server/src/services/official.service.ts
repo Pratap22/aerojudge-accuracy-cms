@@ -155,6 +155,9 @@ export async function createOfficial(
     const person = await createPerson({
       firstName,
       lastName,
+      gender: input.gender,
+      civlId: input.civlId,
+      faiLicenseNumber: input.faiLicenseNumber,
       email: input.email,
       phone: input.phone,
       photoUrl: input.imageUrl,

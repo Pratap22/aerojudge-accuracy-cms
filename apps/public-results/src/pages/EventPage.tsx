@@ -127,14 +127,11 @@ export function EventPage() {
 
         {section === 'info' ? (
         <section id="info" className="scroll-mt-28 py-10">
-          <h2 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">Info</h2>
-          <div className="mt-6">
-            {infoLoading ? <p className="text-sm text-muted-foreground">Loading event info…</p> : null}
-            {!infoLoading && info?.hasContent ? <CompetitionInfoSections info={info} /> : null}
-            {!infoLoading && !info?.hasContent ? (
-              <p className="text-muted-foreground">Detailed event information has not been published yet.</p>
-            ) : null}
-          </div>
+          {infoLoading ? <p className="text-sm text-muted-foreground">Loading event info…</p> : null}
+          {!infoLoading && info?.hasContent ? <CompetitionInfoSections info={info} /> : null}
+          {!infoLoading && !info?.hasContent ? (
+            <p className="text-muted-foreground">Detailed event information has not been published yet.</p>
+          ) : null}
         </section>
         ) : null}
 

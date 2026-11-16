@@ -158,18 +158,18 @@ function RegistrationLinksEditor({ competitionId }: { competitionId: string }) {
   );
 }
 
-export function SettingsPage() {
-  const activeCompetitionId = useCompetitionId();
+/** Competition dates, rules, registration, and feed — shown under Event info. */
+export function CompetitionSettingsPanel({ competitionId }: { competitionId: string }) {
   const queryClient = useQueryClient();
 
   const { data: rules, isLoading } = useQuery({
-    queryKey: ['settings', activeCompetitionId],
-    queryFn: () => api.get<RuleConfig>(`/competitions/${activeCompetitionId}/rules`),
-    enabled: !!activeCompetitionId,
+    queryKey: ['settings', competitionId],
+    queryFn: () => api.get<RuleConfig>(`/competitions/${competitionId}/rules`),
+    enabled: !!competitionId,
   });
 
   const { data: competition } = useQuery({
-    queryKey: ['competition', activeCompetitionId],
+    queryKey: ['competition', competitionId],
     queryFn: () =>
       api.get<{
         faiCategory?: string | null;
@@ -179,8 +179,8 @@ export function SettingsPage() {
           feedPublishReflights?: boolean;
           publicRegistrationEnabled?: boolean;
         } | null;
-      }>(`/competitions/${activeCompetitionId}`),
-    enabled: !!activeCompetitionId,
+      }>(`/competitions/${competitionId}`),
+    enabled: !!competitionId,
   });
   const [eventCategory, setEventCategory] = useState<'1' | '2' | 'NONE' | ''>('');
   const [windMaxAgeMinutes, setWindMaxAgeMinutes] = useState('30');
@@ -205,52 +205,52 @@ export function SettingsPage() {
 
   const categoryMutation = useMutation({
     mutationFn: (faiCategory: '1' | '2' | 'NONE') =>
-      api.patch(`/competitions/${activeCompetitionId}`, { faiCategory }),
+      api.patch(`/competitions/${competitionId}`, { faiCategory }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
+      queryClient.invalidateQueries({ queryKey: ['competition', competitionId] });
       queryClient.invalidateQueries({ queryKey: ['competitions'] });
     },
   });
 
   const feedMutation = useMutation({
     mutationFn: () =>
-      api.put(`/competitions/${activeCompetitionId}/rules`, {
+      api.put(`/competitions/${competitionId}/rules`, {
         feedPublishScores,
         feedPublishReflights,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
-      queryClient.invalidateQueries({ queryKey: ['event-feed', activeCompetitionId] });
+      queryClient.invalidateQueries({ queryKey: ['competition', competitionId] });
+      queryClient.invalidateQueries({ queryKey: ['event-feed', competitionId] });
     },
   });
 
   const registrationMutation = useMutation({
     mutationFn: () =>
-      api.put(`/competitions/${activeCompetitionId}/rules`, {
+      api.put(`/competitions/${competitionId}/rules`, {
         publicRegistrationEnabled,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
+      queryClient.invalidateQueries({ queryKey: ['competition', competitionId] });
     },
   });
 
   const windMutation = useMutation({
     mutationFn: (minutes: number) =>
-      api.put(`/competitions/${activeCompetitionId}/rules`, {
+      api.put(`/competitions/${competitionId}/rules`, {
         windDisplayMaxAgeMinutes: minutes,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['competition', activeCompetitionId] });
+      queryClient.invalidateQueries({ queryKey: ['competition', competitionId] });
     },
   });
 
   const { data: rounds = [] } = useQuery({
-    queryKey: ['rounds', activeCompetitionId],
+    queryKey: ['rounds', competitionId],
     queryFn: () =>
       api.get<Array<{ type: string; status: string; startedAt?: string | null }>>(
-        `/competitions/${activeCompetitionId}/rounds`,
+        `/competitions/${competitionId}/rounds`,
       ),
-    enabled: !!activeCompetitionId,
+    enabled: !!competitionId,
   });
   const maximumScoreLocked = rounds.some(
     (round) =>
@@ -267,20 +267,9 @@ export function SettingsPage() {
 
   const saveMutation = useMutation({
     mutationFn: (data: RuleConfig) =>
-      api.put<RuleConfig>(`/competitions/${activeCompetitionId}/rules`, data),
+      api.put<RuleConfig>(`/competitions/${competitionId}/rules`, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings'] }),
   });
-
-  if (!activeCompetitionId) {
-    return (
-      <p className="text-muted-foreground">
-        <Link to="/competitions" className="text-primary underline">
-          Open a competition
-        </Link>{' '}
-        from the Competitions list.
-      </p>
-    );
-  }
 
   if (isLoading) {
     return <p className="text-muted-foreground">Loading settings…</p>;
@@ -288,11 +277,6 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Competition dates, rules, and scoring configuration</p>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -304,7 +288,7 @@ export function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CompetitionDatesForm competitionId={activeCompetitionId} />
+          <CompetitionDatesForm competitionId={competitionId} />
         </CardContent>
       </Card>
 
@@ -391,7 +375,7 @@ export function SettingsPage() {
               Could not save the registration setting.
             </p>
           ) : null}
-          <RegistrationLinksEditor competitionId={activeCompetitionId} />
+          <RegistrationLinksEditor competitionId={competitionId} />
         </CardContent>
       </Card>
 
@@ -631,4 +615,20 @@ export function SettingsPage() {
       </form>
     </div>
   );
+}
+
+/** @deprecated Prefer Event info → Settings tab. Kept for deep-link redirects. */
+export function SettingsPage() {
+  const competitionId = useCompetitionId();
+  if (!competitionId) {
+    return (
+      <p className="text-muted-foreground">
+        <Link to="/competitions" className="text-primary underline">
+          Open a competition
+        </Link>{' '}
+        from the Competitions list.
+      </p>
+    );
+  }
+  return <CompetitionSettingsPanel competitionId={competitionId} />;
 }

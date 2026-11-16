@@ -623,6 +623,10 @@ export const createOfficialBaseSchema = z.object({
   role: z.string().min(1).max(120),
   /** Reuse existing Person from the directory. */
   personId: optionalString,
+  /** Required when creating a new Person (not linking an existing one). */
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  civlId: optionalString,
+  faiLicenseNumber: optionalString,
   competitionRole: z
     .enum([
       'PILOT',
@@ -658,6 +662,13 @@ export const createOfficialSchema = createOfficialBaseSchema.superRefine((val, c
       code: z.ZodIssueCode.custom,
       message: 'Name is required',
       path: ['name'],
+    });
+  }
+  if (!val.personId && !val.gender) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Select a gender',
+      path: ['gender'],
     });
   }
 });
