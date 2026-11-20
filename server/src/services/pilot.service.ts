@@ -828,6 +828,11 @@ export async function exportPilotsCsv(competitionId: string): Promise<string> {
       'nationality',
       'club',
       'glider',
+      'wingBrand',
+      'wingColor',
+      'harness',
+      'helmet',
+      'reserve',
       'civlId',
       'notes',
       'faiLicense',
@@ -841,6 +846,11 @@ export async function exportPilotsCsv(competitionId: string): Promise<string> {
       displayCountryCode(p.country, p.nationality),
       p.club ?? '',
       p.glider ?? '',
+      p.wingBrand ?? '',
+      p.wingColor ?? '',
+      p.harness ?? '',
+      p.helmet ?? '',
+      p.reserve ?? '',
       p.civlId ?? '',
       p.notes ?? '',
       p.faiLicense ?? '',
@@ -918,6 +928,11 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
     const aeroJudgeId = col(cols, 'aerojudgeid', 'ajid');
     const club = col(cols, 'club', 'team');
     const glider = col(cols, 'glider');
+    const wingBrand = col(cols, 'wingbrand', 'wingmanufacturer');
+    const wingColor = col(cols, 'wingcolor', 'colorofwing');
+    const harness = col(cols, 'harness');
+    const helmet = col(cols, 'helmet');
+    const reserve = col(cols, 'reserve', 'reserveparachute');
     const notes = col(cols, 'notes', 'serialno', 'serial');
     // Spreadsheet imports (CIVL entry lists) stay pending unless the file sets a status.
     const statusRaw = (col(cols, 'status') ?? 'REGISTERED').toUpperCase();
@@ -974,6 +989,11 @@ export async function importPilotsFromCsv(competitionId: string, csvContent: str
         civlId,
         club,
         glider,
+        wingBrand,
+        wingColor,
+        harness,
+        helmet,
+        reserve,
         notes,
         isWomen: gender === 'FEMALE',
         personId,

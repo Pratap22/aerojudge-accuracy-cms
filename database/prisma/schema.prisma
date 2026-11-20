@@ -757,7 +757,13 @@ model Pilot {
   photoUrl         String?
   glider           String?
   gliderSize       String?
+  /// Wing manufacturer (e.g. Ozone) — separate from model in `glider`.
+  wingBrand        String?
+  wingColor        String?
   harness          String?
+  helmet           String?
+  /// Reserve parachute make/model.
+  reserve          String?
   reserveStatus    String?
   /// Sensitive — competition-scoped only; not stored on global Person.
   emergencyContact String?

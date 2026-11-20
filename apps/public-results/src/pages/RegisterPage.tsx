@@ -29,7 +29,11 @@ type AuthMode = 'login' | 'signup';
 type CompetitionRegistrationForm = {
   club: string;
   glider: string;
+  wingBrand: string;
+  wingColor: string;
   harness: string;
+  helmet: string;
+  reserve: string;
   emergencyContact: string;
   emergencyPhone: string;
   dateOfBirth: string;
@@ -44,7 +48,11 @@ type CompetitionRegistrationForm = {
 const competitionFieldsEmpty: CompetitionRegistrationForm = {
   club: '',
   glider: '',
+  wingBrand: '',
+  wingColor: '',
   harness: '',
+  helmet: '',
+  reserve: '',
   emergencyContact: '',
   emergencyPhone: '',
   dateOfBirth: '',
@@ -248,7 +256,11 @@ export function RegisterPage() {
     const payload: AuthenticatedPilotRegistrationInput = {
       club: form.club || undefined,
       glider: form.glider || undefined,
+      wingBrand: form.wingBrand || undefined,
+      wingColor: form.wingColor || undefined,
       harness: form.harness || undefined,
+      helmet: form.helmet || undefined,
+      reserve: form.reserve || undefined,
       emergencyContact: form.emergencyContact || undefined,
       emergencyPhone: form.emergencyPhone || undefined,
       dateOfBirth: form.dateOfBirth || undefined,
@@ -705,10 +717,42 @@ export function RegisterPage() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label className="text-foreground">Wing brand</Label>
+                  <Input
+                    value={form.wingBrand}
+                    onChange={(e) => setForm((f) => ({ ...f, wingBrand: e.target.value }))}
+                    className="border-border bg-card text-foreground"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-foreground">Color of wing</Label>
+                  <Input
+                    value={form.wingColor}
+                    onChange={(e) => setForm((f) => ({ ...f, wingColor: e.target.value }))}
+                    className="border-border bg-card text-foreground"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label className="text-foreground">Harness</Label>
                   <Input
                     value={form.harness}
                     onChange={(e) => setForm((f) => ({ ...f, harness: e.target.value }))}
+                    className="border-border bg-card text-foreground"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-foreground">Helmet</Label>
+                  <Input
+                    value={form.helmet}
+                    onChange={(e) => setForm((f) => ({ ...f, helmet: e.target.value }))}
+                    className="border-border bg-card text-foreground"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-foreground">Reserve</Label>
+                  <Input
+                    value={form.reserve}
+                    onChange={(e) => setForm((f) => ({ ...f, reserve: e.target.value }))}
                     className="border-border bg-card text-foreground"
                   />
                 </div>

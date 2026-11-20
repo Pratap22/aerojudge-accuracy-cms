@@ -1503,7 +1503,11 @@ export async function registerPublicPilot(
     club?: string;
     dateOfBirth?: string | Date;
     glider?: string;
+    wingBrand?: string;
+    wingColor?: string;
     harness?: string;
+    helmet?: string;
+    reserve?: string;
     emergencyContact?: string;
     emergencyPhone?: string;
   },
@@ -1520,7 +1524,11 @@ export async function registerPublicPilot(
     club: input.club,
     dateOfBirth: input.dateOfBirth,
     glider: input.glider,
+    wingBrand: input.wingBrand,
+    wingColor: input.wingColor,
     harness: input.harness,
+    helmet: input.helmet,
+    reserve: input.reserve,
     emergencyContact: input.emergencyContact,
     emergencyPhone: input.emergencyPhone,
   });
@@ -1536,7 +1544,11 @@ export async function registerAuthenticatedPilot(
   input: {
     club?: string;
     glider?: string;
+    wingBrand?: string;
+    wingColor?: string;
     harness?: string;
+    helmet?: string;
+    reserve?: string;
     emergencyContact?: string;
     emergencyPhone?: string;
     firstName?: string;
@@ -1631,7 +1643,11 @@ export async function registerAuthenticatedPilot(
     club: input.club,
     dateOfBirth: input.dateOfBirth ?? person.dateOfBirth ?? undefined,
     glider: input.glider,
+    wingBrand: input.wingBrand,
+    wingColor: input.wingColor,
     harness: input.harness,
+    helmet: input.helmet,
+    reserve: input.reserve,
     emergencyContact: input.emergencyContact,
     emergencyPhone: input.emergencyPhone,
   });
@@ -1652,7 +1668,11 @@ async function enrollPilotInCompetition(
     club?: string;
     dateOfBirth?: string | Date | null;
     glider?: string;
+    wingBrand?: string;
+    wingColor?: string;
     harness?: string;
+    helmet?: string;
+    reserve?: string;
     emergencyContact?: string;
     emergencyPhone?: string;
   },
@@ -1736,7 +1756,11 @@ async function enrollPilotInCompetition(
     club: input.club ?? null,
     dateOfBirth: dateOfBirth ?? null,
     glider: input.glider ?? null,
+    wingBrand: input.wingBrand ?? null,
+    wingColor: input.wingColor ?? null,
     harness: input.harness ?? null,
+    helmet: input.helmet ?? null,
+    reserve: input.reserve ?? null,
     emergencyContact: input.emergencyContact ?? null,
     emergencyPhone: input.emergencyPhone ?? null,
     status: 'REGISTERED',

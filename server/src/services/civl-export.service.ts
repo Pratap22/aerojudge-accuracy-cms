@@ -32,6 +32,7 @@ interface PilotIdentity {
   nationality: string | null;
   civlId: string | null;
   glider: string | null;
+  wingBrand: string | null;
   harness: string | null;
   club: string | null;
   country: { code: string } | null;
@@ -73,7 +74,7 @@ function pilotFields(pilot: PilotIdentity): CivlPilotFields {
     lastName: pilot.lastName.trim(),
     nat: civlNationCode(pilot.country?.code ?? pilot.nationality),
     gender: civlGender(pilot.gender),
-    wingManufacturer: '',
+    wingManufacturer: pilot.wingBrand?.trim() ?? '',
     wingModel: pilot.glider?.trim() ?? '',
     pgCertification: '',
     harnessManufacturer: '',

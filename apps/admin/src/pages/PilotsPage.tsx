@@ -13,6 +13,9 @@ import {
 } from '@aero-judge/shared';
 import { displayCountryCode, padPilotNumber } from '@aero-judge/utils';
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Check,
   Clock,
   Download,
@@ -72,6 +75,12 @@ interface Pilot {
   club?: string | null;
   civlId?: string | null;
   countryId?: string | null;
+  glider?: string | null;
+  wingBrand?: string | null;
+  wingColor?: string | null;
+  harness?: string | null;
+  helmet?: string | null;
+  reserve?: string | null;
   personId?: string | null;
   photoUrl?: string | null;
   person?: { id: string; aeroJudgeId: string; civlId?: string | null } | null;
@@ -162,7 +171,47 @@ function toFormValues(pilot: Pilot): CreatePilotInput {
     club: pilot.club ?? undefined,
     civlId: pilot.civlId ?? undefined,
     countryId: pilot.countryId ?? undefined,
+    glider: pilot.glider ?? undefined,
+    wingBrand: pilot.wingBrand ?? undefined,
+    wingColor: pilot.wingColor ?? undefined,
+    harness: pilot.harness ?? undefined,
+    helmet: pilot.helmet ?? undefined,
+    reserve: pilot.reserve ?? undefined,
   };
+}
+
+type PilotSortKey = 'name' | 'id';
+type PilotSortDir = 'asc' | 'desc';
+
+function pilotSortName(pilot: Pilot): string {
+  return `${pilot.lastName} ${pilot.firstName}`.trim().toLocaleLowerCase();
+}
+
+function pilotSortIdValue(pilot: Pilot): number | null {
+  const raw = pilot.person?.aeroJudgeId?.trim();
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  return Number(raw);
+}
+
+function comparePilots(a: Pilot, b: Pilot, key: PilotSortKey, dir: PilotSortDir): number {
+  let cmp = 0;
+  if (key === 'name') {
+    cmp = pilotSortName(a).localeCompare(pilotSortName(b), undefined, { sensitivity: 'base' });
+  } else {
+    const an = pilotSortIdValue(a);
+    const bn = pilotSortIdValue(b);
+    if (an == null && bn == null) {
+      cmp = (a.person?.aeroJudgeId ?? '').localeCompare(b.person?.aeroJudgeId ?? '');
+    } else if (an == null) {
+      cmp = 1;
+    } else if (bn == null) {
+      cmp = -1;
+    } else {
+      cmp = an - bn;
+    }
+  }
+  if (cmp === 0) cmp = a.id.localeCompare(b.id);
+  return dir === 'asc' ? cmp : -cmp;
 }
 
 export function PilotsPage() {
@@ -170,6 +219,8 @@ export function PilotsPage() {
   const organizationId = useRouteOrganizationId();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [sortKey, setSortKey] = useState<PilotSortKey>('name');
+  const [sortDir, setSortDir] = useState<PilotSortDir>('asc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -269,12 +320,25 @@ export function PilotsPage() {
     enabled: !!activeCompetitionId,
   });
 
-  const displayedPilots =
-    statusFilter === 'OTHER'
-      ? pilots?.filter((p) =>
-          ['CHECKED_IN', 'WITHDRAWN', 'DISQUALIFIED', 'DNS'].includes(p.status),
-        )
-      : pilots;
+  const displayedPilots = useMemo(() => {
+    const filtered =
+      statusFilter === 'OTHER'
+        ? pilots?.filter((p) =>
+            ['CHECKED_IN', 'WITHDRAWN', 'DISQUALIFIED', 'DNS'].includes(p.status),
+          )
+        : pilots;
+    if (!filtered) return filtered;
+    return [...filtered].sort((a, b) => comparePilots(a, b, sortKey, sortDir));
+  }, [pilots, statusFilter, sortKey, sortDir]);
+
+  const toggleSort = (key: PilotSortKey) => {
+    if (sortKey === key) {
+      setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir('asc');
+  };
 
   const selectedPilots = useMemo(
     () => (displayedPilots ?? []).filter((pilot) => selectedIds.has(pilot.id)),
@@ -792,8 +856,52 @@ export function PilotsPage() {
                 />
               </TableHead>
               <TableHead>#</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>ID</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                  onClick={() => toggleSort('name')}
+                  aria-label={
+                    sortKey === 'name'
+                      ? `Sort by name, currently ${sortDir === 'asc' ? 'ascending' : 'descending'}`
+                      : 'Sort by name'
+                  }
+                >
+                  Name
+                  {sortKey === 'name' ? (
+                    sortDir === 'asc' ? (
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                  onClick={() => toggleSort('id')}
+                  aria-label={
+                    sortKey === 'id'
+                      ? `Sort by pilot ID, currently ${sortDir === 'asc' ? 'ascending' : 'descending'}`
+                      : 'Sort by pilot ID'
+                  }
+                >
+                  ID
+                  {sortKey === 'id' ? (
+                    sortDir === 'asc' ? (
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead>CIVL ID</TableHead>
               <TableHead>Gender</TableHead>
               <TableHead>Country</TableHead>
@@ -996,20 +1104,33 @@ export function PilotsPage() {
                                   type="button"
                                   disabled={p.alreadyRegistered}
                                   className={cn(
-                                    'flex w-full flex-col items-start px-3 py-2.5 text-left text-sm',
+                                    'flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm',
                                     p.alreadyRegistered
                                       ? 'cursor-not-allowed opacity-60'
                                       : 'hover:bg-muted',
                                   )}
                                   onClick={() => selectPerson(p)}
                                 >
-                                  <span className="font-medium">
-                                    {p.firstName} {p.lastName}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {p.alreadyRegistered
-                                      ? 'Already in this competition'
-                                      : `${p.aeroJudgeId}${p.civlId ? ` · CIVL ${p.civlId}` : ''}${p.nationalityCountry?.code ? ` · ${p.nationalityCountry.code}` : ''}`}
+                                  {p.photoUrl ? (
+                                    <img
+                                      src={p.photoUrl}
+                                      alt=""
+                                      className="h-8 w-8 shrink-0 rounded-full object-cover object-top ring-1 ring-border"
+                                    />
+                                  ) : (
+                                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                                      {(p.firstName[0] ?? '').toUpperCase()}
+                                    </span>
+                                  )}
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block font-medium">
+                                      {p.firstName} {p.lastName}
+                                    </span>
+                                    <span className="block text-xs text-muted-foreground">
+                                      {p.alreadyRegistered
+                                        ? 'Already in this competition'
+                                        : `${p.aeroJudgeId}${p.civlId ? ` · CIVL ${p.civlId}` : ''}${p.nationalityCountry?.code ? ` · ${p.nationalityCountry.code}` : ''}`}
+                                    </span>
                                   </span>
                                 </button>
                               </li>
@@ -1099,6 +1220,31 @@ export function PilotsPage() {
                 <div className="flex flex-col gap-2">
                   <Label>Glider</Label>
                   <Input {...register('glider')} />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Wing brand</Label>
+                  <Input {...register('wingBrand')} />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Color of wing</Label>
+                  <Input {...register('wingColor')} />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Harness</Label>
+                  <Input {...register('harness')} />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Helmet</Label>
+                  <Input {...register('helmet')} />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Reserve</Label>
+                  <Input {...register('reserve')} />
                 </div>
 
                 <div className="flex flex-col gap-2 sm:col-span-2">
