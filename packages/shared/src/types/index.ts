@@ -435,6 +435,9 @@ export interface CompetitionOfficial {
   isPublic: boolean;
   personId?: string | null;
   competitionRole?: string | null;
+  gender?: Gender | null;
+  civlId?: string | null;
+  faiLicenseNumber?: string | null;
   person?: { id: string; aeroJudgeId: string; name: string } | null;
 }
 

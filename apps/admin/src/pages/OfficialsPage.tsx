@@ -89,7 +89,8 @@ function Avatar({
   imageUrl?: string | null;
   size?: 'sm' | 'md' | 'lg';
 }) {
-  const dim = size === 'lg' ? 'h-20 w-20 text-lg' : size === 'sm' ? 'h-9 w-9 text-xs' : 'h-11 w-11 text-sm';
+  const dim =
+    size === 'lg' ? 'h-20 w-20 text-lg' : size === 'sm' ? 'h-9 w-9 text-xs' : 'h-11 w-11 text-sm';
   if (imageUrl) {
     return (
       <img
@@ -132,9 +133,8 @@ export function OfficialsPage() {
 
   const { data: directoryHits = [] } = useQuery({
     queryKey: ['people-directory-officials', directoryQ],
-    queryFn: () =>
-      api.get<PersonDirectoryEntry[]>('/people', { q: directoryQ, pageSize: 8 }),
-    enabled: formOpen && !editing && directoryQ.trim().length >= 2,
+    queryFn: () => api.get<PersonDirectoryEntry[]>('/people', { q: directoryQ, pageSize: 8 }),
+    enabled: formOpen && directoryQ.trim().length >= 2,
     // Always refetch — a person created moments ago for another role must appear.
     staleTime: 0,
   });
@@ -225,18 +225,15 @@ export function OfficialsPage() {
           data,
         );
       } else {
-        official = await api.post<CompetitionOfficial>(
-          `/competitions/${competitionId}/officials`,
-          {
-            ...data,
-            personId: selectedPerson?.id ?? data.personId,
-            name:
-              data.name ||
-              (selectedPerson
-                ? `${selectedPerson.firstName} ${selectedPerson.lastName}`.trim()
-                : undefined),
-          },
-        );
+        official = await api.post<CompetitionOfficial>(`/competitions/${competitionId}/officials`, {
+          ...data,
+          personId: selectedPerson?.id ?? data.personId,
+          name:
+            data.name ||
+            (selectedPerson
+              ? `${selectedPerson.firstName} ${selectedPerson.lastName}`.trim()
+              : undefined),
+        });
       }
 
       if (photoFile) {
@@ -294,6 +291,10 @@ export function OfficialsPage() {
       phone: official.phone ?? undefined,
       email: official.email ?? undefined,
       isPublic: official.isPublic,
+      gender: official.gender ?? undefined,
+      civlId: official.civlId ?? undefined,
+      faiLicenseNumber: official.faiLicenseNumber ?? undefined,
+      personId: official.personId ?? undefined,
     });
     setFormOpen(true);
   };
@@ -351,8 +352,8 @@ export function OfficialsPage() {
         <div className="max-w-2xl">
           <h1 className="text-2xl font-bold tracking-tight">Officials &amp; judges</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage event staff shown on the public results site. Add or change photos in the form when
-            creating or editing.
+            Manage event staff shown on the public results site. Add or change photos in the form
+            when creating or editing.
           </p>
         </div>
         <Button onClick={openCreate}>
@@ -565,47 +566,45 @@ export function OfficialsPage() {
               )}
             </div>
 
-            {!editing && (
-              <div className="relative z-20 space-y-2">
-                <Label>Find returning person</Label>
-                {selectedPerson ? (
-                  <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-sm">
-                    <span className="flex items-center gap-2">
-                      <UserCheck className="h-4 w-4 shrink-0 text-primary" />
-                      {selectedPerson.firstName} {selectedPerson.lastName} ·{' '}
-                      {selectedPerson.aeroJudgeId}
-                    </span>
-                    <Button type="button" variant="ghost" size="icon" onClick={clearSelectedPerson}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Input
-                      placeholder="Name, CIVL ID, or AeroJudge ID"
-                      value={directoryQ}
-                      onChange={(e) => setDirectoryQ(e.target.value)}
-                      autoComplete="off"
-                    />
-                    {directoryHits.length > 0 && (
-                      <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md">
-                        {directoryHits.map((p) => (
-                          <li key={p.id} className="border-b border-border/40 last:border-0">
-                            <button
-                              type="button"
-                              className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted"
-                              onClick={() => selectPerson(p)}
-                            >
-                              {p.firstName} {p.lastName} · {p.aeroJudgeId}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="relative z-20 space-y-2">
+              <Label>Find returning person</Label>
+              {selectedPerson ? (
+                <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                  <span className="flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 shrink-0 text-primary" />
+                    {selectedPerson.firstName} {selectedPerson.lastName} ·{' '}
+                    {selectedPerson.aeroJudgeId}
+                  </span>
+                  <Button type="button" variant="ghost" size="icon" onClick={clearSelectedPerson}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Input
+                    placeholder="Name, CIVL ID, or AeroJudge ID"
+                    value={directoryQ}
+                    onChange={(e) => setDirectoryQ(e.target.value)}
+                    autoComplete="off"
+                  />
+                  {directoryHits.length > 0 && (
+                    <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md">
+                      {directoryHits.map((p) => (
+                        <li key={p.id} className="border-b border-border/40 last:border-0">
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted"
+                            onClick={() => selectPerson(p)}
+                          >
+                            {p.firstName} {p.lastName} · {p.aeroJudgeId}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="official-name">Name</Label>
               <Input
@@ -644,50 +643,46 @@ export function OfficialsPage() {
               )}
               {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
             </div>
-            {!editing ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  <Label>Gender</Label>
-                  <Select
-                    value={gender}
-                    onValueChange={(v) =>
-                      setValue('gender', v as Gender, { shouldValidate: true })
-                    }
-                    disabled={identityLocked}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MALE">Male</SelectItem>
-                      <SelectItem value="FEMALE">Female</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.gender ? (
-                    <p className="text-sm text-destructive">{errors.gender.message}</p>
-                  ) : null}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="official-civl">CIVL ID (optional)</Label>
-                  <Input
-                    id="official-civl"
-                    {...register('civlId')}
-                    placeholder="CIVL ID"
-                    disabled={identityLocked}
-                  />
-                </div>
-                <div className="flex flex-col gap-2 sm:col-span-2">
-                  <Label htmlFor="official-fai">FAI license (optional)</Label>
-                  <Input
-                    id="official-fai"
-                    {...register('faiLicenseNumber')}
-                    placeholder="FAI license number"
-                    disabled={identityLocked}
-                  />
-                </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label>Gender</Label>
+                <Select
+                  value={gender}
+                  onValueChange={(v) => setValue('gender', v as Gender, { shouldValidate: true })}
+                  disabled={identityLocked}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MALE">Male</SelectItem>
+                    <SelectItem value="FEMALE">Female</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.gender ? (
+                  <p className="text-sm text-destructive">{errors.gender.message}</p>
+                ) : null}
               </div>
-            ) : null}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="official-civl">CIVL ID (optional)</Label>
+                <Input
+                  id="official-civl"
+                  {...register('civlId')}
+                  placeholder="CIVL ID"
+                  disabled={identityLocked}
+                />
+              </div>
+              <div className="flex flex-col gap-2 sm:col-span-2">
+                <Label htmlFor="official-fai">FAI license (optional)</Label>
+                <Input
+                  id="official-fai"
+                  {...register('faiLicenseNumber')}
+                  placeholder="FAI license number"
+                  disabled={identityLocked}
+                />
+              </div>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="official-phone">Phone (optional)</Label>

@@ -29,7 +29,15 @@ const officialPersonSelect = {
   preferredName: true,
   displayName: true,
   photoUrl: true,
+  gender: true,
+  civlId: true,
+  faiLicenseNumber: true,
 } as const;
+
+function emptyToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
 
 function mapOfficial(row: {
   id: string;
@@ -52,6 +60,9 @@ function mapOfficial(row: {
     preferredName?: string | null;
     displayName?: string | null;
     photoUrl?: string | null;
+    gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+    civlId?: string | null;
+    faiLicenseNumber?: string | null;
   } | null;
 }) {
   const liveName = row.person ? personDisplayName(row.person) : '';
@@ -69,6 +80,9 @@ function mapOfficial(row: {
     isPublic: row.isPublic,
     personId: row.personId ?? null,
     competitionRole: row.competitionRole ?? null,
+    gender: row.person?.gender ?? null,
+    civlId: row.person?.civlId ?? null,
+    faiLicenseNumber: row.person?.faiLicenseNumber ?? null,
     person: row.person
       ? {
           id: row.person.id,
@@ -208,20 +222,57 @@ export async function updateOfficial(
 ) {
   const existing = await prisma.competitionOfficial.findFirst({
     where: { id: officialId, competitionId },
-    select: { id: true, personId: true },
   });
   if (!existing) throw AppError.notFound('Official not found');
 
+  const nextPersonId = input.personId?.trim() || existing.personId;
+  if (nextPersonId && nextPersonId !== existing.personId) {
+    await getPerson(nextPersonId);
+  }
+
+  const roleLabel = input.role?.trim();
+  const roleLabelChanged = Boolean(roleLabel && roleLabel !== existing.role);
+  const nextRole =
+    input.competitionRole ??
+    (roleLabelChanged && roleLabel ? mapOfficialLabelToRole(roleLabel) : existing.competitionRole);
   const nextName = input.name?.trim();
-  if (nextName && existing.personId) {
-    const parts = nextName.split(/\s+/).filter(Boolean);
+
+  if (nextPersonId) {
+    const parts = nextName?.split(/\s+/).filter(Boolean);
     await prisma.person.update({
-      where: { id: existing.personId },
+      where: { id: nextPersonId },
       data: {
-        firstName: parts[0] || 'Unknown',
-        lastName: parts.slice(1).join(' ') || '-',
+        ...(parts
+          ? {
+              firstName: parts[0] || 'Unknown',
+              lastName: parts.slice(1).join(' ') || '-',
+            }
+          : {}),
+        ...(input.gender ? { gender: input.gender } : {}),
+        ...(input.civlId !== undefined ? { civlId: emptyToNull(input.civlId) } : {}),
+        ...(input.faiLicenseNumber !== undefined
+          ? { faiLicenseNumber: emptyToNull(input.faiLicenseNumber) }
+          : {}),
+        ...(input.phone !== undefined ? { phone: emptyToNull(input.phone) } : {}),
+        ...(input.email !== undefined ? { email: emptyToNull(input.email) } : {}),
       },
     });
+  }
+
+  const personChanged = Boolean(nextPersonId && nextPersonId !== existing.personId);
+  const roleChanged = Boolean(nextRole && nextRole !== existing.competitionRole);
+  let participantId = existing.competitionParticipantId;
+  if (nextPersonId && nextRole && (personChanged || roleChanged)) {
+    const participant = await getOrCreateParticipant(competitionId, nextPersonId);
+    await assignCompetitionRole(competitionId, nextPersonId, nextRole);
+    participantId = participant.id;
+    if (existing.personId && existing.competitionRole) {
+      try {
+        await removeCompetitionRole(competitionId, existing.personId, existing.competitionRole);
+      } catch {
+        // The previous role row may already be gone.
+      }
+    }
   }
 
   const nextImageUrl =
@@ -230,11 +281,14 @@ export async function updateOfficial(
   const row = await prisma.competitionOfficial.update({
     where: { id: officialId },
     data: {
-      ...(nextName != null ? { name: nextName } : {}),
-      ...(input.role != null ? { role: input.role.trim() } : {}),
-      ...(input.competitionRole != null ? { competitionRole: input.competitionRole } : {}),
-      ...(input.phone !== undefined ? { phone: input.phone?.trim() || null } : {}),
-      ...(input.email !== undefined ? { email: input.email?.trim() || null } : {}),
+      ...(personChanged && nextPersonId
+        ? { personId: nextPersonId, competitionParticipantId: participantId }
+        : {}),
+      ...(nextName ? { name: nextName } : {}),
+      ...(roleLabel ? { role: roleLabel } : {}),
+      ...(roleChanged && nextRole ? { competitionRole: nextRole } : {}),
+      ...(input.phone !== undefined ? { phone: emptyToNull(input.phone) } : {}),
+      ...(input.email !== undefined ? { email: emptyToNull(input.email) } : {}),
       ...(nextImageUrl !== undefined ? { imageUrl: nextImageUrl } : {}),
       ...(input.displayOrder != null ? { displayOrder: input.displayOrder } : {}),
       ...(input.isPublic != null ? { isPublic: input.isPublic } : {}),
@@ -244,8 +298,9 @@ export async function updateOfficial(
     },
   });
 
-  if (nextImageUrl && existing.personId) {
-    await syncOfficialPhotosForPerson(existing.personId, nextImageUrl);
+  const photoPersonId = nextPersonId ?? existing.personId;
+  if (nextImageUrl && photoPersonId) {
+    await syncOfficialPhotosForPerson(photoPersonId, nextImageUrl);
     return getOfficial(competitionId, officialId);
   }
 
