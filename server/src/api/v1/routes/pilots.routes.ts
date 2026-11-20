@@ -37,6 +37,7 @@ router.put('/:pilotId', requirePermission('pilot:manage'), ...ctrl.update);
 router.patch('/:pilotId/status', requirePermission('pilot:manage'), ...ctrl.updateStatus);
 router.post('/:pilotId/accept', requirePermission('pilot:manage'), ...ctrl.accept);
 router.post('/:pilotId/reject', requirePermission('pilot:manage'), ...ctrl.reject);
+router.post('/:pilotId/pending', requirePermission('pilot:manage'), ...ctrl.pending);
 router.delete('/:pilotId', requirePermission('pilot:manage'), ...ctrl.remove);
 
 export default router;

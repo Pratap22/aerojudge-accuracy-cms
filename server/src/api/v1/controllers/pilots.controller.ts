@@ -175,6 +175,22 @@ export const reject = [
   }),
 ];
 
+export const pending = [
+  validateParams(pilotParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const pilot = await pilotService.pendingPilot(req.params.competitionId, req.params.pilotId);
+    await writeAuditLog({
+      ...auditFromRequest(req),
+      competitionId: req.params.competitionId,
+      action: 'UPDATE',
+      entityType: 'Pilot',
+      entityId: pilot.id,
+      after: { status: pilot.status, decision: 'PENDING' },
+    });
+    sendSuccess(res, pilot);
+  }),
+];
+
 export const remove = [
   validateParams(pilotParams),
   asyncHandler(async (req: Request, res: Response) => {

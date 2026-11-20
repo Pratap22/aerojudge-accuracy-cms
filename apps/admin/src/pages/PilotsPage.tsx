@@ -14,6 +14,7 @@ import {
 import { displayCountryCode, padPilotNumber } from '@aero-judge/utils';
 import {
   Check,
+  Clock,
   Download,
   ExternalLink,
   ImagePlus,
@@ -134,6 +135,10 @@ function canAcceptStatus(status: PilotStatus): boolean {
 
 function canRejectStatus(status: PilotStatus): boolean {
   return status === 'REGISTERED' || status === 'CONFIRMED';
+}
+
+function canPendingStatus(status: PilotStatus): boolean {
+  return status === 'CONFIRMED' || status === 'REJECTED' || status === 'CHECKED_IN';
 }
 
 function statusLabel(status: PilotStatus): string {
@@ -277,6 +282,9 @@ export function PilotsPage() {
   );
   const acceptIds = selectedPilots.filter((pilot) => canAcceptStatus(pilot.status)).map((p) => p.id);
   const rejectIds = selectedPilots.filter((pilot) => canRejectStatus(pilot.status)).map((p) => p.id);
+  const pendingIds = selectedPilots
+    .filter((pilot) => canPendingStatus(pilot.status))
+    .map((p) => p.id);
   const allVisibleSelected =
     (displayedPilots?.length ?? 0) > 0 &&
     displayedPilots!.every((pilot) => selectedIds.has(pilot.id));
@@ -303,11 +311,17 @@ export function PilotsPage() {
     });
   };
 
-  const runBulk = (action: 'accept' | 'reject' | 'remove', pilotIds: string[]) => {
+  const runBulk = (action: 'accept' | 'reject' | 'pending' | 'remove', pilotIds: string[]) => {
     if (!pilotIds.length || bulkMutation.isPending) return;
     if (action === 'reject') {
       const ok = window.confirm(
         `Reject ${pilotIds.length} pilot(s)? They stay on this list as Rejected and are left out of the flight order, public roster, and rankings.`,
+      );
+      if (!ok) return;
+    }
+    if (action === 'pending') {
+      const ok = window.confirm(
+        `Move ${pilotIds.length} pilot(s) back to Pending? They leave the flight order, public roster, and rankings until accepted again.`,
       );
       if (!ok) return;
     }
@@ -404,8 +418,13 @@ export function PilotsPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ pilotId, action }: { pilotId: string; action: 'accept' | 'reject' }) =>
-      api.post<Pilot>(`/competitions/${activeCompetitionId}/pilots/${pilotId}/${action}`),
+    mutationFn: ({
+      pilotId,
+      action,
+    }: {
+      pilotId: string;
+      action: 'accept' | 'reject' | 'pending';
+    }) => api.post<Pilot>(`/competitions/${activeCompetitionId}/pilots/${pilotId}/${action}`),
     onSuccess: () => invalidatePilots(),
   });
 
@@ -450,9 +469,12 @@ export function PilotsPage() {
   });
 
   const bulkMutation = useMutation({
-    mutationFn: (body: { action: 'accept' | 'reject' | 'remove'; pilotIds: string[] }) =>
+    mutationFn: (body: {
+      action: 'accept' | 'reject' | 'pending' | 'remove';
+      pilotIds: string[];
+    }) =>
       api.post<{
-        action: 'accept' | 'reject' | 'remove';
+        action: 'accept' | 'reject' | 'pending' | 'remove';
         succeeded: string[];
         skipped: { pilotId: string; name: string; reason: string }[];
       }>(`/competitions/${activeCompetitionId}/pilots/bulk`, body),
@@ -467,7 +489,13 @@ export function PilotsPage() {
         return next;
       });
       const verb =
-        result.action === 'accept' ? 'Accepted' : result.action === 'reject' ? 'Rejected' : 'Removed';
+        result.action === 'accept'
+          ? 'Accepted'
+          : result.action === 'reject'
+            ? 'Rejected'
+            : result.action === 'pending'
+              ? 'Moved to pending'
+              : 'Removed';
       const parts = [`${verb} ${result.succeeded.length} pilot(s).`];
       if (result.skipped.length > 0) {
         const reasons = [...new Set(result.skipped.map((row) => row.reason))];
@@ -720,6 +748,15 @@ export function PilotsPage() {
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            disabled={pendingIds.length === 0 || bulkMutation.isPending}
+            onClick={() => runBulk('pending', pendingIds)}
+          >
+            <Clock className="mr-1.5 h-4 w-4" />
+            Pending{pendingIds.length > 0 ? ` (${pendingIds.length})` : ''}
+          </Button>
+          <Button
+            size="sm"
             variant="destructive"
             disabled={selectedPilots.length === 0 || bulkMutation.isPending}
             onClick={() => runBulk('remove', selectedPilots.map((pilot) => pilot.id))}
@@ -761,7 +798,7 @@ export function PilotsPage() {
               <TableHead>Country</TableHead>
               <TableHead>Club</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-[140px] text-right">Actions</TableHead>
+              <TableHead className="w-[170px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -783,6 +820,7 @@ export function PilotsPage() {
               displayedPilots.map((pilot) => {
                 const canAccept = canAcceptStatus(pilot.status);
                 const canReject = canRejectStatus(pilot.status);
+                const canPending = canPendingStatus(pilot.status);
                 const busy =
                   statusMutation.isPending && statusMutation.variables?.pilotId === pilot.id;
                 const selected = selectedIds.has(pilot.id);
@@ -860,6 +898,25 @@ export function PilotsPage() {
                             }}
                           >
                             <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                        {canPending && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Move to pending"
+                            disabled={busy}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Move ${pilot.firstName} ${pilot.lastName} back to Pending? They leave the flight order, public roster, and rankings until accepted again.`,
+                                )
+                              ) {
+                                statusMutation.mutate({ pilotId: pilot.id, action: 'pending' });
+                              }
+                            }}
+                          >
+                            <Clock className="h-4 w-4 text-amber-600" />
                           </Button>
                         )}
                         <Button

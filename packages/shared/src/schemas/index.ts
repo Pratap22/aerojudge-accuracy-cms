@@ -187,7 +187,7 @@ export const updatePilotStatusSchema = z.object({
 
 /** Apply one registration action to many pilots in a competition. */
 export const bulkPilotActionSchema = z.object({
-  action: z.enum(['accept', 'reject', 'remove']),
+  action: z.enum(['accept', 'reject', 'pending', 'remove']),
   pilotIds: z.array(z.string().min(1)).min(1).max(500),
 });
 

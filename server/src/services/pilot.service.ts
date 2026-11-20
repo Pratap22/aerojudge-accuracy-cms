@@ -553,8 +553,16 @@ export async function rejectPilot(competitionId: string, pilotId: string) {
   return updated;
 }
 
+/** Put an accepted/rejected pilot back in the registration review queue. */
+export async function pendingPilot(competitionId: string, pilotId: string) {
+  const updated = await setPilotStatus(competitionId, pilotId, 'REGISTERED');
+  await dropUnscoredFlights(competitionId, [pilotId]);
+  return updated;
+}
+
 const ACCEPTABLE_STATUSES = new Set<PilotStatus>(['REGISTERED', 'REJECTED']);
 const REJECTABLE_STATUSES = new Set<PilotStatus>(['REGISTERED', 'CONFIRMED']);
+const PENDINGABLE_STATUSES = new Set<PilotStatus>(['CONFIRMED', 'REJECTED', 'CHECKED_IN']);
 
 /**
  * Drop a pilot from flight orders that are still editable when they have no score.
@@ -578,17 +586,17 @@ export interface BulkPilotSkip {
 }
 
 /**
- * Accept, reject, or remove many pilots in one competition.
- * Reject also removes unscored flights so they leave an open flight order.
+ * Accept, reject, move to pending, or remove many pilots in one competition.
+ * Reject / pending also remove unscored flights so they leave an open flight order.
  * Remove refuses pilots who already have scores.
  */
 export async function bulkPilotAction(
   competitionId: string,
-  action: 'accept' | 'reject' | 'remove',
+  action: 'accept' | 'reject' | 'pending' | 'remove',
   pilotIds: string[],
   opts?: { actorUserId?: string },
 ): Promise<{
-  action: 'accept' | 'reject' | 'remove';
+  action: 'accept' | 'reject' | 'pending' | 'remove';
   succeeded: string[];
   skipped: BulkPilotSkip[];
 }> {
@@ -637,6 +645,15 @@ export async function bulkPilotAction(
       });
       continue;
     }
+    if (action === 'pending' && !PENDINGABLE_STATUSES.has(pilot.status)) {
+      skipped.push({
+        pilotId: id,
+        name,
+        reason:
+          pilot.status === 'REGISTERED' ? 'Already pending' : 'Cannot move this status to pending',
+      });
+      continue;
+    }
     if (action === 'remove' && pilot._count.scores > 0) {
       skipped.push({
         pilotId: id,
@@ -658,7 +675,8 @@ export async function bulkPilotAction(
 
   if (!eligible.length) return { action, succeeded, skipped };
 
-  const nextStatus: PilotStatus = action === 'accept' ? 'CONFIRMED' : 'REJECTED';
+  const nextStatus: PilotStatus =
+    action === 'accept' ? 'CONFIRMED' : action === 'pending' ? 'REGISTERED' : 'REJECTED';
   if (action === 'accept') {
     for (const pilot of eligible) {
       await ensurePilotNumber(competitionId, pilot.id, pilot.pilotNumber);
@@ -672,7 +690,7 @@ export async function bulkPilotAction(
     await syncParticipantStatus(competitionId, pilot.personId, nextStatus);
     succeeded.push(pilot.id);
   }
-  if (action === 'reject') {
+  if (action === 'reject' || action === 'pending') {
     await dropUnscoredFlights(
       competitionId,
       eligible.map((pilot) => pilot.id),
