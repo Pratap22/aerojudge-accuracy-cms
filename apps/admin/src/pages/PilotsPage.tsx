@@ -793,6 +793,7 @@ export function PilotsPage() {
               </TableHead>
               <TableHead>#</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>ID</TableHead>
               <TableHead>CIVL ID</TableHead>
               <TableHead>Gender</TableHead>
               <TableHead>Country</TableHead>
@@ -804,13 +805,13 @@ export function PilotsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={10} className="text-center text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : !displayedPilots?.length ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={10} className="text-center text-muted-foreground">
                   {statusFilter === 'REGISTERED'
                     ? 'No pending registrations.'
                     : 'No pilots match this filter.'}
@@ -857,6 +858,7 @@ export function PilotsPage() {
                         </span>
                       </div>
                     </TableCell>
+                    <TableCell className="font-mono">{pilot.person?.aeroJudgeId ?? '—'}</TableCell>
                     <TableCell className="font-mono">{pilot.civlId ?? '—'}</TableCell>
                     <TableCell>{pilot.gender}</TableCell>
                     <TableCell>{displayCountryCode(pilot.country, pilot.nationality) || '—'}</TableCell>
