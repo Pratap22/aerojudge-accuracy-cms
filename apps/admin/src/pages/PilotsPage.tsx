@@ -180,7 +180,7 @@ function toFormValues(pilot: Pilot): CreatePilotInput {
   };
 }
 
-type PilotSortKey = 'name' | 'id';
+type PilotSortKey = 'number' | 'name' | 'id';
 type PilotSortDir = 'asc' | 'desc';
 
 function pilotSortName(pilot: Pilot): string {
@@ -193,9 +193,20 @@ function pilotSortIdValue(pilot: Pilot): number | null {
   return Number(raw);
 }
 
+function comparePilotNumbers(a: Pilot, b: Pilot): number {
+  const an = a.pilotNumber;
+  const bn = b.pilotNumber;
+  if (an == null && bn == null) return 0;
+  if (an == null) return 1;
+  if (bn == null) return -1;
+  return an - bn;
+}
+
 function comparePilots(a: Pilot, b: Pilot, key: PilotSortKey, dir: PilotSortDir): number {
   let cmp = 0;
-  if (key === 'name') {
+  if (key === 'number') {
+    cmp = comparePilotNumbers(a, b);
+  } else if (key === 'name') {
     cmp = pilotSortName(a).localeCompare(pilotSortName(b), undefined, { sensitivity: 'base' });
   } else {
     const an = pilotSortIdValue(a);
@@ -855,7 +866,29 @@ export function PilotsPage() {
                   disabled={!displayedPilots?.length}
                 />
               </TableHead>
-              <TableHead>#</TableHead>
+              <TableHead>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                  onClick={() => toggleSort('number')}
+                  aria-label={
+                    sortKey === 'number'
+                      ? `Sort by pilot number, currently ${sortDir === 'asc' ? 'ascending' : 'descending'}`
+                      : 'Sort by pilot number'
+                  }
+                >
+                  #
+                  {sortKey === 'number' ? (
+                    sortDir === 'asc' ? (
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead>
                 <button
                   type="button"
