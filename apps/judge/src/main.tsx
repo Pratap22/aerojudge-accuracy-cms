@@ -7,9 +7,11 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './lib/auth';
+import { initPwa } from './lib/pwa';
 import { consumeStaffSessionHandoff } from './lib/staff-app';
 
 consumeStaffSessionHandoff();
+initPwa();
 
 const queryClient = new QueryClient({
   defaultOptions: {

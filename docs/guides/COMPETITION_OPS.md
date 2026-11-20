@@ -65,7 +65,7 @@ Judges can now score; Display shows current/on-deck pilots.
 
 ## Live scoring (Judge terminal)
 
-1. Judge logs in at **http://localhost:3001** (or `/judge/` in Docker)
+1. Judge logs in at **http://localhost:3001** (or `/judge/` in Docker). On a phone or tablet, install the terminal from the browser (**Install** in Chrome, or Safari → Share → **Add to Home Screen**) so it opens full screen and the scoring shell stays available if the network drops.
 2. Select active competition and round
 3. For each pilot landing:
    - Tap **Bullseye** (0 cm) or enter distance on numeric keypad

@@ -200,7 +200,9 @@ Events are emitted after DB commits to avoid stale reads.
 
 ## Offline sync
 
-Judge terminals queue score entries in IndexedDB when offline (`apps/judge/src/lib/offline-queue.ts`). On reconnect:
+The judge terminal is an installable PWA. Its service worker caches the scoring shell (dev `/`, production `/judge/`) and does not handle `/api` or Socket.IO. Pending scores stay in the on-device queue (`apps/judge/src/lib/offline-queue.ts`) and are submitted when the API is reachable.
+
+A separate sync API can store queued operations for later processing:
 
 1. Client POSTs to `/sync/enqueue`
 2. Server processes batch via `/sync/clients/:clientId/process`

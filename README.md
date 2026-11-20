@@ -16,7 +16,7 @@ See also [docs/PRODUCT.md](docs/PRODUCT.md).
 - **Competition lifecycle** — Draft → registration → practice → official rounds → publish → archive
 - **Pilot & team management** — CSV import, QR/barcode lookup, national team validation (3+1 reserve)
 - **Round operations** — Random/seeded flight order, launch control, pause/resume, reflight rounds
-- **Live scoring** — Touch-optimised judge terminal with bullseye shortcuts, offline queue sync
+- **Live scoring** — Touch-optimised judge terminal, installable on phones and tablets, with bullseye shortcuts and offline queue sync
 - **FAI scoring engine** — Isolated `@aero-judge/scoring-engine` package with configurable rule profiles (FAI 2022, national/local, custom)
 - **Approval workflow** — Chief Judge + Competition Director sign-off before results lock
 - **Rankings** — Individual, team, women, junior, and country categories with tie-break rules
