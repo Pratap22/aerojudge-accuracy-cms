@@ -227,7 +227,7 @@ export function ProfileClaimsPage() {
               ) : (
                 <div className="relative">
                   <Input
-                    placeholder="Search name, AJ-…, or CIVL ID"
+                    placeholder="Search name, AeroJudge ID, or CIVL ID"
                     value={directoryQ}
                     onChange={(e) => setDirectoryQ(e.target.value)}
                     autoComplete="off"

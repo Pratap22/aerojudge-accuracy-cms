@@ -45,7 +45,7 @@ Interactive documentation: **http://localhost:4000/api/docs**
 | POST | `/auth/logout` | No | Revoke refresh token |
 | GET | `/auth/me` | Yes | Current user + memberships + **Person profile** |
 | POST | `/auth/register` | No | Participant account signup (creates/links Person) |
-| GET | `/auth/me/person/lookup` | Yes | Lookup Person by AJ ID / CIVL for claim |
+| GET | `/auth/me/person/lookup` | Yes | Lookup Person by AeroJudge ID / CIVL for claim |
 | POST | `/auth/me/person/claim` | Yes | Secure claim (auto only when emails match) |
 
 Send organization context on every tenant API call:

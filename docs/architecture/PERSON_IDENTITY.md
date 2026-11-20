@@ -89,7 +89,7 @@ Competition **role ≠** authorization permission. Assigning `TARGET_JUDGE` does
 
 | Change | Notes |
 |--------|--------|
-| **New `Person`** | Global identity + `aeroJudgeId` (`AJ-XXXXXX`) |
+| **New `Person`** | Global identity + `aeroJudgeId` (all-numeric, e.g. `001`) |
 | **New `CompetitionParticipant`** | Unique `(competitionId, personId)` |
 | **New `CompetitionParticipantRole`** | Unique `(participantId, role)` |
 | **New `ProfileClaimRequest`** | Secure claim foundation (no auto-claim) |
@@ -114,7 +114,7 @@ Updating Person **must not** rewrite historical Pilot/Official snapshot columns 
 
 | Class | Examples | Exposure |
 |-------|----------|----------|
-| PUBLIC (if profile public) | Display name, country, CIVL, AJ ID, verified competition history | Optional `/public/profiles/{aeroJudgeId}` |
+| PUBLIC (if profile public) | Display name, country, CIVL, AeroJudge ID, verified competition history | Optional `/public/profiles/{aeroJudgeId}` |
 | DIRECTORY (organizers) | Same + gender | Person search with `pilot:manage` / `competition:update` |
 | PRIVATE | Email, phone, DOB | Org-authorized only; never public profile payload |
 | SENSITIVE | Emergency contacts, medical notes | **Only** on competition Pilot (not global Person) |

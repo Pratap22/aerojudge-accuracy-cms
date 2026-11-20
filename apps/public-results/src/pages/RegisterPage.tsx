@@ -208,7 +208,14 @@ export function RegisterPage() {
     setClaimBusy(true);
     try {
       const q = claimId.trim();
-      const params = q.toUpperCase().startsWith('AJ-') ? { aeroJudgeId: q } : { civlId: q };
+      const legacyAj = /^AJ-/i.test(q);
+      const allDigits = /^\d+$/.test(q);
+      const params =
+        legacyAj
+          ? { aeroJudgeId: q }
+          : allDigits
+            ? { aeroJudgeId: q, civlId: q }
+            : { civlId: q };
       const lookup = await lookupPersonForClaim(params);
       if (!lookup.matches.length) {
         setClaimMsg('No profile found for that AeroJudge ID or CIVL ID.');
@@ -354,7 +361,7 @@ export function RegisterPage() {
         <h1 className="mt-2 font-display text-4xl font-bold text-foreground">Pilot registration</h1>
         <p className="mt-3 text-muted-foreground">
           Create an AeroJudge account or sign in. If organisers already added you, claim that
-          profile with your AJ-… or CIVL ID, then enter only this competition&apos;s details.
+          profile with your AeroJudge ID or CIVL ID, then enter only this competition&apos;s details.
         </p>
 
         {/* Step 1: Auth */}
@@ -493,14 +500,14 @@ export function RegisterPage() {
                   Claim an existing profile?
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Already in the pilot list (added by organisers)? Enter your AeroJudge ID (AJ-…) or
+                  Already in the pilot list (added by organisers)? Enter your AeroJudge ID or
                   CIVL ID to link that Person instead of creating a duplicate. Instant claim works
                   when the profile email matches your login email; otherwise an organiser must
                   approve.
                 </p>
                 <form onSubmit={onClaim} className="mt-4 flex flex-wrap gap-3">
                   <Input
-                    placeholder="AJ-XXXXXX or CIVL ID"
+                    placeholder="e.g. 001 or CIVL ID"
                     value={claimId}
                     onChange={(e) => setClaimId(e.target.value)}
                     className="max-w-xs border-border bg-card text-foreground"

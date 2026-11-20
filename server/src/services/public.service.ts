@@ -8,6 +8,7 @@ import { recalculateRankings } from './scoring.service.js';
 import { countryAlpha3ById, resolveCountryId, toPublicCountry } from '../utils/country-resolve.js';
 import {
   displayedPilotPhotoUrl,
+  normalizeAeroJudgeId,
   pilotPhotoWithPersonSelect,
   resolvePersonPhotoUrl,
 } from './person.service.js';
@@ -1333,7 +1334,7 @@ export interface PublicCareer {
 export async function getPublicCareer(aeroJudgeId: string): Promise<PublicCareer> {
   const person = await prisma.person.findFirst({
     where: {
-      aeroJudgeId: aeroJudgeId.trim().toUpperCase(),
+      aeroJudgeId: normalizeAeroJudgeId(aeroJudgeId),
       status: 'ACTIVE',
     },
     include: { nationalityCountry: true },

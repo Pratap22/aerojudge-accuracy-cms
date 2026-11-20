@@ -981,7 +981,7 @@ export function PilotsPage() {
                     ) : (
                       <div className="relative">
                         <Input
-                          placeholder="e.g. 97253 or AJ-… or Pratap"
+                          placeholder="e.g. 001, CIVL, or name"
                           value={directoryQ}
                           onChange={(e) => setDirectoryQ(e.target.value)}
                           autoComplete="off"

@@ -16,7 +16,7 @@ Architecture discovery (inventory, permission matrix, audit findings, target des
 
 ## Person identity (related)
 
-Canonical people are **`Person`** records (`AJ-XXXXXX`). Login is an optional **`User`** link. Competition participation and roles are separate from org RBAC. See [Person Identity](../architecture/PERSON_IDENTITY.md).
+Canonical people are **`Person`** records (all-numeric AeroJudge ID, e.g. `001`). Login is an optional **`User`** link. Competition participation and roles are separate from org RBAC. See [Person Identity](../architecture/PERSON_IDENTITY.md).
 
 ## Platform roles
 
@@ -57,7 +57,7 @@ APIs:
 
 See also [Person Identity](../architecture/PERSON_IDENTITY.md):
 
-- **Person** = global reusable identity (`AJ-XXXXXX`), optional User link.
+- **Person** = global reusable identity (all-numeric AeroJudge ID), optional User link.
 - **OrganizationMember** = org permissions (RBAC).
 - **CompetitionParticipant + Role** = what someone does at an event (not login permission).
 - Competition staff login access remains permission-based at the organization layer.

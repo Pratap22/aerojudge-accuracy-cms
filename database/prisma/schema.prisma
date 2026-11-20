@@ -227,7 +227,7 @@ enum ProfileClaimStatus {
 
 model Person {
   id                   String            @id @default(cuid())
-  /// Human-readable public id, e.g. AJ-7KX9M2 (not a DB UUID).
+  /// Human-readable public id — all-numeric, e.g. 001 (not a DB UUID).
   aeroJudgeId          String            @unique
   firstName            String
   middleName           String?

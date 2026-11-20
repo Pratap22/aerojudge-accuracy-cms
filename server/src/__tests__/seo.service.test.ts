@@ -25,14 +25,14 @@ describe('normalizePublicPath', () => {
   });
 
   it('reads a pilot id from /events/pilots/:id and not from a competition bib page', () => {
-    expect(pilotIdFromPath(normalizePublicPath('/events/pilots/AJ-1'))).toBe('AJ-1');
+    expect(pilotIdFromPath(normalizePublicPath('/events/pilots/001'))).toBe('001');
     expect(pilotIdFromPath(normalizePublicPath('/events/competition/abc/pilots/4'))).toBeNull();
   });
 
   it('builds a pilot career url on the events app, with a return to the story', () => {
-    const href = pilotCareerUrl('AJ-1', { storySlug: 'spring-open', competitionId: 'comp-1' });
+    const href = pilotCareerUrl('001', { storySlug: 'spring-open', competitionId: 'comp-1' });
     const url = new URL(href);
-    expect(url.pathname).toBe('/pilots/AJ-1');
+    expect(url.pathname).toBe('/pilots/001');
     expect(url.searchParams.get('story')).toBe('http://localhost:3004/blog/spring-open');
     expect(url.searchParams.get('competition')).toBe('comp-1');
   });

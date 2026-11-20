@@ -8,6 +8,7 @@ import {
 import { listPeopleQuerySchema, updatePersonSchema } from '@aero-judge/shared';
 import {
   generateAeroJudgeId,
+  normalizeAeroJudgeId,
   peopleDirectoryWhere,
   personDisplayName,
   personNameSearchOrClauses,
@@ -16,11 +17,19 @@ import { AppError } from '../utils/errors.js';
 
 describe('Person identity architecture', () => {
   describe('AeroJudge ID', () => {
-    it('generates AJ-XXXXXX format without ambiguous characters', () => {
-      for (let i = 0; i < 20; i++) {
-        const id = generateAeroJudgeId();
-        expect(id).toMatch(/^AJ-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/);
-      }
+    it('generates zero-padded ids from 001', () => {
+      expect(generateAeroJudgeId()).toBe('001');
+      expect(generateAeroJudgeId(42)).toBe('042');
+      expect(generateAeroJudgeId(999)).toBe('999');
+      expect(generateAeroJudgeId(1000)).toBe('1000');
+      expect(generateAeroJudgeId(0)).toBe('001');
+    });
+
+    it('normalizes legacy AJ- and unpadded digits to the canonical form', () => {
+      expect(normalizeAeroJudgeId('1')).toBe('001');
+      expect(normalizeAeroJudgeId('01')).toBe('001');
+      expect(normalizeAeroJudgeId('AJ-42')).toBe('042');
+      expect(normalizeAeroJudgeId('aj1000')).toBe('1000');
     });
   });
 
@@ -105,8 +114,8 @@ describe('Person identity architecture', () => {
     });
 
     it('prefers an exact AeroJudge id over free text', () => {
-      const where = peopleDirectoryWhere({ q: 'Thapa', aeroJudgeId: 'aj-abc123' });
-      expect(where.aeroJudgeId).toEqual({ equals: 'AJ-ABC123', mode: 'insensitive' });
+      const where = peopleDirectoryWhere({ q: 'Thapa', aeroJudgeId: 'AJ-42' });
+      expect(where.aeroJudgeId).toEqual({ equals: '042', mode: 'insensitive' });
       expect(where.OR).toBeUndefined();
     });
   });
@@ -211,6 +220,7 @@ vi.mock('../config/prisma.js', () => {
     updateMany: vi.fn(),
   };
   const personMergeLog = { create: vi.fn() };
+  const $queryRaw = vi.fn(async () => [{ max: null }]);
   const $transaction = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
     fn({
       person,
@@ -221,6 +231,7 @@ vi.mock('../config/prisma.js', () => {
       user,
       profileClaimRequest,
       personMergeLog,
+      $queryRaw,
     }),
   );
 
@@ -260,7 +271,7 @@ describe('person.service matching & privacy', () => {
         if (args.where?.civlId === '97253') {
           return {
             id: 'p1',
-            aeroJudgeId: 'AJ-TEST01',
+            aeroJudgeId: '001',
             firstName: 'Pratap',
             lastName: 'Sharma',
             middleName: null,
@@ -282,7 +293,7 @@ describe('person.service matching & privacy', () => {
     (prisma.person.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
       {
         id: 'p2',
-        aeroJudgeId: 'AJ-OTHER',
+        aeroJudgeId: '002',
         firstName: 'Pratap',
         lastName: 'Sharma',
         middleName: null,
@@ -301,7 +312,7 @@ describe('person.service matching & privacy', () => {
 
     const byCivl = await matchPersons({ civlId: '97253' });
     expect(byCivl[0]?.confidence).toBe('EXACT');
-    expect(byCivl[0]?.person.aeroJudgeId).toBe('AJ-TEST01');
+    expect(byCivl[0]?.person.aeroJudgeId).toBe('001');
 
     const byName = await matchPersons({ firstName: 'Pratap', lastName: 'Sharma' });
     expect(byName.every((m) => m.confidence === 'POSSIBLE')).toBe(true);
@@ -310,7 +321,7 @@ describe('person.service matching & privacy', () => {
   it('rejects duplicate CIVL on create', async () => {
     (prisma.person.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'existing',
-      aeroJudgeId: 'AJ-EXIST',
+      aeroJudgeId: '003',
       civlId: '111',
       status: 'ACTIVE',
     });
@@ -355,7 +366,9 @@ describe('person.service matching & privacy', () => {
       forceCreate: true,
     });
     expect(person.id).toBe('new-person');
-    expect(person.aeroJudgeId).toMatch(/^AJ-/);
+    expect(person.aeroJudgeId).toMatch(/^\d+$/);
+    expect(Number(person.aeroJudgeId)).toBeGreaterThanOrEqual(1);
+    expect(person.aeroJudgeId).toBe('001');
     // No User model interaction required
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
@@ -363,7 +376,7 @@ describe('person.service matching & privacy', () => {
   it('public profile excludes private contact fields', async () => {
     (prisma.person.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'p1',
-      aeroJudgeId: 'AJ-PUBLIC',
+      aeroJudgeId: '004',
       firstName: 'Public',
       lastName: 'Pilot',
       preferredName: null,
@@ -378,8 +391,8 @@ describe('person.service matching & privacy', () => {
     });
     (prisma.competitionParticipant.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
-    const profile = await getPublicProfile('AJ-PUBLIC');
-    expect(profile.aeroJudgeId).toBe('AJ-PUBLIC');
+    const profile = await getPublicProfile('AJ-4');
+    expect(profile.aeroJudgeId).toBe('004');
     expect(profile).not.toHaveProperty('email');
     expect(profile).not.toHaveProperty('phone');
     expect((profile as { email?: string }).email).toBeUndefined();
@@ -389,7 +402,7 @@ describe('person.service matching & privacy', () => {
     (prisma.person.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'p1',
       status: 'ACTIVE',
-      aeroJudgeId: 'AJ-1',
+      aeroJudgeId: '005',
       firstName: 'A',
       lastName: 'B',
       middleName: null,
@@ -424,7 +437,7 @@ describe('person.service matching & privacy', () => {
   it('merge moves relationships without destroying person ids (canonical retained)', async () => {
     (prisma.person.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'canonical',
-      aeroJudgeId: 'AJ-CAN',
+      aeroJudgeId: '010',
       civlId: '1',
       firstName: 'A',
       lastName: 'B',
@@ -445,7 +458,7 @@ describe('person.service matching & privacy', () => {
     });
     (prisma.person.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: 'duplicate',
-      aeroJudgeId: 'AJ-DUP',
+      aeroJudgeId: '011',
       civlId: null,
       status: 'ACTIVE',
       faiLicenseNumber: null,
@@ -472,7 +485,7 @@ describe('person.service matching & privacy', () => {
     (prisma.person.findFirst as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         id: 'canonical',
-        aeroJudgeId: 'AJ-CAN',
+        aeroJudgeId: '010',
         civlId: '1',
         firstName: 'A',
         lastName: 'B',
@@ -493,7 +506,7 @@ describe('person.service matching & privacy', () => {
       })
       .mockResolvedValueOnce({
         id: 'canonical',
-        aeroJudgeId: 'AJ-CAN',
+        aeroJudgeId: '010',
         civlId: '1',
         firstName: 'A',
         lastName: 'B',

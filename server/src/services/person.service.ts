@@ -1,11 +1,36 @@
-import { createHash, randomBytes } from 'node:crypto';
 import type { Gender, Person, Prisma } from '@aero-judge/database';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { resolveCountryId } from '../utils/country-resolve.js';
 
-/** Base32-ish alphabet without ambiguous 0/O/1/I. */
-const AJ_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+/** First public AeroJudge ID (`001`). */
+export const AERO_JUDGE_ID_START = 1;
+
+/** Minimum display width — `1` → `001`, `42` → `042`; 1000+ stay unpadded. */
+export const AERO_JUDGE_ID_PAD = 3;
+
+/**
+ * Format a numeric sequence value as the public AeroJudge ID string.
+ */
+export function formatAeroJudgeId(n: number): string {
+  const id = Number.isFinite(n) ? Math.floor(n) : AERO_JUDGE_ID_START;
+  const safe = id >= AERO_JUDGE_ID_START ? id : AERO_JUDGE_ID_START;
+  return String(safe).padStart(AERO_JUDGE_ID_PAD, '0');
+}
+
+/**
+ * Normalize a typed AeroJudge ID for lookup.
+ * Accepts legacy `AJ-…` and unpadded digits (`1`, `01`) → canonical `001`.
+ */
+export function normalizeAeroJudgeId(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  const stripped = trimmed.replace(/^AJ-?/i, '').trim();
+  if (/^\d+$/.test(stripped)) {
+    return formatAeroJudgeId(Number(stripped));
+  }
+  return stripped;
+}
 
 /**
  * Prisma OR clauses for person name search.
@@ -46,27 +71,39 @@ export function personNameSearchOrClauses(rawQuery: string): Prisma.PersonWhereI
   ];
 }
 
-export function generateAeroJudgeId(): string {
-  const bytes = randomBytes(6);
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += AJ_CHARS[bytes[i]! % AJ_CHARS.length];
-  }
-  return `AJ-${code}`;
+/** Next all-numeric public id (e.g. `001`). Prefer {@link allocateAeroJudgeId}. */
+export function generateAeroJudgeId(next = AERO_JUDGE_ID_START): string {
+  return formatAeroJudgeId(next);
 }
 
+/**
+ * Allocate the next free all-numeric AeroJudge ID.
+ * Uses MAX(numeric ids) + 1 so new people stay sequential after the migration.
+ */
 export async function allocateAeroJudgeId(tx: Prisma.TransactionClient = prisma): Promise<string> {
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const aeroJudgeId = generateAeroJudgeId();
+  const rows = await tx.$queryRaw<Array<{ max: bigint | number | string | null }>>`
+    SELECT MAX(CAST("aeroJudgeId" AS BIGINT)) AS max
+    FROM "Person"
+    WHERE "aeroJudgeId" ~ '^[0-9]+$'
+  `;
+  const rawMax = rows[0]?.max;
+  const max =
+    rawMax == null || rawMax === ''
+      ? AERO_JUDGE_ID_START - 1
+      : Number(typeof rawMax === 'bigint' ? rawMax : rawMax);
+  let candidate = Math.max(AERO_JUDGE_ID_START, (Number.isFinite(max) ? max : AERO_JUDGE_ID_START - 1) + 1);
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const aeroJudgeId = generateAeroJudgeId(candidate);
     const existing = await tx.person.findUnique({
       where: { aeroJudgeId },
       select: { id: true },
     });
     if (!existing) return aeroJudgeId;
+    candidate += 1;
   }
-  // Extremely unlikely fallback
-  const fallback = `AJ-${createHash('sha256').update(randomBytes(16)).digest('hex').slice(0, 6).toUpperCase()}`;
-  return fallback;
+
+  throw AppError.internal('Could not allocate a free AeroJudge ID');
 }
 
 export type PersonPublicView = {
@@ -384,8 +421,9 @@ export async function getPerson(personId: string) {
 }
 
 export async function getPersonByAeroJudgeId(aeroJudgeId: string) {
+  const id = normalizeAeroJudgeId(aeroJudgeId);
   const person = await prisma.person.findFirst({
-    where: { aeroJudgeId: aeroJudgeId.trim().toUpperCase(), status: { not: 'MERGED' } },
+    where: { aeroJudgeId: id, status: { not: 'MERGED' } },
     include: { nationalityCountry: true },
   });
   if (!person) throw AppError.notFound('Person not found');
@@ -517,7 +555,7 @@ export async function matchPersons(input: MatchInput): Promise<PersonMatch[]> {
   };
 
   if (input.aeroJudgeId?.trim()) {
-    const aj = input.aeroJudgeId.trim().toUpperCase();
+    const aj = normalizeAeroJudgeId(input.aeroJudgeId);
     const person = await prisma.person.findFirst({
       where: { aeroJudgeId: aj, status: 'ACTIVE' },
       include: { nationalityCountry: true },
@@ -581,9 +619,9 @@ export async function matchPersons(input: MatchInput): Promise<PersonMatch[]> {
 
   if (input.query?.trim()) {
     const q = input.query.trim();
-    const upper = q.toUpperCase();
+    const aj = normalizeAeroJudgeId(q);
     const or: Prisma.PersonWhereInput[] = [
-      { aeroJudgeId: { equals: upper, mode: 'insensitive' } },
+      { aeroJudgeId: { equals: aj, mode: 'insensitive' } },
       { civlId: { equals: q, mode: 'insensitive' } },
       { faiLicenseNumber: { contains: q, mode: 'insensitive' } },
       ...personNameSearchOrClauses(q),
@@ -595,13 +633,9 @@ export async function matchPersons(input: MatchInput): Promise<PersonMatch[]> {
     });
     for (const person of persons) {
       const confidence =
-        person.aeroJudgeId.toUpperCase() === upper || person.civlId === q ? 'EXACT' : 'POSSIBLE';
+        person.aeroJudgeId === aj || person.civlId === q ? 'EXACT' : 'POSSIBLE';
       const reason =
-        person.aeroJudgeId.toUpperCase() === upper
-          ? 'aeroJudgeId'
-          : person.civlId === q
-            ? 'civlId'
-            : 'search';
+        person.aeroJudgeId === aj ? 'aeroJudgeId' : person.civlId === q ? 'civlId' : 'search';
       push(person, confidence, reason);
     }
   }
@@ -652,13 +686,18 @@ export function peopleDirectoryWhere(
   if (query.pilotsOnly) where.pilots = { some: {} };
 
   if (query.aeroJudgeId?.trim()) {
-    where.aeroJudgeId = { equals: query.aeroJudgeId.trim().toUpperCase(), mode: 'insensitive' };
+    where.aeroJudgeId = {
+      equals: normalizeAeroJudgeId(query.aeroJudgeId),
+      mode: 'insensitive',
+    };
   } else if (query.civlId?.trim()) {
     where.civlId = { equals: query.civlId.trim(), mode: 'insensitive' };
   } else if (query.q?.trim()) {
     const q = query.q.trim();
+    const aj = normalizeAeroJudgeId(q);
     where.OR = [
-      { aeroJudgeId: { contains: q.toUpperCase(), mode: 'insensitive' } },
+      { aeroJudgeId: { equals: aj, mode: 'insensitive' } },
+      { aeroJudgeId: { contains: aj, mode: 'insensitive' } },
       { civlId: { contains: q, mode: 'insensitive' } },
       { faiLicenseNumber: { contains: q, mode: 'insensitive' } },
       { email: { contains: q, mode: 'insensitive' } },
@@ -1323,7 +1362,7 @@ export async function claimPersonByVerifiedEmail(
   if (!person && input.aeroJudgeId?.trim()) {
     person = await prisma.person.findFirst({
       where: {
-        aeroJudgeId: input.aeroJudgeId.trim().toUpperCase(),
+        aeroJudgeId: normalizeAeroJudgeId(input.aeroJudgeId),
         status: 'ACTIVE',
       },
       include: { nationalityCountry: true },
@@ -1434,7 +1473,7 @@ export async function lookupPersonForClaim(
 export async function getPublicProfile(aeroJudgeId: string) {
   const person = await prisma.person.findFirst({
     where: {
-      aeroJudgeId: aeroJudgeId.trim().toUpperCase(),
+      aeroJudgeId: normalizeAeroJudgeId(aeroJudgeId),
       status: 'ACTIVE',
       visibility: 'PUBLIC',
     },
