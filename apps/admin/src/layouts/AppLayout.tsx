@@ -573,7 +573,7 @@ export function AppLayout() {
   if (isDrawPresentation(pathname)) {
     return (
       <div className="min-h-dvh bg-background">
-        <main className="mx-auto min-h-dvh w-full max-w-7xl p-4 sm:p-6 lg:p-8">
+        <main className="mx-auto min-h-dvh w-full max-w-7xl px-4 pb-4 pt-12 sm:px-6 sm:pb-6 sm:pt-16 lg:px-8 lg:pb-8 lg:pt-24">
           <Outlet />
         </main>
       </div>
