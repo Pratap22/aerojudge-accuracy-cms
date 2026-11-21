@@ -16,6 +16,10 @@ export type SeoMeta = {
   url: string;
   image: string;
   imageAlt?: string;
+  /** Pixel size. Facebook will not draw og:image on the first share without both. */
+  imageWidth?: number;
+  imageHeight?: number;
+  imageType?: string;
   siteName: string;
   type: 'website' | 'article';
   robots?: string;
@@ -23,6 +27,67 @@ export type SeoMeta = {
   articleHtml?: string;
   jsonLd?: Record<string, unknown>;
 };
+
+export type OpenGraphImageSize = {
+  width: number;
+  height: number;
+  type?: string;
+};
+
+const imageSizeCache = new Map<string, OpenGraphImageSize | null>();
+
+function positivePixel(value: string | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 200 || parsed > 20000) return null;
+  return parsed;
+}
+
+/** Read Cloudinary's delivered size from the server-timing header. */
+export function imageSizeFromHeaders(headers: {
+  get(name: string): string | null;
+}): OpenGraphImageSize | null {
+  const timing = headers.get('server-timing') ?? '';
+  const match = timing.match(/width=(\d+),height=(\d+)/);
+  const width = positivePixel(match?.[1]);
+  const height = positivePixel(match?.[2]);
+  if (!width || !height) return null;
+  const type = headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+  return {
+    width,
+    height,
+    type: type && /^image\/(jpeg|png|gif|webp)$/.test(type) ? type : undefined,
+  };
+}
+
+/**
+ * Facebook renders a share image on the first preview only when it already
+ * knows the pixel size. Cloudinary reports that size on a HEAD request.
+ */
+export async function readOpenGraphImageSize(url: string): Promise<OpenGraphImageSize | null> {
+  if (imageSizeCache.has(url)) return imageSizeCache.get(url) ?? null;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'res.cloudinary.com') return null;
+
+  let size: OpenGraphImageSize | null = null;
+  try {
+    const response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(2500),
+    });
+    if (response.ok) size = imageSizeFromHeaders(response.headers);
+  } catch {
+    size = null;
+  }
+  imageSizeCache.set(url, size);
+  return size;
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -422,11 +487,20 @@ async function resolveFeedItemSeo(slug: string, itemId: string): Promise<SeoMeta
       getPublicCompetition(slug),
       getPublicFeedItem(slug, itemId),
     ]);
-    return buildFeedItemSeo({
+    const meta = buildFeedItemSeo({
       slug: competition.publicSlug || competition.id,
       item,
       competition,
     });
+    if (item.imageUrl) {
+      const size = await readOpenGraphImageSize(item.imageUrl);
+      if (size) {
+        meta.imageWidth = size.width;
+        meta.imageHeight = size.height;
+        meta.imageType = size.type;
+      }
+    }
+    return meta;
   } catch (error) {
     if (error instanceof AppError && (error.statusCode === 404 || error.statusCode === 403)) {
       return {
@@ -592,6 +666,19 @@ export function renderSeoHtml(meta: SeoMeta): string {
   const url = escapeHtml(meta.url);
   const image = escapeHtml(meta.image);
   const imageAlt = escapeHtml(meta.imageAlt || meta.title);
+  const imageWidth = positivePixel(meta.imageWidth ? String(meta.imageWidth) : undefined);
+  const imageHeight = positivePixel(meta.imageHeight ? String(meta.imageHeight) : undefined);
+  const imageType =
+    meta.imageType && /^image\/(jpeg|png|gif|webp)$/.test(meta.imageType)
+      ? escapeHtml(meta.imageType)
+      : '';
+  const imageSizeTags =
+    imageWidth && imageHeight
+      ? `<meta property="og:image:width" content="${imageWidth}" />\n  <meta property="og:image:height" content="${imageHeight}" />`
+      : '';
+  const imageTypeTag = imageType
+    ? `<meta property="og:image:type" content="${imageType}" />`
+    : '';
   const siteName = escapeHtml(meta.siteName);
   const robots = escapeHtml(meta.robots || 'index, follow');
   const jsonLd = meta.jsonLd
@@ -613,6 +700,8 @@ export function renderSeoHtml(meta: SeoMeta): string {
   <meta property="og:description" content="${description}" />
   <meta property="og:url" content="${url}" />
   <meta property="og:image" content="${image}" />
+  ${imageTypeTag}
+  ${imageSizeTags}
   <meta property="og:image:alt" content="${imageAlt}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${title}" />

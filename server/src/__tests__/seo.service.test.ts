@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { blogSlugFromPath } from '../services/blog-article.js';
 import { pilotCareerUrl } from '../services/blog.service.js';
-import { buildFeedItemSeo, feedItemFromPath, normalizePublicPath, pilotIdFromPath } from '../services/seo.service.js';
+import {
+  buildFeedItemSeo,
+  feedItemFromPath,
+  imageSizeFromHeaders,
+  normalizePublicPath,
+  pilotIdFromPath,
+  renderSeoHtml,
+} from '../services/seo.service.js';
 
 describe('normalizePublicPath', () => {
   it('strips /events prefix', () => {
@@ -77,6 +84,37 @@ describe('normalizePublicPath', () => {
       contentUrl: 'https://cdn.example/team-everest.jpg',
       about: { sport: 'Paragliding Accuracy' },
     });
+  });
+
+  it('reads the pixel size Facebook needs before it will draw a share image', () => {
+    const headers = new Headers({
+      'content-type': 'image/jpeg',
+      'server-timing':
+        'content-info;desc="width=1189,height=754,bytes=121519,format=jpg"',
+    });
+    expect(imageSizeFromHeaders(headers)).toEqual({
+      width: 1189,
+      height: 754,
+      type: 'image/jpeg',
+    });
+    expect(imageSizeFromHeaders(new Headers())).toBeNull();
+  });
+
+  it('prints the image size on the crawler page', () => {
+    const html = renderSeoHtml({
+      title: 'Team Everest',
+      description: 'Welcome',
+      url: 'https://paraglidingaccuracy.org/events/competition/cup/feed/post-1',
+      image: 'https://res.cloudinary.com/example/team.jpg',
+      imageWidth: 1189,
+      imageHeight: 754,
+      imageType: 'image/jpeg',
+      siteName: 'AeroJudge',
+      type: 'article',
+    });
+    expect(html).toContain('<meta property="og:image:width" content="1189" />');
+    expect(html).toContain('<meta property="og:image:height" content="754" />');
+    expect(html).toContain('<meta property="og:image:type" content="image/jpeg" />');
   });
 
   it('leaves /blog paths for the story resolver', () => {
