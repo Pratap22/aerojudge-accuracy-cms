@@ -686,8 +686,8 @@ export function PilotsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex h-[calc(100dvh-5.5rem)] flex-col gap-6 sm:h-[calc(100dvh-6.5rem)] lg:h-[calc(100dvh-4rem)]">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Pilots</h1>
           <p className="text-muted-foreground">
@@ -765,7 +765,7 @@ export function PilotsPage() {
       )}
       {bulkNotice && <p className="text-sm text-muted-foreground">{bulkNotice}</p>}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -801,7 +801,7 @@ export function PilotsPage() {
       </div>
 
       {selectedIds.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
           <span className="text-sm font-medium">{selectedIds.size} selected</span>
           <Button
             size="sm"
@@ -849,9 +849,9 @@ export function PilotsPage() {
         </div>
       )}
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
+      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border">
+        <Table containerClassName="h-full">
+          <TableHeader className="sticky top-0 z-10 bg-background [&_th]:bg-background">
             <TableRow>
               <TableHead className="w-10 pr-0">
                 <input
