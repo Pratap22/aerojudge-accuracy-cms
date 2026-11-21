@@ -39,7 +39,11 @@ export interface PublicCompetition {
     publicRegistrationEnabled?: boolean;
     /** When false, the country ranking board stays hidden. */
     countryRankingEnabled?: boolean;
+    /** When false, the women's ranking board stays hidden. */
+    womenCategoryEnabled?: boolean;
   };
+  /** Confirmed pilots in the women's category. The Women board stays hidden at 0. */
+  womenCount?: number;
   pilotCount?: number;
   teamCount?: number;
   roundCount?: number;

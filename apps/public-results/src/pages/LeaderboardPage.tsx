@@ -27,6 +27,10 @@ export function LeaderboardPage() {
   const { data: competition } = useCompetition();
   const { data: countryResults, isSuccess: countriesReady } = useResults('COUNTRY');
   const countryRankingEnabled = competition?.settings?.countryRankingEnabled !== false;
+  const showWomen =
+    Boolean(competition) &&
+    competition?.settings?.womenCategoryEnabled !== false &&
+    (competition?.womenCount ?? 0) > 0;
   const showCountries =
     Boolean(competition) &&
     countryRankingEnabled &&
@@ -34,7 +38,8 @@ export function LeaderboardPage() {
     toLeaderboardEntries(countryResults).length > 1;
   const requested = params.get('board');
   const board: Board =
-    requested === 'countries' && competition && countriesReady && !showCountries
+    (requested === 'countries' && competition && countriesReady && !showCountries) ||
+    (requested === 'women' && competition && !showWomen)
       ? 'overall'
       : isBoard(requested)
         ? requested
@@ -45,7 +50,7 @@ export function LeaderboardPage() {
 
   const boards: { id: Board; label: string }[] = [
     { id: 'overall', label: 'Overall' },
-    { id: 'women', label: 'Women' },
+    ...(showWomen ? [{ id: 'women' as const, label: 'Women' }] : []),
     ...(hasTeams ? [{ id: 'teams' as const, label: 'Teams' }] : []),
     ...(showCountries ? [{ id: 'countries' as const, label: 'Countries' }] : []),
   ];
@@ -56,9 +61,12 @@ export function LeaderboardPage() {
   }, [location.hash, board]);
 
   useEffect(() => {
-    if (!competition || !countriesReady || showCountries || requested !== 'countries') return;
+    if (!competition) return;
+    const hiddenCountries = countriesReady && !showCountries && requested === 'countries';
+    const hiddenWomen = !showWomen && requested === 'women';
+    if (!hiddenCountries && !hiddenWomen) return;
     navigate(resultsPath, { replace: true });
-  }, [competition, countriesReady, showCountries, requested, navigate, resultsPath]);
+  }, [competition, countriesReady, showCountries, showWomen, requested, navigate, resultsPath]);
 
   const title =
     board === 'women'

@@ -64,6 +64,7 @@ const publicCompetitionSelect = {
       windDisplayMaxAgeMinutes: true,
       publicRegistrationEnabled: true,
       countryRankingEnabled: true,
+      womenCategoryEnabled: true,
     },
   },
   info: {
@@ -151,6 +152,7 @@ function mapPublicCompetition(competition: {
     windDisplayMaxAgeMinutes: number;
     publicRegistrationEnabled: boolean;
     countryRankingEnabled: boolean;
+    womenCategoryEnabled: boolean;
   } | null;
   info?: {
     heroImageUrl?: string | null;
@@ -226,16 +228,24 @@ export async function getPublicCompetition(slugOrId: string) {
     select: publicCompetitionSelect,
   });
   if (!competition) throw AppError.notFound('Competition not found');
-  const [roundsStarted, registrationLinks] = await Promise.all([
+  const [roundsStarted, registrationLinks, womenCount] = await Promise.all([
     competitionHasStartedRound(competition.id),
     prisma.competitionLink.findMany({
       where: { competitionId: competition.id, kind: 'REGISTRATION' },
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
       select: { id: true, label: true, url: true },
     }),
+    prisma.pilot.count({
+      where: {
+        competitionId: competition.id,
+        status: { notIn: ['REGISTERED', 'REJECTED', 'WITHDRAWN', 'DISQUALIFIED', 'DNS'] },
+        OR: [{ isWomen: true }, { gender: 'FEMALE' }],
+      },
+    }),
   ]);
   return {
     ...mapPublicCompetition(competition),
+    womenCount,
     roundsStarted,
     registrationOpen: isSelfRegistrationOpen(competition, roundsStarted),
     registrationLinks,
