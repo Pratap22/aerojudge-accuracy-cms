@@ -49,6 +49,16 @@ describe('normalizePublicPath', () => {
       slug: 'cup',
       itemId: 'post-1',
     });
+    expect(
+      feedItemFromPath(
+        normalizePublicPath(
+          '/events/competition/cup/feed/cmwq2brb50001apmiuz2vu47lOpening%20ceremony%20ongoing',
+        ),
+      ),
+    ).toEqual({
+      slug: 'cup',
+      itemId: 'cmwq2brb50001apmiuz2vu47l',
+    });
     expect(feedItemFromPath(normalizePublicPath('/events/competition/cup/feed'))).toBeNull();
   });
 

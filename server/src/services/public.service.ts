@@ -1,5 +1,5 @@
 import { compareOfficials, isEmptyHtml, officialRoleLabel } from '@aero-judge/shared';
-import { flightStillToFly, officialDisplayNumber } from '@aero-judge/utils';
+import { feedItemId, flightStillToFly, officialDisplayNumber } from '@aero-judge/utils';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
@@ -1106,7 +1106,7 @@ export async function getPublicFeed(slugOrId: string) {
 export async function getPublicFeedItem(slugOrId: string, itemId: string) {
   const competition = await getPublicCompetition(slugOrId);
   const item = await prisma.eventFeedItem.findFirst({
-    where: { id: itemId, competitionId: competition.id },
+    where: { id: feedItemId(itemId), competitionId: competition.id },
     select: publicFeedSelect,
   });
   if (!item) throw AppError.notFound('Update not found');

@@ -1,5 +1,6 @@
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
+import { feedItemId } from '@aero-judge/utils';
 import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { AppError } from '../utils/errors.js';
 import {
@@ -394,10 +395,10 @@ export function feedItemFromPath(path: string): { slug: string; itemId: string }
   try {
     return {
       slug: decodeURIComponent(match[1]),
-      itemId: decodeURIComponent(match[2]),
+      itemId: feedItemId(decodeURIComponent(match[2])),
     };
   } catch {
-    return { slug: match[1], itemId: match[2] };
+    return { slug: match[1], itemId: feedItemId(match[2]) };
   }
 }
 

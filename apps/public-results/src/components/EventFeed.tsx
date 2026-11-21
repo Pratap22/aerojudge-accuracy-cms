@@ -57,9 +57,8 @@ export function ShareFeedButton({
       type="button"
       className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700 transition-colors hover:bg-sky-500/10 dark:text-sky-300"
       onClick={() => {
-        const payload = { title, text: title, url };
         if (typeof navigator.share === 'function') {
-          void navigator.share(payload).catch((error: Error) => {
+          void navigator.share({ title, url }).catch((error: Error) => {
             if (error.name === 'AbortError') return;
             void navigator.clipboard?.writeText(url).then(() => {
               setCopied(true);

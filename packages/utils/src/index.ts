@@ -334,6 +334,16 @@ export function onDeckSlots<T extends { pilotId: string; stillToFly: boolean }>(
   return { nowFlying: anchor ?? null, queue: [] };
 }
 
+/**
+ * Feed update ids are 25-character cuids. A shared caption pasted into the
+ * address bar is stuck on the end of that id; keep the id and drop the caption.
+ */
+export function feedItemId(value: string): string {
+  const text = value.trim();
+  const match = text.match(/^(c[a-z0-9]{24})(?![a-z0-9])/);
+  return match?.[1] ?? text;
+}
+
 export function parseStaffSessionHandoff(hash: string): StaffSessionHandoff | null {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
   if (!raw.startsWith(STAFF_SESSION_HANDOFF_PREFIX)) return null;

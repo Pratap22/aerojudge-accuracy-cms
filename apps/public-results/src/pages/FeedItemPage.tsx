@@ -1,5 +1,7 @@
-import { Link, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { feedItemId } from '@aero-judge/utils';
 import { Layout } from '../components/Layout';
 import { ShareFeedButton } from '../components/EventFeed';
 import { useCompetition } from '../hooks/useCompetition';
@@ -11,10 +13,17 @@ function oneLine(value: string | null | undefined): string {
 }
 
 export function FeedItemPage() {
-  const { competitionId = '', itemId = '' } = useParams<{
+  const { competitionId = '', itemId: rawItemId = '' } = useParams<{
     competitionId: string;
     itemId: string;
   }>();
+  const itemId = feedItemId(rawItemId);
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (competitionId && itemId && itemId !== rawItemId) {
+      navigate(feedItemPath(competitionId, itemId), { replace: true });
+    }
+  }, [competitionId, itemId, rawItemId, navigate]);
   const { data: competition } = useCompetition();
   const { data: item, isLoading, error } = useQuery({
     queryKey: ['public-feed-item', competitionId, itemId],
