@@ -6,7 +6,6 @@ import { Input } from '@aero-judge/ui';
 import { padPilotNumber } from '@aero-judge/utils';
 import { Layout } from '../components/Layout';
 import {
-  competitionPath,
   fetchTeams,
   pilotProfilePath,
   type PublicTeamMember,
