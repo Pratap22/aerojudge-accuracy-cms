@@ -68,6 +68,7 @@ export function PilotNumberDrawPage() {
   const rotationRef = useRef(0);
   const wheelRef = useRef<HTMLDivElement>(null);
   const spinAnim = useRef<Animation | null>(null);
+  const spinningRef = useRef(false);
   const { pathname } = useLocation();
   const presentation = isDrawPresentation(pathname);
 
@@ -146,9 +147,11 @@ export function PilotNumberDrawPage() {
     },
   });
 
-  function spin() {
+  function spin(): boolean {
     const wheel = wheelRef.current;
-    if (!selected || spinning || numbers.length === 0 || assignMutation.isPending || !wheel) return;
+    if (!selected || spinningRef.current || numbers.length === 0 || assignMutation.isPending || !wheel) {
+      return false;
+    }
     const index = Math.floor(Math.random() * numbers.length);
     const slice = 360 / numbers.length;
     const center = index * slice + slice / 2;
@@ -161,6 +164,7 @@ export function PilotNumberDrawPage() {
     landedNumber.current = numbers[index] ?? null;
     setPendingNumber(null);
     setAssignError(null);
+    spinningRef.current = true;
     setSpinning(true);
     spinAnim.current?.cancel();
     const anim = wheel.animate(
@@ -174,14 +178,36 @@ export function PilotNumberDrawPage() {
         rotationRef.current = end;
         wheel.style.transform = `rotate(${end}deg)`;
         setRotation(end);
+        spinningRef.current = false;
         setSpinning(false);
         setPendingNumber(landedNumber.current);
         anim.cancel();
       })
       .catch(() => {
-        // A newer spin replaced this one.
+        // A newer spin replaced this one, or the page unmounted.
       });
+    return true;
   }
+
+  const spinRef = useRef(spin);
+  spinRef.current = spin;
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.code !== 'Space' || event.repeat || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return;
+      }
+      const started = spinRef.current();
+      if (started) event.preventDefault();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   if (!competitionId || !organizationId) {
     return <p className="text-muted-foreground">Open a competition first.</p>;
