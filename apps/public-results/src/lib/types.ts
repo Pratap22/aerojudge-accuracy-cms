@@ -37,6 +37,8 @@ export interface PublicCompetition {
     windDisplayMaxAgeMinutes?: number;
     /** When false, pilots are entered outside AeroJudge and the register screen stays hidden. */
     publicRegistrationEnabled?: boolean;
+    /** When false, the country ranking board stays hidden. */
+    countryRankingEnabled?: boolean;
   };
   pilotCount?: number;
   teamCount?: number;

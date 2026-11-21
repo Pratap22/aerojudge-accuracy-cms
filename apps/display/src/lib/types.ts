@@ -19,6 +19,8 @@ export interface PublicCompetition {
     partnerTiersEnabled?: boolean;
     /** Minutes before a wind reading is hidden. 0 keeps the latest reading visible. */
     windDisplayMaxAgeMinutes?: number;
+    /** When false, the Country ranking screen stays off the venue board. */
+    countryRankingEnabled?: boolean;
   };
   pilotCount?: number;
   teamCount?: number;

@@ -120,7 +120,9 @@ export function EventPage() {
           <div className="mt-6 max-w-3xl">
             {feedLoading ? <p className="text-sm text-muted-foreground">Loading updates…</p> : null}
             {feedError ? <p className="text-sm text-rose-300">Updates are unavailable right now.</p> : null}
-            {!feedLoading && !feedError ? <EventFeedList items={feed} /> : null}
+            {!feedLoading && !feedError ? (
+              <EventFeedList items={feed} competitionId={competitionId} />
+            ) : null}
           </div>
         </section>
         ) : null}

@@ -30,6 +30,7 @@ export function Navigation() {
     { path: '', label: 'Home' },
     ...(!preEvent ? [{ path: 'results', label: 'Results' }] : []),
     { path: 'pilots', label: 'Pilots' },
+    ...((competition?.teamCount ?? 0) > 0 ? [{ path: 'teams', label: 'Teams' }] : []),
     { path: 'event', label: 'Event' },
     ...(registrationOpen ? [{ path: 'register', label: 'Register' }] : []),
   ];

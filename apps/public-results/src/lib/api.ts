@@ -129,6 +129,19 @@ export function fetchFeed(idOrSlug: string): Promise<PublicFeedItem[]> {
   return publicFetch<PublicFeedItem[]>(`/${idOrSlug}/feed`);
 }
 
+export function fetchFeedItem(idOrSlug: string, itemId: string): Promise<PublicFeedItem> {
+  return publicFetch<PublicFeedItem>(`/${idOrSlug}/feed/${encodeURIComponent(itemId)}`);
+}
+
+export function feedItemPath(competitionId: string, itemId: string): string {
+  return competitionPath(competitionId, 'feed', itemId);
+}
+
+/** Absolute URL for sharing a page, including the /events base when the app is mounted there. */
+export function shareUrl(path: string): string {
+  return `${window.location.origin}${browserPath(path)}`;
+}
+
 export function fetchRoundResults(idOrSlug: string, round: number): Promise<RoundResults> {
   return publicFetch<RoundResults>(`/${idOrSlug}/rounds`, { round });
 }
@@ -170,6 +183,34 @@ export interface PublicPilotList {
 
 export function fetchPilots(idOrSlug: string): Promise<PublicPilotList> {
   return publicFetch<PublicPilotList>(`/${idOrSlug}/pilots`);
+}
+
+export interface PublicTeamMember {
+  pilotId: string;
+  pilotNumber: number | null;
+  firstName: string;
+  lastName: string;
+  role: string;
+  photoUrl: string | null;
+  aeroJudgeId: string | null;
+  country: { name: string; code: string; code2: string } | null;
+}
+
+export interface PublicTeamRoster {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  country: { name: string; code: string; code2: string } | null;
+  members: PublicTeamMember[];
+}
+
+export interface PublicTeamList {
+  competitionId: string;
+  teams: PublicTeamRoster[];
+}
+
+export function fetchTeams(idOrSlug: string): Promise<PublicTeamList> {
+  return publicFetch<PublicTeamList>(`/${idOrSlug}/teams`);
 }
 
 export interface PublicCareerCompetition {

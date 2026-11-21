@@ -134,6 +134,16 @@ export const getLatestScore = [
   }),
 ];
 
+const feedItemParams = z.object({ slug: z.string().min(1), itemId: z.string().min(1) });
+
+export const getFeedItem = [
+  validateParams(feedItemParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const item = await publicService.getPublicFeedItem(req.params.slug, req.params.itemId);
+    sendSuccess(res, item);
+  }),
+];
+
 export const getFeed = [
   validateParams(slugParams),
   asyncHandler(async (req: Request, res: Response) => {
@@ -197,6 +207,14 @@ export const pilotProfile = [
       Number(req.params.pilotNumber),
     );
     sendSuccess(res, profile);
+  }),
+];
+
+export const listTeams = [
+  validateParams(slugParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const teams = await publicService.listPublicTeams(req.params.slug);
+    sendSuccess(res, teams);
   }),
 ];
 

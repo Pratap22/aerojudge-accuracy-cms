@@ -3,6 +3,7 @@ import { CompetitionListPage } from './pages/CompetitionListPage';
 import { HomePage } from './pages/HomePage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { PilotsPage } from './pages/PilotsPage';
+import { TeamsPage } from './pages/TeamsPage';
 import { PilotProfilePage } from './pages/PilotProfilePage';
 import { PilotCareerPage } from './pages/PilotCareerPage';
 import { PersonProfilePage } from './pages/PersonProfilePage';
@@ -10,6 +11,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { EventPage } from './pages/EventPage';
+import { FeedItemPage } from './pages/FeedItemPage';
 import { competitionPath } from './lib/api';
 
 const DEFAULT_ID = (import.meta.env.VITE_DEFAULT_SLUG || '').trim();
@@ -45,6 +47,12 @@ function SectionRedirect({
   return <Navigate to={target} replace />;
 }
 
+function LegacyFeedItemRedirect() {
+  const { slug, itemId } = useParams<{ slug: string; itemId: string }>();
+  if (!slug || !itemId) return <Navigate to="/" replace />;
+  return <Navigate to={competitionPath(slug, 'feed', itemId)} replace />;
+}
+
 function LegacyPilotRedirect() {
   const { slug, pilotNumber } = useParams<{ slug: string; pilotNumber: string }>();
   if (!slug || !pilotNumber) return <Navigate to="/" replace />;
@@ -60,13 +68,14 @@ function App() {
       <Route path="/competition/:competitionId" element={<HomePage />} />
       <Route path="/competition/:competitionId/results" element={<LeaderboardPage />} />
       <Route path="/competition/:competitionId/pilots" element={<PilotsPage />} />
+      <Route path="/competition/:competitionId/teams" element={<TeamsPage />} />
       <Route path="/competition/:competitionId/pilots/:pilotNumber" element={<PilotProfilePage />} />
       <Route path="/pilots/:aeroJudgeId" element={<PilotCareerPage />} />
       <Route path="/competition/:competitionId/profile/:aeroJudgeId" element={<PersonProfilePage />} />
       <Route path="/competition/:competitionId/register" element={<RegisterPage />} />
       <Route path="/competition/:competitionId/event" element={<EventPage />} />
+      <Route path="/competition/:competitionId/feed/:itemId" element={<FeedItemPage />} />
       <Route path="/competition/:competitionId/women" element={<SectionRedirect segment="results" search="board=women" />} />
-      <Route path="/competition/:competitionId/teams" element={<SectionRedirect segment="results" search="board=teams" />} />
       <Route path="/competition/:competitionId/countries" element={<SectionRedirect segment="results" search="board=countries" />} />
       <Route path="/competition/:competitionId/statistics" element={<SectionRedirect segment="results" hash="stats" />} />
       <Route path="/competition/:competitionId/officials" element={<SectionRedirect segment="event" hash="officials" />} />
@@ -85,6 +94,7 @@ function App() {
       <Route path="/:slug/statistics" element={<LegacySlugRedirect suffix="statistics" />} />
       <Route path="/:slug/officials" element={<LegacySlugRedirect suffix="officials" />} />
       <Route path="/:slug/info" element={<LegacySlugRedirect suffix="info" />} />
+      <Route path="/:slug/feed/:itemId" element={<LegacyFeedItemRedirect />} />
       <Route path="/:slug/feed" element={<LegacySlugRedirect suffix="feed" />} />
       <Route path="/:slug/news" element={<LegacySlugRedirect suffix="feed" />} />
       <Route path="/:slug/event" element={<LegacySlugRedirect suffix="event" />} />

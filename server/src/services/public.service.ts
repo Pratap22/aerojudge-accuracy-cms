@@ -63,6 +63,7 @@ const publicCompetitionSelect = {
       aeroJudgeAsPartner: true,
       windDisplayMaxAgeMinutes: true,
       publicRegistrationEnabled: true,
+      countryRankingEnabled: true,
     },
   },
   info: {
@@ -149,6 +150,7 @@ function mapPublicCompetition(competition: {
     aeroJudgeAsPartner?: boolean;
     windDisplayMaxAgeMinutes: number;
     publicRegistrationEnabled: boolean;
+    countryRankingEnabled: boolean;
   } | null;
   info?: {
     heroImageUrl?: string | null;
@@ -707,6 +709,18 @@ export async function getPublicResults(slug: string, category = 'OVERALL') {
   }
 
   if (category === 'COUNTRY') {
+    if (competition.settings?.countryRankingEnabled === false) {
+      return {
+        competition,
+        category,
+        official: false,
+        publishedAt: null,
+        rankings: [],
+        scoringRounds,
+        payload: null,
+      };
+    }
+
     let countryResult = result;
     let payload = Array.isArray(countryResult?.payloadJson)
       ? (countryResult.payloadJson as Array<{
@@ -1033,41 +1047,70 @@ export async function getPublicRoundsStatus(slugOrId: string) {
   };
 }
 
+const publicFeedSelect = {
+  id: true,
+  kind: true,
+  pilotNumber: true,
+  pilotName: true,
+  pilotPhotoUrl: true,
+  roundNumber: true,
+  scoreText: true,
+  reason: true,
+  caption: true,
+  imageUrl: true,
+  body: true,
+  updatedAt: true,
+} as const;
+
+function mapPublicFeedItem(item: {
+  id: string;
+  kind: string;
+  pilotNumber: number | null;
+  pilotName: string | null;
+  pilotPhotoUrl: string | null;
+  roundNumber: number | null;
+  scoreText: string | null;
+  reason: string | null;
+  caption: string | null;
+  imageUrl: string | null;
+  body: string;
+  updatedAt: Date;
+}) {
+  return {
+    id: item.id,
+    kind: item.kind,
+    pilotNumber: item.pilotNumber,
+    pilotName: item.pilotName,
+    pilotPhotoUrl: toAbsoluteAssetUrl(item.pilotPhotoUrl),
+    roundNumber: item.roundNumber,
+    scoreText: item.scoreText,
+    reason: item.reason,
+    caption: item.caption,
+    imageUrl: toAbsoluteAssetUrl(item.imageUrl),
+    body: item.body,
+    createdAt: item.updatedAt.toISOString(),
+  };
+}
+
 export async function getPublicFeed(slugOrId: string) {
   const competition = await getPublicCompetition(slugOrId);
   const items = await prisma.eventFeedItem.findMany({
     where: { competitionId: competition.id },
     orderBy: { updatedAt: 'desc' },
     take: 100,
-    select: {
-      id: true,
-      kind: true,
-      pilotNumber: true,
-      pilotName: true,
-      pilotPhotoUrl: true,
-      roundNumber: true,
-      scoreText: true,
-      reason: true,
-      caption: true,
-      imageUrl: true,
-      body: true,
-      updatedAt: true,
-    },
+    select: publicFeedSelect,
   });
-  return items.map((item) => ({
-    id: item.id,
-    kind: item.kind,
-    pilotNumber: item.pilotNumber,
-    pilotName: item.pilotName,
-    pilotPhotoUrl: item.pilotPhotoUrl,
-    roundNumber: item.roundNumber,
-    scoreText: item.scoreText,
-    reason: item.reason,
-    caption: item.caption,
-    imageUrl: item.imageUrl,
-    body: item.body,
-    createdAt: item.updatedAt.toISOString(),
-  }));
+  return items.map(mapPublicFeedItem);
+}
+
+export async function getPublicFeedItem(slugOrId: string, itemId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+  const item = await prisma.eventFeedItem.findFirst({
+    where: { id: itemId, competitionId: competition.id },
+    select: publicFeedSelect,
+  });
+  if (!item) throw AppError.notFound('Update not found');
+  return mapPublicFeedItem(item);
 }
 
 export async function getPublicLatestWind(slugOrId: string) {
@@ -1240,6 +1283,71 @@ export async function listPublicCountries() {
     select: { id: true, code: true, code2: true, name: true },
     orderBy: { name: 'asc' },
   });
+}
+
+const PUBLIC_ROSTER_HIDDEN_STATUSES = new Set([
+  'REGISTERED',
+  'REJECTED',
+  'WITHDRAWN',
+  'DISQUALIFIED',
+  'DNS',
+]);
+
+export async function listPublicTeams(slugOrId: string) {
+  const competition = await getPublicCompetition(slugOrId);
+  const teams = await prisma.team.findMany({
+    where: { competitionId: competition.id },
+    orderBy: { name: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      logoUrl: true,
+      country: { select: { name: true, code: true, code2: true } },
+      members: {
+        orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          role: true,
+          pilot: {
+            select: {
+              id: true,
+              pilotNumber: true,
+              firstName: true,
+              lastName: true,
+              status: true,
+              ...pilotPhotoWithPersonSelect,
+              country: { select: { name: true, code: true, code2: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return {
+    competitionId: competition.id,
+    teams: teams.map((team) => ({
+      id: team.id,
+      name: team.name,
+      logoUrl: toAbsoluteAssetUrl(team.logoUrl),
+      country: toPublicCountry(team.country),
+      members: team.members.flatMap((member) => {
+        const pilot = member.pilot;
+        if (!pilot || PUBLIC_ROSTER_HIDDEN_STATUSES.has(pilot.status)) return [];
+        return [
+          {
+            pilotId: pilot.id,
+            pilotNumber: pilot.pilotNumber,
+            firstName: pilot.firstName,
+            lastName: pilot.lastName,
+            role: member.role,
+            photoUrl: toAbsoluteAssetUrl(displayedPilotPhotoUrl(pilot)),
+            aeroJudgeId: pilot.person?.aeroJudgeId ?? null,
+            country: toPublicCountry(pilot.country),
+          },
+        ];
+      }),
+    })),
+  };
 }
 
 export async function listPublicPilots(slugOrId: string) {

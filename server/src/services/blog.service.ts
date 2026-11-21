@@ -383,7 +383,7 @@ function factsFromRow(
     related: [],
     resultsUrl: `${base}/competition/${encodeURIComponent(slug)}/results`,
     womenUrl: `${base}/competition/${encodeURIComponent(slug)}/women`,
-    teamsUrl: `${base}/competition/${encodeURIComponent(slug)}/teams`,
+    teamsUrl: `${base}/competition/${encodeURIComponent(slug)}/results?board=teams`,
     ...extra,
   };
 }

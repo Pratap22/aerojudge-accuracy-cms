@@ -130,6 +130,8 @@ export interface RuleConfig {
   womenCategoryEnabled: boolean;
   juniorCategoryEnabled: boolean;
   juniorMaxAge: number;
+  /** When false, country ranking is hidden on the venue display, public results, and admin rankings. */
+  countryRankingEnabled: boolean;
   /** Non-scoring result types that receive maximum score for ranking */
   maxScoreResultTypes: ScoreResultType[];
   /** Result types excluded from ranking entirely */
@@ -622,6 +624,7 @@ export const DEFAULT_FAI_2022_RULES: RuleConfig = {
   womenCategoryEnabled: true,
   juniorCategoryEnabled: true,
   juniorMaxAge: 25,
+  countryRankingEnabled: true,
   maxScoreResultTypes: ['DNF', 'ABS', 'DNS', 'MAXIMUM'],
   excludeFromRankingTypes: ['REFLIGHT'],
   tieBreakPriority: [

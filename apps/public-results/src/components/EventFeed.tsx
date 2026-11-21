@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Share2 } from 'lucide-react';
 import { padPilotNumber } from '@aero-judge/utils';
-import { competitionPath, type PublicFeedItem } from '../lib/api';
+import { competitionPath, feedItemPath, shareUrl, type PublicFeedItem } from '../lib/api';
 
 function kindLabel(kind: PublicFeedItem['kind']): string {
   if (kind === 'SCORE') return 'Score';
@@ -32,24 +34,93 @@ function PilotFace({
   );
 }
 
-function FeedCard({ item }: { item: PublicFeedItem }) {
+function shareText(item: PublicFeedItem): string {
+  return (item.caption || item.body || item.pilotName || 'Paragliding accuracy update').replace(
+    /\s+/g,
+    ' ',
+  ).trim();
+}
+
+export function ShareFeedButton({
+  competitionId,
+  item,
+}: {
+  competitionId: string;
+  item: PublicFeedItem;
+}) {
+  const [copied, setCopied] = useState(false);
+  const url = shareUrl(feedItemPath(competitionId, item.id));
+  const title = shareText(item);
+
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-700 transition-colors hover:bg-sky-500/10 dark:text-sky-300"
+      onClick={() => {
+        const payload = { title, text: title, url };
+        if (typeof navigator.share === 'function') {
+          void navigator.share(payload).catch((error: Error) => {
+            if (error.name === 'AbortError') return;
+            void navigator.clipboard?.writeText(url).then(() => {
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 2000);
+            });
+          });
+          return;
+        }
+        void navigator.clipboard?.writeText(url).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 2000);
+        });
+      }}
+    >
+      <Share2 className="h-3.5 w-3.5" />
+      {copied ? 'Link copied' : 'Share'}
+    </button>
+  );
+}
+
+function FeedCard({
+  item,
+  competitionId,
+}: {
+  item: PublicFeedItem;
+  competitionId?: string;
+}) {
   const isPilotPost = item.kind === 'SCORE' || item.kind === 'REFLIGHT';
   const heading =
     isPilotPost && item.roundNumber != null ? `Round ${item.roundNumber}` : kindLabel(item.kind);
+  const permalink = competitionId ? feedItemPath(competitionId, item.id) : null;
+  const imageAlt = (item.caption || item.body || 'Paragliding accuracy photo').replace(/\s+/g, ' ').trim();
 
   return (
     <li className="rounded-xl border border-border bg-card px-3 py-2.5">
       <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-wide text-muted-foreground">
         <span>{heading}</span>
-        <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
+        <span className="flex items-center gap-2">
+          {competitionId && item.imageUrl ? (
+            <ShareFeedButton competitionId={competitionId} item={item} />
+          ) : null}
+          <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
+        </span>
       </div>
 
-      {item.kind === 'PHOTO' && item.imageUrl ? (
-        <img
-          src={item.imageUrl}
-          alt={item.caption ?? item.body}
-          className="mt-3 max-h-[28rem] w-full rounded-xl object-cover"
-        />
+      {item.imageUrl ? (
+        permalink ? (
+          <Link to={permalink} className="mt-3 block">
+            <img
+              src={item.imageUrl}
+              alt={imageAlt}
+              className="max-h-[28rem] w-full rounded-xl object-cover"
+            />
+          </Link>
+        ) : (
+          <img
+            src={item.imageUrl}
+            alt={imageAlt}
+            className="mt-3 max-h-[28rem] w-full rounded-xl object-cover"
+          />
+        )
       ) : null}
 
       {isPilotPost ? (
@@ -94,7 +165,13 @@ function FeedCard({ item }: { item: PublicFeedItem }) {
   );
 }
 
-export function EventFeedList({ items }: { items: PublicFeedItem[] }) {
+export function EventFeedList({
+  items,
+  competitionId,
+}: {
+  items: PublicFeedItem[];
+  competitionId?: string;
+}) {
   if (items.length === 0) {
     return <p className="text-sm text-muted-foreground">No updates yet.</p>;
   }
@@ -102,7 +179,7 @@ export function EventFeedList({ items }: { items: PublicFeedItem[] }) {
   return (
     <ol className="flex flex-col gap-2">
       {items.map((item) => (
-        <FeedCard key={item.id} item={item} />
+        <FeedCard key={item.id} item={item} competitionId={competitionId} />
       ))}
     </ol>
   );
@@ -130,7 +207,7 @@ export function EventFeedPreview({
         </Link>
       </div>
       <div className="mt-3">
-        <EventFeedList items={preview} />
+        <EventFeedList items={preview} competitionId={competitionId} />
       </div>
     </section>
   );

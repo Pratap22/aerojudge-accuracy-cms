@@ -1,5 +1,6 @@
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
+import { toAbsoluteAssetUrl } from '../utils/assets.js';
 import { AppError } from '../utils/errors.js';
 import {
   blogSlugFromPath,
@@ -7,13 +8,14 @@ import {
   renderBlogIndexHtml,
 } from './blog-article.js';
 import { getCompetitionBlog, listCompetitionBlogSummaries } from './blog.service.js';
-import { getPublicCareer } from './public.service.js';
+import { getPublicCareer, getPublicCompetition, getPublicFeedItem } from './public.service.js';
 
 export type SeoMeta = {
   title: string;
   description: string;
   url: string;
   image: string;
+  imageAlt?: string;
   siteName: string;
   type: 'website' | 'article';
   robots?: string;
@@ -192,6 +194,9 @@ function sectionLabel(section: string): string {
       return 'Teams';
     case 'countries':
       return 'Countries';
+    case 'event':
+    case 'feed':
+      return 'Feed';
     case 'statistics':
       return 'Statistics';
     default:
@@ -317,6 +322,127 @@ async function resolveBlogSeo(path: string): Promise<SeoMeta> {
   }
 }
 
+/** `/competition/:slug/feed/:itemId` — a single public update. */
+export function feedItemFromPath(path: string): { slug: string; itemId: string } | null {
+  const match = path.match(/^\/competition\/([^/]+)\/feed\/([^/]+)$/);
+  if (!match?.[1] || !match[2]) return null;
+  try {
+    return {
+      slug: decodeURIComponent(match[1]),
+      itemId: decodeURIComponent(match[2]),
+    };
+  } catch {
+    return { slug: match[1], itemId: match[2] };
+  }
+}
+
+function oneLine(value: string | null | undefined): string {
+  return (value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/** Share-preview and crawler metadata for one public feed update. */
+export function buildFeedItemSeo(input: {
+  slug: string;
+  item: {
+    id: string;
+    kind: string;
+    caption: string | null;
+    body: string;
+    imageUrl: string | null;
+    pilotName: string | null;
+    scoreText: string | null;
+    roundNumber: number | null;
+    createdAt: string;
+  };
+  competition: {
+    name: string;
+    venue?: string | null;
+    country?: string | null;
+  };
+}): SeoMeta {
+  const { item, competition } = input;
+  const place = [competition.venue, competition.country].filter(Boolean).join(', ');
+  const headline =
+    item.kind === 'SCORE' && item.pilotName
+      ? `${item.pilotName} — Round ${item.roundNumber ?? ''} ${item.scoreText ?? ''}`.replace(/\s+/g, ' ').trim()
+      : item.kind === 'REFLIGHT' && item.pilotName
+        ? `${item.pilotName} — reflight`
+        : oneLine(item.caption) || oneLine(item.body) || 'Event update';
+  const shortHeadline = headline.length > 90 ? `${headline.slice(0, 87)}…` : headline;
+  const title = `${shortHeadline} — ${competition.name} · Paragliding Accuracy`;
+  const description = [
+    headline,
+    `${competition.name} paragliding accuracy${place ? ` in ${place}` : ''}.`,
+  ]
+    .join(' ')
+    .slice(0, 300);
+  const url = absolutePublicUrl(`/competition/${encodeURIComponent(input.slug)}/feed/${encodeURIComponent(item.id)}`);
+  const image = item.imageUrl || defaultOgImageUrl();
+  const imageAlt = item.imageUrl ? shortHeadline : title;
+  const figure = item.imageUrl
+    ? `<figure><img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(imageAlt)}" /><figcaption>${escapeHtml(shortHeadline)}</figcaption></figure><p>${escapeHtml(description)}</p>`
+    : undefined;
+
+  return {
+    title,
+    description,
+    url,
+    image,
+    imageAlt,
+    siteName: 'AeroJudge',
+    type: item.imageUrl ? 'article' : 'website',
+    articleHtml: figure,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': item.imageUrl ? 'ImageObject' : 'NewsArticle',
+      name: imageAlt,
+      headline: shortHeadline,
+      description,
+      caption: item.imageUrl ? shortHeadline : undefined,
+      contentUrl: item.imageUrl || undefined,
+      url,
+      image,
+      datePublished: item.createdAt,
+      about: {
+        '@type': 'SportsEvent',
+        name: competition.name,
+        sport: 'Paragliding Accuracy',
+        location: place || undefined,
+      },
+    },
+  };
+}
+
+async function resolveFeedItemSeo(slug: string, itemId: string): Promise<SeoMeta> {
+  const url = absolutePublicUrl(
+    `/competition/${encodeURIComponent(slug)}/feed/${encodeURIComponent(itemId)}`,
+  );
+  try {
+    const [competition, item] = await Promise.all([
+      getPublicCompetition(slug),
+      getPublicFeedItem(slug, itemId),
+    ]);
+    return buildFeedItemSeo({
+      slug: competition.publicSlug || competition.id,
+      item,
+      competition,
+    });
+  } catch (error) {
+    if (error instanceof AppError && (error.statusCode === 404 || error.statusCode === 403)) {
+      return {
+        title: 'Update not found · AeroJudge',
+        description: 'This paragliding accuracy update is not published.',
+        url,
+        image: defaultOgImageUrl(),
+        siteName: 'AeroJudge',
+        type: 'website',
+        robots: 'noindex, nofollow',
+      };
+    }
+    throw error;
+  }
+}
+
 /** `/pilots/:aeroJudgeId` on the events app. Not a competition slug. */
 export function pilotIdFromPath(path: string): string | null {
   const match = path.match(/^\/pilots\/([^/]+)$/);
@@ -335,6 +461,8 @@ export async function resolveSeoMeta(rawPath: string): Promise<SeoMeta> {
   }
   const pilotId = pilotIdFromPath(path);
   if (pilotId) return resolvePilotSeo(pilotId);
+  const feedItem = feedItemFromPath(path);
+  if (feedItem) return resolveFeedItemSeo(feedItem.slug, feedItem.itemId);
   const page = parsePublicPage(path);
   const siteName = 'AeroJudge';
   const image = defaultOgImageUrl();
@@ -463,6 +591,7 @@ export function renderSeoHtml(meta: SeoMeta): string {
   const description = escapeHtml(meta.description);
   const url = escapeHtml(meta.url);
   const image = escapeHtml(meta.image);
+  const imageAlt = escapeHtml(meta.imageAlt || meta.title);
   const siteName = escapeHtml(meta.siteName);
   const robots = escapeHtml(meta.robots || 'index, follow');
   const jsonLd = meta.jsonLd
@@ -484,7 +613,7 @@ export function renderSeoHtml(meta: SeoMeta): string {
   <meta property="og:description" content="${description}" />
   <meta property="og:url" content="${url}" />
   <meta property="og:image" content="${image}" />
-  <meta property="og:image:alt" content="${title}" />
+  <meta property="og:image:alt" content="${imageAlt}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${title}" />
   <meta name="twitter:description" content="${description}" />
@@ -524,7 +653,13 @@ export async function buildSitemapXml(): Promise<string> {
   });
 
   const stories = await listCompetitionBlogSummaries();
-  const urls: Array<{ loc: string; lastmod?: string; priority: string; changefreq: string }> = [
+  const urls: Array<{
+    loc: string;
+    lastmod?: string;
+    priority: string;
+    changefreq: string;
+    image?: { loc: string; caption?: string };
+  }> = [
     { loc: `${site}/`, priority: '1.0', changefreq: 'weekly', lastmod: now },
     { loc: `${site}/blog`, priority: '0.7', changefreq: 'weekly', lastmod: now },
     { loc: `${resultsBase}/`, priority: '0.9', changefreq: 'hourly', lastmod: now },
@@ -536,6 +671,42 @@ export async function buildSitemapXml(): Promise<string> {
       lastmod: story.publishedAt,
       priority: '0.7',
       changefreq: 'monthly',
+    });
+  }
+
+  const photos = await prisma.eventFeedItem.findMany({
+    where: {
+      imageUrl: { not: null },
+      competition: {
+        isPublished: true,
+        status: { notIn: ['DRAFT', 'ARCHIVED'] },
+        settings: { livePublicResults: true },
+      },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 500,
+    select: {
+      id: true,
+      imageUrl: true,
+      caption: true,
+      body: true,
+      updatedAt: true,
+      competition: { select: { id: true, publicSlug: true } },
+    },
+  });
+  for (const photo of photos) {
+    if (!photo.imageUrl) continue;
+    const slug = photo.competition.publicSlug || photo.competition.id;
+    const caption = oneLine(photo.caption) || oneLine(photo.body);
+    urls.push({
+      loc: `${resultsBase}/competition/${encodeURIComponent(slug)}/feed/${encodeURIComponent(photo.id)}`,
+      lastmod: photo.updatedAt.toISOString(),
+      priority: '0.6',
+      changefreq: 'monthly',
+      image: {
+        loc: toAbsoluteAssetUrl(photo.imageUrl) ?? photo.imageUrl,
+        caption: caption || undefined,
+      },
     });
   }
 
@@ -560,18 +731,25 @@ export async function buildSitemapXml(): Promise<string> {
   }
 
   const body = urls
-    .map(
-      (u) => `  <url>
+    .map((u) => {
+      const image = u.image
+        ? `
+    <image:image>
+      <image:loc>${escapeHtml(u.image.loc)}</image:loc>
+      ${u.image.caption ? `<image:caption>${escapeHtml(u.image.caption)}</image:caption>` : ''}
+    </image:image>`
+        : '';
+      return `  <url>
     <loc>${escapeHtml(u.loc)}</loc>
     ${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}
     <changefreq>${u.changefreq}</changefreq>
-    <priority>${u.priority}</priority>
-  </url>`,
-    )
+    <priority>${u.priority}</priority>${image}
+  </url>`;
+    })
     .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${body}
 </urlset>
 `;

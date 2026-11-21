@@ -561,6 +561,7 @@ export function settingsToRuleOverrides(
     womenCategoryEnabled: settings.womenCategoryEnabled,
     juniorCategoryEnabled: settings.juniorCategoryEnabled,
     juniorMaxAge: settings.juniorMaxAge,
+    countryRankingEnabled: settings.countryRankingEnabled,
   };
 
   if (settings.customRulesJson && typeof settings.customRulesJson === 'object') {

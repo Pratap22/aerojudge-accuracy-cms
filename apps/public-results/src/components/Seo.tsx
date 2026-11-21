@@ -13,6 +13,7 @@ function sectionTitle(pathname: string, search: string): string {
   if (pathname.includes('/event')) return 'Event';
   if (pathname.includes('/register')) return 'Registration';
   if (pathname.includes('/pilots/') || pathname.includes('/profile/')) return 'Pilot';
+  if (pathname.includes('/teams')) return 'Teams';
   if (pathname.includes('/pilots')) return 'Pilots';
   return '';
 }

@@ -262,6 +262,8 @@ export async function getTeamRankings(competitionId: string) {
 }
 
 export async function getCountryRankings(competitionId: string) {
+  const competition = await getCompetition(competitionId);
+  if (competition.settings?.countryRankingEnabled === false) return [];
   const result = await prisma.result.findFirst({
     where: { competitionId, category: 'COUNTRY', roundId: null },
   });

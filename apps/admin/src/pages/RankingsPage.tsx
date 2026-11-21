@@ -21,7 +21,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@aero-judge/ui';
-import type { RankingCategory } from '@aero-judge/shared';
+import type { RankingCategory, RuleConfig } from '@aero-judge/shared';
 import { api, ApiError } from '../lib/api';
 import { useCompetitionId } from '../hooks/useCompetitionId';
 import { connectSocket, onSocketEvent, onSocketReconnect } from '../lib/socket';
@@ -132,13 +132,22 @@ export function RankingsPage() {
     enabled: !!activeCompetitionId,
   });
   const hasTeams = (teams?.length ?? 0) > 0;
-  const categories = hasTeams
-    ? allCategories
-    : allCategories.filter((c) => c.value !== 'TEAM');
+  const { data: rules } = useQuery({
+    queryKey: ['settings', activeCompetitionId],
+    queryFn: () => api.get<RuleConfig>(`/competitions/${activeCompetitionId}/rules`),
+    enabled: !!activeCompetitionId,
+  });
+  const countryRankingEnabled = rules?.countryRankingEnabled !== false;
+  const categories = allCategories.filter((item) => {
+    if (item.value === 'TEAM' && !hasTeams) return false;
+    if (item.value === 'COUNTRY' && rules && !countryRankingEnabled) return false;
+    return true;
+  });
 
   useEffect(() => {
     if (category === 'TEAM' && !hasTeams) setCategory('OVERALL');
-  }, [category, hasTeams]);
+    if (category === 'COUNTRY' && rules && !countryRankingEnabled) setCategory('OVERALL');
+  }, [category, hasTeams, rules, countryRankingEnabled]);
 
   useEffect(() => {
     if (activeCompetitionId) connectSocket(activeCompetitionId);

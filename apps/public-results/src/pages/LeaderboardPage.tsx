@@ -26,10 +26,15 @@ export function LeaderboardPage() {
   const [query, setQuery] = useState('');
   const { data: competition } = useCompetition();
   const { data: countryResults, isSuccess: countriesReady } = useResults('COUNTRY');
-  const showCountries = countriesReady && toLeaderboardEntries(countryResults).length > 1;
+  const countryRankingEnabled = competition?.settings?.countryRankingEnabled !== false;
+  const showCountries =
+    Boolean(competition) &&
+    countryRankingEnabled &&
+    countriesReady &&
+    toLeaderboardEntries(countryResults).length > 1;
   const requested = params.get('board');
   const board: Board =
-    requested === 'countries' && countriesReady && !showCountries
+    requested === 'countries' && competition && countriesReady && !showCountries
       ? 'overall'
       : isBoard(requested)
         ? requested
@@ -51,9 +56,9 @@ export function LeaderboardPage() {
   }, [location.hash, board]);
 
   useEffect(() => {
-    if (!countriesReady || showCountries || requested !== 'countries') return;
+    if (!competition || !countriesReady || showCountries || requested !== 'countries') return;
     navigate(resultsPath, { replace: true });
-  }, [countriesReady, showCountries, requested, navigate, resultsPath]);
+  }, [competition, countriesReady, showCountries, requested, navigate, resultsPath]);
 
   const title =
     board === 'women'

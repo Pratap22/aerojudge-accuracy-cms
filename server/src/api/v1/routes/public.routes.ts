@@ -32,10 +32,12 @@ router.get('/:slug/rounds', ...ctrl.getRoundResults);
 router.get('/:slug/rounds-status', ...ctrl.getRoundsStatus);
 router.get('/:slug/latest-score', ...ctrl.getLatestScore);
 router.get('/:slug/wind', ...ctrl.getLatestWind);
+router.get('/:slug/feed/:itemId', ...ctrl.getFeedItem);
 router.get('/:slug/feed', ...ctrl.getFeed);
 router.get('/:slug/sponsors', ...ctrl.getSponsors);
 router.get('/:slug/officials', ...ctrl.getOfficials);
 router.get('/:slug/info', ...ctrl.getEventInfo);
+router.get('/:slug/teams', ...ctrl.listTeams);
 router.get('/:slug/pilots', ...ctrl.listPilots);
 router.get('/:slug/pilots/:pilotNumber/profile', ...ctrl.pilotProfile);
 /** Self-reg: login → claim/profile → competition enrollment */

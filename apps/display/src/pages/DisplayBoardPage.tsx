@@ -300,7 +300,8 @@ export function DisplayBoardPage() {
       auto: !beforeFirstRound,
       women: womenEntries.length > 0,
       teams: teamEntries.length > 0,
-      country: countryEntries.length > 1,
+      country:
+        competition?.settings?.countryRankingEnabled !== false && countryEntries.length > 1,
       sponsors: sponsors.length > 0,
       // Officials are a pre-event screen only — hide once flying starts.
       officials: beforeFirstRound && officials.length > 0,
@@ -309,6 +310,7 @@ export function DisplayBoardPage() {
       beforeFirstRound,
       womenEntries.length,
       teamEntries.length,
+      competition?.settings?.countryRankingEnabled,
       countryEntries.length,
       sponsors.length,
       officials.length,

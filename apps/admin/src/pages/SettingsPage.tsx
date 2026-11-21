@@ -580,6 +580,10 @@ export function CompetitionSettingsPanel({ competitionId }: { competitionId: str
                 Junior Category
               </label>
               <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" {...register('countryRankingEnabled')} className="rounded" />
+                Country ranking
+              </label>
+              <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" {...register('teamAllowReserves')} className="rounded" />
                 Allow Reserves
               </label>
