@@ -333,6 +333,8 @@ function sectionLabel(section: string): string {
       return 'Feed';
     case 'statistics':
       return 'Statistics';
+    case 'bullseyes':
+      return 'Bullseyes';
     default:
       return 'Results';
   }

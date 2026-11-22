@@ -12,6 +12,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { EventPage } from './pages/EventPage';
 import { FeedItemPage } from './pages/FeedItemPage';
+import { BullseyesPage } from './pages/BullseyesPage';
 import { competitionPath } from './lib/api';
 
 const DEFAULT_ID = (import.meta.env.VITE_DEFAULT_SLUG || '').trim();
@@ -67,6 +68,7 @@ function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/competition/:competitionId" element={<HomePage />} />
       <Route path="/competition/:competitionId/results" element={<LeaderboardPage />} />
+      <Route path="/competition/:competitionId/bullseyes" element={<BullseyesPage />} />
       <Route path="/competition/:competitionId/pilots" element={<PilotsPage />} />
       <Route path="/competition/:competitionId/teams" element={<TeamsPage />} />
       <Route path="/competition/:competitionId/pilots/:pilotNumber" element={<PilotProfilePage />} />
@@ -85,6 +87,7 @@ function App() {
 
       <Route path="/:slug" element={<LegacySlugRedirect />} />
       <Route path="/:slug/results" element={<LegacySlugRedirect suffix="results" />} />
+      <Route path="/:slug/bullseyes" element={<LegacySlugRedirect suffix="bullseyes" />} />
       <Route path="/:slug/pilots" element={<LegacySlugRedirect suffix="pilots" />} />
       <Route path="/:slug/pilots/:pilotNumber" element={<LegacyPilotRedirect />} />
       <Route path="/:slug/register" element={<LegacySlugRedirect suffix="register" />} />
