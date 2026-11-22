@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { padPilotNumber } from '@aero-judge/utils';
 import { competitionPath, type PublicCareer } from '../lib/api';
+import { ZoomablePhoto } from './ZoomablePhoto';
 import { countryCodeToEmoji, formatScore } from '../lib/utils';
 
 function BackLink({ to, label }: { to: string; label: string }) {
@@ -66,9 +67,9 @@ export function PilotCareer({ career, back, highlightCompetitionId, notice }: Pi
 
       <header className="flex items-center gap-5 border-b border-border pb-8 sm:gap-6">
         {career.photoUrl ? (
-          <img
+          <ZoomablePhoto
             src={career.photoUrl}
-            alt=""
+            alt={career.displayName}
             className="h-28 w-28 shrink-0 rounded-full object-cover object-top ring-2 ring-sky-500/30 sm:h-32 sm:w-32"
           />
         ) : (
