@@ -10,6 +10,7 @@ import {
   renderBlogIndexHtml,
 } from './blog-article.js';
 import { getCompetitionBlog, listCompetitionBlogSummaries } from './blog.service.js';
+import { bullseyeOgImageUrl } from './bullseye-og.js';
 import { getPublicCareer, getPublicCompetition, getPublicFeedItem } from './public.service.js';
 
 export type SeoMeta = {
@@ -693,19 +694,30 @@ export async function resolveSeoMeta(rawPath: string): Promise<SeoMeta> {
     DEFAULT_DESCRIPTION,
   ].filter(Boolean);
 
-  const description = parts.join(' ').slice(0, 300);
+  const bullseyes = section.split('/')[0] === 'bullseyes';
+  const description = (
+    bullseyes
+      ? `Bullseye ranking for ${competition.name}. Pilots ordered by how many bullseyes they scored, with the round of each one.`
+      : parts.join(' ')
+  ).slice(0, 300);
   const canonicalPath =
     section === '' ? `/competition/${slug}` : `/competition/${slug}/${section}`;
   const url = absolutePublicUrl(canonicalPath);
-  const shareImage = competitionShareImage(competition.info?.heroImageUrl);
-  const shareSize = shareImage === image ? null : await shareImageSize(shareImage);
+  const shareImage = bullseyes
+    ? bullseyeOgImageUrl(slug)
+    : competitionShareImage(competition.info?.heroImageUrl);
+  const shareSize = bullseyes
+    ? { width: 1200, height: 630, type: 'image/png' }
+    : shareImage === image
+      ? null
+      : await shareImageSize(shareImage);
 
   return {
     title,
     description,
     url,
     image: shareImage,
-    imageAlt: competition.name,
+    imageAlt: bullseyes ? `Bullseye ranking for ${competition.name}` : competition.name,
     imageWidth: shareSize?.width,
     imageHeight: shareSize?.height,
     imageType: shareSize?.type,

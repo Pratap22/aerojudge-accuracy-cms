@@ -1,6 +1,13 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { useCompetition } from '../hooks/useCompetition';
 import { defaultShareImageUrl, useDocumentSeo } from '../lib/seo';
+
+function bullseyeShareImage(pathname: string, competitionId: string, heroImageUrl?: string | null): string {
+  if (pathname.includes('/bullseyes') && competitionId && typeof window !== 'undefined') {
+    return `${window.location.origin}/api/v1/public/og/bullseyes/${encodeURIComponent(competitionId)}.png`;
+  }
+  return heroImageUrl || defaultShareImageUrl();
+}
 
 function sectionTitle(pathname: string, search: string): string {
   if (pathname.includes('/results')) {
@@ -22,6 +29,7 @@ function sectionTitle(pathname: string, search: string): string {
 /** Per-route document meta for competition pages. */
 export function CompetitionSeo() {
   const { pathname, search } = useLocation();
+  const { competitionId = '' } = useParams();
   const { data: competition } = useCompetition();
   const section = sectionTitle(pathname, search);
 
@@ -43,7 +51,7 @@ export function CompetitionSeo() {
     title,
     description,
     url: typeof window !== 'undefined' ? window.location.href.split('#')[0] : undefined,
-    image: competition?.heroImageUrl || defaultShareImageUrl(),
+    image: bullseyeShareImage(pathname, competitionId, competition?.heroImageUrl),
   });
 
   return null;

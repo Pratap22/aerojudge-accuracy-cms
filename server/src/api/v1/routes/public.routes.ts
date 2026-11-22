@@ -19,6 +19,7 @@ router.use((req, res, next) => {
 router.get('/seo/render', ...ctrl.renderSeoHtml);
 router.get('/seo/meta', ...ctrl.seoMetaJson);
 router.get('/sitemap.xml', ...ctrl.sitemapXml);
+router.get('/og/bullseyes/:slug.png', ...ctrl.bullseyeOgImage);
 router.get('/robots.txt', ...ctrl.robotsTxt);
 
 router.get('/blog', ...ctrl.listBlog);

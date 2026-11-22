@@ -22,6 +22,7 @@
     "@aero-judge/utils": "*",
     "@aws-sdk/client-ses": "^3.1104.0",
     "@prisma/client": "^5.12.1",
+    "@resvg/resvg-js": "^2.6.2",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.5",
