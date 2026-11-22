@@ -1,7 +1,8 @@
+import { open } from 'node:fs/promises';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { feedItemId } from '@aero-judge/utils';
-import { toAbsoluteAssetUrl } from '../utils/assets.js';
+import { resolveLocalUploadPath, toAbsoluteAssetUrl } from '../utils/assets.js';
 import { AppError } from '../utils/errors.js';
 import {
   blogSlugFromPath,
@@ -120,6 +121,73 @@ export function publicSiteOrigin(): string {
 
 export function defaultOgImageUrl(): string {
   return `${publicSiteOrigin()}/og-default.svg`;
+}
+
+/** Hero photo when the event has one, otherwise the site share image. */
+export function competitionShareImage(heroImageUrl: string | null | undefined): string {
+  return toAbsoluteAssetUrl(heroImageUrl) || defaultOgImageUrl();
+}
+
+/** Width and height from a PNG, JPEG, or WebP header. */
+export function imageSizeFromBuffer(buffer: Buffer): OpenGraphImageSize | null {
+  if (buffer.length >= 24 && buffer.toString('ascii', 1, 4) === 'PNG') {
+    const width = positivePixel(String(buffer.readUInt32BE(16)));
+    const height = positivePixel(String(buffer.readUInt32BE(20)));
+    if (!width || !height) return null;
+    return { width, height, type: 'image/png' };
+  }
+
+  if (buffer.length >= 4 && buffer[0] === 0xff && buffer[1] === 0xd8) {
+    let offset = 2;
+    while (offset + 9 < buffer.length) {
+      if (buffer[offset] !== 0xff) break;
+      const marker = buffer[offset + 1] ?? 0;
+      const length = buffer.readUInt16BE(offset + 2);
+      const isStartOfFrame =
+        marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+      if (isStartOfFrame) {
+        const width = positivePixel(String(buffer.readUInt16BE(offset + 7)));
+        const height = positivePixel(String(buffer.readUInt16BE(offset + 5)));
+        if (!width || !height) return null;
+        return { width, height, type: 'image/jpeg' };
+      }
+      if (length < 2) break;
+      offset += 2 + length;
+    }
+  }
+
+  if (
+    buffer.length >= 30 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    const format = buffer.toString('ascii', 12, 16);
+    if (format === 'VP8X') {
+      const width = positivePixel(String(1 + buffer.readUIntLE(24, 3)));
+      const height = positivePixel(String(1 + buffer.readUIntLE(27, 3)));
+      if (width && height) return { width, height, type: 'image/webp' };
+    }
+  }
+
+  return null;
+}
+
+async function shareImageSize(url: string): Promise<OpenGraphImageSize | null> {
+  const remote = await readOpenGraphImageSize(url);
+  if (remote) return remote;
+  const localPath = resolveLocalUploadPath(url);
+  if (!localPath) return null;
+  let handle: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    handle = await open(localPath, 'r');
+    const buffer = Buffer.alloc(1024 * 1024);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    return imageSizeFromBuffer(buffer.subarray(0, bytesRead));
+  } catch {
+    return null;
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
 }
 
 /** Known SPA path prefixes (current + legacy). */
@@ -579,6 +647,7 @@ export async function resolveSeoMeta(rawPath: string): Promise<SeoMeta> {
       endDate: true,
       status: true,
       publicSlug: true,
+      info: { select: { heroImageUrl: true } },
       _count: {
         select: {
           pilots: true,
@@ -626,12 +695,18 @@ export async function resolveSeoMeta(rawPath: string): Promise<SeoMeta> {
   const canonicalPath =
     section === '' ? `/competition/${slug}` : `/competition/${slug}/${section}`;
   const url = absolutePublicUrl(canonicalPath);
+  const shareImage = competitionShareImage(competition.info?.heroImageUrl);
+  const shareSize = shareImage === image ? null : await shareImageSize(shareImage);
 
   return {
     title,
     description,
     url,
-    image,
+    image: shareImage,
+    imageAlt: competition.name,
+    imageWidth: shareSize?.width,
+    imageHeight: shareSize?.height,
+    imageType: shareSize?.type,
     siteName,
     type: 'website',
     jsonLd: {
@@ -656,7 +731,7 @@ export async function resolveSeoMeta(rawPath: string): Promise<SeoMeta> {
       organizer: competition.organizer
         ? { '@type': 'Organization', name: competition.organizer }
         : undefined,
-      image,
+      image: shareImage,
     },
   };
 }

@@ -42,7 +42,7 @@ export function CompetitionSeo() {
     title,
     description,
     url: typeof window !== 'undefined' ? window.location.href.split('#')[0] : undefined,
-    image: defaultShareImageUrl(),
+    image: competition?.heroImageUrl || defaultShareImageUrl(),
   });
 
   return null;
