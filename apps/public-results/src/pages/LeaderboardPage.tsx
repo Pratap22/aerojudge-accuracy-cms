@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '@aero-judge/ui';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -59,6 +59,13 @@ export function LeaderboardPage() {
     if (location.hash !== '#stats' || board !== 'overall') return;
     document.getElementById('stats')?.scrollIntoView();
   }, [location.hash, board]);
+
+  const previousBoard = useRef(board);
+  useEffect(() => {
+    if (previousBoard.current === board) return;
+    previousBoard.current = board;
+    window.scrollTo({ top: 0 });
+  }, [board]);
 
   useEffect(() => {
     if (!competition) return;
