@@ -4,6 +4,8 @@ import { Share2 } from 'lucide-react';
 import { padPilotNumber } from '@aero-judge/utils';
 import { competitionPath, feedItemPath, shareUrl, type PublicFeedItem } from '../lib/api';
 
+const feedPhotoClass = 'mx-auto block h-auto max-h-[40rem] w-auto max-w-full rounded-xl';
+
 function kindLabel(kind: PublicFeedItem['kind']): string {
   if (kind === 'SCORE') return 'Score';
   if (kind === 'REFLIGHT') return 'Reflight';
@@ -107,17 +109,13 @@ function FeedCard({
       {item.imageUrl ? (
         permalink ? (
           <Link to={permalink} className="mt-3 block">
-            <img
-              src={item.imageUrl}
-              alt={imageAlt}
-              className="max-h-[28rem] w-full rounded-xl object-cover"
-            />
+            <img src={item.imageUrl} alt={imageAlt} className={feedPhotoClass} />
           </Link>
         ) : (
           <img
             src={item.imageUrl}
             alt={imageAlt}
-            className="mt-3 max-h-[28rem] w-full rounded-xl object-cover"
+            className={`mt-3 ${feedPhotoClass}`}
           />
         )
       ) : null}

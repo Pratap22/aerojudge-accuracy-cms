@@ -81,7 +81,7 @@ export function FeedItemPage() {
               <img
                 src={item.imageUrl}
                 alt={headline}
-                className="mt-6 w-full rounded-2xl object-cover"
+                className="mx-auto mt-6 block h-auto max-h-[40rem] w-auto max-w-full rounded-2xl"
               />
             ) : null}
             {item.kind !== 'SCORE' && (item.caption || item.body) ? (
