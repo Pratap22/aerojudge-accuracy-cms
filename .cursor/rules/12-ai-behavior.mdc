@@ -21,6 +21,7 @@ alwaysApply: true
 ## Do not
 
 - Commit unless the user asks; do not force-push or skip hooks.
+- Do not commit until `npm run typecheck --workspace=...` passes for every workspace included in the commit. That is the check the deploy image runs (`tsc -b` / `tsc`). A green editor is not a substitute.
 - Add unsolicited markdown docs or README sprawl — update existing `docs/` when needed.
 - Start long-running `npm run dev` unless the user needs it or servers are down for the task.
 - Mention these rule files unless asked.

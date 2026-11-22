@@ -14,7 +14,7 @@ interface BullseyePilot {
   count: number;
   rounds: number[];
   totalScoreCm: number;
-  pilotNumber: number | null;
+  pilotNumber: number;
   firstName: string;
   lastName: string;
   photoUrl?: string | null;
@@ -24,31 +24,30 @@ interface BullseyePilot {
 }
 
 function bullseyePilots(rankings: PublicRankingRow[]): BullseyePilot[] {
-  const rows = rankings
-    .map((row) => {
-      const pilot = row.pilot;
-      if (!pilot) return null;
-      const rounds = (row.roundScores ?? [])
-        .filter((score) => score.isBullseye && !score.isProvisional)
-        .map((score) => score.round)
-        .sort((a, b) => a - b);
-      const count = Math.max(row.bullseyes ?? 0, rounds.length);
-      if (count < 1) return null;
-      return {
-        rank: 0,
-        count,
-        rounds,
-        totalScoreCm: row.totalScoreCm,
-        pilotNumber: pilot.pilotNumber ?? null,
-        firstName: pilot.firstName,
-        lastName: pilot.lastName,
-        photoUrl: pilot.photoUrl,
-        aeroJudgeId: pilot.aeroJudgeId,
-        countryCode: pilot.country?.code,
-        countryCode2: pilot.country?.code2,
-      };
-    })
-    .filter((row): row is BullseyePilot => row != null);
+  const rows: BullseyePilot[] = [];
+  for (const row of rankings) {
+    const pilot = row.pilot;
+    if (!pilot) continue;
+    const rounds = (row.roundScores ?? [])
+      .filter((score) => score.isBullseye && !score.isProvisional)
+      .map((score) => score.round)
+      .sort((a, b) => a - b);
+    const count = Math.max(row.bullseyes ?? 0, rounds.length);
+    if (count < 1) continue;
+    rows.push({
+      rank: 0,
+      count,
+      rounds,
+      totalScoreCm: row.totalScoreCm,
+      pilotNumber: pilot.pilotNumber,
+      firstName: pilot.firstName,
+      lastName: pilot.lastName,
+      photoUrl: pilot.photoUrl,
+      aeroJudgeId: pilot.aeroJudgeId,
+      countryCode: pilot.country?.code,
+      countryCode2: pilot.country?.code2,
+    });
+  }
 
   rows.sort((a, b) => {
     if (b.count !== a.count) return b.count - a.count;
@@ -142,13 +141,6 @@ export function BullseyesPage() {
 }
 
 function PilotCell({ pilot }: { pilot: BullseyePilot }) {
-  if (pilot.pilotNumber == null) {
-    return (
-      <span className="font-medium text-foreground">
-        {pilotFullName(pilot.firstName, pilot.lastName)}
-      </span>
-    );
-  }
   return (
     <PilotChip
       pilotNumber={pilot.pilotNumber}

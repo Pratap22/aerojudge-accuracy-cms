@@ -29,4 +29,5 @@ Sample login/slug values may appear in seed/README for local bootstrapping. Pref
 - Prefer `npm run dev` from repo root over starting single workspaces unless debugging one app.
 - After changing `@aero-judge/shared` / `@aero-judge/utils` schemas or exports, ensure the package rebuilds (Turbo `dev` watch or `npm run build --workspace=@aero-judge/shared`).
 - Do not commit secrets; use `.env` / `.env.example` patterns.
+- Before committing, typecheck every workspace whose source is in the commit. Deploy builds run `tsc -b` (apps) or `tsc` (server) and fail the push when that errors. Run `npm run typecheck --workspace=<name>` for each changed workspace and do not commit if it fails. App workspace names match `apps/*` (`@aero-judge/public-results`, `@aero-judge/admin`, `@aero-judge/judge`, `@aero-judge/display`, `@aero-judge/marketing`); the API is `@aero-judge/server`. Shared package changes (`packages/shared`, `packages/utils`, `packages/ui`) need that package’s typecheck plus the apps that import it.
 - DB changes go through Prisma migrations in `database/` — never edit production data ad hoc in agent flows.
