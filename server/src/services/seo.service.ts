@@ -814,7 +814,13 @@ export async function buildSitemapXml(): Promise<string> {
       settings: { livePublicResults: true },
       status: { notIn: ['DRAFT', 'ARCHIVED'] },
     },
-    select: { id: true, publicSlug: true, updatedAt: true, status: true },
+    select: {
+      id: true,
+      publicSlug: true,
+      updatedAt: true,
+      status: true,
+      _count: { select: { teams: true } },
+    },
     orderBy: { startDate: 'desc' },
     take: 500,
   });
@@ -829,6 +835,8 @@ export async function buildSitemapXml(): Promise<string> {
   }> = [
     { loc: `${site}/`, priority: '1.0', changefreq: 'weekly', lastmod: now },
     { loc: `${site}/blog`, priority: '0.7', changefreq: 'weekly', lastmod: now },
+    { loc: `${site}/privacy`, priority: '0.3', changefreq: 'yearly' },
+    { loc: `${site}/terms`, priority: '0.3', changefreq: 'yearly' },
     { loc: `${resultsBase}/`, priority: '0.9', changefreq: 'hourly', lastmod: now },
   ];
 
@@ -880,21 +888,49 @@ export async function buildSitemapXml(): Promise<string> {
   for (const c of competitions) {
     const slug = c.publicSlug || c.id;
     const lastmod = c.updatedAt.toISOString();
-    const pri = c.status === 'COMPLETED' ? '0.8' : '0.85';
+    const live = c.status !== 'COMPLETED';
+    const pri = live ? '0.85' : '0.8';
+    const freq = live ? 'hourly' : 'weekly';
+    const base = `${resultsBase}/competition/${slug}`;
     urls.push(
-      {
-        loc: `${resultsBase}/competition/${slug}`,
-        lastmod,
-        priority: pri,
-        changefreq: c.status === 'COMPLETED' ? 'weekly' : 'hourly',
-      },
-      {
-        loc: `${resultsBase}/competition/${slug}/results`,
-        lastmod,
-        priority: pri,
-        changefreq: c.status === 'COMPLETED' ? 'weekly' : 'hourly',
-      },
+      { loc: base, lastmod, priority: pri, changefreq: freq },
+      { loc: `${base}/results`, lastmod, priority: pri, changefreq: freq },
+      { loc: `${base}/pilots`, lastmod, priority: '0.7', changefreq: freq },
+      { loc: `${base}/event`, lastmod, priority: '0.6', changefreq: 'weekly' },
+      { loc: `${base}/bullseyes`, lastmod, priority: '0.5', changefreq: freq },
     );
+    if (c._count.teams > 0) {
+      urls.push({ loc: `${base}/teams`, lastmod, priority: '0.6', changefreq: 'weekly' });
+    }
+  }
+
+  const publicPilots = await prisma.pilot.findMany({
+    where: {
+      pilotNumber: { not: null },
+      status: { notIn: ['REGISTERED', 'REJECTED', 'WITHDRAWN', 'DISQUALIFIED', 'DNS'] },
+      competition: {
+        isPublished: true,
+        status: { notIn: ['DRAFT', 'ARCHIVED'] },
+        settings: { livePublicResults: true },
+      },
+    },
+    select: {
+      pilotNumber: true,
+      updatedAt: true,
+      competition: { select: { id: true, publicSlug: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 5000,
+  });
+  for (const pilot of publicPilots) {
+    if (pilot.pilotNumber == null) continue;
+    const slug = pilot.competition.publicSlug || pilot.competition.id;
+    urls.push({
+      loc: `${resultsBase}/competition/${slug}/pilots/${pilot.pilotNumber}`,
+      lastmod: pilot.updatedAt.toISOString(),
+      priority: '0.5',
+      changefreq: 'weekly',
+    });
   }
 
   const body = urls
