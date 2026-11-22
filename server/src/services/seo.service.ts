@@ -19,6 +19,8 @@ export type SeoMeta = {
   url: string;
   image: string;
   imageAlt?: string;
+  /** Exact URL that was shared. Messenger drops the card when this differs from the link. */
+  shareUrl?: string;
   /** Pixel size. Facebook will not draw og:image on the first share without both. */
   imageWidth?: number;
   imageHeight?: number;
@@ -201,6 +203,13 @@ function publicAppBasePath(): string {
   } catch {
     return '';
   }
+}
+
+/** Absolute form of the path the crawler actually requested. */
+export function requestedPublicUrl(rawPath: string): string {
+  const pathOnly = (rawPath.split('?')[0] || '/').split('#')[0].trim() || '/';
+  const path = pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`;
+  return `${publicSiteOrigin()}${path}`;
 }
 
 function absolutePublicUrl(pathname: string): string {
@@ -717,6 +726,7 @@ export async function resolveSeoMeta(rawPath: string): Promise<SeoMeta> {
     description,
     url,
     image: shareImage,
+    shareUrl: requestedPublicUrl(rawPath),
     imageAlt: bullseyes ? `Bullseye ranking for ${competition.name}` : competition.name,
     imageWidth: shareSize?.width,
     imageHeight: shareSize?.height,
@@ -754,7 +764,11 @@ export function renderSeoHtml(meta: SeoMeta): string {
   const title = escapeHtml(meta.title);
   const description = escapeHtml(meta.description);
   const url = escapeHtml(meta.url);
+  const ogUrl = escapeHtml(meta.shareUrl || meta.url);
   const image = escapeHtml(meta.image);
+  const secureImage = meta.image.startsWith('https://')
+    ? `\n  <meta property="og:image:secure_url" content="${image}" />`
+    : '';
   const imageAlt = escapeHtml(meta.imageAlt || meta.title);
   const imageWidth = positivePixel(meta.imageWidth ? String(meta.imageWidth) : undefined);
   const imageHeight = positivePixel(meta.imageHeight ? String(meta.imageHeight) : undefined);
@@ -788,8 +802,8 @@ export function renderSeoHtml(meta: SeoMeta): string {
   <meta property="og:site_name" content="${siteName}" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
-  <meta property="og:url" content="${url}" />
-  <meta property="og:image" content="${image}" />
+  <meta property="og:url" content="${ogUrl}" />
+  <meta property="og:image" content="${image}" />${secureImage}
   ${imageTypeTag}
   ${imageSizeTags}
   <meta property="og:image:alt" content="${imageAlt}" />
@@ -977,6 +991,7 @@ Allow: /
 Allow: /blog/
 Allow: /events/
 Allow: /results/
+Allow: /og/
 Disallow: /admin/
 Disallow: /judge/
 Disallow: /api/

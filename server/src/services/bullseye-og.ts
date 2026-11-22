@@ -44,8 +44,19 @@ interface RankingRow {
 
 const pngCache = new Map<string, { at: number; png: Buffer }>();
 
+function siteOrigin(): string {
+  try {
+    const url = new URL(env.PUBLIC_RESULTS_URL);
+    if (url.pathname && url.pathname !== '/') return `${url.protocol}//${url.host}`;
+    return url.origin;
+  } catch {
+    return env.publicApiUrl;
+  }
+}
+
+/** Public image path. Not under /api, which robots.txt blocks for crawlers. */
 export function bullseyeOgImageUrl(slug: string): string {
-  return `${env.publicApiUrl}/api/v1/public/og/bullseyes/${encodeURIComponent(slug)}.png`;
+  return `${siteOrigin()}/og/bullseyes/${encodeURIComponent(slug)}.png`;
 }
 
 export function rankBullseyePilots(rankings: RankingRow[]): OgBullseyePilot[] {

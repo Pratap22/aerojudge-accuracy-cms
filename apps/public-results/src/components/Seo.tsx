@@ -4,7 +4,7 @@ import { defaultShareImageUrl, useDocumentSeo } from '../lib/seo';
 
 function bullseyeShareImage(pathname: string, competitionId: string, heroImageUrl?: string | null): string {
   if (pathname.includes('/bullseyes') && competitionId && typeof window !== 'undefined') {
-    return `${window.location.origin}/api/v1/public/og/bullseyes/${encodeURIComponent(competitionId)}.png`;
+    return `${window.location.origin}/og/bullseyes/${encodeURIComponent(competitionId)}.png`;
   }
   return heroImageUrl || defaultShareImageUrl();
 }

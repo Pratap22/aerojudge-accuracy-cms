@@ -13,6 +13,11 @@ export default defineConfig({
     port: 3003,
     proxy: {
       '/api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
+      '/og': {
+        target: 'http://127.0.0.1:4000',
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/og/, '/api/v1/public/og'),
+      },
       '/socket.io': { target: 'http://127.0.0.1:4000', ws: true, changeOrigin: true },
       '/uploads': { target: 'http://127.0.0.1:4000', changeOrigin: true },
       '/branding': { target: 'http://127.0.0.1:4000', changeOrigin: true },
