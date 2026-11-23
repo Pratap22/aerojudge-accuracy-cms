@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Share2 } from 'lucide-react';
-import { padPilotNumber } from '@aero-judge/utils';
+import { padPilotNumber, parseFeedRanking, placeLabel } from '@aero-judge/utils';
 import { competitionPath, feedItemPath, shareUrl, type PublicFeedItem } from '../lib/api';
 
 const feedPhotoClass = 'mx-auto block h-auto max-h-[40rem] w-auto max-w-full rounded-xl';
@@ -36,11 +36,131 @@ function PilotFace({
   );
 }
 
+function posterInitials(name: string | null): string {
+  const words = (name ?? '')
+    .split(/\s+/)
+    .filter((word) => word && word.toLowerCase() !== 'team');
+  const letters = words.slice(0, 2).map((word) => word[0]?.toUpperCase() ?? '').join('');
+  return letters || (name ?? '').slice(0, 2).toUpperCase() || '·';
+}
+
+function rankingScoreParts(scoreText: string | null): { figure: string; unit: string | null } | null {
+  if (!scoreText) return null;
+  const match = scoreText.match(/^(.*?)\s+cm$/i);
+  if (!match) return { figure: scoreText, unit: null };
+  return { figure: match[1], unit: 'cm' };
+}
+
+function placeBorder(rank: number | null): string {
+  if (rank === 1) return 'border-[#e6c36a]';
+  if (rank === 2) return 'border-zinc-300';
+  if (rank === 3) return 'border-[#c9844a]';
+  return 'border-sky-400/60';
+}
+
+function placeTone(rank: number | null): string {
+  if (rank === 1) return 'text-[#e6c36a]';
+  if (rank === 2) return 'text-zinc-200';
+  if (rank === 3) return 'text-[#e0a36a]';
+  return 'text-sky-300';
+}
+
+function rankingMark(item: PublicFeedItem) {
+  const ranking = parseFeedRanking(item.caption);
+  if (!ranking) return null;
+  const place = item.roundNumber != null ? placeLabel(item.roundNumber) : '';
+  const board = ranking.board === 'TEAM' ? 'team' : 'overall';
+  return { ranking, place, board };
+}
+
+/** Share-preview image for a result card. Crawlers fetch this outside /api. */
+export function rankingShareImage(itemId: string): string {
+  return `${window.location.origin}/og/feed/${encodeURIComponent(itemId)}.png`;
+}
+
+export function rankingFeedTitle(item: PublicFeedItem): string | null {
+  const mark = rankingMark(item);
+  if (!mark) return null;
+  const team = mark.ranking.board === 'OVERALL' && item.reason ? `, ${item.reason}` : '';
+  const score = item.scoreText ? `, ${item.scoreText}` : '';
+  return `${mark.place} ${mark.board} — ${item.pilotName || 'Result'}${team}${score}`
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Poster for a place pushed from the overall or team list. */
+export function RankingPoster({ item }: { item: PublicFeedItem }) {
+  const ranking = parseFeedRanking(item.caption);
+  if (!ranking || item.roundNumber == null) return null;
+  const photo = item.pilotPhotoUrl || item.imageUrl;
+  const score = rankingScoreParts(item.scoreText);
+  const team = ranking.board === 'OVERALL' ? item.reason : null;
+  const flag = ranking.countryCode?.toLowerCase() ?? '';
+
+  return (
+    <div
+      className={`mx-auto mt-3 max-w-sm overflow-hidden rounded-[1.6rem] border-2 bg-[#1a140e] shadow-lg ${placeBorder(item.roundNumber)}`}
+    >
+      <div className="relative aspect-[3/4] w-full bg-[#102033]">
+        {photo ? (
+          <img src={photo} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#16324a] to-[#0c1824]">
+            <span className="font-display text-7xl text-sky-200">
+              {item.pilotNumber != null
+                ? padPilotNumber(item.pilotNumber)
+                : posterInitials(item.pilotName)}
+            </span>
+          </div>
+        )}
+        <span
+          className={`absolute left-3 top-3 rounded-xl bg-black/70 px-3 py-2 font-display text-lg tracking-[0.18em] ${placeTone(item.roundNumber)}`}
+        >
+          {placeLabel(item.roundNumber, 'badge')}
+        </span>
+        {item.pilotNumber != null ? (
+          <span className="absolute right-3 top-3 rounded-xl bg-black/70 px-3 py-2 font-display text-lg tracking-wide text-white">
+            #{padPilotNumber(item.pilotNumber)}
+          </span>
+        ) : null}
+        {flag ? (
+          <span className="absolute bottom-3 right-3 inline-flex rounded-xl bg-black/65 p-1.5">
+            <img
+              src={`https://flagcdn.com/w80/${flag}.png`}
+              alt=""
+              className="h-7 w-10 rounded-sm object-cover"
+            />
+          </span>
+        ) : null}
+      </div>
+      <div className="bg-[#241910] px-4 py-5 text-center">
+        {score ? (
+          <p className="font-display text-5xl leading-none tracking-tight text-white">
+            {score.figure}
+            {score.unit ? <span className="ml-2 text-2xl font-semibold text-sky-400">{score.unit}</span> : null}
+          </p>
+        ) : null}
+        {team ? (
+          <p className="mt-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#e6c36a]">{team}</p>
+        ) : null}
+        <p className="mt-3 font-display text-2xl uppercase leading-tight tracking-wide text-white">
+          {item.pilotName}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function shareText(item: PublicFeedItem): string {
-  return (item.caption || item.body || item.pilotName || 'Paragliding accuracy update').replace(
-    /\s+/g,
-    ' ',
-  ).trim();
+  return (
+    rankingFeedTitle(item) ||
+    item.caption ||
+    item.body ||
+    item.pilotName ||
+    'Paragliding accuracy update'
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function ShareFeedButton({
@@ -88,9 +208,13 @@ function FeedCard({
   item: PublicFeedItem;
   competitionId?: string;
 }) {
-  const isPilotPost = item.kind === 'SCORE' || item.kind === 'REFLIGHT';
-  const heading =
-    isPilotPost && item.roundNumber != null ? `Round ${item.roundNumber}` : kindLabel(item.kind);
+  const ranking = rankingMark(item);
+  const isPilotPost = !ranking && (item.kind === 'SCORE' || item.kind === 'REFLIGHT');
+  const heading = ranking
+    ? `${ranking.place} ${ranking.board}`.trim()
+    : isPilotPost && item.roundNumber != null
+      ? `Round ${item.roundNumber}`
+      : kindLabel(item.kind);
   const permalink = competitionId ? feedItemPath(competitionId, item.id) : null;
   const imageAlt = (item.caption || item.body || 'Paragliding accuracy photo').replace(/\s+/g, ' ').trim();
 
@@ -99,14 +223,16 @@ function FeedCard({
       <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-wide text-muted-foreground">
         <span>{heading}</span>
         <span className="flex items-center gap-2">
-          {competitionId && item.imageUrl ? (
+          {competitionId && (item.imageUrl || ranking) ? (
             <ShareFeedButton competitionId={competitionId} item={item} />
           ) : null}
           <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
         </span>
       </div>
 
-      {item.imageUrl ? (
+      {ranking ? <RankingPoster item={item} /> : null}
+
+      {!ranking && item.imageUrl ? (
         permalink ? (
           <Link to={permalink} className="mt-3 block">
             <img src={item.imageUrl} alt={imageAlt} className={feedPhotoClass} />
@@ -153,7 +279,7 @@ function FeedCard({
             </div>
           ) : null}
         </div>
-      ) : (
+      ) : ranking ? null : (
         <p className="mt-3 whitespace-pre-wrap text-base leading-relaxed text-foreground">
           {item.kind === 'PHOTO' ? item.caption || item.body : item.body}
         </p>

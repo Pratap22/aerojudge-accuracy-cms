@@ -96,6 +96,36 @@ describe('normalizePublicPath', () => {
     });
   });
 
+  it('describes a pushed overall place with the team, not as a round score', () => {
+    const meta = buildFeedItemSeo({
+      slug: 'cup',
+      item: {
+        id: 'post-2',
+        kind: 'SCORE',
+        caption: 'ranking:OVERALL:NP',
+        body: '1st overall — Pawan Pariyar, Team Everest, 042 cm',
+        imageUrl: 'https://cdn.example/pawan.jpg',
+        pilotName: 'Pawan Pariyar',
+        scoreText: '042 cm',
+        roundNumber: 1,
+        reason: 'Team Everest',
+        createdAt: '2026-11-21T06:40:00.000Z',
+      },
+      competition: { name: 'Accuracy Cup', venue: 'Solang', country: 'India' },
+    });
+
+    expect(meta.title).toContain('1st overall');
+    expect(meta.title).toContain('Pawan Pariyar');
+    expect(meta.title).toContain('Team Everest');
+    expect(meta.title).not.toMatch(/Round/i);
+    expect(meta.description).toContain('042 cm');
+    expect(meta.image).toBe('http://localhost:3003/og/feed/post-2.png');
+    expect(meta.imageWidth).toBe(1200);
+    expect(meta.imageHeight).toBe(630);
+    expect(meta.imageType).toBe('image/png');
+    expect(meta.jsonLd).toMatchObject({ contentUrl: 'http://localhost:3003/og/feed/post-2.png' });
+  });
+
   it('reads the pixel size Facebook needs before it will draw a share image', () => {
     const headers = new Headers({
       'content-type': 'image/jpeg',

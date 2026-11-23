@@ -17,6 +17,11 @@ const scoreBody = z.object({
   scoreText: z.string().trim().min(1).max(120),
 });
 
+const rankingBody = z.object({
+  board: z.enum(['OVERALL', 'TEAM']),
+  id: z.string().min(1),
+});
+
 export const listFeed = [
   validateParams(competitionParams),
   asyncHandler(async (req: Request, res: Response) => {
@@ -43,6 +48,27 @@ export const createScore = [
   validateBody(scoreBody),
   asyncHandler(async (req: Request, res: Response) => {
     const item = await eventFeedService.createScorePost(
+      req.params.competitionId,
+      req.user?.id,
+      req.body,
+    );
+    sendSuccess(res, item, 201);
+  }),
+];
+
+export const listStandings = [
+  validateParams(competitionParams),
+  asyncHandler(async (req: Request, res: Response) => {
+    const standings = await eventFeedService.listRankingStandings(req.params.competitionId);
+    sendSuccess(res, standings);
+  }),
+];
+
+export const createRanking = [
+  validateParams(competitionParams),
+  validateBody(rankingBody),
+  asyncHandler(async (req: Request, res: Response) => {
+    const item = await eventFeedService.createRankingPost(
       req.params.competitionId,
       req.user?.id,
       req.body,

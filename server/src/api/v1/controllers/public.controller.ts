@@ -10,6 +10,7 @@ import * as blogService from '../../../services/blog.service.js';
 import * as publicService from '../../../services/public.service.js';
 import * as seoService from '../../../services/seo.service.js';
 import { bullseyeOgPng } from '../../../services/bullseye-og.js';
+import { rankingOgPng } from '../../../services/ranking-og.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate.js';
 
 const slugParams = z.object({ slug: z.string().min(1) });
@@ -82,6 +83,17 @@ export const sitemapXml = [
 export const bullseyeOgImage = [
   asyncHandler(async (req: Request, res: Response) => {
     const png = await bullseyeOgPng(req.params.slug);
+    res
+      .status(200)
+      .setHeader('Content-Type', 'image/png')
+      .setHeader('Cache-Control', 'public, max-age=60')
+      .send(png);
+  }),
+];
+
+export const rankingOgImage = [
+  asyncHandler(async (req: Request, res: Response) => {
+    const png = await rankingOgPng(req.params.itemId);
     res
       .status(200)
       .setHeader('Content-Type', 'image/png')

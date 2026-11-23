@@ -344,6 +344,39 @@ export function feedItemId(value: string): string {
   return match?.[1] ?? text;
 }
 
+export type FeedRankingBoard = 'OVERALL' | 'TEAM';
+
+export interface FeedRankingMark {
+  board: FeedRankingBoard;
+  countryCode: string | null;
+}
+
+/** Caption stored on a feed row that was pushed from the overall or team list. */
+export function feedRankingCaption(board: FeedRankingBoard, countryCode?: string | null): string {
+  const code = countryCode?.trim().toUpperCase() ?? '';
+  if (/^[A-Z]{2}$/.test(code) && code !== 'XX') return `ranking:${board}:${code}`;
+  return `ranking:${board}`;
+}
+
+export function parseFeedRanking(caption: string | null | undefined): FeedRankingMark | null {
+  const match = caption?.trim().match(/^ranking:(OVERALL|TEAM)(?::([A-Z]{2}))?$/);
+  if (!match) return null;
+  const countryCode = match[2] && match[2] !== 'XX' ? match[2] : null;
+  return { board: match[1] as FeedRankingBoard, countryCode };
+}
+
+/** 1 → "1st" / "1ST". 11 → "11th". */
+export function placeLabel(rank: number, style: 'words' | 'badge' = 'words'): string {
+  const n = Math.trunc(Number(rank));
+  if (!Number.isFinite(n) || n < 1) return '';
+  const mod100 = n % 100;
+  const mod10 = n % 10;
+  const suffix =
+    mod100 >= 11 && mod100 <= 13 ? 'th' : mod10 === 1 ? 'st' : mod10 === 2 ? 'nd' : mod10 === 3 ? 'rd' : 'th';
+  const label = `${n}${suffix}`;
+  return style === 'badge' ? label.toUpperCase() : label;
+}
+
 export function parseStaffSessionHandoff(hash: string): StaffSessionHandoff | null {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
   if (!raw.startsWith(STAFF_SESSION_HANDOFF_PREFIX)) return null;

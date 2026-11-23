@@ -6,8 +6,10 @@ import * as ctrl from '../controllers/event-feed.controller.js';
 const router = Router({ mergeParams: true });
 
 router.get('/', requirePermission('feed:manage'), ...ctrl.listFeed);
+router.get('/standings', requirePermission('feed:manage'), ...ctrl.listStandings);
 router.post('/text', requirePermission('feed:manage'), ...ctrl.createText);
 router.post('/score', requirePermission('feed:manage'), ...ctrl.createScore);
+router.post('/ranking', requirePermission('feed:manage'), ...ctrl.createRanking);
 router.post(
   '/photo',
   requirePermission('feed:manage'),

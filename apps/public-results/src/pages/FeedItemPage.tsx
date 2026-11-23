@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { feedItemId } from '@aero-judge/utils';
 import { Layout } from '../components/Layout';
-import { ShareFeedButton } from '../components/EventFeed';
+import { RankingPoster, ShareFeedButton, rankingFeedTitle, rankingShareImage } from '../components/EventFeed';
 import { useCompetition } from '../hooks/useCompetition';
 import { competitionPath, feedItemPath, fetchFeedItem, shareUrl } from '../lib/api';
 import { useDocumentSeo } from '../lib/seo';
@@ -32,10 +32,12 @@ export function FeedItemPage() {
   });
 
   const place = [competition?.venue, competition?.country].filter(Boolean).join(', ');
+  const rankingTitle = item ? rankingFeedTitle(item) : null;
   const headline =
-    item?.kind === 'SCORE' && item.pilotName
+    rankingTitle ??
+    (item?.kind === 'SCORE' && item.pilotName
       ? `${item.pilotName}${item.scoreText ? ` ${item.scoreText}` : ''}`
-      : oneLine(item?.caption) || oneLine(item?.body) || 'Event update';
+      : oneLine(item?.caption) || oneLine(item?.body) || 'Event update');
   const title = competition
     ? `${headline} — ${competition.name} · Paragliding Accuracy`
     : `${headline} · Paragliding Accuracy`;
@@ -47,7 +49,7 @@ export function FeedItemPage() {
     title,
     description,
     url: competitionId && itemId ? shareUrl(feedItemPath(competitionId, itemId)) : undefined,
-    image: item?.imageUrl || undefined,
+    image: rankingTitle && item ? rankingShareImage(item.id) : item?.imageUrl || undefined,
   });
 
   return (
@@ -75,23 +77,31 @@ export function FeedItemPage() {
                   {new Date(item.createdAt).toLocaleString()}
                 </time>
               </div>
-              {item.imageUrl ? <ShareFeedButton competitionId={competitionId} item={item} /> : null}
+              {rankingTitle || item.imageUrl ? (
+                <ShareFeedButton competitionId={competitionId} item={item} />
+              ) : null}
             </header>
-            {item.imageUrl ? (
-              <img
-                src={item.imageUrl}
-                alt={headline}
-                className="mx-auto mt-6 block h-auto max-h-[40rem] w-auto max-w-full rounded-2xl"
-              />
-            ) : null}
-            {item.kind !== 'SCORE' && (item.caption || item.body) ? (
-              <p className="mt-6 whitespace-pre-wrap text-base leading-relaxed text-foreground">
-                {item.kind === 'PHOTO' ? item.caption || item.body : item.body}
-              </p>
-            ) : null}
-            {item.kind === 'SCORE' && item.scoreText ? (
-              <p className="mt-6 text-2xl font-semibold tabular-nums text-foreground">{item.scoreText}</p>
-            ) : null}
+            {rankingTitle ? (
+              <RankingPoster item={item} />
+            ) : (
+              <>
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={headline}
+                    className="mx-auto mt-6 block h-auto max-h-[40rem] w-auto max-w-full rounded-2xl"
+                  />
+                ) : null}
+                {item.kind !== 'SCORE' && (item.caption || item.body) ? (
+                  <p className="mt-6 whitespace-pre-wrap text-base leading-relaxed text-foreground">
+                    {item.kind === 'PHOTO' ? item.caption || item.body : item.body}
+                  </p>
+                ) : null}
+                {item.kind === 'SCORE' && item.scoreText ? (
+                  <p className="mt-6 text-2xl font-semibold tabular-nums text-foreground">{item.scoreText}</p>
+                ) : null}
+              </>
+            )}
           </>
         ) : null}
       </article>

@@ -1,7 +1,7 @@
 import { open } from 'node:fs/promises';
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
-import { feedItemId } from '@aero-judge/utils';
+import { feedItemId, parseFeedRanking, placeLabel } from '@aero-judge/utils';
 import { resolveLocalUploadPath, toAbsoluteAssetUrl } from '../utils/assets.js';
 import { AppError } from '../utils/errors.js';
 import {
@@ -11,6 +11,7 @@ import {
 } from './blog-article.js';
 import { getCompetitionBlog, listCompetitionBlogSummaries } from './blog.service.js';
 import { bullseyeOgImageUrl } from './bullseye-og.js';
+import { rankingOgImageUrl } from './ranking-og.js';
 import { getPublicCareer, getPublicCompetition, getPublicFeedItem } from './public.service.js';
 
 export type SeoMeta = {
@@ -498,6 +499,7 @@ export function buildFeedItemSeo(input: {
     pilotName: string | null;
     scoreText: string | null;
     roundNumber: number | null;
+    reason?: string | null;
     createdAt: string;
   };
   competition: {
@@ -508,8 +510,21 @@ export function buildFeedItemSeo(input: {
 }): SeoMeta {
   const { item, competition } = input;
   const place = [competition.venue, competition.country].filter(Boolean).join(', ');
-  const headline =
-    item.kind === 'SCORE' && item.pilotName
+  const ranking = parseFeedRanking(item.caption);
+  const headline = ranking
+    ? [
+        item.roundNumber != null ? placeLabel(item.roundNumber) : null,
+        ranking.board === 'TEAM' ? 'team' : 'overall',
+        '—',
+        item.pilotName || 'Result',
+        ranking.board === 'OVERALL' && item.reason ? `, ${item.reason}` : '',
+        item.scoreText ? `, ${item.scoreText}` : '',
+      ]
+        .join(' ')
+        .replace(/\s+,/g, ',')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : item.kind === 'SCORE' && item.pilotName
       ? `${item.pilotName} — Round ${item.roundNumber ?? ''} ${item.scoreText ?? ''}`.replace(/\s+/g, ' ').trim()
       : item.kind === 'REFLIGHT' && item.pilotName
         ? `${item.pilotName} — reflight`
@@ -523,10 +538,12 @@ export function buildFeedItemSeo(input: {
     .join(' ')
     .slice(0, 300);
   const url = absolutePublicUrl(`/competition/${encodeURIComponent(input.slug)}/feed/${encodeURIComponent(item.id)}`);
-  const image = item.imageUrl || defaultOgImageUrl();
-  const imageAlt = item.imageUrl ? shortHeadline : title;
-  const figure = item.imageUrl
-    ? `<figure><img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(imageAlt)}" /><figcaption>${escapeHtml(shortHeadline)}</figcaption></figure><p>${escapeHtml(description)}</p>`
+  const rankingImage = ranking ? rankingOgImageUrl(item.id) : null;
+  const image = rankingImage || item.imageUrl || defaultOgImageUrl();
+  const hasImage = Boolean(rankingImage || item.imageUrl);
+  const imageAlt = hasImage ? shortHeadline : title;
+  const figure = hasImage
+    ? `<figure><img src="${escapeHtml(image)}" alt="${escapeHtml(imageAlt)}" /><figcaption>${escapeHtml(shortHeadline)}</figcaption></figure><p>${escapeHtml(description)}</p>`
     : undefined;
 
   return {
@@ -535,17 +552,20 @@ export function buildFeedItemSeo(input: {
     url,
     image,
     imageAlt,
+    imageWidth: rankingImage ? 1200 : undefined,
+    imageHeight: rankingImage ? 630 : undefined,
+    imageType: rankingImage ? 'image/png' : undefined,
     siteName: 'AeroJudge',
-    type: item.imageUrl ? 'article' : 'website',
+    type: hasImage ? 'article' : 'website',
     articleHtml: figure,
     jsonLd: {
       '@context': 'https://schema.org',
-      '@type': item.imageUrl ? 'ImageObject' : 'NewsArticle',
+      '@type': hasImage ? 'ImageObject' : 'NewsArticle',
       name: imageAlt,
       headline: shortHeadline,
       description,
-      caption: item.imageUrl ? shortHeadline : undefined,
-      contentUrl: item.imageUrl || undefined,
+      caption: hasImage ? shortHeadline : undefined,
+      contentUrl: hasImage ? image : undefined,
       url,
       image,
       datePublished: item.createdAt,
@@ -573,7 +593,7 @@ async function resolveFeedItemSeo(slug: string, itemId: string): Promise<SeoMeta
       item,
       competition,
     });
-    if (item.imageUrl) {
+    if (!meta.imageWidth && item.imageUrl) {
       const size = await readOpenGraphImageSize(item.imageUrl);
       if (size) {
         meta.imageWidth = size.width;
@@ -877,7 +897,7 @@ export async function buildSitemapXml(): Promise<string> {
 
   const photos = await prisma.eventFeedItem.findMany({
     where: {
-      imageUrl: { not: null },
+      OR: [{ imageUrl: { not: null } }, { caption: { startsWith: 'ranking:' } }],
       competition: {
         isPublished: true,
         status: { notIn: ['DRAFT', 'ARCHIVED'] },
@@ -896,16 +916,22 @@ export async function buildSitemapXml(): Promise<string> {
     },
   });
   for (const photo of photos) {
-    if (!photo.imageUrl) continue;
+    const ranking = parseFeedRanking(photo.caption);
+    const imageLoc = ranking
+      ? rankingOgImageUrl(photo.id)
+      : photo.imageUrl
+        ? toAbsoluteAssetUrl(photo.imageUrl) ?? photo.imageUrl
+        : null;
+    if (!imageLoc) continue;
     const slug = photo.competition.publicSlug || photo.competition.id;
-    const caption = oneLine(photo.caption) || oneLine(photo.body);
+    const caption = ranking ? oneLine(photo.body) : oneLine(photo.caption) || oneLine(photo.body);
     urls.push({
       loc: `${resultsBase}/competition/${encodeURIComponent(slug)}/feed/${encodeURIComponent(photo.id)}`,
       lastmod: photo.updatedAt.toISOString(),
       priority: '0.6',
       changefreq: 'monthly',
       image: {
-        loc: toAbsoluteAssetUrl(photo.imageUrl) ?? photo.imageUrl,
+        loc: imageLoc,
         caption: caption || undefined,
       },
     });
