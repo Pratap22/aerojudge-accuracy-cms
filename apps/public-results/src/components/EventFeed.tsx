@@ -95,17 +95,32 @@ export function RankingPoster({ item }: { item: PublicFeedItem }) {
   const photo = item.pilotPhotoUrl || item.imageUrl;
   const score = rankingScoreParts(item.scoreText);
   const team = ranking.board === 'OVERALL' ? item.reason : null;
+  const isTeam = ranking.board === 'TEAM';
   const flag = ranking.countryCode?.toLowerCase() ?? '';
 
   return (
     <div
-      className={`mx-auto mt-3 max-w-sm overflow-hidden rounded-[1.6rem] border-2 bg-[#1a140e] shadow-lg ${placeBorder(item.roundNumber)}`}
+      className={`mx-auto mt-3 overflow-hidden border-2 bg-[#1a140e] shadow-lg ${placeBorder(item.roundNumber)} ${
+        isTeam ? 'w-full max-w-3xl rounded-[1.75rem]' : 'max-w-sm rounded-[1.6rem]'
+      }`}
     >
-      <div className="relative aspect-[3/4] w-full bg-[#102033]">
+      <div className={isTeam ? 'relative w-full bg-[#102033]' : 'relative aspect-[3/4] w-full bg-[#102033]'}>
         {photo ? (
-          <img src={photo} alt="" className="absolute inset-0 h-full w-full object-cover object-top" />
+          <img
+            src={photo}
+            alt=""
+            className={
+              isTeam
+                ? 'mx-auto block h-auto max-h-[40rem] w-auto max-w-full'
+                : 'absolute inset-0 h-full w-full object-cover object-top'
+            }
+          />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#16324a] to-[#0c1824]">
+          <div
+            className={`flex items-center justify-center bg-gradient-to-br from-[#16324a] to-[#0c1824] ${
+              isTeam ? 'aspect-video w-full' : 'absolute inset-0'
+            }`}
+          >
             <span className="font-display text-7xl text-sky-200">
               {item.pilotNumber != null
                 ? padPilotNumber(item.pilotNumber)
@@ -133,17 +148,23 @@ export function RankingPoster({ item }: { item: PublicFeedItem }) {
           </span>
         ) : null}
       </div>
-      <div className="bg-[#241910] px-4 py-5 text-center">
+      <div className={`bg-[#241910] text-center ${isTeam ? 'px-6 py-6' : 'px-4 py-5'}`}>
         {score ? (
-          <p className="font-display text-5xl leading-none tracking-tight text-white">
+          <p className={`font-display leading-none tracking-tight text-white ${isTeam ? 'text-6xl' : 'text-5xl'}`}>
             {score.figure}
-            {score.unit ? <span className="ml-2 text-2xl font-semibold text-sky-400">{score.unit}</span> : null}
+            {score.unit ? (
+              <span className={`ml-2 font-semibold text-sky-400 ${isTeam ? 'text-3xl' : 'text-2xl'}`}>{score.unit}</span>
+            ) : null}
           </p>
         ) : null}
         {team ? (
           <p className="mt-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#e6c36a]">{team}</p>
         ) : null}
-        <p className="mt-3 font-display text-2xl uppercase leading-tight tracking-wide text-white">
+        <p
+          className={`mt-3 font-display uppercase leading-tight tracking-wide text-white ${
+            isTeam ? 'text-3xl' : 'text-2xl'
+          }`}
+        >
           {item.pilotName}
         </p>
       </div>

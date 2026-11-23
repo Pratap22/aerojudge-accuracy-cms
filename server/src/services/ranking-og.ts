@@ -116,8 +116,9 @@ function rankingCardSvg(input: RankingCardInput, photo: string | null, flag: str
   const name = escapeXml(truncate(input.name.toUpperCase(), 42));
   const team = input.teamName ? escapeXml(truncate(input.teamName.toUpperCase(), 48)) : '';
   const event = input.competitionName ? escapeXml(truncate(input.competitionName.toUpperCase(), 42)) : '';
+  const photoFit = input.board === 'TEAM' ? 'xMidYMid meet' : 'xMidYMid slice';
   const photoMark = photo
-    ? `<image href="${photo}" x="64" y="64" width="500" height="502" clip-path="url(#photo)" preserveAspectRatio="xMidYMid slice"/>`
+    ? `<image href="${photo}" x="64" y="64" width="500" height="502" clip-path="url(#photo)" preserveAspectRatio="${photoFit}"/>`
     : `<text x="314" y="340" text-anchor="middle" font-family="Roboto" font-size="120" font-weight="700" fill="#bae6fd">${escapeXml(initials(input.name))}</text>`;
   const flagMark = flag
     ? `<rect x="470" y="478" width="78" height="58" rx="14" fill="#000000" fill-opacity="0.65"/>
